@@ -405,11 +405,14 @@ The plugin's default is **agent-coding mode**: feature-shaped slices. A team-mod
 
 ### D17 — `/prime` Mechanics
 
+> Revised 2026-05-19: trigger semantics tightened; `/craft` entry-point added as Skill (see D23).
+
 #### Trigger
-**Auto via SessionStart-Hook with opt-in marker.**
+**Auto via SessionStart-Hook — only in Craft-initialized projects.**
 - If `.claude/project/intent.md` exists → hook fires `/prime` automatically.
-- If not → hook shows a one-line nudge: "Project not onboarded — run `/onboard`."
+- If not → hook stays **silent**. No nudge, no suggestion. The user opts in by invoking `/craft` themselves.
 - User can always re-invoke manually (e.g. after editing `rules.md`).
+- Rationale: projects without Craft involvement must remain unbothered; adopting Craft is a deliberate user action (consistent with the Human-Control principle).
 
 #### What `/prime` does
 1. **Tool health (strict)** — checks context-mode, agent-browser, git, gh. **Missing tools = abort with installation instructions.** Justification: token efficiency and reliability over graceful degradation.
@@ -601,6 +604,44 @@ Phase 5a derives the demo invocation from the slice's recorded trigger (D10):
 - **Adopted 1:1** into the plugin (`skills/brainstorm/`, `skills/grill-me/`).
 - Plugin provides commands `/brainstorm` and `/grill-me`.
 - Phase 1 wraps `/brainstorm`; Phase 2 wraps `/grill-me`.
+
+### D23 — `/craft` Single Entry-Point (Skill)
+
+> Decided 2026-05-19, replaces the prior "short shim names" approach.
+
+#### Asset shape
+- **Skill** at `skills/craft/SKILL.md` with frontmatter `name: craft`, `user-invocable: true`.
+- Because plugin name (`craft`) equals skill name (`craft`), Claude Code's namespace collapse exposes the skill as `/craft` — same pattern as `/context-mode`.
+- **One asset only**: either Skill or Command, never both. The decision is Skill.
+
+#### Why Skill, not Command
+- Namespace collapse delivers the `/craft` short form natively.
+- Body can carry both behavior (state-detection logic) and reference material (what each state means) without per-invocation token cost — loaded once, persists.
+- Description field allows optional auto-activation triggers later without changing asset shape.
+
+#### Behavior — state-aware dispatch
+On invocation, `/craft` reads project state and offers exactly the actions valid for that state:
+
+| Detected state | Marker | Offered actions |
+|---|---|---|
+| **Not onboarded** | `.claude/project/intent.md` missing | `/craft:onboard` only |
+| **Onboarded, no active slice** | `intent.md` present, `.claude/plans/` empty | `/craft:plan`, `/craft:status`, `/craft:intent-update` |
+| **Active slice in progress** | one or more `.claude/plans/slice-*.md` | `/craft:continue`, `/craft:status`, `/craft:pause`, `/craft:abort` |
+| **Aborted/stale slice** | plan untouched >N days (per D17 stale-detection) | `/craft:continue` (resume), `/craft:abort` (discard) |
+
+The user picks; `/craft` does not auto-execute. This preserves Human-Control.
+
+#### Naming convention for sub-commands
+- All sub-commands are addressed as `/craft:<name>` — `plan`, `execute`, `commit`, `debug`, `continue`, `pause`, `abort`, `handoff`, `onboard`, `test`, `refactor`, `recap`, `intent-update`, `status`.
+- **No shim files** in `~/.claude/commands/`. Existing shims from the earlier short-name policy will be removed.
+- Internal cross-references inside command/skill bodies and hooks must use the full `/craft:<name>` form to avoid collisions with Claude Code reserved names (e.g. `/plan` vs. Plan-Mode) and with project-local `commands/<name>.md` overrides (D20 migration scenario).
+
+#### Open validations (carry-over from `brainstorm-skill-shortname-pattern.md`)
+- [ ] Can a skill with `user-invocable: true` accept arguments analogous to `$ARGUMENTS`? (Relevant only if any sub-command logic migrates to skill form — `/craft` itself takes no args.)
+- [ ] Are skill bodies allowed to run Bash and read filesystem state at invocation time? (Required for state-detection.)
+- [ ] Conflict behavior between a `/craft` skill and a `~/.claude/commands/craft.md` shim — should never coexist, but confirm precedence.
+
+A small spike (`/craft` skill stub that prints detected state) is the right next step before bulk-refactoring the 17 sub-commands.
 
 ---
 

@@ -4,7 +4,7 @@ argument-hint: "<feature-or-slice-name>"
 allowed-tools: ["Bash", "Read", "Write", "Glob"]
 ---
 
-# /plan — Plan a New Vertical Slice
+# /craft:plan — Plan a New Vertical Slice
 
 ## Purpose
 
@@ -18,7 +18,7 @@ Follow `skills/workflow/SKILL.md` Phase 3 mechanics. The three universal questio
 
 ### 1. Require onboarding
 
-- `Read` `.claude/project/intent.md`. If missing → tell the user *"Project not onboarded. Run `/onboard` first."* and stop.
+- `Read` `.claude/project/intent.md`. If missing → tell the user *"Project not onboarded. Run `/craft:onboard` first."* and stop.
 - `Read` `.claude/project/rules.md`. Hold both in context.
 
 ### 2. Allocate slice ID
@@ -115,10 +115,10 @@ Tell the user:
 ```
 ✓ Slice slice-<NNN> "<title>" planned. Status: planning → ready for Phase 4.
 
-Next: /execute to start implementation.
+Next: /craft:execute to start implementation.
 ```
 
-Update the slice plan's `Status:` to `implementing` only when `/execute` actually starts — not here.
+Update the slice plan's `Status:` to `implementing` only when `/craft:execute` actually starts — not here.
 
 ---
 
@@ -134,7 +134,7 @@ After the plan file is written, emit:
   Test:    <one line>
   Sub-tasks: <N>
 
-Next: /execute
+Next: /craft:execute
 ```
 
 ---
@@ -143,7 +143,7 @@ Next: /execute
 
 | Situation | Behavior |
 |---|---|
-| Not onboarded | Stop with `/onboard` recommendation. |
+| Not onboarded | Stop with `/craft:onboard` recommendation. |
 | User skips one of the three universal questions | Re-ask; do not write the plan with empty trigger / effect / test sections. |
 | `.claude/plans/.next-id` is corrupt (non-integer) | Tell user, ask whether to reset to the next ID derived by scanning existing slice files; do not silently overwrite. |
 | Slug collides with an existing slice file | Append `-2`, `-3`, etc., to the slug. |

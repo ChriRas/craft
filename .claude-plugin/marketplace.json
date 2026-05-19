@@ -1,0 +1,31 @@
+{
+  "name": "craft",
+  "owner": {
+    "name": "Christoph Raschke",
+    "email": "craschke@chrido.net"
+  },
+  "metadata": {
+    "description": "Local development marketplace for the CRAFT plugin — wraps the in-tree plugin so it can be installed into a running Claude Code session for dogfooding.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "craft",
+      "source": "./",
+      "description": "Universal coding workflow plugin: an 8-phase loop with explicit knowledge management, autonomy controls, vertical slicing, and bug-verification — works identically across shell scripts, libraries, REST APIs, full-stack apps, and infrastructure code.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Christoph Raschke"
+      },
+      "category": "development",
+      "keywords": [
+        "workflow",
+        "coding-agent",
+        "8-phase-loop",
+        "vertical-slicing",
+        "autonomy-control"
+      ],
+      "license": "MIT"
+    }
+  ]
+}

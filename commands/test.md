@@ -1,9 +1,9 @@
 ---
-description: Phase 5 — hands-on user verification. Prepares a demo (5a), the user exercises the artifact (5b), structured feedback is captured (5c). Bugs trigger /debug; UX issues iterate.
+description: Phase 5 — hands-on user verification. Prepares a demo (5a), the user exercises the artifact (5b), structured feedback is captured (5c). Bugs trigger /craft:debug; UX issues iterate.
 allowed-tools: ["Bash", "Read", "Edit", "Glob"]
 ---
 
-# /test — User Verification of the Slice
+# /craft:test — User Verification of the Slice
 
 ## Purpose
 
@@ -17,7 +17,7 @@ Follow `skills/workflow/SKILL.md` Phase 5 mechanics (the three sub-steps 5a / 5b
 
 ### 1. Locate active slice
 
-- `Glob` `.claude/plans/*.md`. Expect exactly one in `Status: testing` or `implementing`. If multiple, ask the user which slice. If none, stop with `No slice ready for testing. Run /execute first or /plan to start a new slice.`
+- `Glob` `.claude/craft:plans/*.md`. Expect exactly one in `Status: testing` or `implementing`. If multiple, ask the user which slice. If none, stop with `No slice ready for testing. Run /craft:execute first or /craft:plan to start a new slice.`
 
 ### 2. Load slice plan
 
@@ -73,7 +73,7 @@ When the user comes back, ask the structured prompt:
 ```
 How was it?
   [W] Works as expected → Phase 6
-  [B] Found a bug      → enter /debug
+  [B] Found a bug      → enter /craft:debug
   [U] UX issue         → describe what should differ, then iterate
 ```
 
@@ -82,7 +82,7 @@ Capture the single-letter answer.
 #### If `[W]` Works
 
 - Update `Status: review` in the slice plan.
-- Emit: `✓ Phase 5 passed. Recommended next: /recap.`
+- Emit: `✓ Phase 5 passed. Recommended next: /craft:recap.`
 - Stop.
 
 #### If `[B]` Bug
@@ -91,10 +91,10 @@ Capture the single-letter answer.
 - Tell the user:
 
   ```
-  Bug recorded. Entering /debug mode — we will agree on a verification protocol before any fix attempt.
+  Bug recorded. Entering /craft:debug mode — we will agree on a verification protocol before any fix attempt.
   ```
 
-- Invoke `/debug` (or instruct the user to run it).
+- Invoke `/craft:debug` (or instruct the user to run it).
 
 #### If `[U]` UX issue
 
@@ -106,9 +106,9 @@ Wait for the answer — do not interpret. Once the answer is captured, ask:
 
 > Iterate now (one short fix + re-demo), or close the slice with the current behavior and revisit later (new slice)?
 
-If iterate: go back to `/execute` for a focused fix, then return here for 5a / 5c. Loop until `[W]`.
+If iterate: go back to `/craft:execute` for a focused fix, then return here for 5a / 5c. Loop until `[W]`.
 
-If close-and-revisit: capture the UX issue in `## Decisions Made During This Slice` for Phase 8 promotion consideration, then proceed to `/recap`.
+If close-and-revisit: capture the UX issue in `## Decisions Made During This Slice` for Phase 8 promotion consideration, then proceed to `/craft:recap`.
 
 ---
 
@@ -124,15 +124,15 @@ Phase 5a — Demo Setup ready. Awaiting your exercise.
 
 ```
 ✓ Phase 5 passed. Status: review.
-Recommended next: /recap
+Recommended next: /craft:recap
 ```
 
 #### After 5c B
 
 ```
 ⚠ Bug captured: <one-line>
-Entering /debug — agree on a verification protocol before fix attempts.
-Recommended next: /debug "<bug-description>"
+Entering /craft:debug — agree on a verification protocol before fix attempts.
+Recommended next: /craft:debug "<bug-description>"
 ```
 
 #### After 5c U → iterate
@@ -140,7 +140,7 @@ Recommended next: /debug "<bug-description>"
 ```
 Iteration noted: <user's exact requested change>
 Resuming Phase 4 for a focused fix.
-Recommended next: /execute
+Recommended next: /craft:execute
 ```
 
 ---
@@ -149,16 +149,16 @@ Recommended next: /execute
 
 | Situation | Behavior |
 |---|---|
-| No `Status: implementing` or `testing` slice found | Stop, recommend `/execute` or `/plan`. |
+| No `Status: implementing` or `testing` slice found | Stop, recommend `/craft:execute` or `/craft:plan`. |
 | User reports "kind of works, but…" without picking W/B/U | Re-ask, force the single-letter choice. Do not interpret vague answers. |
-| Demo-setup cannot be derived (trigger field empty in plan) | Tell user the slice plan is missing the Trigger answer; recommend re-running `/plan` to repair, or ask the user inline. |
+| Demo-setup cannot be derived (trigger field empty in plan) | Tell user the slice plan is missing the Trigger answer; recommend re-running `/craft:plan` to repair, or ask the user inline. |
 | User wants to skip Phase 5 because "tests are green" | Refuse politely: *"Phase 5 cannot be skipped — automated tests don't capture product feel. Take 60 seconds to run the demo."* |
 
 ---
 
 ## What This Command Does NOT Do
 
-- It does **not** modify code. UX iterations bounce back to `/execute`.
+- It does **not** modify code. UX iterations bounce back to `/craft:execute`.
 - It does **not** make the W/B/U decision for the user.
 - It does **not** auto-interpret UX feedback. Always asks the user to be specific.
-- It does **not** invoke `/debug` automatically — it recommends, the user types.
+- It does **not** invoke `/craft:debug` automatically — it recommends, the user types.

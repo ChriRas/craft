@@ -3,11 +3,11 @@ description: Pause the active slice mid-phase. Records the pause note in the sli
 allowed-tools: ["Read", "Edit", "Glob"]
 ---
 
-# /pause — Pause the Active Slice
+# /craft:pause — Pause the Active Slice
 
 ## Purpose
 
-Cleanly stop work on a slice without abandoning it. The slice file stays in `.claude/plans/`, but is marked paused with a short note so that the next `/prime` and `/continue` know where to pick up.
+Cleanly stop work on a slice without abandoning it. The slice file stays in `.claude/plans/`, but is marked paused with a short note so that the next `/prime` and `/craft:continue` know where to pick up.
 
 ---
 
@@ -48,7 +48,7 @@ If user provides nothing, the agent composes a minimal note from current state (
 
 Pause note: <one-line excerpt>
 
-Resume anytime with /continue.
+Resume anytime with /craft:continue.
 ```
 
 ---
@@ -73,4 +73,4 @@ The status line above.
 
 - It does **not** modify code, commits, or any project state outside the slice plan.
 - It does **not** end the session. The user does that.
-- It does **not** abort the slice. Use `/abort` for that.
+- It does **not** abort the slice. Use `/craft:abort` for that.

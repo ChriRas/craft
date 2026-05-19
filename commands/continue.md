@@ -1,22 +1,22 @@
 ---
-description: Resume work on an active slice. Routes automatically to the right phase command based on the slice's recorded Status. Use after /prime when picking up where you left off.
+description: Resume work on an active slice. Routes automatically to the right phase command based on the slice's recorded Status. Use after /craft:prime when picking up where you left off.
 argument-hint: "[slice-NNN]"
 allowed-tools: ["Read", "Glob"]
 ---
 
-# /continue — Resume an Active Slice
+# /craft:continue — Resume an Active Slice
 
 ## Purpose
 
 Pick up work on an open slice without re-thinking the entry point. Reads the slice plan, identifies the current phase, and recommends or routes to the corresponding command.
 
-`/continue` is the navigation glue between `/prime` (orient) and the phase commands (act).
+`/craft:continue` is the navigation glue between `/craft:prime` (orient) and the phase commands (act).
 
 ---
 
 ## Pre-flight
 
-- `Read` the project knowledge files quickly to confirm onboarding (`.claude/project/intent.md`, `.claude/project/rules.md`). If missing, tell user to run `/onboard` and stop.
+- `Read` the project knowledge files quickly to confirm onboarding (`.claude/project/intent.md`, `.claude/project/rules.md`). If missing, tell user to run `/craft:onboard` and stop.
 
 ---
 
@@ -24,8 +24,8 @@ Pick up work on an open slice without re-thinking the entry point. Reads the sli
 
 ### 1. Identify the target slice
 
-- If `<slice-NNN>` argument is given, find `.claude/plans/slice-<NNN>-*.md`.
-- Otherwise, `Glob` `.claude/plans/*.md`:
+- If `<slice-NNN>` argument is given, find `.claude/craft:plans/slice-<NNN>-*.md`.
+- Otherwise, `Glob` `.claude/craft:plans/*.md`:
   - If exactly one file → use it.
   - If multiple → list them and ask the user to pick:
 
@@ -36,7 +36,7 @@ Pick up work on an open slice without re-thinking the entry point. Reads the sli
     Type slice number to continue.
     ```
 
-  - If none → tell user `No active slices. Run /plan <feature> to start one.` and stop.
+  - If none → tell user `No active slices. Run /craft:plan <feature> to start one.` and stop.
 
 ### 2. Read slice frontmatter
 
@@ -46,12 +46,12 @@ Pull `Status`, `Phase`, `Slice-ID`, and any pause/handoff notes.
 
 | Status | Recommended next |
 |---|---|
-| `planning` | `/plan` (to finish planning) — or `/execute` if planning is actually done |
-| `implementing` | `/execute` |
-| `testing` | `/test` |
-| `review` (Phase 5 between iterations) | `/test` to re-demo or `/recap` if approved |
-| `refactoring` | `/refactor` |
-| `committed` | this slice is done — recommend `/plan` for the next one |
+| `planning` | `/craft:plan` (to finish planning) — or `/craft:execute` if planning is actually done |
+| `implementing` | `/craft:execute` |
+| `testing` | `/craft:test` |
+| `review` (Phase 5 between iterations) | `/craft:test` to re-demo or `/craft:recap` if approved |
+| `refactoring` | `/craft:refactor` |
+| `committed` | this slice is done — recommend `/craft:plan` for the next one |
 | `paused` | ask whether to resume; if yes, route based on the `Phase:` field |
 | any unrecognized value | log warning, ask the user what to do |
 
@@ -62,7 +62,7 @@ Pull `Status`, `Phase`, `Slice-ID`, and any pause/handoff notes.
 
 ### 5. Emit recommendation, do not auto-invoke
 
-`/continue` recommends but does not run the phase command automatically. The user types the actual command (`/execute`, `/test`, etc.). This preserves the user's choice to take a different path (e.g., re-plan, abort).
+`/craft:continue` recommends but does not run the phase command automatically. The user types the actual command (`/craft:execute`, `/craft:test`, etc.). This preserves the user's choice to take a different path (e.g., re-plan, abort).
 
 ---
 
@@ -87,8 +87,8 @@ Recommended next: /<phase-command>
 | Situation | Behavior |
 |---|---|
 | Slice file specified by argument not found | List the actually-active slices, ask user to choose. |
-| Slice file unreadable / malformed frontmatter | Tell user, ask whether to repair manually or `/abort`. |
-| Slice status is `committed` | Tell user that slice is closed and recommend `/plan`. |
+| Slice file unreadable / malformed frontmatter | Tell user, ask whether to repair manually or `/craft:abort`. |
+| Slice status is `committed` | Tell user that slice is closed and recommend `/craft:plan`. |
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: self-verify
-description: Bug verification protocol. Use when a fix needs to be verified autonomously by the agent (not the user) — most often via /debug. Defines the four-step ALIGN → PROTOCOL → AUTONOMOUS LOOP → ESCALATION flow. Also triggers automatically when the agent detects two or more fix attempts on the same symptom in the current slice.
+description: Bug verification protocol. Use when a fix needs to be verified autonomously by the agent (not the user) — most often via /craft:debug. Defines the four-step ALIGN → PROTOCOL → AUTONOMOUS LOOP → ESCALATION flow. Also triggers automatically when the agent detects two or more fix attempts on the same symptom in the current slice.
 ---
 
 # Self-Verify — Bug Verification Protocol
@@ -13,9 +13,9 @@ The protocol shifts verification responsibility from the human to the agent — 
 
 ## When This Skill Runs
 
-- **Manually**, when the user invokes `/debug <description>`. The user knows it's a bug, not a feature.
-- **Automatically**, when the agent detects it has made **≥2 fix attempts on the same symptom** within the active slice. The agent does not enter the protocol unilaterally — it asks: *"I notice I'm cycling on this. Should we enter `/debug` mode?"*
-- **Phase 5 cascade**: when the user reports `[B]` in Phase 5's structured feedback, `/test` invokes `/debug` and this skill runs.
+- **Manually**, when the user invokes `/craft:debug <description>`. The user knows it's a bug, not a feature.
+- **Automatically**, when the agent detects it has made **≥2 fix attempts on the same symptom** within the active slice. The agent does not enter the protocol unilaterally — it asks: *"I notice I'm cycling on this. Should we enter `/craft:debug` mode?"*
+- **Phase 5 cascade**: when the user reports `[B]` in Phase 5's structured feedback, `/craft:test` invokes `/craft:debug` and this skill runs.
 
 The auto-trigger threshold (default `2`) and the maximum-attempts cap (default `5`) are **overridable per project** in `.claude/project/rules.md` under a *"Self-Verification Settings"* section.
 
@@ -119,10 +119,10 @@ Attempt 4: <hypothesis> → ❌ (<reason>)
 Attempt 5: <hypothesis> → ❌ (<reason>)
 
 Suggested options:
- a) /handoff — fresh-context restart with attempt summary preserved
- b) /recap — step back, the bug may be a symptom of a deeper design issue
+ a) /craft:handoff — fresh-context restart with attempt summary preserved
+ b) /craft:recap — step back, the bug may be a symptom of a deeper design issue
  c) Re-negotiate the verification protocol — it may be too strict or missing a case
- d) Take it manually — disable /debug mode and continue in regular Phase 4
+ d) Take it manually — disable /craft:debug mode and continue in regular Phase 4
 ```
 
 The user picks. The agent does not pre-pick.
@@ -141,7 +141,7 @@ User confirms `yes` or `no`. On `yes`, the agent:
 2. Adds the test path to the slice plan under `## Sub-Tasks` as a check-marked item (so Phase 8 commit includes it).
 3. Verifies the new test passes.
 
-This converts each successfully debugged bug into a regression preventer — the codebase gets slightly more robust with every successful `/debug` session.
+This converts each successfully debugged bug into a regression preventer — the codebase gets slightly more robust with every successful `/craft:debug` session.
 
 ---
 
@@ -161,14 +161,14 @@ If the regression test was added, it should be in the same commit or a separate 
 
 ---
 
-## Sister Command: /handoff
+## Sister Command: /craft:handoff
 
-When the loop fails and the user picks option `(a)`, `/handoff` is invoked. That command is **not part of this skill** — it lives separately because it is also useful outside `/debug` (any time context-poisoning suspected). What `/handoff` does:
+When the loop fails and the user picks option `(a)`, `/craft:handoff` is invoked. That command is **not part of this skill** — it lives separately because it is also useful outside `/craft:debug` (any time context-poisoning suspected). What `/craft:handoff` does:
 
 1. Reads the bug, the verification protocol, and the attempt log from the slice plan.
 2. Writes a condensed handoff summary under `## Handoff` in the slice plan, including: "what tried, what didn't try, what was ruled out, what the verification protocol was."
 3. Tells the user to start a fresh chat session.
-4. On the next session start, `/prime` reloads the slice plan; the fresh agent picks up the handoff section and continues with no context-poisoning.
+4. On the next session start, `/craft:prime` reloads the slice plan; the fresh agent picks up the handoff section and continues with no context-poisoning.
 
 ---
 
@@ -179,7 +179,7 @@ The two key thresholds are project-overridable in `.claude/project/rules.md`:
 ```markdown
 ## Self-Verification Settings
 - **Max attempts:** 5         # default; lower for token-conservative projects, higher for genuinely hard bugs
-- **Auto-trigger threshold:** 2  # offer /debug after this many fix attempts on same symptom
+- **Auto-trigger threshold:** 2  # offer /craft:debug after this many fix attempts on same symptom
 - **Token brake during loop:** 15000  # tighter than the 30k default for normal Phase 4
 ```
 
@@ -189,7 +189,7 @@ If absent, defaults apply.
 
 ## What This Skill Does NOT Cover
 
-- **Bug discovery** (Phase 5 testing). That is handled by `/test` and the workflow skill's Phase 5 mechanics.
+- **Bug discovery** (Phase 5 testing). That is handled by `/craft:test` and the workflow skill's Phase 5 mechanics.
 - **Refactoring during a bug fix.** If a refactor would help, that is a separate slice unless the fix legitimately requires structural change. Don't smuggle refactors into bug fixes.
 - **Bug *triage*** — deciding whether a reported bug is worth fixing right now vs. queuing. That is a planning decision, not a verification one.
 

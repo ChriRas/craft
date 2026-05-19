@@ -3,7 +3,7 @@ description: Phase 8 — atomic commits, decisions promotion dialog, slice archi
 allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob"]
 ---
 
-# /commit — Phase 8 Commit & Cleanup
+# /craft:commit — Phase 8 Commit & Cleanup
 
 ## Purpose
 
@@ -17,8 +17,8 @@ Follow `skills/workflow/SKILL.md` Phase 8 mechanics.
 
 ### 1. Locate active slice
 
-- `Glob` `.claude/plans/*.md`. Expect a slice in `Status: committing` (or `refactoring` if jumping here directly).
-- If none → stop with `No slice ready for commit. Run /refactor first.`
+- `Glob` `.claude/craft:plans/*.md`. Expect a slice in `Status: committing` (or `refactoring` if jumping here directly).
+- If none → stop with `No slice ready for commit. Run /craft:refactor first.`
 
 ### 2. Sanity checks
 
@@ -130,7 +130,7 @@ If yes:
 
 ### Step 7 — Delete the active plan file
 
-`rm .claude/plans/slice-<NNN>-<slug>.md`. The slice archive + commits are now the durable record.
+`rm .claude/craft:plans/slice-<NNN>-<slug>.md`. The slice archive + commits are now the durable record.
 
 ### Step 8 — Final status
 
@@ -147,7 +147,7 @@ Commits:
 Archive: .claude/project/slices/slice-<NNN>-<slug>.md
 [PR: <url>]
 
-Recommended next: /plan to start the next slice, or /prime to refresh status.
+Recommended next: /craft:plan to start the next slice, or /craft:prime to refresh status.
 ```
 
 ---

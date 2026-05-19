@@ -5,7 +5,7 @@ description: The 8-phase coding loop — the methodological backbone of this plu
 
 # Workflow — The 8-Phase Coding Loop
 
-This skill is the operational specification of the plugin's universal coding workflow. Every phase command (`/brainstorm`, `/grill-me`, `/plan`, `/execute`, `/test`, `/recap`, `/refactor`, `/commit`) reads this skill to know what it owes the user and what it is allowed to do.
+This skill is the operational specification of the plugin's universal coding workflow. Every phase command (`/craft:brainstorm`, `/craft:grill-me`, `/craft:plan`, `/craft:execute`, `/craft:test`, `/craft:recap`, `/craft:refactor`, `/craft:commit`) reads this skill to know what it owes the user and what it is allowed to do.
 
 The workflow is **language- and stack-independent**. The same eight phases apply whether you are writing a shell script, a Python library, a Rust CLI, a Laravel monolith, or a Terraform module.
 
@@ -30,7 +30,7 @@ The 8-phase loop solves both by keeping each iteration short, end-to-end testabl
 |---|---|---|---|---|
 | 1 | **Brainstorm** | Level 0 | Idea exploration before code | A short Markdown checkpoint of explored ideas |
 | 2 | **Alignment** | Level 0 | Shared understanding (human ↔ agent, or human ↔ team) | A short Markdown checkpoint of decisions and constraints |
-| 3 | **Planning** | Level 1 | Vertical-slice plan with test strategy | `.claude/plans/slice-NNN-<slug>.md` |
+| 3 | **Planning** | Level 1 | Vertical-slice plan with test strategy | `.claude/craft:plans/slice-NNN-<slug>.md` |
 | 4 | **Implementation** | Level 2 | Code that satisfies the slice | Code changes, green automated tests |
 | 5 | **Testing & UX feedback** | Level 1 | Human hands-on verification | Confirmation or bug/UX-issue feedback |
 | 6 | **Recap** | Level 1 | Explanation of what was built and why | Slice archive entry draft |
@@ -88,7 +88,7 @@ In single-developer agent-coding, slices are **feature-shaped**, not component-s
 
 #### Output
 
-`.claude/plans/slice-NNN-<slug>.md` using the slice plan template. Includes the plugin version in the frontmatter for later mid-slice update safety.
+`.claude/craft:plans/slice-NNN-<slug>.md` using the slice plan template. Includes the plugin version in the frontmatter for later mid-slice update safety.
 
 ---
 
@@ -117,7 +117,7 @@ In single-developer agent-coding, slices are **feature-shaped**, not component-s
 |---|---|---|
 | **5a Demo-Setup** | Level 1 | Agent prepares hands-on instructions derived from the slice's recorded trigger: starts the server, prints the URL/command, lists "try this" steps. |
 | **5b User-Exercise** | (Human) | User exercises the artifact. No agent intervention. |
-| **5c Feedback-Capture** | Level 0 | Agent asks structured: `[W]orks → Phase 6 / [B]ug → trigger /debug / [U]X issue → iterate` |
+| **5c Feedback-Capture** | Level 0 | Agent asks structured: `[W]orks → Phase 6 / [B]ug → trigger /craft:debug / [U]X issue → iterate` |
 
 #### UX issue handling
 
@@ -125,7 +125,7 @@ When the user reports `[U]`, the agent asks **directly** ("What exactly should b
 
 #### Bug discovery in Phase 5
 
-Reporting `[B]` triggers `/debug` automatically. The agent says: "User reported bug — entering `/debug` mode for verification protocol." The slice plan is appended with the bug description and the verification protocol negotiated next.
+Reporting `[B]` triggers `/craft:debug` automatically. The agent says: "User reported bug — entering `/craft:debug` mode for verification protocol." The slice plan is appended with the bug description and the verification protocol negotiated next.
 
 #### Phase 5 cannot be skipped
 
@@ -176,7 +176,7 @@ Even if automated tests in Phase 4 are green, Phase 5 must run. This is constitu
    - `[R]ules` (promote to `.claude/project/rules.md` — human confirms diff)
    - `[D]iscard`
 4. **Slice archive entry** — agent writes `.claude/project/slices/slice-NNN-<slug>.md` from the Phase 6 recap draft and the harvested decisions.
-5. **Plan deletion** — `.claude/plans/slice-NNN-<slug>.md` is deleted. The slice archive plus commit history is the durable record.
+5. **Plan deletion** — `.claude/craft:plans/slice-NNN-<slug>.md` is deleted. The slice archive plus commit history is the durable record.
 
 #### Commit convention
 
@@ -211,7 +211,7 @@ Plus three supporting files:
 
 - `.claude/project/roadmap.md` — long-term phases / releases (optional)
 - `.claude/project/slices/slice-NNN-<slug>.md` — archived completed slices (Decision Log)
-- `.claude/plans/slice-NNN-<slug>.md` — currently active slice plans (ephemeral)
+- `.claude/craft:plans/slice-NNN-<slug>.md` — currently active slice plans (ephemeral)
 
 #### Rules discipline
 
@@ -255,7 +255,7 @@ Four levels. Phase defaults are above; action-type overrides apply across phases
 #### Bundling
 
 - **Bundle boundary**: end of a sub-task in the active plan.
-- **Token brake**: at 30k tokens since the last bundle (15k inside `/debug`), force a bundle even mid-sub-task — Dumb-Zone protection.
+- **Token brake**: at 30k tokens since the last bundle (15k inside `/craft:debug`), force a bundle even mid-sub-task — Dumb-Zone protection.
 - **Phase-end bundle**: every phase transition produces an explicit status check.
 - **Auto-continue with abort option** at Level 2 — otherwise Level 2 collapses into Level 1.
 - **Level 3 visibility**: every bundle summarizes Level 3 actions in one line ("read 12 files, ran 3 lint checks"). Never invisible.
@@ -264,7 +264,7 @@ Four levels. Phase defaults are above; action-type overrides apply across phases
 
 ## Rule-Conflict Resolution
 
-When `/prime` reports drift or human/agent disagreement appears during the loop:
+When `/craft:prime` reports drift or human/agent disagreement appears during the loop:
 
 | Conflict | Default winner | Action |
 |---|---|---|
@@ -288,7 +288,7 @@ Agent never silently bends a rule. When a conflict is detected, the agent presen
 
 ## Self-Verification (Bugs)
 
-When a bug is reported (Phase 5 `[B]`) or when the agent detects it has made **≥2 fix attempts on the same symptom** during a slice, the agent offers `/debug`. The skill `self-verify` defines the four-step protocol:
+When a bug is reported (Phase 5 `[B]`) or when the agent detects it has made **≥2 fix attempts on the same symptom** during a slice, the agent offers `/craft:debug`. The skill `self-verify` defines the four-step protocol:
 
 1. **ALIGN** (Level 0) — Capture bug: expected vs. actual.
 2. **PROTOCOL** (Level 0) — Agree on the verification command + expected result + negative check, before any fix attempt.
@@ -297,22 +297,22 @@ When a bug is reported (Phase 5 `[B]`) or when the agent detects it has made **�
 
 On success, the agent proposes promoting the ad-hoc verification command to a permanent regression test (user confirms).
 
-For context-poisoned cases unrelated to a specific bug, `/handoff` writes a summary into the slice plan; user starts a fresh chat; the next `/prime` reloads.
+For context-poisoned cases unrelated to a specific bug, `/craft:handoff` writes a summary into the slice plan; user starts a fresh chat; the next `/craft:prime` reloads.
 
 ---
 
 ## Tool Dependencies
 
-The plugin assumes the following tools are installed and current. `/prime` checks them at every session start and **aborts with install instructions** if any are missing.
+The plugin assumes the following tools are installed and current. `/craft:prime` checks them at every session start and **aborts with install instructions** if any are missing.
 
 | Tool | Why |
 |---|---|
-| **context-mode** | Activated by `/prime` on every session; preserves the dumb-zone discipline. |
+| **context-mode** | Activated by `/craft:prime` on every session; preserves the dumb-zone discipline. |
 | **agent-browser** | Browser automation for Phase 5a demos in web stacks. |
 | **git** | Slice tracking, commit history is the durable archive layer. |
 | **gh** | PR creation in Phase 8 for hosted repos. |
 
-The plugin cannot declare these as installable dependencies in the Claude Code plugin manifest. Detection and abort happen at `/prime` runtime.
+The plugin cannot declare these as installable dependencies in the Claude Code plugin manifest. Detection and abort happen at `/craft:prime` runtime.
 
 ---
 
@@ -332,9 +332,9 @@ The slice archive is the Decision Log, emergent from Phase 6 + 8 — there is no
 
 If a slice is paused or abandoned mid-phase:
 
-- `/pause` saves state; the plan file remains with its current `Status:` field.
-- `/abort <slice>` asks confirmation (Level 0), then deletes the plan file. Aborted slices have no archive value.
-- `/prime` detects stale slices (untouched for >N days) and asks: resume or discard.
+- `/craft:pause` saves state; the plan file remains with its current `Status:` field.
+- `/craft:abort <slice>` asks confirmation (Level 0), then deletes the plan file. Aborted slices have no archive value.
+- `/craft:prime` detects stale slices (untouched for >N days) and asks: resume or discard.
 
 ---
 
@@ -355,10 +355,10 @@ For routine feature slices, the loop starts at Phase 3 and runs through Phase 8.
 Every `/`-command that drives a phase reads this SKILL.md to know:
 
 - Its phase-default autonomy level.
-- The structured outputs it owes (e.g., `/plan` must answer the three universal questions).
+- The structured outputs it owes (e.g., `/craft:plan` must answer the three universal questions).
 - The transition criterion to the next phase.
 - The token-brake / bundle rules for its session window.
 
-Commands that span phases (`/debug`, `/handoff`, `/pause`, `/abort`, `/intent-update`, `/status`) use this skill for the knowledge model and autonomy taxonomy, not the phase semantics.
+Commands that span phases (`/craft:debug`, `/craft:handoff`, `/craft:pause`, `/craft:abort`, `/craft:intent-update`, `/craft:status`) use this skill for the knowledge model and autonomy taxonomy, not the phase semantics.
 
-`/onboard` references this skill when generating the initial `rules.md` to inform the user about workflow conventions that apply to their project.
+`/craft:onboard` references this skill when generating the initial `rules.md` to inform the user about workflow conventions that apply to their project.

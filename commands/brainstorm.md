@@ -4,7 +4,7 @@ argument-hint: "[topic]"
 allowed-tools: ["Read", "Write"]
 ---
 
-# /brainstorm — Phase 1 Brainstorm
+# /craft:brainstorm — Phase 1 Brainstorm
 
 ## Purpose
 
@@ -16,7 +16,7 @@ This command activates `skills/brainstorm/SKILL.md` and follows its methodology 
 
 ## Pre-flight
 
-None strict. `/brainstorm` works in any project state, even pre-onboarding.
+None strict. `/craft:brainstorm` works in any project state, even pre-onboarding.
 
 ---
 
@@ -73,7 +73,7 @@ Typical post-brainstorm move is Phase 2 (Alignment):
 
 ```
 ✓ Brainstorm captured.
-Recommended next: /grill-me to align on direction, or /plan if the path is already clear.
+Recommended next: /craft:grill-me to align on direction, or /craft:plan if the path is already clear.
 ```
 
 ---
@@ -89,7 +89,7 @@ The full output follows the brainstorm skill's specification. This command does 
 | Situation | Behavior |
 |---|---|
 | User wants the agent to "just give me ideas" without dialog | Push back once: *"The skill works by facilitating your thinking, not replacing it. One question at a time is the methodology — let's start."* If user insists, fall back to producing a quick list but flag that the methodology was bypassed. |
-| User runs `/brainstorm` mid-slice | Allow, but warn: *"Brainstorming mid-slice can derail focus. If this is about the current slice, consider /grill-me instead. If it's a separate topic, fine — proceed."* |
+| User runs `/brainstorm` mid-slice | Allow, but warn: *"Brainstorming mid-slice can derail focus. If this is about the current slice, consider /craft:grill-me instead. If it's a separate topic, fine — proceed."* |
 
 ---
 

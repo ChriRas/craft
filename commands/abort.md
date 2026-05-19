@@ -4,7 +4,7 @@ argument-hint: "<slice-NNN>"
 allowed-tools: ["Bash", "Read", "Glob"]
 ---
 
-# /abort — Abandon a Slice
+# /craft:abort — Abandon a Slice
 
 ## Purpose
 
@@ -17,7 +17,7 @@ If partial commits exist, they remain in the git history and the user is respons
 ## Pre-flight
 
 - Argument `<slice-NNN>` is required (no defaulting to "the active slice" — abort is destructive and should be explicit).
-- `Glob` `.claude/plans/slice-<NNN>-*.md`. If not found → tell user the slice is not in the active plans directory and stop.
+- `Glob` `.claude/craft:plans/slice-<NNN>-*.md`. If not found → tell user the slice is not in the active plans directory and stop.
 
 ---
 
@@ -62,7 +62,7 @@ Only proceed if the user types the exact slice ID. Anything else aborts the abor
 
 ### 4. Delete the plan file
 
-`rm .claude/plans/slice-<NNN>-<slug>.md`
+`rm .claude/craft:plans/slice-<NNN>-<slug>.md`
 
 If the slice plan had a `## Handoff` section that the user might still want, ask one more time before deletion: *"This slice has a Handoff section. Sure you want to delete it?"*
 
@@ -74,7 +74,7 @@ If the slice plan had a `## Handoff` section that the user might still want, ask
 [If commits existed:]
 Note: <N> commits remain in git history. Manage manually if cleanup is needed.
 
-Recommended next: /status to see remaining active slices, or /plan for new work.
+Recommended next: /craft:status to see remaining active slices, or /craft:plan for new work.
 ```
 
 ---
@@ -89,7 +89,7 @@ The status line above. Nothing else.
 
 | Situation | Behavior |
 |---|---|
-| Argument missing | Stop with: *"`/abort` requires a slice ID. Run `/status` to see active slices."* |
+| Argument missing | Stop with: *"`/abort` requires a slice ID. Run `/craft:status` to see active slices."* |
 | User confirms with wrong slice ID | Stop with: *"Confirmation mismatch. Abort cancelled. Try again with the exact ID."* |
 | Slice has unsaved work (status shows recent edits) | Surface the recency: *"This slice was last touched <N> minutes ago. Sure you want to abort?"* Ask once more. |
 | User wants to move to `_aborted/` instead of deleting | Allow if the user explicitly says so — `mv` instead of `rm`. But never default to archiving aborted slices. |

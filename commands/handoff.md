@@ -3,11 +3,11 @@ description: Fresh-context restart. Summarizes problem + attempts into the slice
 allowed-tools: ["Read", "Edit", "Glob"]
 ---
 
-# /handoff — Hand Off Work to a Fresh Session
+# /craft:handoff — Hand Off Work to a Fresh Session
 
 ## Purpose
 
-When the current chat session has accumulated too much noise (context-poisoning, false trails, dead-end attempts), `/handoff` writes a condensed summary into the active slice plan and instructs the user to start a fresh chat. The next `/prime` reloads the slice plan, and a fresh agent picks up where the worn-out one left off.
+When the current chat session has accumulated too much noise (context-poisoning, false trails, dead-end attempts), `/handoff` writes a condensed summary into the active slice plan and instructs the user to start a fresh chat. The next `/craft:prime` reloads the slice plan, and a fresh agent picks up where the worn-out one left off.
 
 This is not bug-specific; use it whenever a fresh perspective would help.
 
@@ -30,7 +30,7 @@ Build a tight summary covering:
 2. **What was tried** — short list of attempts and outcomes (bullets, one line each).
 3. **What was ruled out** — hypotheses or approaches we now know don't work.
 4. **What's the next thing to try** — the agent's current best guess for direction, or "uncertain — fresh look needed."
-5. **Verification protocol(s) in play** — if `/debug` was used, the frozen verification command + expected output.
+5. **Verification protocol(s) in play** — if `/craft:debug` was used, the frozen verification command + expected output.
 6. **Outstanding open questions** — anything the agent should ask the user when picking up.
 
 Keep the whole summary under 50 lines. Goal: enough context to resume without re-deriving, but not so much that the fresh session inherits the poison.
@@ -74,14 +74,14 @@ Emit:
 Action required from you:
   1. End this chat session (close the window or run /clear).
   2. Open a fresh chat in the same project directory.
-  3. The SessionStart hook will auto-run /prime, which will surface the handoff.
+  3. The SessionStart hook will auto-run /craft:prime, which will surface the handoff.
 
 The fresh agent will read the handoff and continue from "Best guess for next step."
 ```
 
 ### 4. Set status
 
-Update `Status:` to whatever it was, plus add a note in the slice plan's frontmatter or top region: `Handoff active: yes`. The next `/prime` uses this flag to surface the handoff prominently.
+Update `Status:` to whatever it was, plus add a note in the slice plan's frontmatter or top region: `Handoff active: yes`. The next `/craft:prime` uses this flag to surface the handoff prominently.
 
 ---
 
@@ -94,7 +94,7 @@ Slice: slice-<NNN> "<title>"
 Where: Phase <X>, sub-task <Y>/<Z>
 Length: <N> lines
 
-Next: start a fresh chat session; /prime will pick up.
+Next: start a fresh chat session; /craft:prime will pick up.
 ```
 
 ---

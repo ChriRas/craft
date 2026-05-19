@@ -1,5 +1,5 @@
 {
-  "description": "Auto-prime when the project is onboarded; nudge to /onboard otherwise. Fires on SessionStart, runs the bundled shell script which emits guidance read by Claude as session context.",
+  "description": "Auto-prime when the project is onboarded (.claude/project/intent.md present); silent otherwise. Non-Craft projects are never nudged — the user opts in by invoking /craft. Fires on SessionStart, runs the bundled shell script which emits guidance read by Claude as session context.",
   "hooks": {
     "SessionStart": [
       {

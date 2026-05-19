@@ -3,7 +3,7 @@ description: Phase 4 — implement the active slice. Loads project-local special
 allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob", "Grep"]
 ---
 
-# /execute — Implement the Active Slice
+# /craft:execute — Implement the Active Slice
 
 ## Purpose
 
@@ -17,9 +17,9 @@ Follow `skills/workflow/SKILL.md` Phase 4 mechanics and the autonomy matrix. Cod
 
 ### 1. Locate active slice
 
-- `Glob` `.claude/plans/*.md`.
-- If multiple slices → run `/continue` to select one first, then this command.
-- If none → tell user `No active slices. Run /plan first.` and stop.
+- `Glob` `.claude/craft:plans/*.md`.
+- If multiple slices → run `/craft:continue` to select one first, then this command.
+- If none → tell user `No active slices. Run /craft:plan first.` and stop.
 
 ### 2. Load slice plan
 
@@ -29,7 +29,7 @@ Follow `skills/workflow/SKILL.md` Phase 4 mechanics and the autonomy matrix. Cod
 - Goal / Vertical Slice Definition / Trigger / Effect / Test Strategy
 - Sub-tasks (which are done, which next)
 - Active Rule Overrides (apply them during this session)
-- Bugs, Verification Protocols (relevant if `/debug` was used here)
+- Bugs, Verification Protocols (relevant if `/craft:debug` was used here)
 
 ### 3. Update Status
 
@@ -54,7 +54,7 @@ If `Status` is already `implementing` or `paused`, resume without status change.
 ### 1. Identify next sub-task
 
 - Find the first unchecked sub-task (`- [ ]`) in the slice plan.
-- If all are checked → emit `All sub-tasks complete. Run /test to start Phase 5.` and stop.
+- If all are checked → emit `All sub-tasks complete. Run /craft:test to start Phase 5.` and stop.
 
 ### 2. Plan the sub-task work
 
@@ -69,11 +69,11 @@ Briefly state the approach for the current sub-task. No long planning — this i
 
 ### 4. Self-verification trigger awareness
 
-- Track fix attempts. If you make a **2nd fix attempt on the same symptom** within this slice, **pause and offer `/debug`**:
+- Track fix attempts. If you make a **2nd fix attempt on the same symptom** within this slice, **pause and offer `/craft:debug`**:
 
-  *"I notice I'm cycling on this. Should we enter `/debug` mode and agree on a verification protocol before more attempts?"*
+  *"I notice I'm cycling on this. Should we enter `/craft:debug` mode and agree on a verification protocol before more attempts?"*
 
-  Do not force the user into `/debug` — ask, wait, respect the answer.
+  Do not force the user into `/craft:debug` — ask, wait, respect the answer.
 
 ### 5. Check off the sub-task
 
@@ -107,7 +107,7 @@ When all sub-tasks are checked, emit a final bundle:
   Total commits-not-yet-made: <N> proposed
   Tests: <status>
 
-Recommended next: /test to start Phase 5 (you exercise the artifact).
+Recommended next: /craft:test to start Phase 5 (you exercise the artifact).
 ```
 
 Update `Status: testing` in the slice plan.
@@ -127,8 +127,8 @@ Update `Status: testing` in the slice plan.
 
 | Situation | Behavior |
 |---|---|
-| Slice plan missing required sections (Sub-Tasks, Test Strategy) | Refuse to start; recommend `/plan` to repair. |
-| Test fails red after a sub-task | Do not check off the sub-task. Try one fix attempt. If still red, offer `/debug`. |
+| Slice plan missing required sections (Sub-Tasks, Test Strategy) | Refuse to start; recommend `/craft:plan` to repair. |
+| Test fails red after a sub-task | Do not check off the sub-task. Try one fix attempt. If still red, offer `/craft:debug`. |
 | User pauses during bundle countdown | Stop cleanly; do not start the next sub-task. Status remains `implementing`. |
 | Slice file becomes unreadable mid-execute | Stop, surface error, do not silently overwrite. |
 | Encounter a needed change outside plan scope | Drop to Level 1: ask explicitly. Either get approval, or stop and recommend re-planning. |
@@ -137,8 +137,8 @@ Update `Status: testing` in the slice plan.
 
 ## What This Command Does NOT Do
 
-- It does **not** plan. If sub-tasks are missing, run `/plan` first.
+- It does **not** plan. If sub-tasks are missing, run `/craft:plan` first.
 - It does **not** run user-facing tests (Phase 5). Automated tests in Phase 4 run silently as part of implementation.
-- It does **not** commit. Phase 8 / `/commit` does that.
-- It does **not** refactor speculatively. Phase 7 / `/refactor` is the refactor seat.
+- It does **not** commit. Phase 8 / `/craft:commit` does that.
+- It does **not** refactor speculatively. Phase 7 / `/craft:refactor` is the refactor seat.
 - It does **not** edit `intent.md` or `rules.md`. Decisions surfaced during implementation go into the slice plan's `## Decisions Made During This Slice` section for Phase 8 promotion.

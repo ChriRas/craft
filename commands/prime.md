@@ -3,13 +3,13 @@ description: Session-start context loader. Checks tools, loads project knowledge
 allowed-tools: ["Bash", "Read", "Glob", "Grep"]
 ---
 
-# /prime — Load Project Context
+# /craft:prime — Load Project Context
 
 ## Purpose
 
 Bring a fresh chat session into the project's working context: verify the toolchain, activate context-mode, read project knowledge, detect any Rules ↔ State drift, surface active slices, and tell the user exactly where to continue.
 
-`/prime` is the navigation backbone of every session. It is invoked automatically by the SessionStart hook when `.claude/project/intent.md` exists. It can also be re-invoked manually after editing `rules.md` or `intent.md`.
+`/craft:prime` is the navigation backbone of every session. It is invoked automatically by the SessionStart hook when `.claude/project/intent.md` exists. It can also be re-invoked manually after editing `rules.md` or `intent.md`.
 
 Follow the methodology defined in `skills/workflow/SKILL.md` — in particular the autonomy taxonomy, knowledge model, and tool-dependency policy.
 
@@ -44,7 +44,7 @@ After listing all missing tools, stop and wait for the user to install them. Do 
 - If the file does not exist, the project has not been onboarded. Emit a single-line nudge:
 
   ```
-  Project not onboarded — run /onboard to set up project knowledge.
+  Project not onboarded — run /craft:onboard to set up project knowledge.
   ```
 
   Stop. Do not attempt to load missing files or guess at project state.
@@ -89,7 +89,7 @@ Procedure:
 
 ```
 ⚠ Drift check incomplete — no <manifest-name> to verify <stack> rules against.
-   This is expected if dependencies aren't installed yet. Re-run /prime after <install command>.
+   This is expected if dependencies aren't installed yet. Re-run /craft:prime after <install command>.
 ```
 
 **Never silently correct drift.** Reporting is the action; correction is a separate human-confirmed step.
@@ -105,7 +105,7 @@ After tools are confirmed installed, capture and report versions for the status 
 
 ### 5. Scan active slices
 
-- `Glob` `.claude/plans/*.md`.
+- `Glob` `.claude/craft:plans/*.md`.
 - For each slice plan file:
   - Read its frontmatter (`Status`, `Slice-ID`, `Started`, `Phase`).
   - Read its `## Sub-Tasks` section, count completed (`- [x]`) vs. total.
@@ -128,14 +128,14 @@ Pick one based on the state, in priority order — first matching condition wins
 1. **Pending handoff** — if any active slice has `Handoff active: yes` in its frontmatter → surface it prominently:
 
    ```
-   ⚠ Handoff waiting for slice-NNN — a previous session ended with /handoff.
-   Recommended next: /continue slice-NNN → the handoff summary will be loaded.
+   ⚠ Handoff waiting for slice-NNN — a previous session ended with /craft:handoff.
+   Recommended next: /craft:continue slice-NNN → the handoff summary will be loaded.
    ```
 
-2. **Stale slice flagged** — recommend resolving it first: `Recommended next: resolve stale slice-MMM (resume or /abort) before continuing`.
-3. **Exactly one active slice** → recommend continuing it: `Recommended next: continue slice-NNN (Phase X) → /continue to resume`.
-4. **Multiple active slices** → list them and ask which to focus on: `Multiple active slices — pick one to focus: /continue <slice-NNN>`.
-5. **No active slice** → recommend planning new work: `Recommended next: /plan <feature-name> to start a new slice`.
+2. **Stale slice flagged** — recommend resolving it first: `Recommended next: resolve stale slice-MMM (resume or /craft:abort) before continuing`.
+3. **Exactly one active slice** → recommend continuing it: `Recommended next: continue slice-NNN (Phase X) → /craft:continue to resume`.
+4. **Multiple active slices** → list them and ask which to focus on: `Multiple active slices — pick one to focus: /craft:continue <slice-NNN>`.
+5. **No active slice** → recommend planning new work: `Recommended next: /craft:plan <feature-name> to start a new slice`.
 
 ---
 
@@ -160,7 +160,7 @@ Recommended next: <action>
 
 If no active slices, replace that section with `No active slices.`
 
-Keep the block under 20 lines for the common case. If many slices are active and the block would exceed that, summarize older slices into a one-line collapse: `+ 4 more slices (run /status for full list)`.
+Keep the block under 20 lines for the common case. If many slices are active and the block would exceed that, summarize older slices into a one-line collapse: `+ 4 more slices (run /craft:status for full list)`.
 
 ---
 
@@ -171,7 +171,7 @@ Keep the block under 20 lines for the common case. If many slices are active and
 | One or more tools missing | Abort with concrete install instructions, do not proceed. |
 | `context-mode` outdated | Warn, suggest `/ctx-upgrade`, continue priming. |
 | `.claude/project/intent.md` missing | Emit onboarding nudge, do not proceed. |
-| `rules.md` missing but `intent.md` present | Treat as inconsistent onboarding. Tell user: *"intent.md exists but rules.md is missing. Run `/onboard` to repair the setup."* and stop. |
+| `rules.md` missing but `intent.md` present | Treat as inconsistent onboarding. Tell user: *"intent.md exists but rules.md is missing. Run `/craft:onboard` to repair the setup."* and stop. |
 | Slice plan file unreadable or malformed | Log it as `⚠ slice plan <file> unreadable — skipping`. Continue with other slices. |
 | Drift check sub-command itself errors out (e.g., grep on missing manifest) | Report `⚠ drift check incomplete: <reason>`. Continue. Do not abort the whole prime. |
 
@@ -179,8 +179,8 @@ Keep the block under 20 lines for the common case. If many slices are active and
 
 ## What This Command Does NOT Do
 
-- It does **not** edit `intent.md` or `rules.md`. Use `/intent-update` for the former; `/onboard` for repair of the latter.
+- It does **not** edit `intent.md` or `rules.md`. Use `/craft:intent-update` for the former; `/craft:onboard` for repair of the latter.
 - It does **not** decide what to do next on your behalf — it only **recommends**.
-- It does **not** start a slice. Use `/plan` for that.
-- It does **not** activate any project-local skills. Those are loaded lazily by phase commands (`/execute`, `/refactor`, etc.) when needed.
+- It does **not** start a slice. Use `/craft:plan` for that.
+- It does **not** activate any project-local skills. Those are loaded lazily by phase commands (`/craft:execute`, `/craft:refactor`, etc.) when needed.
 - It does **not** correct drift autonomously. Drift is reported; the human chooses Bend / Override / Repeal (see `skills/workflow/SKILL.md` rule-conflict policy).

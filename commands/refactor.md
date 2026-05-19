@@ -3,7 +3,7 @@ description: Phase 7 — small structural improvements before Phase 8. Asks the 
 allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob", "Grep"]
 ---
 
-# /refactor — Phase 7 Refactoring
+# /craft:refactor — Phase 7 Refactoring
 
 ## Purpose
 
@@ -16,7 +16,7 @@ Follow `skills/workflow/SKILL.md` Phase 7 mechanics. **Max 2–3 refactor items 
 ## Pre-flight
 
 - `Glob` `.claude/plans/*.md`. Expect a slice in `Status: refactoring` (or `review` if jumping here directly after Phase 6).
-- If none → stop with `No slice ready for refactor. Run /recap first.`
+- If none → stop with `No slice ready for refactor. Run /craft:recap first.`
 - Update `Status: refactoring` if not already.
 
 ---
@@ -73,7 +73,7 @@ After the chosen items are done and tests are green, update `Status: committing`
 
 ```
 ✓ Phase 7 complete (<N> refactor items).
-Recommended next: /commit
+Recommended next: /craft:commit
 ```
 
 ---
@@ -89,7 +89,7 @@ Applied: <N>
 [per-item bundles]
 
 ✓ All green
-Recommended next: /commit
+Recommended next: /craft:commit
 ```
 
 ---
@@ -108,5 +108,5 @@ Recommended next: /commit
 ## What This Command Does NOT Do
 
 - It does **not** add new functionality. Refactor preserves behavior.
-- It does **not** commit. Phase 8 / `/commit` does.
+- It does **not** commit. Phase 8 / `/craft:commit` does.
 - It does **not** promote decisions to `intent.md` / `rules.md`. That's Phase 8.

@@ -4,11 +4,11 @@ argument-hint: "<bug-description>"
 allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob", "Grep"]
 ---
 
-# /debug — Bug Self-Verification
+# /craft:debug — Bug Self-Verification
 
 ## Purpose
 
-When the agent is cycling on a bug — or when the user reports one in Phase 5 — `/debug` shifts verification responsibility from the human to the agent. It refuses to start the autonomous fix loop until a verification protocol has been agreed jointly.
+When the agent is cycling on a bug — or when the user reports one in Phase 5 — `/craft:debug` shifts verification responsibility from the human to the agent. It refuses to start the autonomous fix loop until a verification protocol has been agreed jointly.
 
 Read `skills/self-verify/SKILL.md` for the full protocol. This command is the user-facing wrapper.
 
@@ -151,10 +151,10 @@ Attempt 2: <hypothesis> → ❌ (<reason>)
 ...
 
 Suggested options:
- a) /handoff — fresh-context restart with attempt summary preserved
- b) /recap — step back; the bug may be a symptom of a deeper design issue
+ a) /craft:handoff — fresh-context restart with attempt summary preserved
+ b) /craft:recap — step back; the bug may be a symptom of a deeper design issue
  c) Re-negotiate the verification protocol — it may be too strict or missing a case
- d) Take it manually — disable /debug and continue in regular Phase 4
+ d) Take it manually — disable /craft:debug and continue in regular Phase 4
 ```
 
 User picks. Do not pre-pick.
@@ -171,7 +171,7 @@ Bundles per attempt as shown in Step 3. Final block as shown in "On success" or 
 
 | Situation | Behavior |
 |---|---|
-| User refuses to agree on a verification protocol | Tell user: *"Without an agreed verification, this is regular Phase 4 work. Returning to /execute."* and stop. |
+| User refuses to agree on a verification protocol | Tell user: *"Without an agreed verification, this is regular Phase 4 work. Returning to /craft:execute."* and stop. |
 | The verification command itself errors out (broken syntax, missing binary) | Surface the error, ask the user to repair the command before continuing. |
 | User wants to "just try one more" after max attempts | Allow exactly one more attempt at Level 0 — explicit ask, explicit consent. Do not re-enter the autonomous loop. |
 | The bug is actually in the test, not the code | Flag this explicitly; ask the user whether to fix the test or to re-negotiate the verification command. |
@@ -183,4 +183,4 @@ Bundles per attempt as shown in Step 3. Final block as shown in "On success" or 
 - It does **not** decide whether a reported bug is worth fixing now vs. queueing. That's planning.
 - It does **not** modify the frozen verification protocol mid-loop.
 - It does **not** smuggle refactors into the bug fix. If a refactor would help, capture it for Phase 7 (or a future slice).
-- It does **not** commit. Phase 8 / `/commit` does, and the bug fix participates in the slice's commit set.
+- It does **not** commit. Phase 8 / `/craft:commit` does, and the bug fix participates in the slice's commit set.

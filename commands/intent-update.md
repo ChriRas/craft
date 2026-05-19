@@ -3,7 +3,7 @@ description: Propose an explicit edit to .claude/project/intent.md. Agent drafts
 allowed-tools: ["Read", "Edit", "Glob"]
 ---
 
-# /intent-update — Update Project Intent
+# /craft:intent-update — Update Project Intent
 
 ## Purpose
 
@@ -17,7 +17,7 @@ Used when, mid-work, the user realizes the project's intent has shifted (e.g., a
 
 ## Pre-flight
 
-- `Read` `.claude/project/intent.md`. If missing → tell user to run `/onboard` and stop.
+- `Read` `.claude/project/intent.md`. If missing → tell user to run `/craft:onboard` and stop.
 
 ---
 
@@ -97,7 +97,7 @@ The confirmation line above. The diff itself is shown in step 2.
 
 | Situation | Behavior |
 |---|---|
-| `intent.md` missing | Stop, recommend `/onboard`. |
+| `intent.md` missing | Stop, recommend `/craft:onboard`. |
 | User wants to write to `rules.md` instead | Suggest creating a similar `/rules-update` command (not built yet) or hand-editing `rules.md` carefully. For now, refuse to edit `rules.md` from this command. |
 | Proposed change includes operational/verifiable language | Surface mismatch, suggest moving to `rules.md` (manual). |
 | User cancels mid-confirmation | Make no changes; exit cleanly. |

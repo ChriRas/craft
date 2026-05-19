@@ -3,7 +3,7 @@ description: One-time project onboarding — bootstraps `.claude/project/` for f
 allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob", "Grep"]
 ---
 
-# /onboard — Set Up the Project for the Workflow
+# /craft:onboard — Set Up the Project for the Workflow
 
 ## Purpose
 
@@ -20,7 +20,7 @@ Refer to `skills/workflow/SKILL.md` for the knowledge model (State / Intent / Ru
 
 ### Step 1 — Tool health (strict)
 
-Same as `/prime` — verify context-mode, agent-browser, git, gh are installed and runnable. Abort with install instructions if any are missing.
+Same as `/craft:prime` — verify context-mode, agent-browser, git, gh are installed and runnable. Abort with install instructions if any are missing.
 
 ### Step 2 — Project repository check
 
@@ -28,7 +28,7 @@ Same as `/prime` — verify context-mode, agent-browser, git, gh are installed a
 
 ### Step 3 — Detect mode
 
-- `Read` `.claude/project/intent.md`. If it exists and is non-empty → **already onboarded**. Tell the user: *"Project is already onboarded. Run `/prime` to load context, or `/intent-update` to revise intent."* and stop.
+- `Read` `.claude/project/intent.md`. If it exists and is non-empty → **already onboarded**. Tell the user: *"Project is already onboarded. Run `/craft:prime` to load context, or `/craft:intent-update` to revise intent."* and stop.
 - `Glob` `.claude/**/*` to detect prior content. If any exists → **migration mode**. Otherwise → **greenfield mode**.
 
 ---
@@ -81,10 +81,10 @@ After writing, count lines for `intent.md` and `rules.md`. If either exceeds **8
 
 ### 5. Validate
 
-Run the drift check from `/prime` immediately.
+Run the drift check from `/craft:prime` immediately.
 
 - If no drifts and all manifests verifiable → report `Rules ↔ State drift check: clean`.
-- If manifests are absent for a stack mentioned in `rules.md` (e.g., `composer.json` missing for PHP rules) → emit the **incomplete-check note** from `/prime` Step 3 instead of treating as drift.
+- If manifests are absent for a stack mentioned in `rules.md` (e.g., `composer.json` missing for PHP rules) → emit the **incomplete-check note** from `/craft:prime` Step 3 instead of treating as drift.
 - If genuine drift exists → tell the user and ask them to revise `rules.md` before continuing.
 
 ---
@@ -111,7 +111,7 @@ Present the classification to the user:
 Found <N> assets in .claude/. Proposed actions:
 
 [Universal conflict → _legacy/]
-  - .claude/commands/plan-feature.md
+  - .claude/commands/craft:plan-feature.md
   - .claude/commands/execute.md
   - ...
 
@@ -161,7 +161,7 @@ If user says "override": let them flip individual items between classes one at a
 
 ```
 > override
-Which item? <e.g., .claude/commands/plan-parallel.md>
+Which item? <e.g., .claude/commands/craft:plan-parallel.md>
 Move to which class? [universal-conflict | plugin-already-provides | specialist-keep | knowledge-split | project-local-keep | delete]
 ```
 
@@ -238,7 +238,7 @@ After writing `intent.md` and `rules.md`, count their lines:
 
   ```
   ⚠ <intent.md | rules.md> is <N> lines (soft limit 80).
-     The file is loaded into context on every /prime — keep it lean.
+     The file is loaded into context on every /craft:prime — keep it lean.
      Consider extracting the longest section (e.g., "Code Conventions") into a
      separate file like .claude/project/conventions.md and referencing it from rules.md.
   ```
@@ -251,7 +251,7 @@ If `CLAUDE.md` did not previously exist, generate one from `templates/claude-md-
 
 ### 6. Validate
 
-Run the drift check from `/prime` (same logic as in `/prime` Step 3):
+Run the drift check from `/craft:prime` (same logic as in `/craft:prime` Step 3):
 
 - If no drifts and all manifests verifiable → report `Rules ↔ State drift check: clean`.
 - If manifests are absent for a stack mentioned in `rules.md` → emit the **incomplete-check note** rather than treating it as drift. This is common right after migration before `composer install` / `npm install` has been re-run in a fresh environment.
@@ -280,7 +280,7 @@ Split source:
 
 ✓ Rules ↔ State drift check: clean
 
-Next: run /prime to load context, then /plan to start a slice.
+Next: run /craft:prime to load context, then /craft:plan to start a slice.
 ```
 
 ---
@@ -290,7 +290,7 @@ Next: run /prime to load context, then /plan to start a slice.
 | Situation | Behavior |
 |---|---|
 | Not inside a git repo | Abort with the message in Pre-flight Step 2. |
-| Already onboarded | Tell user, suggest `/prime` or `/intent-update`, stop. |
+| Already onboarded | Tell user, suggest `/craft:prime` or `/craft:intent-update`, stop. |
 | Heuristic scan finds nothing usable | Fall through to dialogic clarification with default questions; do not silently produce empty drafts. |
 | User cancels during inventory report | Abort cleanly; make no file changes. |
 | Migration: a target `_legacy/` file already exists with the same name | Append a numeric suffix (`-1`, `-2`) and continue. |

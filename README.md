@@ -23,8 +23,8 @@ A complete coding-loop scaffolding:
 - **17 slash commands** that move you through Brainstorm → Alignment → Planning → Implementation → Testing → Recap → Refactoring → Commit & Cleanup, with explicit navigation cues at every session start.
 - **5 universal skills**: the 8-phase workflow itself, bug-verification protocol, structured brainstorming, interview-style alignment, browser automation.
 - **A two-tier architecture**: the plugin ships the universal shell; your project keeps its own language/framework specialists in `.claude/skills/` and `.claude/agents/`, lazy-loaded at runtime.
-- **A SessionStart hook** that auto-runs `/prime` so every fresh chat orients itself before you type anything.
-- **A migration path** for projects that already have a `.claude/` setup — `/onboard` detects the existing content and moves conflicting commands to `_legacy/` while preserving project-specific specialists.
+- **A SessionStart hook** that auto-runs `/craft:prime` in Craft-onboarded projects so every fresh chat orients itself; stays silent in non-Craft projects.
+- **A migration path** for projects that already have a `.claude/` setup — `/craft:onboard` detects the existing content and moves conflicting commands to `_legacy/` while preserving project-specific specialists.
 
 ---
 
@@ -38,32 +38,7 @@ git clone <repo-url> ~/.claude/plugins/craft
 
 After install, open Claude Code in any project and run `/craft:onboard` to set the project up.
 
-### Optional: shorter command names
-
-By default Claude Code namespaces plugin commands by plugin name — you type `/craft:onboard`, `/craft:plan`, `/craft:commit`, etc. If you want to skip the prefix, drop **shim files** into `~/.claude/commands/` that delegate to the plugin command:
-
-`~/.claude/commands/onboard.md`:
-
-```markdown
----
-description: Shortcut for /craft:onboard
----
-
-/craft:onboard
-```
-
-For commands with arguments (e.g. `/plan <feature>`), pass `$ARGUMENTS`:
-
-```markdown
----
-description: Shortcut for /craft:plan
-argument-hint: <feature-or-slice-name>
----
-
-/craft:plan $ARGUMENTS
-```
-
-This is a user-global override — `/onboard` then expands to invoke the plugin command directly. No official aliasing exists in Claude Code today; this is the documented workaround.
+All plugin commands are invoked through the `craft:` namespace — `/craft:onboard`, `/craft:plan`, `/craft:commit`, etc. The full namespace form is required: internal cross-references between commands rely on it to avoid collisions with Claude Code reserved names (e.g. `/plan` would otherwise collide with Plan-Mode) and with project-local `commands/<name>.md` overrides.
 
 ---
 
@@ -72,14 +47,14 @@ This is a user-global override — `/onboard` then expands to invoke the plugin 
 #### First time in a project
 
 ```
-/onboard
+/craft:onboard
 ```
 
-`/onboard` either bootstraps a fresh `.claude/project/` setup or migrates an existing `.claude/` configuration. It generates `intent.md`, `rules.md`, and optional `roadmap.md` either from heuristics (fast path) or via the interview-style "Grill-Me" mode (deeper).
+`/craft:onboard` either bootstraps a fresh `.claude/project/` setup or migrates an existing `.claude/` configuration. It generates `intent.md`, `rules.md`, and optional `roadmap.md` either from heuristics (fast path) or via the interview-style "Grill-Me" mode (deeper).
 
 #### Every subsequent session
 
-The SessionStart hook fires `/prime` automatically. You'll see a status block:
+In a Craft-onboarded project, the SessionStart hook fires `/craft:prime` automatically. You'll see a status block:
 
 ```
 ✓ Project: <name> (<stack summary>)
@@ -90,24 +65,26 @@ Active slices:
   → slice-007 "PWA reservation button" — Phase 4, 3/7 sub-tasks done
 
 Recommended next: continue slice-007 (Phase 4)
-  → /continue to resume, /plan to start something new
+  → /craft:continue to resume, /craft:plan to start something new
 ```
+
+In a project that has not been onboarded to Craft, the hook stays silent — no nudge. Invoke `/craft:onboard` yourself if you want to adopt the workflow there.
 
 #### Building a feature
 
 ```
-/plan reservation button          # Phase 3 — dialogic planning
-/execute                          # Phase 4 — implementation
-/test                             # Phase 5 — you exercise the artifact
-/recap                            # Phase 6 — capture what was learned
-/refactor                         # Phase 7 — make it cleaner
-/commit                           # Phase 8 — atomic commits + slice archive
+/craft:plan reservation button    # Phase 3 — dialogic planning
+/craft:execute                    # Phase 4 — implementation
+/craft:test                       # Phase 5 — you exercise the artifact
+/craft:recap                      # Phase 6 — capture what was learned
+/craft:refactor                   # Phase 7 — make it cleaner
+/craft:commit                     # Phase 8 — atomic commits + slice archive
 ```
 
 #### Stuck on a bug
 
 ```
-/debug "reservation button doesn't show toast"
+/craft:debug "reservation button doesn't show toast"
 ```
 
 Triggers a 4-step verification loop: agree on the bug → agree on the verification protocol → autonomous fix attempts (max 5, with stricter token brake) → escalation if unresolved. Auto-offered when the agent detects ≥2 fix attempts on the same symptom.
@@ -129,7 +106,7 @@ This plugin assumes you've seen the failure mode of unstructured agent coding: a
 
 ## Project Files
 
-When you run `/onboard`, the plugin creates:
+When you run `/craft:onboard`, the plugin creates:
 
 ```
 <your-repo>/
@@ -149,7 +126,7 @@ When you run `/onboard`, the plugin creates:
 
 Detailed design rationale lives in this repository:
 
-- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — 22 architectural decisions with explicit reasoning
+- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — 23 architectural decisions with explicit reasoning
 - [`plugin-architecture.md`](./plugin-architecture.md) — concrete build blueprint
 
 ---

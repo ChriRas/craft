@@ -4,7 +4,7 @@ argument-hint: "[plan-or-subject]"
 allowed-tools: ["Read", "Write", "Glob"]
 ---
 
-# /grill-me — Phase 2 Alignment Interview
+# /craft:grill-me — Phase 2 Alignment Interview
 
 ## Purpose
 
@@ -20,7 +20,7 @@ This command activates `skills/grill-me/SKILL.md`.
 
 If the subject of the grilling is the active slice plan, the agent should read it first:
 
-- `Glob` `.claude/plans/*.md`. If exactly one active and the user's argument matches its scope, `Read` it before starting the interview.
+- `Glob` `.claude/craft:plans/*.md`. If exactly one active and the user's argument matches its scope, `Read` it before starting the interview.
 - Otherwise, the subject is whatever the user provides in `<plan-or-subject>` or describes in the first exchange.
 
 ---
@@ -48,7 +48,7 @@ Where the answer can be derived from the code (e.g., "what testing framework do 
 As the interview progresses, maintain an internal log of decisions reached. When the interview converges (user signals "enough" or the decision tree is fully resolved):
 
 - If aligning on a slice plan: append the resolutions to the slice plan under `## Alignment` (or merge into existing sections like `## Goal`, `## Vertical Slice Definition` if they were vague).
-- If aligning on a project decision: append to `.claude/grill-me-<subject-slug>-<date>.md` at repo root, or recommend promotion to `.claude/project/intent.md` via `/intent-update`.
+- If aligning on a project decision: append to `.claude/grill-me-<subject-slug>-<date>.md` at repo root, or recommend promotion to `.claude/project/intent.md` via `/craft:intent-update`.
 
 ### 4. Recommend next step
 
@@ -59,9 +59,9 @@ Recommended next: <appropriate step>
 
 Typical "appropriate step":
 
-- Phase 2 of a new feature → `/plan`
-- Mid-slice grill → `/execute` or `/continue`
-- Project-level decision → `/intent-update` if a decision should be promoted
+- Phase 2 of a new feature → `/craft:plan`
+- Mid-slice grill → `/craft:execute` or `/craft:continue`
+- Project-level decision → `/craft:intent-update` if a decision should be promoted
 
 ---
 
@@ -97,4 +97,4 @@ Recommended next: <command>
 
 - It does **not** ask multiple questions per response. One at a time, always.
 - It does **not** decide on the user's behalf. It recommends; the user picks.
-- It does **not** modify `intent.md` or `rules.md`. Promotions happen via `/intent-update` or Phase 8's promotion dialog.
+- It does **not** modify `intent.md` or `rules.md`. Promotions happen via `/craft:intent-update` or Phase 8's promotion dialog.
