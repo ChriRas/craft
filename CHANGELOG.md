@@ -9,3 +9,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ### Added
 - Initial plugin scaffolding: directory layout, manifest, README.
 - Architecture spec and brainstorm-decisions captured in repo root.
+
+### Changed
+- Plugin named **CRAFT** — *Coding with Rules, Autonomy, Feedback, Tests*. Earlier working name `ai-coding-tools` is gone. README now opens with ASCII-art wordmark + tagline.

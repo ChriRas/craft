@@ -1,4 +1,14 @@
-# AI Coding Tools
+# CRAFT
+
+```
+ ██████╗██████╗  █████╗ ███████╗████████╗
+██╔════╝██╔══██╗██╔══██╗██╔════╝╚══██╔══╝
+██║     ██████╔╝███████║█████╗     ██║   
+██║     ██╔══██╗██╔══██║██╔══╝     ██║   
+╚██████╗██║  ██║██║  ██║██║        ██║   
+ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝        ╚═╝   
+        Coding with Rules, Autonomy, Feedback, Tests
+```
 
 A Claude Code plugin that wraps a disciplined, language-agnostic coding workflow into reusable slash commands and skills. Drop it into any repository — shell script, library, REST API, full-stack web app, data pipeline, infrastructure code — and the agent will guide you through the same 8-phase loop with the same controls every time.
 
@@ -23,7 +33,7 @@ A complete coding-loop scaffolding:
 > The plugin is not yet in the official marketplace. For now, clone and install locally.
 
 ```bash
-git clone <repo-url> ~/.claude/plugins/ai-coding-tools
+git clone <repo-url> ~/.claude/plugins/craft
 ```
 
 After install, open Claude Code in any project and run `/onboard` to set the project up.

@@ -24,7 +24,7 @@ A Claude Code plugin that wraps the user's universal coding workflow — the 8-p
 ## 3. Plugin Directory Structure
 
 ```
-ai-coding-tools/                          # Plugin repository root
+craft/                                    # Plugin repository root
 ├── .claude-plugin/
 │   └── plugin.json                       # Claude Code plugin manifest (required location)
 ├── README.md
@@ -297,7 +297,7 @@ Items deliberately deferred from brainstorm — resolve during build:
 
 ## 14. Build Steps (next session)
 
-1. **Bootstrap repository** at `/Users/craschke/Development/AI-Coding-Tools/` with the directory structure above (move research material to a `research/` subfolder).
+1. **Bootstrap repository** at `/Users/craschke/Development/AI-Coding-Tools/` (development path; published plugin name is `craft`) with the directory structure above (move research material to a `research/` subfolder).
 2. **Author `plugin.json`** + `README.md`.
 3. **Write `skills/workflow/SKILL.md`** first — it captures the 8-phase loop methodology and is referenced by every command.
 4. **Write `skills/self-verify/SKILL.md`** next — referenced by `/debug`.

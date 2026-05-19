@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# ai-coding-tools — SessionStart hook
+# craft (Coding with Rules, Autonomy, Feedback, Tests) — SessionStart hook
 #
 # Behaviour:
 #   - If the current project has been onboarded (`.claude/project/intent.md` exists)
@@ -21,11 +21,11 @@ INTENT_FILE=".claude/project/intent.md"
 
 if [[ -f "${INTENT_FILE}" ]]; then
   cat <<'EOF'
-[ai-coding-tools] Project is onboarded. Auto-priming: please run `/prime` now to load project context for this session.
+[craft] Project is onboarded. Auto-priming: please run `/prime` now to load project context for this session.
 EOF
 else
   cat <<'EOF'
-[ai-coding-tools] Project is not onboarded. If you intend to use the 8-phase workflow here, run `/onboard` to set up project knowledge (intent.md / rules.md). Otherwise this notice can be ignored.
+[craft] Project is not onboarded. If you intend to use the 8-phase workflow here, run `/onboard` to set up project knowledge (intent.md / rules.md). Otherwise this notice can be ignored.
 EOF
 fi
 

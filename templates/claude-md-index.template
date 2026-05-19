@@ -1,6 +1,6 @@
 # {{project_name}}
 
-This project uses the [`ai-coding-tools`](https://github.com/{{plugin_repo}}) Claude Code plugin for its development workflow.
+This project uses the [`craft`](https://github.com/{{plugin_repo}}) Claude Code plugin (Coding with Rules, Autonomy, Feedback, Tests) for its development workflow.
 
 ## Project Knowledge
 
