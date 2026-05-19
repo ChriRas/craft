@@ -731,6 +731,87 @@ The following items were considered and explicitly dropped. Recorded here so fut
 
 These items had been carry-overs from earlier brainstorms but stopped producing new design tension. Parking them perpetually inflates the open-questions surface; explicitly dropping them keeps the decision space focused.
 
+### D27 — Personality Autoload (3-Tier System)
+
+> Decided 2026-05-20. Closes the parked "Capability / personality autoload" item from `plugin-architecture.md` §13 item 10. Grounded in the developer skill extracted from `research/real_live_projekt/.claude/skills/developer/` — which mixed universal, stack-specific, and project-specific content monolithically.
+
+#### Three tiers
+
+The personality system is split into three portable layers, mapped to natural clusters observed in the existing developer skill:
+
+```
+┌──────────────────────────────────────────────────────┐
+│  Tier 3 — Project-Overlay                            │
+│  Where:  .claude/project/rules.md  (already exists)  │
+│  Loaded: by /craft:prime                             │
+│  Owns:   project-specific commands, conventions,     │
+│          domain rules, tool bindings                 │
+├──────────────────────────────────────────────────────┤
+│  Tier 2 — Stack-Pack  (monolithic)                   │
+│  Where:  plugin:  skills/stack-<lang>-<fw>/SKILL.md  │
+│          user:    ~/.claude/craft-personalities/...  │
+│  Declared in: rules.md `## Personality` block        │
+│  Loaded: by /craft:execute, /craft:test,             │
+│          /craft:refactor (explicit Read)             │
+│  Frontmatter: `disable-model-invocation: true`       │
+│  Owns:   language idioms, framework patterns,        │
+│          test-framework idioms, anti-patterns        │
+├──────────────────────────────────────────────────────┤
+│  Tier 1 — Senior-Dev Baseline                        │
+│  Where:  skills/senior-developer/SKILL.md            │
+│  Loaded: by /craft:prime, always active              │
+│  Frontmatter: `disable-model-invocation: true`       │
+│  Owns:   stance, quality hierarchy, workflow gates,  │
+│          test-discipline matrix, problem-playbook    │
+└──────────────────────────────────────────────────────┘
+```
+
+Override precedence (when contents conflict): **Tier 3 > Tier 2 > Tier 1**. The project's `rules.md` always wins. This is consistent with the existing CRAFT rule-conflict resolution (D17): Rules > State, Rules > Intent (override offered).
+
+#### Why monolithic stack-packs (no PHP/Laravel/Filament split)
+
+A stack-pack bundles `<language> + <framework> + <test-framework>` into one named unit (e.g., `stack-php-laravel`). The earlier brainstorm proposal of "PHP general" → "PHP Laravel" → "PHP Laravel Filament" composition was rejected — the population of users per stack is small, and duplication between `stack-php-laravel` and `stack-php-symfony` is fine. Simplicity beats reuse here.
+
+#### Why hybrid distribution
+
+CRAFT ships a curated starter library of stack-packs (beginning with `stack-php-laravel`, extracted from the validated `real_live_projekt/developer.md`). Users can add their own at `~/.claude/craft-personalities/`. Plugin updates refresh shipped packs; user-added packs are untouched. This mirrors the marketplace model: official content + user content, both discoverable, no overwrite.
+
+#### Why declared + explicit-load for Stack-Pack
+
+`rules.md` is the single source of truth for what stack-pack is active in a given project. Implementation-time commands (`/craft:execute`, `/craft:test`, `/craft:refactor`) read this declaration and load the skill explicitly via `Read`. CC's native description-triggered auto-activation is **off** for stack-packs (`disable-model-invocation: true`) to prevent cross-stack contamination (e.g., a Python pack activating in a Laravel project when "Python" is mentioned in passing).
+
+This is consistent with `feedback-human-control`: durable loading is human-controlled, not LLM-opportunistic.
+
+#### Why Senior-Dev is loaded by /craft:prime, not lazy
+
+The Senior-Dev baseline is small (~2-3KB), universal (no stack-specific risk), and relevant in every phase (planning, debugging, executing, recapping). Loading it once at session start, like `skills/workflow/`, matches its semantic role: the embodiment of the CRAFT mindset itself. Stack-packs are large (~8-10KB+), framework-specific, and only relevant during code-near work — those stay lazy.
+
+#### Open implementation details (out of scope for D27)
+
+These belong to the implementation slice when it opens:
+
+- How `/craft:onboard` heuristically detects the stack and proposes a stack-pack name (composer.json → `stack-php-laravel`, package.json with Next.js → `stack-ts-nextjs`, etc.).
+- Exact schema of the `## Personality` block in `rules.md` (single field vs. structured section, optional vs. required).
+- Behavior of `/craft:prime` when `rules.md` declares a stack-pack that is not installed (warn + fall back to Senior-Dev only).
+- Whether `/craft:plan` and `/craft:debug` also load the stack-pack (current assumption: no — Senior-Dev is enough for planning and debug-protocol negotiation).
+- Content extraction work: split `research/real_live_projekt/.claude/skills/developer/` into `skills/senior-developer/` (Cluster A) + `skills/stack-php-laravel/` (Cluster B), with Cluster C (project-specific) staying in the existing `rules.md` template.
+
+#### File structure (canonical)
+
+```
+skills/
+├── senior-developer/
+│   └── SKILL.md
+└── stack-php-laravel/
+    ├── SKILL.md
+    └── references/
+        ├── code-quality-standards.md
+        ├── framework-patterns.md
+        └── test-patterns.md
+```
+
+User-added packs mirror the same shape at `~/.claude/craft-personalities/stack-<name>/`.
+
 ---
 
 ## 7. Carry-Over to Next Clusters

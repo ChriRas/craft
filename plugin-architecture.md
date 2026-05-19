@@ -278,16 +278,7 @@ Items deliberately deferred from brainstorm — resolve during build:
 7. **`agent-browser` skill source** — pull from existing `real_live_projekt` version, or upstream source? Versioning?
 8. **Tool-dependency self-check at install** — the Claude Code plugin spec does **not** support declarative dependency-on-tools (e.g., `requires: context-mode, agent-browser, gh`). Therefore, the missing-tool detection has to happen at `/prime` runtime (D17 already specifies this — confirmed correct approach).
 9. **Plugin version stamping** — the plugin cannot detect its own version at runtime via the spec. For the `plugin-version` field in slice plan frontmatter (D22-S6), `/plan` reads `.claude-plugin/plugin.json` directly via the workflow skill.
-10. **Capability / personality autoload (parked for future brainstorm)** — where does the library of language/framework personalities live, and how is it lazy-loaded?
-   - Distinct from project-local specialist skills: a personality like "Symfony Senior PHP Developer" or "Django Backend Engineer" is **portable across projects** that share the same framework, so duplicating it in every `.claude/skills/` is wrong.
-   - Distinct from the plugin's universal shell: personalities are language- and framework-specific.
-   - Candidate locations:
-     - Plugin ships a `personalities/` library (versioned, updatable with the plugin).
-     - User-global `~/.claude/personalities/` (shared across all the user's projects, separate from plugin updates).
-     - Hybrid: plugin ships a baseline, user-global extends/overrides.
-   - Distinction within a stack: e.g., "PHP general" vs. "PHP Symfony" vs. "PHP Laravel" — personalities likely need composition or inheritance ("Symfony" extends "PHP general").
-   - Trigger: agent loads the right personality on demand based on `intent.md` / detected stack / explicit `/persona <name>` invocation.
-   - **Decision deferred** — needs its own brainstorm thread before implementation. Likely introduces a third tier between the plugin and project-local layers.
+10. **Capability / personality autoload — decided in D27.** A 3-tier system (Senior-Dev Baseline / Stack-Pack / Project-Overlay) with hybrid distribution (plugin-shipped starter + `~/.claude/craft-personalities/` for user-added packs), monolithic stack-packs (no language/framework split), and declared-and-explicit-load for stack-packs via `rules.md`. See [`brainstorm-decisions.md`](./brainstorm-decisions.md) §6 D27 for the full rationale and the implementation details still open.
 
 ## 14. Build Steps (next session)
 
