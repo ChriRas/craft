@@ -1,0 +1,39 @@
+# Intent
+
+> What we want and why. Keep this file under ~80 lines — it loads on every `/prime`. Operational instructions (verifiable against State) belong in `rules.md`, not here.
+
+## Product Vision
+
+{{vision_one_to_three_sentences}}
+
+## Active Goals
+
+- {{goal_1}}
+- {{goal_2}}
+- {{goal_3}}
+
+## Architectural Decisions
+
+Single-alternative form (most decisions):
+
+- **{{decision_name}}** — {{reason}}. *Why not {{alternative}}:* {{rationale_against_alternative}}
+
+Multi-alternative form (when several options were considered and rejected):
+
+- **{{decision_name}}** — {{reason}}.
+  - *Why not {{alternative_1}}:* {{rationale_1}}
+  - *Why not {{alternative_2}}:* {{rationale_2}}
+  - *Why not {{alternative_3}}:* {{rationale_3}}
+
+## Non-Goals
+
+Explicit out-of-scope items, to prevent scope creep.
+
+- {{non_goal_1}}
+- {{non_goal_2}}
+
+## Open Questions
+
+Cross-slice product questions that need answering between slices.
+
+- {{open_question_1}}

@@ -1,0 +1,35 @@
+# Slice {{NNN}} — {{title}}
+
+> Completed: {{ISO_date}}
+> Commits: {{first_hash}}..{{last_hash}} ({{PR_reference_or_branch_only}})
+
+## What
+
+{{one_or_two_sentences_what_happened}}
+
+## Why
+
+- {{product_or_architectural_reason_1}}
+- {{product_or_architectural_reason_2}}
+
+## Decisions
+
+- **{{decision_name}}** — {{reasoning}}. *Why not* {{alternative}}: {{rationale_against_alternative}}
+
+## Commits
+
+- `{{hash}}` — {{commit_subject}}
+- `{{hash}}` — {{commit_subject}}
+- `{{hash}}` — {{commit_subject}}
+
+## How (Diagram)
+
+> Optional, only for complex slices (>3 modules/files touched). Plain Mermaid blocks.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Component
+    User->>Component: trigger
+    Component-->>User: observable effect
+```

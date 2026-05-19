@@ -1,0 +1,39 @@
+# {{project_name}}
+
+This project uses the [`ai-coding-tools`](https://github.com/{{plugin_repo}}) Claude Code plugin for its development workflow.
+
+## Project Knowledge
+
+- [`.claude/project/intent.md`](./.claude/project/intent.md) — Vision, goals, architectural decisions.
+- [`.claude/project/rules.md`](./.claude/project/rules.md) — Stack, conventions, deployment, tabus.
+- [`.claude/project/roadmap.md`](./.claude/project/roadmap.md) — Long-term phases (optional).
+- [`.claude/project/slices/`](./.claude/project/slices/) — Archived completed slices (Decision Log).
+
+## Active Work
+
+- [`.claude/plans/`](./.claude/plans/) — Currently active slice plans (ephemeral; deleted on Phase 8 cleanup).
+
+## Common Commands
+
+> Reminders of the project's everyday commands. Lives in this index (not in `rules.md`) so it stays close to the developer's daily reach and is not re-loaded on every `/prime`.
+
+```bash
+# Environment
+{{env_command_e_g_task_start}}
+
+# Development
+{{dev_command_e_g_task_artisan_migrate}}
+
+# Quality
+{{quality_command_e_g_task_test}}
+{{quality_command_e_g_task_pint}}
+{{quality_command_e_g_task_phpstan}}
+```
+
+Add or remove rows as the project's tooling evolves. Keep it short — full task definitions live in the project's actual task file (`Makefile`, `Taskfile.yml`, `package.json` scripts, etc.).
+
+## Workflow
+
+Every session starts with `/prime`, which is auto-triggered by the plugin's SessionStart hook. To plan new work: `/plan <feature-name>`. To resume open work: `/continue`.
+
+See the plugin's [README](https://github.com/{{plugin_repo}}) for the full 8-phase workflow and command reference.

@@ -1,0 +1,83 @@
+# Slice {{NNN}} — {{title}}
+
+> Status: planning | implementing | testing | review | refactoring | committing | paused | committed
+> Slice-ID: slice-{{NNN}}
+> Slice-Slug: {{slug}}
+> Started: {{ISO_date}}
+> Phase: 3
+> plugin-version: {{plugin_version}}
+> Handoff active: no
+
+## Goal
+
+{{one_sentence_definition_of_done}}
+
+## Vertical Slice Definition
+
+{{which_layers_or_components_this_slice_spans}}
+
+## Trigger
+
+{{recorded_answer_from_phase_3_question_1}}
+
+## Effect
+
+{{recorded_answer_from_phase_3_question_2}}
+
+## Test Strategy
+
+{{recorded_answer_from_phase_3_question_3}}
+
+## Sub-Tasks
+
+- [ ] {{sub_task_1}}
+- [ ] {{sub_task_2}}
+- [ ] {{sub_task_3}}
+
+## Active Rule Overrides
+
+> Stage-2 overrides for this slice. Cleared automatically on Phase 8 cleanup.
+
+(none)
+
+## Bugs
+
+> Filled by `/test` (Phase 5 [B] feedback) or `/debug`.
+
+(none)
+
+## Verification Protocols
+
+> Filled by `/debug` Step 2 (PROTOCOL). Frozen — no mid-loop mutation.
+
+(none)
+
+## Bug Fix Attempts
+
+> Filled by `/debug` Step 3 (AUTONOMOUS LOOP). Audit trail of each attempt.
+
+(none)
+
+## Decisions Made During This Slice
+
+> Captured as architectural / product decisions surface. Phase 8 walks each entry with `[K]/[I]/[R]/[D]` promotion dialog.
+
+- (none yet)
+
+## Recap Draft
+
+> Filled by `/recap` (Phase 6). Becomes the basis for the slice archive in Phase 8.
+
+(not yet recorded)
+
+## Handoff
+
+> Filled by `/handoff` when context-poisoned. Read by the next session's `/prime`.
+
+(none)
+
+## Pause Note
+
+> Filled by `/pause` when work pauses mid-phase.
+
+(none)

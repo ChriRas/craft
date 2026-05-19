@@ -1,0 +1,26 @@
+# Roadmap
+
+> Long-term phases / releases. Lives outside `intent.md` so Intent stays compact. Optional file — only create if your project has multi-stage milestones.
+
+## Phases
+
+### Phase 1 — {{phase_name}}
+{{description}}
+
+Status: {{status_e_g_done_in_progress_planned}}
+
+### Phase 2 — {{phase_name}}
+{{description}}
+
+Status: {{status}}
+
+### Phase {{N}} — {{phase_name}}
+{{description}}
+
+Status: {{status}}
+
+## Releases (optional)
+
+| Version | Date | Highlights |
+|---|---|---|
+| {{version}} | {{date}} | {{highlights}} |

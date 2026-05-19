@@ -1,0 +1,48 @@
+# Rules
+
+> How we build, always. Every rule here must be **verifiable against State** (code, configs, manifests). Non-verifiable conventions belong in `intent.md`. Keep this file under ~80 lines.
+
+## Stack & Tools
+
+- **Language:** {{language_and_version}}
+- **Test Framework:** {{test_framework}}
+- **Lint / Format:** {{linter_and_formatter}}
+- **Static Analysis:** {{static_analysis_tool_and_level}}
+- **Package Manager:** {{package_manager}}
+- **Other:** {{other_relevant_tooling}}
+
+## Workflow Rules
+
+Operational rules with verifiable conditions.
+
+- {{rule_e_g_tests_must_be_green_before_commit}}
+- {{rule_e_g_no_direct_push_to_main_always_pr}}
+- {{rule_e_g_run_lint_before_commit}}
+
+## Code Conventions
+
+- {{convention_e_g_domain_logic_in_services_not_controllers}}
+- {{convention}}
+
+## Tabus (Anti-Patterns)
+
+Things that must never happen.
+
+- {{tabu_e_g_no_eval_no_secrets_in_code}}
+- {{tabu}}
+
+## Deployment
+
+- **Branch model:** {{branch_model_e_g_trunk_based_or_gitflow}}
+- **Release tagging:** {{tagging_scheme}}
+- **Deploy command:** {{deploy_command_or_workflow_path}}
+- **Pre-deploy checks:** {{checks}}
+
+## Self-Verification Settings (optional)
+
+Override `/debug` and stale-slice defaults if needed.
+
+- **Max attempts:** 5
+- **Auto-trigger threshold:** 2
+- **Token brake during loop:** 15000
+- **Stale slice threshold:** 7 days
