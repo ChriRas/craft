@@ -643,6 +643,81 @@ The user picks; `/craft` does not auto-execute. This preserves Human-Control.
 
 A small spike (`/craft` skill stub that prints detected state) is the right next step before bulk-refactoring the 17 sub-commands.
 
+### D24 — Pre/Post-Assertions for Durable-State Commands
+
+> Decided 2026-05-20, prompted by the `/craft:upgrade` design (v0.2.0).
+
+#### What
+
+CRAFT adopts a named **Pre/Post-Assertion pattern** for commands that mutate durable state outside the running session. The pattern is documented in `skills/workflow/SKILL.md` and applied selectively — never as ceremony.
+
+#### Scope — required
+
+- `/craft:onboard` — Pre: target directory is unowned by an existing CRAFT setup; Post: `intent.md` + `rules.md` both exist with valid frontmatter.
+- `/craft:plan` — Pre: no in-flight slice already covers the requested feature; Post: slice plan file exists, frontmatter parses, sub-tasks section present.
+- `/craft:commit` — Pre: working tree state matches expected, plan file present; Post: commit landed, plan file deleted, archive entry written.
+- `/craft:abort` — Pre: plan file exists; Post: plan file gone.
+- `/craft:upgrade` — already implemented in v0.2.0 as the reference implementation.
+
+#### Scope — exempt
+
+- Read-only commands (`/craft:status`, `/craft:prime`, `/craft`) — no mutation, no assertions.
+- Phase-execution commands (`/craft:execute`, `/craft:test`, `/craft:refactor`) — open-ended code changes; assertions would be ceremonial.
+- Pure-conversation commands (`/craft:brainstorm`, `/craft:grill-me`, `/craft:debug`) — no FS mutation.
+
+#### Pattern shape
+
+Each assertion is a discrete, named check. Failure stops the command with a loud message — never silent override, never auto-correction. This mirrors the `/craft:upgrade` template:
+
+```
+## Pre-Assertions
+### A1 — <name>
+<check>
+On failure: <abort message, no mutation>
+
+## Procedure
+...
+
+## Post-Assertions
+### P1 — <name>
+<check>
+On failure: <warn loudly, surface to user, do not pretend success>
+```
+
+#### Why
+
+- Aligns with `feedback-human-control`: durable mutations require explicit guardrails.
+- Aligns with `feedback-recommendation-over-blocking`: strict only at the boundary of durable state changes, not for style.
+- Mirrors context-mode's defensive pattern without adopting its build complexity.
+
+#### Open
+
+Retrofit existing durable-state commands in a separate slice — not blocking this decision.
+
+### D25 — No MCP Server for CRAFT (for now)
+
+> Decided 2026-05-20.
+
+#### Decision
+
+CRAFT stays **pure Markdown** — no MCP server, no build pipeline, no native addons, no runtime dependencies. Slice state remains derivable from `.claude/plans/*.md` files via `Glob` + `Read`.
+
+#### Why
+
+- CRAFT's USP is the "Plugin = nur Markdown" charm: zero install friction, forkable, contributor-friendly, debuggable by reading the files.
+- Slice-state queries (active slices, phase, stale detection) are already fast enough at the scale we have observed.
+- An MCP server would tilt CRAFT into context-mode's category — different tool, different value proposition.
+
+#### When to revisit
+
+Concrete performance pain (e.g., `/craft:prime` consistently >5s on a project with many slices, or cross-session state needs that can't be expressed in file frontmatter). Until then, do not speculatively design it.
+
+#### What we do **not** do
+
+- No build step, no `package.json` for the plugin root.
+- No background process, no daemon.
+- No SQLite or any other persistent index.
+
 ---
 
 ## 7. Carry-Over to Next Clusters
