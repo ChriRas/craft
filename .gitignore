@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Claude Code local state (kept out of plugin distribution)
+.claude/settings.local.json
+
+# OS temp / logs
+*.log
+*.tmp
+
+/research
