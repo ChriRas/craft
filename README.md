@@ -20,8 +20,8 @@ A Claude Code plugin that wraps a disciplined, language-agnostic coding workflow
 
 A complete coding-loop scaffolding:
 
-- **17 slash commands** that move you through Brainstorm → Alignment → Planning → Implementation → Testing → Recap → Refactoring → Commit & Cleanup, with explicit navigation cues at every session start.
-- **5 universal skills**: the 8-phase workflow itself, bug-verification protocol, structured brainstorming, interview-style alignment, browser automation.
+- **17 slash entry points** (14 commands + 3 slash-invocable skills) that move you through Brainstorm → Alignment → Planning → Implementation → Testing → Recap → Refactoring → Commit & Cleanup, with explicit navigation cues at every session start.
+- **5 universal skills**: the 8-phase workflow itself, bug-verification protocol (`/craft:debug`), structured brainstorming (`/craft:brainstorm`), interview-style alignment (`/craft:grill-me`), browser automation.
 - **A two-tier architecture**: the plugin ships the universal shell; your project keeps its own language/framework specialists in `.claude/skills/` and `.claude/agents/`, lazy-loaded at runtime.
 - **A SessionStart hook** that auto-runs `/craft:prime` in Craft-onboarded projects so every fresh chat orients itself; stays silent in non-Craft projects.
 - **A migration path** for projects that already have a `.claude/` setup — `/craft:onboard` detects the existing content and moves conflicting commands to `_legacy/` while preserving project-specific specialists.
@@ -119,6 +119,19 @@ When you run `/craft:onboard`, the plugin creates:
     │   └── slices/                 # Archived completed slices (Decision Log)
     └── plans/                      # Active slice plans
 ```
+
+---
+
+## Recommended Companion Plugins
+
+CRAFT works standalone, but two adjacent plugins make Phases 3 and 4 noticeably smoother:
+
+| Plugin | What it does | When CRAFT benefits |
+|---|---|---|
+| `context7` | On-demand library / framework / SDK docs lookup via MCP. Pulls authoritative API references for any library the agent is touching. | **Phase 3 (Plan)** and **Phase 4 (Execute)** — kills hallucinated library calls. The CRAFT workflow itself was validated using `context7`. |
+| `context-mode` | Routes large command output (logs, test runs, doc fetches, page snapshots) into a sandboxed knowledge base; only summaries enter the conversation. | **Phase 4 (Execute)** and **Phase 5 (Test)** — keeps context-window pressure low on long-running implementations and test suites. `/craft:prime` already detects and reports its presence. |
+
+Neither is required. CRAFT does not depend on either, and `/craft:prime` stays useful without them.
 
 ---
 

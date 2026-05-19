@@ -157,5 +157,5 @@ Vor der Entscheidung Doku-Recherche + ein kleiner Spike (1 Command → Skill kon
 1. ~~Entscheidung als Update in `brainstorm-skill-shortname-pattern.md` festhalten~~ ✅ (dieses Dokument)
 2. ~~**Spike:** `debug` als erstes auf Skill konvertieren~~ ✅ (Commit `27db6e0`)
 3. ~~Bei Erfolg: `brainstorm` + `grill-me` migrieren~~ ✅ (dieser Commit) — beide mit `disable-model-invocation: true`, CRAFT-spezifische Slash-Sektion in den Skill-Body integriert.
-4. README ergänzen: `context7` und `context-mode` als "recommended companion plugins" dokumentieren.
+4. ~~README ergänzen: `context7` und `context-mode` als "recommended companion plugins" dokumentieren~~ ✅ (dieser Commit)
 5. Optional: `prime` Hybrid-Refactor (Skill mit Hook + manual Command) — geringe Priorität.
