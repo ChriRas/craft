@@ -9,8 +9,6 @@ allowed-tools: ["Read", "Glob", "Bash"]
 
 This skill is the single user-facing entry to the CRAFT plugin. The plugin name (`craft`) equals the skill name (`craft`), so Claude Code's namespace collapse exposes this skill as `/craft` (mirrors the `/context-mode` pattern).
 
-**Spike status (2026-05-19):** This is the first iteration. Three open validations from `brainstorm-decisions.md` D23 are tested by this skill's behavior at runtime — see the "Validation probes" section at the bottom. After validation, expand or simplify the skill accordingly.
-
 ---
 
 ## What This Skill Does on Invocation
@@ -132,51 +130,5 @@ Do not invoke any sub-command. The user reads the menu and types one of the offe
 
 - It does **not** run `/craft:prime`. Priming is a separate, heavier check the user invokes explicitly when needed.
 - It does **not** start any phase, modify files, or commit anything.
-- It does **not** auto-trigger from keywords. For the Spike, activation is only via the explicit `/craft` invocation. Description-based auto-trigger may be added later if it proves useful.
-- It does **not** accept arguments. `/craft` is a no-arg dispatcher. If the user passes arguments by accident, ignore them silently and emit the menu anyway. (Validation probe — see below.)
-
----
-
-## Validation probes (Spike-only — D23 open questions)
-
-The following observations should be captured during the first real-world invocations and reported back to the brainstorm thread before the skill is treated as stable.
-
-### Probe 1 — `$ARGUMENTS` substitution in skills
-
-If the user invokes `/craft something extra`, observe whether the literal text `something extra` is accessible inside this skill's execution context as `$ARGUMENTS` (analogous to commands).
-
-**To probe:** When invoked, also emit a single hidden diagnostic line **only if the user passed unexpected text after `/craft`**:
-
-```
-[spike] received trailing input: "<the trailing text>" — ignored by /craft, but logged here so we can verify how skills receive arguments
-```
-
-If the trailing text appears verbatim, `$ARGUMENTS` (or its equivalent) works in skills. If only a generic placeholder appears, skills receive arguments differently than commands.
-
-### Probe 2 — Bash / Read at skill invocation
-
-This skill uses `Read`, `Glob`, and (implicitly) Bash via the `allowed-tools` frontmatter. Successful execution of Step 1 (state detection) is itself the validation: if the skill can read `intent.md` and glob `.claude/plans/`, then skills can perform filesystem operations equivalent to commands.
-
-**To probe:** Simply run `/craft` in a Craft-onboarded project and observe whether the state menu is correctly emitted (not a placeholder). Success = probe passed.
-
-### Probe 3 — Skill vs. project-local shim conflict
-
-The user-global shims have already been removed (Part B). To probe behavior on conflict, deliberately create a temporary `~/.claude/commands/craft.md` with body `/craft:status` (a different action), then invoke `/craft`.
-
-**Expected outcomes:**
-- If the project-local command wins (Claude Code precedence), `/craft` will run `/craft:status` instead of this skill — the skill is shadowed.
-- If the skill wins, this skill runs as designed and the shim is inert.
-
-After observation, delete the temporary shim. **Do not leave it in place** — it would defeat the single-entry-point design.
-
----
-
-## Forward path after the Spike
-
-Once the three probes are answered:
-
-- If all green → expand this skill: add tool-health quick-check, support a tighter menu rendering, consider Description-trigger keywords for auto-activation in conversational contexts ("where am I?", "what's next?").
-- If Probe 2 fails (Bash/Read not allowed in skills at invocation time) → fall back: keep `/craft` as a thin command (`commands/craft.md`) and accept the lost namespace collapse.
-- If Probe 3 reveals unexpected precedence → document the behavior in the README install section.
-
-This skill is intentionally minimal — no decoration, no logic that cannot be removed if a probe fails.
+- It does **not** auto-trigger from keywords. Activation is only via the explicit `/craft` invocation. Description-based auto-trigger may be added later if it proves useful.
+- It does **not** accept arguments. `/craft` is a no-arg dispatcher. If the user passes arguments by accident, ignore them silently and emit the menu anyway.

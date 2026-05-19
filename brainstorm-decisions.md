@@ -636,12 +636,8 @@ The user picks; `/craft` does not auto-execute. This preserves Human-Control.
 - **No shim files** in `~/.claude/commands/`. Existing shims from the earlier short-name policy will be removed.
 - Internal cross-references inside command/skill bodies and hooks must use the full `/craft:<name>` form to avoid collisions with Claude Code reserved names (e.g. `/plan` vs. Plan-Mode) and with project-local `commands/<name>.md` overrides (D20 migration scenario).
 
-#### Open validations (carry-over from `brainstorm-skill-shortname-pattern.md`)
-- [ ] Can a skill with `user-invocable: true` accept arguments analogous to `$ARGUMENTS`? (Relevant only if any sub-command logic migrates to skill form — `/craft` itself takes no args.)
-- [ ] Are skill bodies allowed to run Bash and read filesystem state at invocation time? (Required for state-detection.)
-- [ ] Conflict behavior between a `/craft` skill and a `~/.claude/commands/craft.md` shim — should never coexist, but confirm precedence.
-
-A small spike (`/craft` skill stub that prints detected state) is the right next step before bulk-refactoring the 17 sub-commands.
+#### Spike closed (2026-05-20)
+The `/craft` skill stub shipped in v0.1.0/v0.2.0 and is in active use. The three probes are no longer load-bearing — see D26 for the dropped follow-ups.
 
 ### D24 — Pre/Post-Assertions for Durable-State Commands
 
@@ -718,11 +714,27 @@ Concrete performance pain (e.g., `/craft:prime` consistently >5s on a project wi
 - No background process, no daemon.
 - No SQLite or any other persistent index.
 
+### D26 — Dropped Follow-Ups (Spring 2026 Cleanup)
+
+> Decided 2026-05-20.
+
+The following items were considered and explicitly dropped. Recorded here so future iterations of the project don't speculatively resurrect them without a fresh decision.
+
+#### Dropped
+
+- **D23 Probe 3 — Skill vs. project-local command shim precedence.** The `/craft` skill is in active use; the precedence corner case is not load-bearing. If a real-world collision ever occurs, deal with it then.
+- **`/craft:upgrade` dogfood test.** v0.2.0 ships; we will validate the pull path naturally when v0.3.0 is cut. No dedicated dogfood slice required.
+- **`/craft:prime` hybrid refactor (skill + hook + manual command).** Item 5 of `brainstorm-skill-shortname-pattern.md`'s "Folge-Schritte". The current `/craft:prime` command + SessionStart hook is sufficient; no observed need to convert it to a skill.
+- **`prime` trigger mode (auto vs. manual) banking as a formal decision.** Already settled in practice — auto-prime fires only when `.claude/project/intent.md` exists; manual `/craft:prime` is always available. No formal decision artifact needed.
+
+#### Why dropped, not parked
+
+These items had been carry-overs from earlier brainstorms but stopped producing new design tension. Parking them perpetually inflates the open-questions surface; explicitly dropping them keeps the decision space focused.
+
 ---
 
 ## 7. Carry-Over to Next Clusters
 
-- **`prime` trigger mode** (auto vs. manual): still open — natural opener for the phase-navigation design.
 - **Plans are ephemeral**: fully decided (D7 + D8).
 - **Universal slice definition (S8)**: resolved (D10/D11/D12).
 - **Cross-slice memory (S9)**: resolved by D8.
