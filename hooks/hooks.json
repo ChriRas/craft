@@ -1,0 +1,16 @@
+{
+  "description": "Auto-prime when the project is onboarded; nudge to /onboard otherwise. Fires on SessionStart, runs the bundled shell script which emits guidance read by Claude as session context.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
