@@ -10,26 +10,57 @@ allowed-tools: ["Bash", "Read", "Write", "Glob"]
 
 Open Phase 3 of the workflow: break the next chunk of work into a vertical slice that is end-to-end testable, minimal, self-contained, and standalone-experienceable.
 
-Follow `skills/workflow/SKILL.md` Phase 3 mechanics. The three universal questions are non-negotiable — every slice must answer them before any code is written.
+This command is a **durable-state mutation** (writes a slice plan file, bumps the slice counter) and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md` (D24). The three universal questions from Phase 3 are non-negotiable — every slice must answer them before any code is written.
 
 ---
 
 ## Pre-flight
 
-### 1. Require onboarding
+### Step 1 — Hold project knowledge
 
-- `Read` `.claude/project/intent.md`. If missing → tell the user *"Project not onboarded. Run `/craft:onboard` first."* and stop.
-- `Read` `.claude/project/rules.md`. Hold both in context.
+- `Read` `.claude/project/intent.md` and `.claude/project/rules.md`. Hold both in context for use during the dialogic phase.
 
-### 2. Allocate slice ID
+This step is non-fatal on read errors — the Pre-Assertions decide whether to abort. Pre-flight only loads what is needed.
 
-- `Read` `.claude/plans/.next-id`. If missing, treat the next ID as `001` and create the file.
-- The slice ID is the value in that file, zero-padded to 3 digits (e.g., `007`).
-- After writing the plan file, increment the counter and write back.
+---
 
-### 3. Determine plugin version (for slice frontmatter)
+## Pre-Assertions
 
-- `Read` `.claude-plugin/plugin.json` from the installed plugin directory (via `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`). Extract the `version` field. Store as `plugin-version` for the slice frontmatter.
+Run all four. Any failure stops the command before any file is touched.
+
+### A1 — Project is onboarded
+
+`Read` `.claude/project/intent.md` and `.claude/project/rules.md`. Both must exist and be non-empty.
+
+Failure → abort:
+
+```
+Project is not onboarded (intent.md and/or rules.md missing). Run
+`/craft:onboard` first, then re-run /craft:plan.
+```
+
+### A2 — Slice template available
+
+Confirm `Read`-ability of `${CLAUDE_PLUGIN_ROOT}/templates/slice-plan.md.template`.
+
+Failure → abort: *"Plugin template `slice-plan.md.template` missing at `<path>`. The CRAFT install may be corrupted — re-install the plugin."*
+
+### A3 — Plugin manifest readable
+
+`Read` `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`. Must parse as JSON and contain a `version` string.
+
+Failure → abort: *"Plugin manifest unreadable — version cannot be recorded in slice frontmatter. Re-install the plugin."*
+
+### A4 — Slice counter consistent
+
+- `Read` `.claude/plans/.next-id`. If missing, treat the next ID as `001` (allowed; the procedure will create it).
+- If present, the file content must parse as a positive integer. If it does not (corrupted), abort:
+
+  ```
+  ⚠ .claude/plans/.next-id contains a non-integer value: "<content>".
+     /craft:plan will not guess. Inspect the file manually or reset it to the
+     next slice number derived from the highest existing slice-NNN-*.md file.
+  ```
 
 ---
 
@@ -38,6 +69,8 @@ Follow `skills/workflow/SKILL.md` Phase 3 mechanics. The three universal questio
 The command argument is the feature or slice name. If absent, ask: *"Which slice should we plan? Short name in 3–6 words."*
 
 Derive `<slug>` from the name: lowercase, hyphenated, no whitespace.
+
+If a file `.claude/plans/slice-*-<slug>.md` already exists, append `-2`, `-3`, etc., to the slug to avoid collision.
 
 ### 1. Trigger question
 
@@ -77,6 +110,8 @@ Ask:
 
 Capture verbatim. The test strategy is **committed before any code is written**.
 
+If the user cannot articulate a test strategy, push back per Error Handling — do **not** write a plan with an empty test section.
+
 ### 4. Sub-task decomposition
 
 Ask the user, or propose draft sub-tasks based on the trigger / effect / test answers. Sub-tasks should be small enough to bundle individually (≤ a logical work block).
@@ -87,7 +122,12 @@ Each sub-task is a single bullet under `## Sub-Tasks`. Use `- [ ]` for unchecked
 
 For UI-bearing slices, ask: *"Do you have a sketch or wireframe? You can describe it in words or paste a path to an image."* Capture if provided.
 
-### 6. Generate the plan file
+### 6. Allocate slice ID
+
+- Slice ID = value from `.claude/plans/.next-id` (or `001` if the file is missing), zero-padded to 3 digits.
+- Hold the ID and the next-counter value in memory; both will be written atomically in step 7.
+
+### 7. Generate the plan file
 
 Use `templates/slice-plan.md.template`. Substitute:
 
@@ -104,30 +144,62 @@ Use `templates/slice-plan.md.template`. Substitute:
 
 Write to `.claude/plans/slice-<NNN>-<slug>.md`.
 
-### 7. Increment slice counter
+### 8. Increment slice counter
 
-Write the next integer back to `.claude/plans/.next-id`.
+Write the next integer back to `.claude/plans/.next-id`. If the file did not exist before, create it now with the value `2` (since slice `001` was just written).
 
-### 8. Confirm and hand off
+---
 
-Tell the user:
+## Post-Assertions
 
-```
-✓ Slice slice-<NNN> "<title>" planned. Status: planning → ready for Phase 4.
+Run all four after the procedure completes. Any failure → warn loudly, surface to the user, do **not** pretend success. No auto-rollback.
 
-Next: /craft:execute to start implementation.
-```
+### P1 — Plan file exists with valid frontmatter
 
-Update the slice plan's `Status:` to `implementing` only when `/craft:execute` actually starts — not here.
+- `Read` `.claude/plans/slice-<NNN>-<slug>.md`. Must exist and be non-empty.
+- Frontmatter must contain `Slice-ID: slice-<NNN>`, `Status: planning`, `Phase: 3`, `Started:` (ISO date), and `plugin-version:`.
+
+Failure → *"⚠ Plan file missing or malformed at `<path>`. Inspect manually before continuing to /craft:execute."*
+
+### P2 — Required sections present
+
+The plan file must contain these section headers:
+
+- `## Trigger`
+- `## Observable Effect`
+- `## Test Strategy`
+- `## Sub-Tasks`
+- `## Active Rule Overrides`
+- `## Bugs`
+- `## Verification Protocols`
+- `## Bug Fix Attempts`
+- `## Decisions Made During This Slice`
+
+Failure → *"⚠ Plan file is missing required sections: `<list>`. The template may be malformed or the substitution failed."*
+
+### P3 — Trigger / Effect / Test sections non-empty
+
+The three universal-question sections must each contain user-captured content (not the template placeholder).
+
+Failure → *"⚠ One or more of Trigger / Effect / Test sections is empty. The plan was written, but Phase 3 is not actually answered. Edit `<path>` before /craft:execute."*
+
+### P4 — Counter incremented
+
+- `Read` `.claude/plans/.next-id`. Must equal the value held in memory after step 8 (old value + 1).
+- If the file did not exist before, it must now exist with value `2`.
+
+Failure → *"⚠ Slice counter not incremented — the next /craft:plan call may collide with this slice ID. Inspect `.claude/plans/.next-id` and fix manually."*
 
 ---
 
 ## Output Format
 
-After the plan file is written, emit:
+Success:
 
 ```
 ✓ Plan: .claude/plans/slice-<NNN>-<slug>.md
+✓ Pre-assertions: onboarded, template ✓, manifest ✓, counter ✓
+✓ Post-assertions: frontmatter ✓, sections ✓, three universal questions answered, counter incremented
 
   Trigger: <one line>
   Effect:  <one line>
@@ -137,23 +209,42 @@ After the plan file is written, emit:
 Next: /craft:execute
 ```
 
+Aborted:
+
+```
+Plan aborted — <reason>. No changes made.
+```
+
+Partial (post-assertion failure):
+
+```
+⚠ Plan partially written — <which assertion(s) failed>.
+   File: <path>
+   Inspect and reconcile manually before running /craft:execute.
+```
+
 ---
 
 ## Error Handling
 
 | Situation | Behavior |
 |---|---|
-| Not onboarded | Stop with `/craft:onboard` recommendation. |
-| User skips one of the three universal questions | Re-ask; do not write the plan with empty trigger / effect / test sections. |
-| `.claude/plans/.next-id` is corrupt (non-integer) | Tell user, ask whether to reset to the next ID derived by scanning existing slice files; do not silently overwrite. |
-| Slug collides with an existing slice file | Append `-2`, `-3`, etc., to the slug. |
-| User wants to plan with no clear test strategy | Push back: *"Phase 3 requires a test strategy before Phase 4. If we cannot articulate one, the slice may be too vague — let's break it down further or revisit the goal."* |
+| A1 fails (not onboarded) | Abort with `/craft:onboard` recommendation. |
+| A2 fails (template missing) | Abort with plugin-reinstall hint. |
+| A3 fails (manifest unreadable) | Abort with plugin-reinstall hint. |
+| A4 fails (corrupt `.next-id`) | Abort; user inspects manually, no auto-reset. |
+| User skips one of the three universal questions | Re-ask; do not write the plan with empty trigger / effect / test sections. P3 would catch a slip, but the dialog should not let it through in the first place. |
+| Slug collides with an existing slice file | Append `-2`, `-3`, etc., to the slug. Handled in Procedure pre-step (before step 1). |
+| User wants to plan with no clear test strategy | Push back: *"Phase 3 requires a test strategy before Phase 4. If we cannot articulate one, the slice may be too vague — let's break it down further or revisit the goal."* Do not proceed to step 7. |
+| P1/P2/P3 fail after write | Warn loudly; emit partial-completion block; do not auto-rollback. |
+| P4 fails (counter not incremented) | Warn loudly; user fixes `.next-id` manually before the next /craft:plan. |
 
 ---
 
 ## What This Command Does NOT Do
 
 - It does **not** write any code.
-- It does **not** start Phase 4.
+- It does **not** start Phase 4. Update the slice plan's `Status:` to `implementing` only when `/craft:execute` actually starts — not here.
 - It does **not** commit anything.
 - It does **not** modify `intent.md` or `rules.md`. Architectural insights surfaced during planning go into the plan's `## Decisions Made During This Slice` section and are promoted (or not) in Phase 8.
+- It does **not** auto-rollback on post-assertion failure. Partial state is surfaced for human reconciliation.

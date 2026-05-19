@@ -301,6 +301,73 @@ For context-poisoned cases unrelated to a specific bug, `/craft:handoff` writes 
 
 ---
 
+## Pre/Post-Assertions (Durable-State Commands)
+
+Commands that mutate durable state outside the running session (filesystem files Claude Code reads on the next start, git history, plugin registry, project knowledge) follow a structured **Pre/Post-Assertion** pattern. The pattern is the structural backbone of `feedback-human-control` — silent drift is forbidden; failures are loud.
+
+### Required commands
+
+The pattern is mandatory for:
+
+- `/craft:onboard` — creates `.claude/project/intent.md` + `rules.md`.
+- `/craft:plan` — creates `.claude/craft:plans/slice-NNN-<slug>.md`.
+- `/craft:commit` — git commit + plan deletion + slice archive write.
+- `/craft:abort` — plan file deletion.
+- `/craft:upgrade` — marketplace clone sync (reference implementation).
+
+### Exempt commands
+
+The pattern is **not** applied to:
+
+- **Read-only commands** (`/craft:status`, `/craft:prime`, `/craft`) — no mutation, no assertions.
+- **Phase-execution commands** (`/craft:execute`, `/craft:test`, `/craft:refactor`) — open-ended code changes; assertions would be ceremonial.
+- **Pure-conversation commands** (`/craft:brainstorm`, `/craft:grill-me`, `/craft:debug`) — no filesystem mutation outside the slice plan body itself.
+
+Commands with small contained mutations (`/craft:continue`, `/craft:pause`, `/craft:handoff`, `/craft:intent-update`, `/craft:recap`) are currently out of scope. Extending the pattern to them requires a new banked decision.
+
+### Structural shape
+
+Every command in the required scope is organized as:
+
+```
+## Pre-flight        (optional — environment/tool discovery)
+## Pre-Assertions    (REQUIRED — checks that must hold before any mutation)
+   ### A1 — <name>
+   <check>
+   On failure: <abort message, no mutation occurs>
+   ### A2 — ...
+
+## Procedure         (REQUIRED — the actual work, step-numbered)
+
+## Post-Assertions   (REQUIRED — checks that confirm the mutation landed)
+   ### P1 — <name>
+   <check>
+   On failure: <warn loudly, surface to user, do not pretend success>
+   ### P2 — ...
+
+## Output Format     (REQUIRED — success / aborted / partial shapes)
+## Error Handling    (REQUIRED — situation → behavior table)
+```
+
+### Failure semantics
+
+- **Pre-Assertion failure** → stop *before* any mutation. No partial state. The output line names the failed assertion (`A2 — Working tree clean: failed`) so the user can target the fix.
+- **Post-Assertion failure** → the mutation already happened. Warn loudly, surface to user, do **not** pretend success. Never auto-rollback; recovery is human-initiated.
+- **Never silent.** A skipped assertion (e.g., tool unavailable) emits one informational line, not silence.
+
+### Why
+
+- Aligns with `feedback-human-control`: durable mutations require explicit guardrails in code, not just prompt discipline.
+- Aligns with `feedback-recommendation-over-blocking`: strict only at the boundary of durable state changes, not for style.
+- Mirrors context-mode's defensive update pattern without adopting its build complexity.
+- Creates a testable contract: each assertion is a discrete check that future integration tests can drive against.
+
+### Reference
+
+`commands/upgrade.md` (introduced in v0.2.0) is the canonical example. Decision: D24 in `brainstorm-decisions.md`.
+
+---
+
 ## Tool Dependencies
 
 The plugin assumes the following tools are installed and current. `/craft:prime` checks them at every session start and **aborts with install instructions** if any are missing.

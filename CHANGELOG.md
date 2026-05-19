@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+### Added
+- Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md` as the structural backbone of `feedback-human-control`.
+- Pre/Post-Assertions retrofitted into `/craft:onboard`, `/craft:plan`, `/craft:commit`, `/craft:abort` per D24. Behavior on the happy path is unchanged; failure paths are louder and more consistent. Decision banked as D24 in `brainstorm-decisions.md`.
+
 ## [0.2.0] - 2026-05-19
 
 ### Added

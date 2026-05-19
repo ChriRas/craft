@@ -12,7 +12,7 @@ Get a project ready for the 8-phase workflow. Two distinct sub-paths share one e
 - **Greenfield path** — `.claude/project/` does not exist. Scan the repo, draft project knowledge files dialogically, validate.
 - **Migration path** — `.claude/` exists with prior content (commands, agents, skills, CLAUDE.md). Classify each asset, move conflicts to `_legacy/`, split `CLAUDE.md` into `intent.md` / `rules.md` / `roadmap.md`.
 
-Refer to `skills/workflow/SKILL.md` for the knowledge model (State / Intent / Rules) and `plugin-architecture.md` Decision D20 for the migration classification scheme.
+This command is a **durable-state mutation** and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md` (D24). Refer to that skill for the knowledge model (State / Intent / Rules) and `plugin-architecture.md` Decision D20 for the migration classification scheme.
 
 ---
 
@@ -22,14 +22,59 @@ Refer to `skills/workflow/SKILL.md` for the knowledge model (State / Intent / Ru
 
 Same as `/craft:prime` — verify context-mode, agent-browser, git, gh are installed and runnable. Abort with install instructions if any are missing.
 
-### Step 2 — Project repository check
+### Step 2 — Detect mode
 
-- Run `git rev-parse --show-toplevel` to confirm we are inside a git repository. If not, ask: *"This directory is not a git repo. Onboarding writes files that should be version-controlled. Initialize a git repo first (`git init`) or move to an existing repository."* and stop.
+- `Glob` `.claude/**/*` to detect prior content.
+  - Any matches (other than `.claude/project/` itself) → **migration mode**.
+  - No matches → **greenfield mode**.
 
-### Step 3 — Detect mode
+Mode is informational at this stage; the Pre-Assertions decide whether onboarding may proceed at all.
 
-- `Read` `.claude/project/intent.md`. If it exists and is non-empty → **already onboarded**. Tell the user: *"Project is already onboarded. Run `/craft:prime` to load context, or `/craft:intent-update` to revise intent."* and stop.
-- `Glob` `.claude/**/*` to detect prior content. If any exists → **migration mode**. Otherwise → **greenfield mode**.
+---
+
+## Pre-Assertions
+
+Run all three. Any failure stops the command before any file is touched.
+
+### A1 — Inside a git working tree
+
+```
+git rev-parse --show-toplevel
+```
+
+If non-zero exit → abort:
+
+```
+This directory is not a git repo. Onboarding writes files that should be
+version-controlled. Initialize a git repo first (`git init`) or move to an
+existing repository.
+```
+
+### A2 — Not already onboarded
+
+`Read` `.claude/project/intent.md`.
+
+- If the file exists and is non-empty → abort:
+
+  ```
+  Project is already onboarded. Run `/craft:prime` to load context, or
+  `/craft:intent-update` to revise intent.
+  ```
+
+  No mutation occurs.
+
+- If the file exists but is empty, treat as not-onboarded (proceed).
+
+### A3 — Templates available
+
+The plugin must ship the four templates this command writes from. Confirm `Read`-ability of:
+
+- `${CLAUDE_PLUGIN_ROOT}/templates/intent.md.template`
+- `${CLAUDE_PLUGIN_ROOT}/templates/rules.md.template`
+- `${CLAUDE_PLUGIN_ROOT}/templates/roadmap.md.template`
+- `${CLAUDE_PLUGIN_ROOT}/templates/claude-md-index.template`
+
+If any template is missing → abort: *"Plugin templates missing at `<path>`. The CRAFT install may be corrupted — re-install the plugin and re-run /craft:onboard."*
 
 ---
 
@@ -68,7 +113,7 @@ Ask 3–5 targeted questions, one at a time:
 
 ### 4. Write project files
 
-Generate using the templates in this plugin (`templates/intent.md.template`, `templates/rules.md.template`, `templates/roadmap.md.template`, `templates/claude-md-index.template`):
+Generate using the plugin templates:
 
 - `.claude/project/intent.md`
 - `.claude/project/rules.md`
@@ -79,13 +124,13 @@ Generate using the templates in this plugin (`templates/intent.md.template`, `te
 
 After writing, count lines for `intent.md` and `rules.md`. If either exceeds **80 lines**, emit the oversize warning (same text as in the migration knowledge-split sub-procedure). Warning only — no refusal.
 
-### 5. Validate
+### 5. Drift validation
 
 Run the drift check from `/craft:prime` immediately.
 
-- If no drifts and all manifests verifiable → report `Rules ↔ State drift check: clean`.
-- If manifests are absent for a stack mentioned in `rules.md` (e.g., `composer.json` missing for PHP rules) → emit the **incomplete-check note** from `/craft:prime` Step 3 instead of treating as drift.
-- If genuine drift exists → tell the user and ask them to revise `rules.md` before continuing.
+- If no drifts and all manifests verifiable → record `drift = clean`.
+- If manifests are absent for a stack mentioned in `rules.md` (e.g., `composer.json` missing for PHP rules) → record `drift = incomplete` with the incomplete-check note.
+- If genuine drift exists → record `drift = <N>` with the list. The user must revise `rules.md` before continuing.
 
 ---
 
@@ -249,22 +294,69 @@ After writing `intent.md` and `rules.md`, count their lines:
 
 If `CLAUDE.md` did not previously exist, generate one from `templates/claude-md-index.template`. If it did exist and was the knowledge-split source, replace its content with the index template (the prior content has been distributed into `.claude/project/`).
 
-### 6. Validate
+### 6. Drift validation
 
 Run the drift check from `/craft:prime` (same logic as in `/craft:prime` Step 3):
 
-- If no drifts and all manifests verifiable → report `Rules ↔ State drift check: clean`.
-- If manifests are absent for a stack mentioned in `rules.md` → emit the **incomplete-check note** rather than treating it as drift. This is common right after migration before `composer install` / `npm install` has been re-run in a fresh environment.
-- If genuine drift exists → surface each drift line and recommend the user revise `rules.md` before running anything else.
+- No drifts → record `drift = clean`.
+- Manifests absent for a stack mentioned in `rules.md` → record `drift = incomplete`.
+- Genuine drift → record `drift = <N>` with the list; the user must revise `rules.md` before running anything else.
+
+---
+
+## Post-Assertions
+
+Run all four after the chosen procedure completes. Any failure → warn loudly, surface to the user, do **not** pretend success. No auto-rollback.
+
+### P1 — `intent.md` written and well-formed
+
+- `Read` `.claude/project/intent.md`. Must exist and be non-empty.
+- Must contain a `## Product Vision` section header.
+
+Failure → *"⚠ intent.md was not written or is malformed. Inspect `.claude/project/intent.md` manually before running /craft:prime."*
+
+### P2 — `rules.md` written and well-formed
+
+- `Read` `.claude/project/rules.md`. Must exist and be non-empty.
+- Must contain a `## Stack & Tools` section header.
+
+Failure → *"⚠ rules.md was not written or is malformed. Inspect `.claude/project/rules.md` manually."*
+
+### P3 — `CLAUDE.md` index present
+
+- `Read` `CLAUDE.md` in repo root. Must exist and reference at least `.claude/project/intent.md` and `.claude/project/rules.md`.
+
+Failure → *"⚠ CLAUDE.md is missing or does not point at the new project knowledge files. Re-run /craft:onboard or write CLAUDE.md manually."*
+
+### P4 — Migration cleanup completed (migration mode only)
+
+For each asset classified as **Universal conflict** or as a `[U]`-resolved **Plugin-already-provides**:
+
+- Confirm the original path no longer exists.
+- Confirm the corresponding `.claude/commands/_legacy/<name>` (or `.claude/skills/_legacy/<name>/`) exists.
+
+Failure → *"⚠ Migration cleanup incomplete: <N> assets were classified for `_legacy/` but the move did not complete. Inspect `.claude/` manually."*
+
+### P5 — Drift report (informational, never a failure)
+
+Surface the `drift` value recorded during Procedure step 5 / Migration step 6:
+
+- `clean` → `✓ Rules ↔ State drift check: clean`
+- `incomplete` → `⚠ Drift check incomplete — see note above. Re-run /craft:prime after dependencies are installed.`
+- `<N>` → `⚠ <N> drift items — review and revise rules.md before continuing.`
+
+P5 is reported but never blocks the post-assertion verdict — drift is a Rules↔State mismatch, not an onboarding bug.
 
 ---
 
 ## Output Format — Both Modes
 
-Final status block, emitted once everything is written:
+Final status block, emitted once everything is written and post-assertions complete:
 
 ```
 ✓ Onboarding complete (<greenfield | migration>)
+✓ Pre-assertions: in git repo, not previously onboarded, templates available
+✓ Post-assertions: intent.md ✓, rules.md ✓, CLAUDE.md ✓[, migration cleanup ✓]
 
 Created:
   .claude/project/intent.md
@@ -278,9 +370,23 @@ Moved to _legacy/:
 Split source:
   CLAUDE.md → intent.md + rules.md [+ roadmap.md]
 
-✓ Rules ↔ State drift check: clean
+<drift line from P5>
 
 Next: run /craft:prime to load context, then /craft:plan to start a slice.
+```
+
+Aborted:
+
+```
+Onboarding aborted — <reason>. No changes made.
+```
+
+Partial (post-assertion failure):
+
+```
+⚠ Onboarding partially complete — <which assertion(s) failed>.
+   Files written so far are listed above. Inspect and reconcile manually
+   before running /craft:prime.
 ```
 
 ---
@@ -289,12 +395,16 @@ Next: run /craft:prime to load context, then /craft:plan to start a slice.
 
 | Situation | Behavior |
 |---|---|
-| Not inside a git repo | Abort with the message in Pre-flight Step 2. |
-| Already onboarded | Tell user, suggest `/craft:prime` or `/craft:intent-update`, stop. |
+| One or more tools missing | Abort in Pre-flight with install instructions. |
+| A1 fails (not a git repo) | Abort with `git init` hint. |
+| A2 fails (already onboarded) | Abort with `/craft:prime` / `/craft:intent-update` hint. |
+| A3 fails (plugin templates missing) | Abort with plugin-reinstall hint. |
 | Heuristic scan finds nothing usable | Fall through to dialogic clarification with default questions; do not silently produce empty drafts. |
-| User cancels during inventory report | Abort cleanly; make no file changes. |
+| User cancels during inventory report | Clean abort; no file changes. |
 | Migration: a target `_legacy/` file already exists with the same name | Append a numeric suffix (`-1`, `-2`) and continue. |
-| Drift on final validation | Report the drift, leave the user to edit `rules.md`; do not auto-correct. |
+| Drift on final validation | Reported via P5; user revises `rules.md`. No auto-correction. |
+| P1/P2/P3 fail after write | Warn loudly; emit partial-completion block; do not auto-rollback. |
+| P4 fails (migration cleanup incomplete) | Warn loudly; user reconciles `.claude/` manually. |
 
 ---
 
@@ -303,4 +413,5 @@ Next: run /craft:prime to load context, then /craft:plan to start a slice.
 - It does **not** install missing tools — only checks them.
 - It does **not** decide architectural questions for the user. The dialogic clarification asks; the user answers.
 - It does **not** delete legacy files. Migration moves them to `_legacy/` for human review.
-- It does **not** silently overwrite an existing `intent.md` or `rules.md`. If those exist already, the project is considered onboarded.
+- It does **not** silently overwrite an existing `intent.md` or `rules.md`. A2 refuses to proceed in that case.
+- It does **not** auto-rollback on post-assertion failure. Partial state is surfaced for human reconciliation.
