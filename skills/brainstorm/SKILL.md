@@ -1,6 +1,9 @@
 ---
 name: brainstorm
-description: Facilitate structured, collaborative brainstorming sessions using proven ideation techniques. Use when the user wants to brainstorm.
+description: Facilitate structured, collaborative brainstorming sessions using proven ideation techniques (SCAMPER, Five Whys, First Principles, etc.). Slash-invocable as `/craft:brainstorm [topic]`. Phase 1 entry point of the CRAFT workflow.
+argument-hint: "[topic]"
+allowed-tools: ["Read", "Write", "Glob"]
+disable-model-invocation: true
 ---
 
 # Brainstorm
@@ -269,3 +272,67 @@ For organized results:
 - Success metric:
 - Timeline:
 ```
+
+---
+
+## Slash Invocation (CRAFT)
+
+When invoked as `/craft:brainstorm [topic]`:
+
+### Pre-flight
+
+None strict. Works in any project state, even pre-onboarding. If `$ARGUMENTS` is provided, treat it as the topic seed; otherwise start with the setup sequence above ("What are we brainstorming about?").
+
+### Checkpoint capture
+
+When the session converges (user signals "organize" or "wrap up"), produce a Markdown summary in this format:
+
+```markdown
+## Brainstorming Session
+
+**Topic:** …
+**Goal:** …
+**Constraints:** …
+**Approach:** …
+
+## Ideas
+[as captured]
+
+## Organized Themes
+[after convergence]
+
+## Top Priorities
+[after prioritization]
+
+## Action Plan
+[if reached]
+```
+
+### Save location
+
+If the user is inside a project with `.claude/project/`:
+
+- If a slice plan is active, append the brainstorm summary to it under `## Brainstorm`.
+- Otherwise, write to `.claude/brainstorm-<topic-slug>-<date>.md` at repo root. This file is ephemeral — delete when no longer useful.
+
+If no project, the summary stays in chat — user copies it where they want.
+
+### Recommend next step
+
+```
+✓ Brainstorm captured.
+Recommended next: /craft:grill-me to align on direction, or /craft:plan if the path is already clear.
+```
+
+### Error handling
+
+| Situation | Behavior |
+|---|---|
+| User wants the agent to "just give me ideas" without dialog | Push back once: *"The skill works by facilitating your thinking, not replacing it. One question at a time is the methodology — let's start."* If user insists, fall back to producing a quick list but flag that the methodology was bypassed. |
+| User runs `/craft:brainstorm` mid-slice | Allow, but warn: *"Brainstorming mid-slice can derail focus. If this is about the current slice, consider `/craft:grill-me` instead. If it's a separate topic, fine — proceed."* |
+
+### What this skill does NOT do when slash-invoked
+
+- It does **not** generate ideas autonomously. The user supplies the raw material; the skill structures.
+- It does **not** make product decisions. Output is a checkpoint, not a commitment.
+- It does **not** modify code, commits, or project knowledge files.
