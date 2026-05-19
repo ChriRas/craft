@@ -1,0 +1,16 @@
+{
+  "name": "ai-coding-tools",
+  "version": "0.1.0",
+  "description": "Universal coding workflow plugin: an 8-phase loop with explicit knowledge management, autonomy controls, vertical slicing, and bug-verification — works identically across shell scripts, libraries, REST APIs, full-stack apps, and infrastructure code.",
+  "author": {
+    "email": "craschke@chrido.net"
+  },
+  "license": "MIT",
+  "keywords": [
+    "workflow",
+    "coding-agent",
+    "8-phase-loop",
+    "vertical-slicing",
+    "autonomy-control"
+  ]
+}
