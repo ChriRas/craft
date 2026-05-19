@@ -36,7 +36,34 @@ A complete coding-loop scaffolding:
 git clone <repo-url> ~/.claude/plugins/craft
 ```
 
-After install, open Claude Code in any project and run `/onboard` to set the project up.
+After install, open Claude Code in any project and run `/craft:onboard` to set the project up.
+
+### Optional: shorter command names
+
+By default Claude Code namespaces plugin commands by plugin name — you type `/craft:onboard`, `/craft:plan`, `/craft:commit`, etc. If you want to skip the prefix, drop **shim files** into `~/.claude/commands/` that delegate to the plugin command:
+
+`~/.claude/commands/onboard.md`:
+
+```markdown
+---
+description: Shortcut for /craft:onboard
+---
+
+/craft:onboard
+```
+
+For commands with arguments (e.g. `/plan <feature>`), pass `$ARGUMENTS`:
+
+```markdown
+---
+description: Shortcut for /craft:plan
+argument-hint: <feature-or-slice-name>
+---
+
+/craft:plan $ARGUMENTS
+```
+
+This is a user-global override — `/onboard` then expands to invoke the plugin command directly. No official aliasing exists in Claude Code today; this is the documented workaround.
 
 ---
 
