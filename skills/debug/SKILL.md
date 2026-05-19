@@ -1,9 +1,30 @@
 ---
-name: self-verify
-description: Bug verification protocol. Use when a fix needs to be verified autonomously by the agent (not the user) — most often via /craft:debug. Defines the four-step ALIGN → PROTOCOL → AUTONOMOUS LOOP → ESCALATION flow. Also triggers automatically when the agent detects two or more fix attempts on the same symptom in the current slice.
+name: debug
+description: Bug verification protocol — four-step ALIGN → PROTOCOL → AUTONOMOUS LOOP → ESCALATION flow. Use this skill when the user types `/craft:debug`, when the user explicitly says "I have a bug", "let me debug X", "this is broken", or when the agent detects it has made 2 or more fix attempts on the same symptom within the active slice. Do NOT trigger on generic mentions of bugs in unrelated discussion (reading bug-related docs, theoretical talk).
+argument-hint: "<bug-description>"
+allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob", "Grep"]
 ---
 
-# Self-Verify — Bug Verification Protocol
+# /craft:debug — Bug Self-Verification
+
+## Pre-flight
+
+When invoked as a slash command:
+
+1. **Locate the active slice.** `Glob` `.claude/plans/slice-*.md`. Pick the active slice. If multiple, ask which.
+   If none → ask: *"No active slice. Is this a bug in a closed slice, or do we need to plan a new slice first?"* Bug fixes for closed slices may warrant their own slice.
+
+2. **Read project tooling.** `Read` `.claude/project/rules.md` for the test framework, lint commands, etc. — needed to compose verification commands.
+
+3. **Read self-verification settings.** Look for `## Self-Verification Settings` in `rules.md`. Override defaults if present (see [Configurability](#configurability) below).
+
+4. **Seed the bug description.** Use `$ARGUMENTS` as the initial bug description. If empty, ask: *"What is the bug? One sentence."*
+
+When auto-triggered (≥2 fix attempts on the same symptom), skip step 4 — the symptom is already known from the active slice context.
+
+---
+
+## Purpose
 
 This skill defines how the agent verifies that a bug fix actually works **without asking the user to test each attempt**. It prevents the most common failure mode of agent-driven debugging: the agent claims "fixed" based on incomplete signals, the user re-tests, the bug returns or surfaces as a different symptom, and the loop drags on.
 

@@ -98,7 +98,7 @@ Run the drift check from `/craft:prime` immediately.
 | Class | Definition | Default action |
 |---|---|---|
 | **Universal conflict** | Commands that overlap with plugin commands (any of: `plan`, `plan-feature`, `plan-backlog`, `plan-parallel`, `review-plan`, `execute`, `co-review`, `commit`, `prime`, `create-prd`, `create-rules`, `onboard`, `debug`, `handoff`, `recap`, `refactor`, `test`, `pause`, `abort`, `intent-update`, `continue`, `status`, `brainstorm`, `grill-me` — or variants with the same intent) | Move to `.claude/commands/_legacy/` |
-| **Plugin-already-provides** | A project-local **skill** with the same name as a plugin-shipped skill (e.g., `agent-browser`, `brainstorm`, `grill-me`, `self-verify`, `workflow`) | **Ask the user** — see step 2.5 below |
+| **Plugin-already-provides** | A project-local **skill** with the same name as a plugin-shipped skill (e.g., `agent-browser`, `brainstorm`, `grill-me`, `debug`, `workflow`) | **Ask the user** — see step 2.5 below |
 | **Specialist keep** | Language/stack-specific skills and agents whose names don't collide with plugin skills (e.g., `developer` for PHP, `code-review` for Laravel) | Leave in place |
 | **Knowledge-split source** | `CLAUDE.md`, `README.md`, `PRD.md` containing mixed Vision/Stack/Phases content | Split into `intent.md` + `rules.md` + `roadmap.md` |
 | **Project-local keep** | Project tooling commands (e.g., `init-project.md` that runs `task start`), allowlist files (`allowed-commands.md`), `settings.local.json` | Leave in place |

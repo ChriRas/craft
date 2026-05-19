@@ -288,7 +288,7 @@ Agent never silently bends a rule. When a conflict is detected, the agent presen
 
 ## Self-Verification (Bugs)
 
-When a bug is reported (Phase 5 `[B]`) or when the agent detects it has made **≥2 fix attempts on the same symptom** during a slice, the agent offers `/craft:debug`. The skill `self-verify` defines the four-step protocol:
+When a bug is reported (Phase 5 `[B]`) or when the agent detects it has made **≥2 fix attempts on the same symptom** during a slice, the agent offers `/craft:debug`. The skill `debug` (slash-invocable as `/craft:debug`) defines the four-step protocol:
 
 1. **ALIGN** (Level 0) — Capture bug: expected vs. actual.
 2. **PROTOCOL** (Level 0) — Agree on the verification command + expected result + negative check, before any fix attempt.

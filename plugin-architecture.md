@@ -39,7 +39,6 @@ craft/                                    # Plugin repository root
 │   ├── recap.md
 │   ├── refactor.md
 │   ├── commit.md
-│   ├── debug.md
 │   ├── handoff.md
 │   ├── brainstorm.md
 │   ├── grill-me.md
@@ -49,7 +48,7 @@ craft/                                    # Plugin repository root
 │   └── status.md
 ├── skills/                               # Plugin-shipped universal skills
 │   ├── workflow/SKILL.md                 # The 8-phase loop methodology
-│   ├── self-verify/SKILL.md              # Bug verification protocol
+│   ├── debug/SKILL.md                    # Bug verification protocol — slash-invocable as /craft:debug
 │   ├── brainstorm/SKILL.md               # Adopted 1:1 from skills-main
 │   ├── grill-me/SKILL.md                 # Adopted 1:1 from skills-main
 │   └── agent-browser/SKILL.md            # Browser automation (universal)
@@ -120,7 +119,7 @@ All commands are language- and stack-agnostic. Project-specifics come from loade
 | Skill | Purpose | Used by |
 |---|---|---|
 | `workflow` | The 8-phase loop methodology itself. Loaded by every phase command to ensure phase-correctness. | All phase commands |
-| `self-verify` | Bug verification protocol. Defines verification format and the autonomous fix loop. | `/debug` |
+| `debug` | Bug verification protocol. User-invocable as `/craft:debug <bug-description>`; also auto-triggers at ≥2 fix attempts on the same symptom. Defines verification format and the autonomous fix loop. | (slash-invoked or auto-activated) |
 | `brainstorm` | Structured ideation. Adopted from `skills-main`. | `/brainstorm`, `/onboard` (grill-me-intensive mode handoff) |
 | `grill-me` | Interview-style stress-testing. Adopted from `skills-main`. | `/grill-me`, `/onboard` (intensive mode), `/plan` (Phase 3 dialogic questions) |
 | `agent-browser` | Browser automation wrapper (commands: `agent-browser open/back/screenshot/...`). | `/test` Phase 5a for web-stack demos |
@@ -300,7 +299,7 @@ Items deliberately deferred from brainstorm — resolve during build:
 1. **Bootstrap repository** at `/Users/craschke/Development/AI-Coding-Tools/` (development path; published plugin name is `craft`) with the directory structure above (move research material to a `research/` subfolder).
 2. **Author `plugin.json`** + `README.md`.
 3. **Write `skills/workflow/SKILL.md`** first — it captures the 8-phase loop methodology and is referenced by every command.
-4. **Write `skills/self-verify/SKILL.md`** next — referenced by `/debug`.
+4. **Write `skills/debug/SKILL.md`** next — slash-invocable as `/craft:debug`, also auto-activates on cycle detection.
 5. **Adopt `brainstorm` + `grill-me`** skills 1:1 from `skills-main`.
 6. **Build commands in this order** (low dependency first):
    1. `/status` (sanity-check the plan scanner)
