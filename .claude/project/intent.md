@@ -12,10 +12,6 @@ universality with constant control.
 
 ## Active Goals
 
-- **Implement D27** — Personality Autoload: the Senior-Developer baseline skill and
-  the monolithic stack-packs. Decided, not yet built.
-- **Implement D28** — the Review phase (Phase 8, Commit → 9): `/craft:review`, the
-  2-axis findings rubric, fresh-agent invocation.
 - **Refresh the README** — it is stale (decision count, command count, phase count).
 
 ## Architectural Decisions
@@ -41,6 +37,4 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
 
 ## Open Questions
 
-- D28's review agent loads D27's Senior-Developer baseline and stack-pack. Must D27
-  be fully implemented before the D28 slice, or should D28 degrade gracefully when a
-  pack is absent? (Sequencing question between the two implementation slices.)
+- (none)
