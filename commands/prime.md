@@ -55,16 +55,22 @@ After listing all missing tools, stop and wait for the user to install them. Do 
 
 If pre-flight passes, perform the following in order. Use parallel reads where possible.
 
-### 1. Load project knowledge
+### 1. Load context — baseline and project knowledge
 
-Read these files (some are optional):
+First, load the CRAFT Senior-Developer baseline:
+
+- `Read` `skills/senior-developer/SKILL.md` — the universal engineering baseline:
+  stance, quality hierarchy, workflow gates, test-discipline matrix, and
+  problem-playbook. It stays active for the rest of the session.
+
+Then read the project knowledge files (some are optional):
 
 - `.claude/project/intent.md` (required at this point)
 - `.claude/project/rules.md` (required)
 - `.claude/project/roadmap.md` (optional)
 - `CLAUDE.md` (optional, in repo root)
 
-Hold their contents in working memory for the rest of the session.
+Hold all of the above in working memory for the rest of the session.
 
 ### 2. Summarize the project
 
@@ -148,6 +154,7 @@ The full status block — emit exactly this shape:
 ✓ Rules ↔ State drift check: <clean | ⚠ N drifts>
   <one line per drift, if any>
 ✓ Tools: context-mode ✓ (<version>), agent-browser ✓, git ✓ (<version>), gh ✓ (<version>)
+✓ Senior-Developer baseline loaded
 
 Active slices:
   → slice-NNN "<title>" — Phase X, Y/Z sub-tasks done
