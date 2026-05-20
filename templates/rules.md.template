@@ -48,9 +48,10 @@ Things that must never happen.
 
 ## Self-Verification Settings (optional)
 
-Override `/debug` and stale-slice defaults if needed.
+Override `/debug`, `/craft:review`, and stale-slice defaults if needed.
 
 - **Max attempts:** 5
 - **Auto-trigger threshold:** 2
 - **Token brake during loop:** 15000
 - **Stale slice threshold:** 7 days
+- **Review in-phase fix cap:** 5

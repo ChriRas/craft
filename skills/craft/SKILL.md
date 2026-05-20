@@ -45,7 +45,7 @@ No .claude/project/intent.md found. Craft is not initialized in this project.
 Available action:
   → /craft:onboard — set up project knowledge (intent.md, rules.md)
 
-Run /craft:onboard if you want to adopt the 8-phase workflow here.
+Run /craft:onboard if you want to adopt the 9-phase workflow here.
 ```
 
 No other commands are offered. The user opts in by running `/craft:onboard` themselves — consistent with the no-nudge policy.

@@ -1,5 +1,5 @@
 ---
-description: Propose an explicit edit to .claude/project/intent.md. Agent drafts the diff, human confirms before write. Used outside Phase 8 when an intent shift surfaces.
+description: Propose an explicit edit to .claude/project/intent.md. Agent drafts the diff, human confirms before write. Used outside Phase 9 when an intent shift surfaces.
 allowed-tools: ["Read", "Edit", "Glob"]
 ---
 
@@ -7,7 +7,7 @@ allowed-tools: ["Read", "Edit", "Glob"]
 
 ## Purpose
 
-Edit `intent.md` deliberately and visibly. The agent proposes the diff; the human confirms. This is the *only* path for `intent.md` changes outside Phase 8's promotion dialog.
+Edit `intent.md` deliberately and visibly. The agent proposes the diff; the human confirms. This is the *only* path for `intent.md` changes outside Phase 9's promotion dialog.
 
 Used when, mid-work, the user realizes the project's intent has shifted (e.g., a non-goal has become a goal, or an architectural decision was just made).
 

@@ -1,15 +1,15 @@
 ---
-description: Phase 8 — atomic commits, decisions promotion dialog, slice archive write, plan file deletion. The slice closes here.
+description: Phase 9 — atomic commits, decisions promotion dialog, slice archive write, plan file deletion. The slice closes here.
 allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob"]
 ---
 
-# /craft:commit — Phase 8 Commit & Cleanup
+# /craft:commit — Phase 9 Commit & Cleanup
 
 ## Purpose
 
 Close the slice properly: split changes into atomic commits with Conventional Commits + `Slice:` footers, surface decisions for promotion to `intent.md` / `rules.md`, write the slice archive entry from the Phase 6 recap, and delete the ephemeral plan file.
 
-This command is a **durable-state mutation** (git history, project knowledge files, slice archive, plan deletion) and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md` (D24). Follow that skill for Phase 8 mechanics.
+This command is a **durable-state mutation** (git history, project knowledge files, slice archive, plan deletion) and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md` (D24). Follow that skill for Phase 9 mechanics.
 
 ---
 
@@ -35,7 +35,7 @@ Run all five. Any failure stops the command before any commit, archive write, or
 
 `Glob` `.claude/craft:plans/*.md`.
 
-- Zero matches → abort: *"No active slice plan found. Phase 8 requires a slice in `Status: committing` or `refactoring`. Did Phase 4 / Phase 7 actually run?"*
+- Zero matches → abort: *"No active slice plan found. Phase 9 requires a slice in `Status: committing`. Did the earlier phases actually run?"*
 - More than one match → abort with the list and ask the user to specify which slice to commit (this command does not auto-pick).
 - Exactly one match → record the plan path as `<slice-plan>`.
 
@@ -43,7 +43,7 @@ Run all five. Any failure stops the command before any commit, archive write, or
 
 Parse the frontmatter of `<slice-plan>`. Required fields: `Slice-ID:`, `Status:`, `Phase:`.
 
-- `Status:` must be one of `committing`, `refactoring`. Any other value → abort: *"Slice `<plan>` has `Status: <X>`. Phase 8 requires `committing` or `refactoring`. Use the right phase command first."*
+- `Status:` must be `committing` — the state `/craft:review` (Phase 8) writes when a slice clears review. Any other value → abort: *"Slice `<plan>` has `Status: <X>`. Phase 9 requires `committing`, reached when `/craft:review` (Phase 8) clears the slice. Run `/craft:review` first."*
 
 ### A3 — Uncommitted changes present
 
@@ -51,15 +51,15 @@ Parse the frontmatter of `<slice-plan>`. Required fields: `Slice-ID:`, `Status:`
 git status --porcelain
 ```
 
-If the output is empty → abort: *"Nothing to commit. Did Phase 4 / Phase 7 actually run?"*
+If the output is empty → abort: *"Nothing to commit. Did Phase 4 / Phase 7 / Phase 8 actually run?"*
 
 ### A4 — Tests green
 
 Run the project's test command (derived from `rules.md` `## Test Strategy` / `## Stack & Tools`, or asked from the user if not derivable).
 
 - Tests green → continue.
-- Tests red → abort: *"Tests are red. Phase 8 does not commit red. Fix or revert before committing."*
-- Test command cannot be determined → ask the user once; if no answer, abort with *"Test strategy unclear — Phase 8 cannot verify green. Add a test command to `rules.md` or run tests manually and re-invoke."*
+- Tests red → abort: *"Tests are red. Phase 9 does not commit red. Fix or revert before committing."*
+- Test command cannot be determined → ask the user once; if no answer, abort with *"Test strategy unclear — Phase 9 cannot verify green. Add a test command to `rules.md` or run tests manually and re-invoke."*
 
 ### A5 — Recap draft present and non-empty
 
@@ -152,6 +152,7 @@ Compose the archive entry from `templates/slice-archive.md.template`. Fill:
 - What (from `## Recap Draft`)
 - Why (from `## Recap Draft`)
 - Decisions (only those marked K or I; D is discarded; R lives in `rules.md`)
+- Follow-ups → `## Follow-ups` (the light + needs-rethinking findings from the slice plan's `## Review Findings`, if any)
 - Diagram (from `## Recap Draft` if present)
 
 Write to `.claude/project/slices/slice-<NNN>-<slug>.md`.
@@ -196,7 +197,7 @@ Failure → *"⚠ Commit `<hash>` (`<subject>`) is not present in git history. T
 git status --porcelain
 ```
 
-Output must be empty. Anything else → *"⚠ Working tree is not clean after Phase 8: `<porcelain output>`. Uncommitted changes remain — Phase 8 expected all sub-task changes to be staged. Inspect manually."*
+Output must be empty. Anything else → *"⚠ Working tree is not clean after Phase 9: `<porcelain output>`. Uncommitted changes remain — Phase 9 expected all sub-task changes to be staged. Inspect manually."*
 
 ### P3 — Slice archive entry exists
 
@@ -244,13 +245,13 @@ Recommended next: /craft:plan to start the next slice, or /craft:prime to refres
 Aborted:
 
 ```
-Phase 8 aborted — <reason>. No mutation occurred.
+Phase 9 aborted — <reason>. No mutation occurred.
 ```
 
 Partial (commit landed but post-assertions surfaced issues):
 
 ```
-⚠ Phase 8 partially complete — <which assertion(s) failed>.
+⚠ Phase 9 partially complete — <which assertion(s) failed>.
 
 Commits already in history:
   <hash>  <subject>

@@ -159,7 +159,7 @@ When the loop exits successfully, the agent proposes:
 User confirms `yes` or `no`. On `yes`, the agent:
 
 1. Writes a new test in the project's test suite using the verification command and expected output.
-2. Adds the test path to the slice plan under `## Sub-Tasks` as a check-marked item (so Phase 8 commit includes it).
+2. Adds the test path to the slice plan under `## Sub-Tasks` as a check-marked item (so Phase 9 commit includes it).
 3. Verifies the new test passes.
 
 This converts each successfully debugged bug into a regression preventer — the codebase gets slightly more robust with every successful `/craft:debug` session.

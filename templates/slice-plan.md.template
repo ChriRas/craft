@@ -1,6 +1,6 @@
 # Slice {{NNN}} — {{title}}
 
-> Status: planning | implementing | testing | review | refactoring | committing | paused | committed
+> Status: planning | implementing | testing | review | refactoring | reviewing | committing | paused | committed
 > Slice-ID: slice-{{NNN}}
 > Slice-Slug: {{slug}}
 > Started: {{ISO_date}}
@@ -36,7 +36,7 @@
 
 ## Active Rule Overrides
 
-> Stage-2 overrides for this slice. Cleared automatically on Phase 8 cleanup.
+> Stage-2 overrides for this slice. Cleared automatically on Phase 9 cleanup.
 
 (none)
 
@@ -60,15 +60,21 @@
 
 ## Decisions Made During This Slice
 
-> Captured as architectural / product decisions surface. Phase 8 walks each entry with `[K]/[I]/[R]/[D]` promotion dialog.
+> Captured as architectural / product decisions surface. Phase 9 walks each entry with `[K]/[I]/[R]/[D]` promotion dialog.
 
 - (none yet)
 
 ## Recap Draft
 
-> Filled by `/recap` (Phase 6). Becomes the basis for the slice archive in Phase 8.
+> Filled by `/recap` (Phase 6). Becomes the basis for the slice archive in Phase 9.
 
 (not yet recorded)
+
+## Review Findings
+
+> Filled by `/craft:review` (Phase 8). Audit trail — one line per finding: `Severity · Fix-nature · description · resolution`.
+
+(none yet)
 
 ## Handoff
 

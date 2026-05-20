@@ -74,4 +74,4 @@ Recommended next: <command>
 
 - It does **not** ask multiple questions per response. One at a time, always.
 - It does **not** decide on the user's behalf. It recommends; the user picks.
-- It does **not** modify `intent.md` or `rules.md` directly. Promotions happen via `/craft:intent-update` or Phase 8's promotion dialog.
+- It does **not** modify `intent.md` or `rules.md` directly. Promotions happen via `/craft:intent-update` or Phase 9's promotion dialog.

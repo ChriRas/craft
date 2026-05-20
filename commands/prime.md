@@ -104,7 +104,7 @@ Procedure:
 
 The project may declare a CRAFT stack-pack in the `## Personality` block of
 `rules.md`. `/craft:prime` does **not** load the pack — the code-near phases
-(`/craft:execute`, `/craft:test`, `/craft:refactor`) do that — but it verifies the
+(`/craft:execute`, `/craft:test`, `/craft:refactor`, `/craft:review`) do that — but it verifies the
 declaration early so a missing pack does not surprise the user mid-slice.
 
 - Read the `## Personality` section of `.claude/project/rules.md`.
@@ -140,7 +140,7 @@ Build a list of active slices with: `slice-NNN "<title>" — Phase <X>, <Y>/<Z> 
 
 ### 7. Stale-slice detection
 
-Any slice with `Started` older than **7 days** (default — overridable in `rules.md` under `## Self-Verification Settings`) and not in Phase 8 is flagged:
+Any slice with `Started` older than **7 days** (default — overridable in `rules.md` under `## Self-Verification Settings`) and not in Phase 9 is flagged:
 
 ```
 ⚠ slice-NNN untouched for <K> days — resume or discard?

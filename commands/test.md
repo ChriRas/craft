@@ -7,7 +7,7 @@ allowed-tools: ["Bash", "Read", "Edit", "Glob"]
 
 ## Purpose
 
-Phase 5 of the workflow. The agent has no product-feel; this is the only phase where the human exercises the artifact. Even if Phase 4 automated tests are green, Phase 5 must run before Phase 6/7/8.
+Phase 5 of the workflow. The agent has no product-feel; this is the only phase where the human exercises the artifact. Even if Phase 4 automated tests are green, Phase 5 must run before Phase 6/7/8/9.
 
 Follow `skills/workflow/SKILL.md` Phase 5 mechanics (the three sub-steps 5a / 5b / 5c).
 
@@ -122,7 +122,7 @@ Wait for the answer — do not interpret. Once the answer is captured, ask:
 
 If iterate: go back to `/craft:execute` for a focused fix, then return here for 5a / 5c. Loop until `[W]`.
 
-If close-and-revisit: capture the UX issue in `## Decisions Made During This Slice` for Phase 8 promotion consideration, then proceed to `/craft:recap`.
+If close-and-revisit: capture the UX issue in `## Decisions Made During This Slice` for Phase 9 promotion consideration, then proceed to `/craft:recap`.
 
 ---
 

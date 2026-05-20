@@ -1,13 +1,13 @@
 ---
 name: workflow
-description: The 8-phase coding loop — the methodological backbone of this plugin. Loaded by every phase command. Defines phase semantics, transition rules, knowledge model, autonomy taxonomy, and the rule-conflict policy. Use whenever a slash command needs to know "what phase am I in and what is allowed here?".
+description: The 9-phase coding loop — the methodological backbone of this plugin. Loaded by every phase command. Defines phase semantics, transition rules, knowledge model, autonomy taxonomy, and the rule-conflict policy. Use whenever a slash command needs to know "what phase am I in and what is allowed here?".
 ---
 
-# Workflow — The 8-Phase Coding Loop
+# Workflow — The 9-Phase Coding Loop
 
-This skill is the operational specification of the plugin's universal coding workflow. Every phase command (`/craft:brainstorm`, `/craft:grill-me`, `/craft:plan`, `/craft:execute`, `/craft:test`, `/craft:recap`, `/craft:refactor`, `/craft:commit`) reads this skill to know what it owes the user and what it is allowed to do.
+This skill is the operational specification of the plugin's universal coding workflow. Every phase command (`/craft:brainstorm`, `/craft:grill-me`, `/craft:plan`, `/craft:execute`, `/craft:test`, `/craft:recap`, `/craft:refactor`, `/craft:review`, `/craft:commit`) reads this skill to know what it owes the user and what it is allowed to do.
 
-The workflow is **language- and stack-independent**. The same eight phases apply whether you are writing a shell script, a Python library, a Rust CLI, a Laravel monolith, or a Terraform module.
+The workflow is **language- and stack-independent**. The same nine phases apply whether you are writing a shell script, a Python library, a Rust CLI, a Laravel monolith, or a Terraform module.
 
 ---
 
@@ -20,11 +20,11 @@ Two failure modes the loop is designed to prevent:
 1. **The unstructured-agent failure**: agent runs free, refactors things that worked, drifts into the context-window dumb zone, loses product direction after ~5 iterations.
 2. **The waterfall-with-AI failure**: agent over-plans a feature it doesn't understand yet; the product-feel only emerges through iterations the plan can't predict.
 
-The 8-phase loop solves both by keeping each iteration short, end-to-end testable, and disciplined about what knowledge persists between iterations.
+The 9-phase loop solves both by keeping each iteration short, end-to-end testable, and disciplined about what knowledge persists between iterations.
 
 ---
 
-## The Eight Phases
+## The Nine Phases
 
 | # | Phase | Default Autonomy | Owns | Produces |
 |---|---|---|---|---|
@@ -35,9 +35,10 @@ The 8-phase loop solves both by keeping each iteration short, end-to-end testabl
 | 5 | **Testing & UX feedback** | Level 1 | Human hands-on verification | Confirmation or bug/UX-issue feedback |
 | 6 | **Recap** | Level 1 | Explanation of what was built and why | Slice archive entry draft |
 | 7 | **Refactoring** | Level 1 | Small structural improvements | Cleaner code, same green tests |
-| 8 | **Commit & Cleanup** | Level 1 | Atomic commits + slice archive promotion + plan deletion | Commits, slice archive entry, deleted plan file |
+| 8 | **Review** | Level 1 | Independent fresh-eyes review of the slice artifact | Severity-graded findings, bounded in-phase fixes, a Commit gate |
+| 9 | **Commit & Cleanup** | Level 1 | Atomic commits + slice archive promotion + plan deletion | Commits, slice archive entry, deleted plan file |
 
-After Phase 8, the loop returns to Phase 3 for the next slice. Phases 1 and 2 are typically only run at project start or when entering a major new domain — not every slice.
+After Phase 9, the loop returns to Phase 3 for the next slice. Phases 1 and 2 are typically only run at project start or when entering a major new domain — not every slice.
 
 ---
 
@@ -142,7 +143,7 @@ Even if automated tests in Phase 4 are green, Phase 5 must run. This is constitu
 - "Walk me through the flow from trigger to effect."
 - For complex slices (>3 modules or files touched), agent offers to produce a Mermaid diagram. User decides.
 
-**Output:** A draft of the slice archive entry (will be finalized in Phase 8). Plain-text What/Why/Decisions by default; diagram only on confirmation.
+**Output:** A draft of the slice archive entry (will be finalized in Phase 9). Plain-text What/Why/Decisions by default; diagram only on confirmation.
 
 ---
 
@@ -162,7 +163,48 @@ Even if automated tests in Phase 4 are green, Phase 5 must run. This is constitu
 
 ---
 
-### Phase 8 — Commit & Cleanup
+### Phase 8 — Review
+
+**Purpose:** An independent, fresh-eyes review of the artifact that will actually be committed. Review sits *after* Refactor deliberately — it reviews the post-refactor delta, the real shipped code. One late review is enough: CRAFT slices are small by design and Phase 7 refactoring is bounded (max 2–3 items), so the post-refactor delta is small. For an unusually large slice the agent **may recommend** an extra ad-hoc `/craft:review` earlier — an opt-in escape hatch, not a phase.
+
+**Fresh-agent invocation:** Review runs as a **subagent with a fresh context window** — the four-eyes principle. Independence comes from the clean window, not from blinding the reviewer. The review agent is loaded with:
+
+- the Senior-Developer baseline (Tier 1) and the project's stack-pack (Tier 2 — review is code-near work, like Execute/Refactor);
+- the slice's task / intent and plan;
+- all prior project decisions (to catch silent revocation of an earlier decision);
+- the final code / diff under review;
+- the **Phase-6 Recap** as the developer's "thinking trace" — a what/why summary, mirroring a human PR description, not the raw Execute logs;
+- the findings rubric below.
+
+**Findings rubric — two orthogonal axes:**
+
+- **Severity** — must this be resolved before Commit?
+  - *Heavy*: architecture violation, security issue, a test that passes but is task-wise wrong, silent revocation of a prior decision.
+  - *Light*: code style, a small missing test case, cosmetics.
+- **Fix-nature** — where is it resolved?
+  - *Local edit*: a paged-in developer could finish it in ~half an hour. → fixed **in Phase 8**.
+  - *Needs rethinking*: genuinely wrong; the original developer must reconsider it. → **escalated**, never fixed in Phase 8.
+
+| | Local edit (in-phase) | Needs rethinking (escalated) |
+|---|---|---|
+| **Heavy** | review agent fixes in Phase 8 | escalated — **blocks Commit** |
+| **Light** | review agent fixes in Phase 8 | recorded as a **follow-up**; Commit proceeds |
+
+**Soft volume cap:** once in-phase fixes exceed **N** (default 5; `Review in-phase fix cap` in `rules.md` `## Self-Verification Settings`), the agent stops and **recommends** escalating the whole batch rather than fixing it. Soft = a recommendation, not a hard block.
+
+**Escalation:** a Heavy + needs-rethinking finding is never auto-fixed. The agent **recommends** (Level 1), per finding, one of two routes — loop back to Phase 4 (`/craft:execute`) if the fix is in slice scope, or spin off a new slice (`/craft:plan`) if it is separate work. Phase 9 (Commit) is blocked until every Heavy + needs-rethinking finding is resolved.
+
+**Findings record:** all findings are written to the slice plan's `## Review Findings` section — an audit trail, format `Severity · Fix-nature · description · resolution`.
+
+**Autonomy profile:** classifying findings — Level 3 (silent analysis, surfaced in the findings bundle); in-phase fixes — Level 2 (act, then bundle); escalation decisions and soft-cap breach — Level 1 (recommend, human decides).
+
+**Ad-hoc mode:** `/craft:review` is slash-invocable at any time. Invoked *before* Phase 8 it is **advisory only** — it produces findings, fixes nothing, and changes no phase state; the developer folds the findings into ongoing work.
+
+**Output:** severity-graded findings in `## Review Findings`, bounded in-phase fixes applied, and Phase 9 either gated (a Heavy + needs-rethinking finding is open) or cleared.
+
+---
+
+### Phase 9 — Commit & Cleanup
 
 **Purpose:** Atomic commits, harvested knowledge, ephemeral artifacts deleted.
 
@@ -175,7 +217,7 @@ Even if automated tests in Phase 4 are green, Phase 5 must run. This is constitu
    - `[I]ntent` (promote to `.claude/project/intent.md` — human confirms diff)
    - `[R]ules` (promote to `.claude/project/rules.md` — human confirms diff)
    - `[D]iscard`
-4. **Slice archive entry** — agent writes `.claude/project/slices/slice-NNN-<slug>.md` from the Phase 6 recap draft and the harvested decisions.
+4. **Slice archive entry** — agent writes `.claude/project/slices/slice-NNN-<slug>.md` from the Phase 6 recap draft and the harvested decisions; any Phase-8 light / needs-rethinking findings are folded in under `## Follow-ups`.
 5. **Plan deletion** — `.claude/craft:plans/slice-NNN-<slug>.md` is deleted. The slice archive plus commit history is the durable record.
 
 #### Commit convention
@@ -223,7 +265,7 @@ For any persistent change to `intent.md` or `rules.md`:
 
 - Agent proposes the diff.
 - Human confirms before write.
-- Never silently mutated. Phase 8 cleanup may surface promotion candidates but never writes without explicit `[I]` or `[R]` confirmation.
+- Never silently mutated. Phase 9 cleanup may surface promotion candidates but never writes without explicit `[I]` or `[R]` confirmation.
 
 ---
 
@@ -279,7 +321,7 @@ When the human wants to bypass a rule:
 | Stage | Scope | Persistence | Example |
 |---|---|---|---|
 | **1. Bend** | Single exchange | None — forgotten | "Push without lint this once" |
-| **2. Override** | **Slice-scoped** | Recorded in slice plan under "Active Rule Overrides"; cleared at Phase 8 cleanup | "During this migration slice, direct main pushes allowed" |
+| **2. Override** | **Slice-scoped** | Recorded in slice plan under "Active Rule Overrides"; cleared at Phase 9 cleanup | "During this migration slice, direct main pushes allowed" |
 | **3. Repeal** | Permanent | Edit `rules.md` (human confirms) | "We drop Pint in favor of Rector-format" |
 
 Agent never silently bends a rule. When a conflict is detected, the agent presents the three options explicitly and waits.
@@ -320,7 +362,7 @@ The pattern is mandatory for:
 The pattern is **not** applied to:
 
 - **Read-only commands** (`/craft:status`, `/craft:prime`, `/craft`) — no mutation, no assertions.
-- **Phase-execution commands** (`/craft:execute`, `/craft:test`, `/craft:refactor`) — open-ended code changes; assertions would be ceremonial.
+- **Phase-execution commands** (`/craft:execute`, `/craft:test`, `/craft:refactor`, `/craft:review`) — open-ended code changes; assertions would be ceremonial.
 - **Pure-conversation commands** (`/craft:brainstorm`, `/craft:grill-me`, `/craft:debug`) — no filesystem mutation outside the slice plan body itself.
 
 Commands with small contained mutations (`/craft:continue`, `/craft:pause`, `/craft:handoff`, `/craft:intent-update`, `/craft:recap`) are currently out of scope. Extending the pattern to them requires a new banked decision.
@@ -377,7 +419,7 @@ The plugin assumes the following tools are installed and current. `/craft:prime`
 | **context-mode** | Activated by `/craft:prime` on every session; preserves the dumb-zone discipline. |
 | **agent-browser** | Browser automation for Phase 5a demos in web stacks. |
 | **git** | Slice tracking, commit history is the durable archive layer. |
-| **gh** | PR creation in Phase 8 for hosted repos. |
+| **gh** | PR creation in Phase 9 for hosted repos. |
 
 The plugin cannot declare these as installable dependencies in the Claude Code plugin manifest. Detection and abort happen at `/craft:prime` runtime.
 
@@ -385,13 +427,13 @@ The plugin cannot declare these as installable dependencies in the Claude Code p
 
 ## Cross-Slice Memory
 
-After Phase 8 deletes the plan file, the slice's surviving signal lives in three places:
+After Phase 9 deletes the plan file, the slice's surviving signal lives in three places:
 
 - **Code** — the implementation itself.
 - **Commits** — the chronology, with `Slice:` footers for reverse-tracing.
 - **Slice archive** — pruned summary at `.claude/project/slices/slice-NNN-<slug>.md`: What / Why / Decisions / Commits, optionally a Mermaid diagram.
 
-The slice archive is the Decision Log, emergent from Phase 6 + 8 — there is no separate decision-log file. Archive contents are by construction non-stale: past-tense facts, original-time justifications, and immutable commit references.
+The slice archive is the Decision Log, emergent from Phase 6 + 9 — there is no separate decision-log file. Archive contents are by construction non-stale: past-tense facts, original-time justifications, and immutable commit references.
 
 ---
 
@@ -413,7 +455,7 @@ Phases 1 and 2 are **not run every slice**. They are appropriate when:
 - A major new domain opens inside an existing project (e.g., adding a recommendation engine to an e-commerce site).
 - A slice plan in Phase 3 reveals fundamental disagreement that planning cannot resolve — kick back to Alignment.
 
-For routine feature slices, the loop starts at Phase 3 and runs through Phase 8.
+For routine feature slices, the loop starts at Phase 3 and runs through Phase 9.
 
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: Phase 7 — small structural improvements before Phase 8. Asks the three Thorstensen prompts dialogically. Max 2–3 refactor items per slice; larger refactor = its own slice.
+description: Phase 7 — small structural improvements before Review (Phase 8). Asks the three Thorstensen prompts dialogically. Max 2–3 refactor items per slice; larger refactor = its own slice.
 allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob", "Grep"]
 ---
 
@@ -78,15 +78,15 @@ If during refactor the user (or agent) realizes a much bigger structural improve
 
 > Larger refactor surfaced: <description>. Captured for a future slice. Continuing with the current 2–3 items.
 
-Append to the slice plan's `## Decisions Made During This Slice` (so Phase 8 can promote it to roadmap or surface it next planning).
+Append to the slice plan's `## Decisions Made During This Slice` (so Phase 9 can promote it to roadmap or surface it next planning).
 
-### 5. Advance to Phase 8
+### 5. Advance to Phase 8 (Review)
 
-After the chosen items are done and tests are green, update `Status: committing` and emit:
+After the chosen items are done and tests are green, update `Status: reviewing` and emit:
 
 ```
 ✓ Phase 7 complete (<N> refactor items).
-Recommended next: /craft:commit
+Recommended next: /craft:review
 ```
 
 ---
@@ -102,7 +102,7 @@ Applied: <N>
 [per-item bundles]
 
 ✓ All green
-Recommended next: /craft:commit
+Recommended next: /craft:review
 ```
 
 ---
@@ -121,5 +121,6 @@ Recommended next: /craft:commit
 ## What This Command Does NOT Do
 
 - It does **not** add new functionality. Refactor preserves behavior.
-- It does **not** commit. Phase 8 / `/craft:commit` does.
-- It does **not** promote decisions to `intent.md` / `rules.md`. That's Phase 8.
+- It does **not** commit. Phase 9 / `/craft:commit` does.
+- It does **not** review. Phase 8 / `/craft:review` does.
+- It does **not** promote decisions to `intent.md` / `rules.md`. That's Phase 9.

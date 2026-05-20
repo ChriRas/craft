@@ -20,7 +20,7 @@ This is the read-only counterpart to `/craft:prime`'s slice section. No tool hea
    - Read its frontmatter: `Status`, `Slice-ID`, `Started`, `Phase`.
    - Read its `## Sub-Tasks` section, count completed (`- [x]`) vs. total.
    - Compute days-since-`Started`.
-3. Identify stale slices (older than 7 days, not in Phase 8). The threshold may be overridden in `.claude/project/rules.md` under `## Self-Verification Settings` → `Stale slice threshold`.
+3. Identify stale slices (older than 7 days, not in Phase 9). The threshold may be overridden in `.claude/project/rules.md` under `## Self-Verification Settings` → `Stale slice threshold`.
 
 ---
 

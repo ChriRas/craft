@@ -246,5 +246,5 @@ Partial (post-assertion failure):
 - It does **not** write any code.
 - It does **not** start Phase 4. Update the slice plan's `Status:` to `implementing` only when `/craft:execute` actually starts — not here.
 - It does **not** commit anything.
-- It does **not** modify `intent.md` or `rules.md`. Architectural insights surfaced during planning go into the plan's `## Decisions Made During This Slice` section and are promoted (or not) in Phase 8.
+- It does **not** modify `intent.md` or `rules.md`. Architectural insights surfaced during planning go into the plan's `## Decisions Made During This Slice` section and are promoted (or not) in Phase 9.
 - It does **not** auto-rollback on post-assertion failure. Partial state is surfaced for human reconciliation.

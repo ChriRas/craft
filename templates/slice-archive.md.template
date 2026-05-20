@@ -22,6 +22,12 @@
 - `{{hash}}` — {{commit_subject}}
 - `{{hash}}` — {{commit_subject}}
 
+## Follow-ups
+
+> Optional — light / needs-rethinking findings carried over from Phase 8 Review. Each is a candidate for a future slice.
+
+- {{follow_up_or_none}}
+
 ## How (Diagram)
 
 > Optional, only for complex slices (>3 modules/files touched). Plain Mermaid blocks.

@@ -1,5 +1,5 @@
 ---
-description: Phase 6 — explain what was built and why. Captures the slice's What / Why / Decisions; offers a Mermaid diagram for complex slices. Draft becomes the slice archive entry in Phase 8.
+description: Phase 6 — explain what was built and why. Captures the slice's What / Why / Decisions; offers a Mermaid diagram for complex slices. Draft becomes the slice archive entry in Phase 9.
 allowed-tools: ["Read", "Edit", "Glob"]
 ---
 
@@ -48,7 +48,7 @@ If no, skip.
 
 ### 3. Draft the slice archive entry
 
-Using `templates/slice-archive.md.template`, draft the entry in working memory (not yet written to disk — Phase 8 / `/craft:commit` will finalize and write it). Fill:
+Using `templates/slice-archive.md.template`, draft the entry in working memory (not yet written to disk — Phase 9 / `/craft:commit` will finalize and write it). Fill:
 
 - Title from the slice plan
 - Completed date (today, ISO)
@@ -121,7 +121,7 @@ Recommended next: /craft:refactor
 
 ## What This Command Does NOT Do
 
-- It does **not** write the slice archive file. That happens in Phase 8 / `/craft:commit`.
+- It does **not** write the slice archive file. That happens in Phase 9 / `/craft:commit`.
 - It does **not** modify code. Refactoring is Phase 7.
-- It does **not** promote decisions to `intent.md` or `rules.md`. That dialog is in Phase 8.
-- It does **not** delete the slice plan. The plan stays alive until Phase 8 cleanup.
+- It does **not** promote decisions to `intent.md` or `rules.md`. That dialog is in Phase 9.
+- It does **not** delete the slice plan. The plan stays alive until Phase 9 cleanup.

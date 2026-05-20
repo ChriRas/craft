@@ -7,7 +7,7 @@ allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob", "Grep"]
 
 ## Purpose
 
-Get a project ready for the 8-phase workflow. Two distinct sub-paths share one entry point:
+Get a project ready for the 9-phase workflow. Two distinct sub-paths share one entry point:
 
 - **Greenfield path** — `.claude/project/` does not exist. Scan the repo, draft project knowledge files dialogically, validate.
 - **Migration path** — `.claude/` exists with prior content (commands, agents, skills, CLAUDE.md). Classify each asset, move conflicts to `_legacy/`, split `CLAUDE.md` into `intent.md` / `rules.md` / `roadmap.md`.

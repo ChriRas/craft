@@ -8,7 +8,7 @@ allowed-tools: ["Bash", "Read", "Glob"]
 
 ## Purpose
 
-Discard work on a slice that won't be completed. The slice plan file is deleted by default — aborted slices are not archived (the archive is for completed slices that earned their place via Phase 8).
+Discard work on a slice that won't be completed. The slice plan file is deleted by default — aborted slices are not archived (the archive is for completed slices that earned their place via Phase 9).
 
 If partial commits exist, they remain in the git history and the user is responsible for cleanup (revert, branch reset, etc.) as appropriate.
 

@@ -51,6 +51,8 @@ Pull `Status`, `Phase`, `Slice-ID`, and any pause/handoff notes.
 | `testing` | `/craft:test` |
 | `review` (Phase 5 between iterations) | `/craft:test` to re-demo or `/craft:recap` if approved |
 | `refactoring` | `/craft:refactor` |
+| `reviewing` | `/craft:review` |
+| `committing` | `/craft:commit` |
 | `committed` | this slice is done — recommend `/craft:plan` for the next one |
 | `paused` | ask whether to resume; if yes, route based on the `Phase:` field |
 | any unrecognized value | log warning, ask the user what to do |
