@@ -95,6 +95,7 @@ Read whichever exist:
 
 - `README.md` → use to seed `## Product Vision` in `intent.md`.
 - `package.json` / `composer.json` / `Cargo.toml` / `pyproject.toml` / `go.mod` → use to seed `## Stack & Tools` in `rules.md`.
+- The same manifests yield a **candidate stack-pack** — map them with the Stack-Pack Detection table below; hold the candidate for the proposal in step 3.
 - `.github/workflows/*.yml` → use to seed `## Deployment` in `rules.md`.
 - `.editorconfig`, lint configs → use to seed `## Code Conventions` in `rules.md`.
 - `*.sh` / `Makefile` / `Taskfile.yml` → record common developer commands in `rules.md`.
@@ -110,6 +111,7 @@ Ask 3–5 targeted questions, one at a time:
 - Architectural Decisions: "What major technical choice should the next agent know about? Why?"
 - Tabus: "What patterns or actions should never happen here?"
 - Roadmap (optional): "Do you have longer-term phases? If yes, name them. If no, skip."
+- Stack-Pack: present the candidate from the heuristic scan and run the proposal in the Stack-Pack Detection sub-procedure — the confirmed value fills `## Personality` `Stack-Pack:` in `rules.md`.
 
 ### 4. Write project files
 
@@ -248,6 +250,7 @@ Parse the source file. Identify sections that map to:
 
 - **Product Vision** → `intent.md` (auto-import; clean prose, low ambiguity)
 - **Stack & Tools** → `rules.md` (auto-import; structured)
+- **Personality / stack-pack** → `rules.md` `## Personality` block — the source file rarely declares one, so fill `Stack-Pack:` via the Stack-Pack Detection sub-procedure (propose-and-confirm).
 - **Architectural Decisions** → `intent.md` (auto-import)
 - **Code Conventions / Patterns** → `rules.md` (auto-import)
 - **Tabus / Anti-Patterns** → `rules.md` (auto-import)
@@ -301,6 +304,50 @@ Run the drift check from `/craft:prime` (same logic as in `/craft:prime` Step 3)
 - No drifts → record `drift = clean`.
 - Manifests absent for a stack mentioned in `rules.md` → record `drift = incomplete`.
 - Genuine drift → record `drift = <N>` with the list; the user must revise `rules.md` before running anything else.
+
+---
+
+## Stack-Pack Detection (shared sub-procedure)
+
+Both modes fill `rules.md`'s `## Personality` → `Stack-Pack:` field by detecting a
+candidate from the project's manifests, then **proposing it for confirmation** — a
+detected value is never written silently.
+
+### Detection table
+
+Inspect whichever manifest files exist; pick the first matching row:
+
+| Manifest signal | Candidate stack-pack |
+|---|---|
+| `composer.json` with a `laravel/framework` dependency | `stack-php-laravel` |
+| `composer.json` without Laravel | `stack-php` |
+| `package.json` with a `next` dependency | `stack-ts-nextjs` |
+| `package.json` with `react` but no `next` | `stack-ts-react` |
+| `package.json` with TypeScript and none of the frameworks above | `stack-ts` |
+| `Cargo.toml` | `stack-rust` |
+| `pyproject.toml` or `requirements.txt` | `stack-python` |
+| `go.mod` | `stack-go` |
+| none of the above, or the stack is unclear | `none` |
+
+A candidate is only a name. Just `stack-php-laravel` ships with the plugin today;
+other names are valid for projects that add their own pack under
+`~/.claude/craft-personalities/<name>/`. Proposing a not-yet-existing name is safe —
+`/craft:prime` warns at session start whenever a declared pack is missing.
+
+### Proposal (Level 0 — propose, never silently mutate)
+
+Present the candidate and let the user decide:
+
+```
+Detected stack-pack candidate: <name>
+  [C] Confirm  — write `<name>` into rules.md `## Personality`
+  [O] Override — name a different stack-pack
+  [N] None     — this project uses no stack-pack
+```
+
+Write the chosen value into the `## Personality` `Stack-Pack:` field of the generated
+`rules.md`. When detection yields `none`, still surface the prompt so the user can
+override.
 
 ---
 

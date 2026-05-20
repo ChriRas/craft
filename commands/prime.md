@@ -100,7 +100,26 @@ Procedure:
 
 **Never silently correct drift.** Reporting is the action; correction is a separate human-confirmed step.
 
-### 4. Tool versions (informational)
+### 4. Stack-pack availability check
+
+The project may declare a CRAFT stack-pack in the `## Personality` block of
+`rules.md`. `/craft:prime` does **not** load the pack — the code-near phases
+(`/craft:execute`, `/craft:test`, `/craft:refactor`) do that — but it verifies the
+declaration early so a missing pack does not surprise the user mid-slice.
+
+- Read the `## Personality` section of `.claude/project/rules.md`.
+- If there is no `## Personality` section, or `Stack-Pack:` is `none`: emit no
+  stack-pack line and continue.
+- If a pack `<name>` is declared, resolve it the same way the code-near phases do —
+  `skills/<name>/SKILL.md` (plugin-shipped) or
+  `~/.claude/craft-personalities/<name>/SKILL.md` (user-added):
+  - Found → status line `✓ Stack-pack <name> declared`.
+  - Not found → status line `⚠ Stack-pack <name> declared but not found — code-near
+    phases run on the Senior-Developer baseline only; add the pack or set Stack-Pack to none`.
+
+Like the drift check, this is **reported, never corrected** — the human decides.
+
+### 5. Tool versions (informational)
 
 After tools are confirmed installed, capture and report versions for the status block:
 
@@ -109,7 +128,7 @@ After tools are confirmed installed, capture and report versions for the status 
 - `git`: `git --version` (first line).
 - `gh`: `gh --version` (first line).
 
-### 5. Scan active slices
+### 6. Scan active slices
 
 - `Glob` `.claude/craft:plans/*.md`.
 - For each slice plan file:
@@ -119,7 +138,7 @@ After tools are confirmed installed, capture and report versions for the status 
 
 Build a list of active slices with: `slice-NNN "<title>" — Phase <X>, <Y>/<Z> sub-tasks done`.
 
-### 6. Stale-slice detection
+### 7. Stale-slice detection
 
 Any slice with `Started` older than **7 days** (default — overridable in `rules.md` under `## Self-Verification Settings`) and not in Phase 8 is flagged:
 
@@ -127,7 +146,7 @@ Any slice with `Started` older than **7 days** (default — overridable in `rule
 ⚠ slice-NNN untouched for <K> days — resume or discard?
 ```
 
-### 7. Recommended next action
+### 8. Recommended next action
 
 Pick one based on the state, in priority order — first matching condition wins:
 
@@ -155,6 +174,7 @@ The full status block — emit exactly this shape:
   <one line per drift, if any>
 ✓ Tools: context-mode ✓ (<version>), agent-browser ✓, git ✓ (<version>), gh ✓ (<version>)
 ✓ Senior-Developer baseline loaded
+<stack-pack line — only when a pack is declared; ✓ if found, ⚠ if missing (see step 4)>
 
 Active slices:
   → slice-NNN "<title>" — Phase X, Y/Z sub-tasks done
@@ -178,6 +198,7 @@ Keep the block under 20 lines for the common case. If many slices are active and
 | One or more tools missing | Abort with concrete install instructions, do not proceed. |
 | `context-mode` outdated | Warn, suggest `/ctx-upgrade`, continue priming. |
 | `.claude/project/intent.md` missing | Emit onboarding nudge, do not proceed. |
+| Declared stack-pack file missing | Emit the `⚠ Stack-pack …` status line; continue priming. Never a blocker. |
 | `rules.md` missing but `intent.md` present | Treat as inconsistent onboarding. Tell user: *"intent.md exists but rules.md is missing. Run `/craft:onboard` to repair the setup."* and stop. |
 | Slice plan file unreadable or malformed | Log it as `⚠ slice plan <file> unreadable — skipping`. Continue with other slices. |
 | Drift check sub-command itself errors out (e.g., grep on missing manifest) | Report `⚠ drift check incomplete: <reason>`. Continue. Do not abort the whole prime. |
@@ -190,4 +211,5 @@ Keep the block under 20 lines for the common case. If many slices are active and
 - It does **not** decide what to do next on your behalf — it only **recommends**.
 - It does **not** start a slice. Use `/craft:plan` for that.
 - It does **not** activate any project-local skills. Those are loaded lazily by phase commands (`/craft:execute`, `/craft:refactor`, etc.) when needed.
+- It does **not** load or activate the declared stack-pack — it only checks that the pack's file exists. The code-near phases load it.
 - It does **not** correct drift autonomously. Drift is reported; the human chooses Bend / Override / Repeal (see `skills/workflow/SKILL.md` rule-conflict policy).
