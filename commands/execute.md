@@ -37,15 +37,27 @@ If `Status` is `planning`, update it to `implementing` and write back.
 
 If `Status` is already `implementing` or `paused`, resume without status change.
 
-### 4. Detect stack and lazy-load specialists
+### 4. Load the stack-pack and detect specialists
 
-- `Read` `.claude/project/rules.md` for the `## Stack & Tools` section.
-- Identify which **project-local skills** apply to the slice's work. Common patterns:
-  - PHP/Laravel → load `.claude/skills/developer/SKILL.md` if present
-  - JavaScript/TypeScript → load any TS-specific skill if present
-  - Python → load any Python-specific skill if present
-- Lazy load means: read those skill files into context only when about to touch files in that stack.
-- If no project-local skill matches, use general-purpose engineering judgment within the constraints of `rules.md`.
+First, load the project's declared stack-pack:
+
+- `Read` the `## Personality` section of `.claude/project/rules.md`.
+- If it declares a `Stack-Pack:` other than `none`, resolve the pack —
+  `skills/<name>/SKILL.md` (plugin-shipped) or
+  `~/.claude/craft-personalities/<name>/SKILL.md` (user-added). If found, `Read` it
+  (and its `references/` files as the work needs) and emit `✓ Stack-pack loaded: <name>`.
+- If a pack is declared but the file cannot be found, emit
+  `⚠ Stack-pack <name> declared but not found — continuing with Senior-Developer baseline only`
+  and continue.
+- If no pack is declared (`none`, or no `## Personality` section), proceed on the
+  Senior-Developer baseline alone — no stack-pack line.
+
+Then identify any **project-local skills** that apply to the slice's work:
+
+- Common patterns: PHP/Laravel, JavaScript/TypeScript, or Python project-local skills
+  under `.claude/skills/` — `Read` them only when about to touch files in that stack.
+- If no project-local skill matches, use general-purpose engineering judgment within
+  the constraints of `rules.md`.
 
 ---
 

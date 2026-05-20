@@ -11,6 +11,14 @@
 - **Package Manager:** {{package_manager}}
 - **Other:** {{other_relevant_tooling}}
 
+## Personality
+
+> The CRAFT stack-pack this project loads during code-near phases (`/craft:execute`,
+> `/craft:test`, `/craft:refactor`). Use the pack's directory name (e.g.
+> `stack-php-laravel`), or `none` if the project uses no stack-pack.
+
+- **Stack-Pack:** {{stack_pack_name_or_none}}
+
 ## Workflow Rules
 
 Operational rules with verifiable conditions.

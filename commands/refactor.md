@@ -19,6 +19,19 @@ Follow `skills/workflow/SKILL.md` Phase 7 mechanics. **Max 2–3 refactor items 
 - If none → stop with `No slice ready for refactor. Run /craft:recap first.`
 - Update `Status: refactoring` if not already.
 
+Then load the declared stack-pack — `Read` the `## Personality` section of
+`.claude/project/rules.md`:
+
+- If it declares a `Stack-Pack:` other than `none`, resolve the pack —
+  `skills/<name>/SKILL.md` (plugin-shipped) or
+  `~/.claude/craft-personalities/<name>/SKILL.md` (user-added). If found, `Read` it
+  (and its `references/` files as the work needs) and emit `✓ Stack-pack loaded: <name>`.
+- If a pack is declared but the file cannot be found, emit
+  `⚠ Stack-pack <name> declared but not found — continuing with Senior-Developer baseline only`
+  and continue.
+- If no pack is declared (`none`, or no `## Personality` section), proceed on the
+  Senior-Developer baseline alone — no stack-pack line.
+
 ---
 
 ## Procedure (Autonomy Level 1)
