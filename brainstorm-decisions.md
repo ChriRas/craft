@@ -886,6 +886,115 @@ Tier 3 = what this project chose.**
 - `stack-bash` — valid frameworkless pack; bash has no framework concept — fine.
 - "Senior Reviewer" — removed from Tier-1 wishlist; relocated to the review-workflow carry-over above.
 
+### D28 — Code Review Phase (Phase 8)
+
+> Decided 2026-05-20. Resolves the review-workflow carry-over parked by D27's
+> extension block. The "Senior Reviewer" is a workflow construct, not a personality
+> (see D27 §6 extension) — this decision gives it phase rank, an autonomy profile,
+> and a findings rubric.
+
+#### Phase placement
+
+Review becomes a standalone **Phase 8**; the former Phase 8 (Commit) shifts to
+**Phase 9**. The model is now nine phases:
+
+1 Brainstorm · 2 Align · 3 Plan · 4 Execute · 5 Test · 6 Recap · 7 Refactor ·
+**8 Review** · 9 Commit
+
+Review sits *after* Refactor deliberately: it reviews the artifact that will actually
+be committed. A CRAFT slice is small by design (D10/D12) and Phase 7 refactoring is
+bounded (D22: max 2–3 items), so the post-refactor delta is small — one late review
+is enough. No second, earlier review is baked into the model. For an unusually large
+slice the agent **may recommend** an extra ad-hoc `/craft:review` earlier (Level-1
+autonomy: recommend, human decides) — an opt-in escape hatch, not a phase.
+
+Slash command: `/craft:review`.
+
+Knock-on: `/craft:recap` currently states its draft becomes the slice-archive entry
+"in Phase 8" — that archive write moves to Phase 9 (Commit).
+
+#### What Review does
+
+Phase 8 both **finds and fixes** — but fixing is bounded, so the committed artifact
+stays trustworthy without a re-review. The review agent produces severity-graded
+findings and resolves them per the rubric below.
+
+#### Findings rubric — two axes
+
+Findings are classified on **two orthogonal axes**:
+
+- **Severity** — does this *have* to be resolved before Commit?
+  - *Heavy*: architecture violation, security issue, a test that technically passes
+    but is task-wise wrong (signals a misunderstanding), silent revocation of a prior
+    decision not deliberately replaced by this slice.
+  - *Light*: code style, a small missing test case, cosmetics.
+- **Fix-nature** — *where* is it resolved?
+  - *Local edit*: a paged-in developer could finish it in ~half an hour — one-liner,
+    add a missing test case, style. → fixed **in Phase 8**.
+  - *Needs rethinking*: something is genuinely wrong and the original developer must
+    reconsider it with the reviewer's notes. → **escalated**, never fixed in Phase 8.
+    Fix-nature is "edit vs. rethink", not "small vs. large" — a task-wrong test is a
+    tiny edit but still escalates, because it is a misunderstanding.
+
+The 2×2:
+
+| | Fix = local edit (in-phase) | Fix = needs rethinking (escalated) |
+|---|---|---|
+| **Heavy** | Review agent fixes in Phase 8 | Escalated — **blocks Commit**: loop back to Phase 4 / spin off a new slice before this slice may close |
+| **Light** | Review agent fixes in Phase 8 | Recorded as a **follow-up**; **Commit proceeds** |
+
+Severity decides whether a finding blocks Commit; fix-nature decides whether it is
+resolved here or by escalation.
+
+#### Soft volume cap
+
+On top of the edit-vs-rethink line, a **soft count cap** guards against many tiny
+fixes summing to a large unreviewed delta: once in-phase fixes exceed **N** (default
+5, configurable in `rules.md` under `## Self-Verification Settings`), the agent stops
+and **recommends** escalating the whole batch rather than fixing it. Soft = a
+recommendation, not a hard block (cf. `feedback-recommendation-over-blocking`).
+
+#### Fresh-agent invocation
+
+Review runs as a **subagent with a fresh context window** — the four-eyes principle.
+Independence comes from the clean window, not from blinding the reviewer.
+
+The review agent is loaded with:
+
+- the Senior-Developer baseline (D27 Tier 1) and the project's Stack-Pack (D27 Tier 2
+  — review is code-near work, like Execute/Refactor);
+- the slice's task/intent and plan;
+- all prior project decisions (to catch silent revocation);
+- the final code / diff under review;
+- the **Phase 6 Recap** as the developer's "thinking trace" — a *summary* of
+  what/why, mirroring a human PR description, not the raw Execute logs;
+- this findings rubric.
+
+The Recap is the existing artifact that plays the PR-description role — no new
+artifact is introduced.
+
+#### Why
+
+- One late review (post-Refactor) reviews the real shipped artifact; an earlier
+  review would be partly invalidated by the refactoring that follows it. Small slices
+  + bounded refactoring make a single review sufficient — cost stays proportionate.
+- Capped, edit-only in-phase fixes keep the committed delta small enough that
+  re-review is genuinely unnecessary; anything bigger escalates.
+- Working *with* the Recap (not in full isolation) mirrors real human review: the
+  reviewer sees a summary of intent, which makes "what/how/why" fast to reconstruct,
+  while the fresh context window still prevents implementer bias.
+
+#### Open implementation details (out of scope for D28)
+
+- Exact escalation mechanics: loop-back to Phase 4 vs. spinning off a new slice — and
+  how a Commit-blocking finding is surfaced and tracked.
+- The `## Self-Verification Settings` key name and default for the soft cap N.
+- Findings/follow-up format and where light "needs-rethinking" follow-ups are
+  recorded (slice archive vs. a dedicated follow-up list).
+- Whether `/craft:review` is also independently slash-invocable mid-flow (the
+  large-slice escape hatch) and how that interacts with phase state.
+- The review agent's autonomy profile in the D13/D14 matrix (Phase-8 defaults).
+
 ---
 
 ## 7. Carry-Over to Next Clusters
