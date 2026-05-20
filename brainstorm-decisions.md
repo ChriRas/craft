@@ -812,6 +812,80 @@ skills/
 
 User-added packs mirror the same shape at `~/.claude/craft-personalities/stack-<name>/`.
 
+#### Extension (2026-05-20) — Tier-1 singularity & Tier-2 naming convention
+
+> Brainstorm-refined from `brainstorm-personas-wishlist.md`. Two threads resolved;
+> one wished item explicitly relocated out of D27 scope. Additive — D27's tier
+> model is unchanged; only the Tier-2 name pattern is generalized (see below).
+
+##### Tier 1 stays a single baseline
+
+The wishlist proposed a second Tier-1 personality ("Senior Reviewer") and inferred
+"Tier 1 may hold multiple parallel roles." That inference is **rejected**. A reviewer
+is the *same* Senior-Developer baseline — same quality hierarchy, same stance, same
+architecture understanding — invoked differently. It carries no personality content
+the baseline lacks.
+
+The one genuinely review-specific element — severity grading of findings — splits
+cleanly and needs no new personality:
+
+- **Judgment** (is a finding architecture-/security-critical or cosmetic?) is senior
+  judgment and already lives in the baseline's quality hierarchy.
+- **Mechanics** (the explicit severity ladder, the findings format, what the agent
+  does per tier) is process — comparable to the autonomy matrix or commit convention.
+
+→ **Tier 1 owns exactly one baseline skill (`skills/senior-developer/`), unchanged.**
+The wishlist's "Senior Reviewer" Tier-1 entry is dropped.
+
+##### The reviewer is a workflow construct, not a personality (carry-over)
+
+"Senior Reviewer" stays a wanted capability — the four-eyes principle: a fresh agent
+reviews finished, refactored code against existing architecture/project decisions,
+flags silent revocation of prior decisions (unless the slice deliberately replaced
+them), grades findings by severity, and leaves already-good code better.
+
+Because it is the baseline skill + a fresh agent + a review brief, it belongs to the
+*workflow*, not to D27's personality tiers. Provisional placement: a `/craft:review`
+step after Phase 7 (Refactor), before Phase 8 (Commit) — Execute → Refactor → Review
+→ Fix → (optional Refactor) → Commit. Whether Review becomes a formal new phase or a
+step inside the existing model is a separate decision.
+
+→ **Carry-over:** open a dedicated decision for the review step — phase-model
+placement, the severity rubric, the fresh-agent invocation. Out of scope for D27.
+
+##### Tier-2 naming convention
+
+D27's file structure shows `skills/stack-<lang>-<fw>/`. This extension generalizes it:
+
+- **Pattern:** `stack-<language>[-<context>]` — the second segment is **optional**.
+- The second segment is not strictly "framework" but the **idiom-defining world**:
+  usually a framework (`laravel`, `symfony`, `django`), occasionally a domain (e.g.
+  data-science). It always denotes the thing that makes this idiom set genuinely
+  different from the bare language.
+- **Frameworkless packs are first-class, not degenerate.** `stack-bash` (no framework
+  concept) and `stack-python` (vanilla) are complete monolithic packs carrying the
+  language's native best practices. "Vanilla Python" and "Python + framework" are two
+  distinct packs — related, but separate — consistent with D27's no-composition /
+  duplication-is-fine rule.
+- **The test framework is NOT a name segment.** A pack does not silently bake one
+  test tool. Per language (and differently with/without framework) it carries a
+  *menu* of standard tooling — test framework, linter, static analysis — each
+  annotated with the community-recommended default and its trade-offs.
+- The *active* tooling choice is a **Tier-3 decision**: `/craft:onboard` surfaces the
+  pack's recommendation, the user chooses, the choice is recorded in `rules.md`.
+  Recommendation, not mandate (cf. `feedback-recommendation-over-blocking`).
+
+This sharpens the tier split: **Tier 2 = what the stack knows and recommends;
+Tier 3 = what this project chose.**
+
+##### Wishlist disposition
+
+- `stack-php-laravel` — canonical, unchanged.
+- `stack-php-symfony` — valid; fits `stack-<language>-<context>`.
+- `stack-python` — valid frameworkless pack (vanilla); `stack-python-django` etc. are separate packs.
+- `stack-bash` — valid frameworkless pack; bash has no framework concept — fine.
+- "Senior Reviewer" — removed from Tier-1 wishlist; relocated to the review-workflow carry-over above.
+
 ---
 
 ## 7. Carry-Over to Next Clusters
