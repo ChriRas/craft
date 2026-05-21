@@ -12,7 +12,8 @@ universality with constant control.
 
 ## Active Goals
 
-- **Refresh the README** — it is stale (decision count, command count, phase count).
+(none currently — D27, D28, and the README refresh are delivered. Use /craft:plan
+for the next direction.)
 
 ## Architectural Decisions
 
