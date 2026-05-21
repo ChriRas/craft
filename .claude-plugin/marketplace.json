@@ -12,7 +12,7 @@
     {
       "name": "craft",
       "source": "./",
-      "description": "Universal coding workflow plugin: an 8-phase loop with explicit knowledge management, autonomy controls, vertical slicing, and bug-verification — works identically across shell scripts, libraries, REST APIs, full-stack apps, and infrastructure code.",
+      "description": "Universal coding workflow plugin: a 9-phase loop with explicit knowledge management, autonomy controls, vertical slicing, and bug-verification — works identically across shell scripts, libraries, REST APIs, full-stack apps, and infrastructure code.",
       "version": "0.2.0",
       "author": {
         "name": "Christoph Raschke"
@@ -21,7 +21,7 @@
       "keywords": [
         "workflow",
         "coding-agent",
-        "8-phase-loop",
+        "9-phase-loop",
         "vertical-slicing",
         "autonomy-control"
       ],

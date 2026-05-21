@@ -10,7 +10,7 @@
         Coding with Rules, Autonomy, Feedback, Tests
 ```
 
-A Claude Code plugin that wraps a disciplined, language-agnostic coding workflow into reusable slash commands and skills. Drop it into any repository — shell script, library, REST API, full-stack web app, data pipeline, infrastructure code — and the agent will guide you through the same 8-phase loop with the same controls every time.
+A Claude Code plugin that wraps a disciplined, language-agnostic coding workflow into reusable slash commands and skills. Drop it into any repository — shell script, library, REST API, full-stack web app, data pipeline, infrastructure code — and the agent will guide you through the same 9-phase loop with the same controls every time.
 
 > **Core principle:** Universality with constant control. Same workflow, same control surface, regardless of stack.
 
@@ -20,9 +20,10 @@ A Claude Code plugin that wraps a disciplined, language-agnostic coding workflow
 
 A complete coding-loop scaffolding:
 
-- **17 slash entry points** (14 commands + 3 slash-invocable skills) that move you through Brainstorm → Alignment → Planning → Implementation → Testing → Recap → Refactoring → Commit & Cleanup, with explicit navigation cues at every session start.
-- **5 universal skills**: the 8-phase workflow itself, bug-verification protocol (`/craft:debug`), structured brainstorming (`/craft:brainstorm`), interview-style alignment (`/craft:grill-me`), browser automation.
+- **20 slash entry points** (16 commands + 4 slash-invocable skills) that move you through Brainstorm → Alignment → Planning → Implementation → Testing → Recap → Refactoring → Review → Commit & Cleanup, with explicit navigation cues at every session start.
+- **6 universal skills**: the 9-phase workflow itself, the Senior-Developer baseline (loaded every session), bug-verification protocol (`/craft:debug`), structured brainstorming (`/craft:brainstorm`), interview-style alignment (`/craft:grill-me`), browser automation.
 - **A two-tier architecture**: the plugin ships the universal shell; your project keeps its own language/framework specialists in `.claude/skills/` and `.claude/agents/`, lazy-loaded at runtime.
+- **Personality autoload**: the Senior-Developer baseline above is the universal Tier 1; on top of it, optional **stack-packs** (e.g. `stack-php-laravel`) — language/framework idiom packs a project declares in `rules.md` — load automatically during the code-near phases.
 - **A SessionStart hook** that auto-runs `/craft:prime` in Craft-onboarded projects so every fresh chat orients itself; stays silent in non-Craft projects.
 - **A migration path** for projects that already have a `.claude/` setup — `/craft:onboard` detects the existing content and moves conflicting commands to `_legacy/` while preserving project-specific specialists.
 
@@ -30,11 +31,16 @@ A complete coding-loop scaffolding:
 
 ## Installation
 
-> The plugin is not yet in the official marketplace. For now, clone and install locally.
+CRAFT is distributed as a Claude Code plugin from a marketplace — and this repository *is* the marketplace (it ships `.claude-plugin/marketplace.json`). Install it from inside Claude Code:
 
-```bash
-git clone <repo-url> ~/.claude/plugins/craft
 ```
+/plugin marketplace add <repo-url>
+/plugin install craft@craft
+```
+
+The first command registers this repository as a plugin marketplace; the second installs the `craft` plugin from it (`craft@craft` — the `craft` plugin from the `craft` marketplace). Restart the session to activate the commands and skills.
+
+To move to a later release, run `/craft:upgrade` — it syncs the marketplace clone and Claude Code re-installs the new version on the next session start.
 
 After install, open Claude Code in any project and run `/craft:onboard` to set the project up.
 
@@ -78,7 +84,8 @@ In a project that has not been onboarded to Craft, the hook stays silent — no 
 /craft:test                       # Phase 5 — you exercise the artifact
 /craft:recap                      # Phase 6 — capture what was learned
 /craft:refactor                   # Phase 7 — make it cleaner
-/craft:commit                     # Phase 8 — atomic commits + slice archive
+/craft:review                     # Phase 8 — independent fresh-eyes review
+/craft:commit                     # Phase 9 — atomic commits + slice archive
 ```
 
 #### Stuck on a bug
@@ -139,14 +146,14 @@ Neither is required. CRAFT does not depend on either, and `/craft:prime` stays u
 
 Detailed design rationale lives in this repository:
 
-- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — 23 architectural decisions with explicit reasoning
+- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — 28 architectural decisions with explicit reasoning
 - [`plugin-architecture.md`](./plugin-architecture.md) — concrete build blueprint
 
 ---
 
 ## Acknowledgements
 
-The 8-phase loop is inspired by Benjamin Thorstensen's *"Was ich nach 900 Stunden KI-Coding komplett anders mache"*.
+The 9-phase loop is inspired by Benjamin Thorstensen's *"Was ich nach 900 Stunden KI-Coding komplett anders mache"*.
 
 The `brainstorm` and `grill-me` skills are adopted 1:1 from [benithors/skills](https://github.com/benithors/skills) (MIT-licensed), which in turn builds on Matt Pocock and Brian Madison's agent workflow methodology. Upstream copies of those skills' license live alongside each adopted skill as `LICENSE.upstream`.
 
