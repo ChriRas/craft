@@ -302,6 +302,10 @@ Four levels. Phase defaults are above; action-type overrides apply across phases
 - **Auto-continue with abort option** at Level 2 — otherwise Level 2 collapses into Level 1.
 - **Level 3 visibility**: every bundle summarizes Level 3 actions in one line ("read 12 files, ran 3 lint checks"). Never invisible.
 
+#### Lettered-choice prompts
+
+Several commands offer the user a lettered-choice menu — `[W]/[B]/[U]` (Phase 5 feedback), `[K]/[I]/[R]/[D]` (Phase 9 decision promotion), `[P]/[U]/[D]` (onboard migration), and others. Whenever such a menu is presented, render it **in full**: every option as its letter **plus its meaning plus its consequence / next-step**, on **every** occurrence — not just the first. The user may answer with the bare letter, but the agent always shows the full legend. Never present bare letters and rely on the user recalling what they mean.
+
 ---
 
 ## Rule-Conflict Resolution

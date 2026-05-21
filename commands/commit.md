@@ -128,7 +128,7 @@ If any `git commit` fails (e.g., pre-commit hook), stop immediately. The commits
 
 ### Step 4 — Decisions promotion dialog
 
-Walk through every entry in the slice plan's `## Decisions Made During This Slice` section, one at a time:
+Walk through every entry in the slice plan's `## Decisions Made During This Slice` section, one at a time. Present the `[K]/[I]/[R]/[D]` menu with its full legend — each letter, its meaning, its effect — every time, per the lettered-choice-prompt convention in `skills/workflow/SKILL.md`:
 
 ```
 Decision: "<text of the decision>"

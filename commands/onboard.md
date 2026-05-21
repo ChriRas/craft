@@ -183,7 +183,7 @@ Confirm by class? (Y / override-by-item / cancel)
 
 ### 2.5 Resolve plugin-already-provides collisions
 
-For each asset in the **Plugin-already-provides** class, ask explicitly:
+For each asset in the **Plugin-already-provides** class, ask explicitly — rendering the `[P]/[U]/[D]` menu with its full legend per the lettered-choice-prompt convention in `skills/workflow/SKILL.md`:
 
 ```
 Skill collision: <name>
@@ -262,7 +262,7 @@ Parse the source file. Identify sections that map to:
 
 ##### Notes-section dialog (Gap #5)
 
-If the source contains a "Notes" / "Working Notes" / free-form section that mixes still-relevant decisions with dated working-notes, ask the user to triage **each bullet** one at a time:
+If the source contains a "Notes" / "Working Notes" / free-form section that mixes still-relevant decisions with dated working-notes, ask the user to triage **each bullet** one at a time — rendering the full `[I]/[R]/[O]/[K]/[D]` legend each time, per the lettered-choice-prompt convention in `skills/workflow/SKILL.md`:
 
 ```
 Notes entry <N>/<M>:
@@ -336,7 +336,7 @@ other names are valid for projects that add their own pack under
 
 ### Proposal (Level 0 — propose, never silently mutate)
 
-Present the candidate and let the user decide:
+Present the candidate and let the user decide — rendering the full `[C]/[O]/[N]` legend per the lettered-choice-prompt convention in `skills/workflow/SKILL.md`:
 
 ```
 Detected stack-pack candidate: <name>

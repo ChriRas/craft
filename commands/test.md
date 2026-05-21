@@ -91,7 +91,7 @@ How was it?
   [U] UX issue         → describe what should differ, then iterate
 ```
 
-Capture the single-letter answer.
+Render this prompt with its full legend — each letter, its meaning, and its next-step — every time it appears, per the lettered-choice-prompt convention in `skills/workflow/SKILL.md`. Capture the single-letter answer.
 
 #### If `[W]` Works
 
