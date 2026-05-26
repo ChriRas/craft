@@ -20,7 +20,7 @@ A Claude Code plugin that wraps a disciplined, language-agnostic coding workflow
 
 A complete coding-loop scaffolding:
 
-- **20 slash entry points** (16 commands + 4 slash-invocable skills) that move you through Brainstorm → Alignment → Planning → Implementation → Testing → Recap → Refactoring → Review → Commit & Cleanup, with explicit navigation cues at every session start.
+- **21 slash entry points** (17 commands + 4 slash-invocable skills) that move you through Brainstorm → Alignment → Planning → Implementation → Testing → Recap → Refactoring → Review → Commit & Cleanup, with explicit navigation cues at every session start.
 - **6 universal skills**: the 9-phase workflow itself, the Senior-Developer baseline (loaded every session), bug-verification protocol (`/craft:debug`), structured brainstorming (`/craft:brainstorm`), interview-style alignment (`/craft:grill-me`), browser automation.
 - **A two-tier architecture**: the plugin ships the universal shell; your project keeps its own language/framework specialists in `.claude/skills/` and `.claude/agents/`, lazy-loaded at runtime.
 - **Personality autoload**: the Senior-Developer baseline above is the universal Tier 1; on top of it, optional **stack-packs** (e.g. `stack-php-laravel`) — language/framework idiom packs a project declares in `rules.md` — load automatically during the code-near phases.
@@ -75,6 +75,17 @@ Recommended next: continue slice-007 (Phase 4)
 ```
 
 In a project that has not been onboarded to Craft, the hook stays silent — no nudge. Invoke `/craft:onboard` yourself if you want to adopt the workflow there.
+
+#### Planning a multi-slice epic
+
+When the next chunk of work is too large for a single vertical slice, capture it as an epic first:
+
+```
+/craft:epic hierarchical planning    # records Vision + initial Slice Decomposition
+/craft:plan first-slice-from-epic    # refine each entry into a regular slice
+```
+
+Epic and slice ID-spaces are independent — `.claude/plans/.next-id` counts slices, `.claude/plans/.next-epic-id` counts epics. Epics are a roadmap, not a contract: refine and reorder the decomposition as the work lands.
 
 #### Building a feature
 
