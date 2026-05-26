@@ -8,12 +8,22 @@ CRAFT is a Claude Code plugin that wraps a disciplined, language-agnostic coding
 workflow into reusable slash commands and skills. Dropped into any repository — shell
 script, library, REST API, full-stack app, infrastructure code — it guides the agent
 through the same phased loop with the same controls every time. Core principle:
-universality with constant control.
+universality with **human control concentrated at the hard phases** (planning,
+recap, review, escalated bugs); execution is delegated to safe, parallel agent work.
 
 ## Active Goals
 
-(none currently — D27, D28, and the README refresh are delivered. Use /craft:plan
-for the next direction.)
+Two of the original seven capabilities have shipped: **hierarchical planning (B)**
+via `/craft:epic` (slice-007) and **bugfix autonomy (F)** via `skills/debug`. The
+remaining five-capability expansion, sequenced:
+
+1. **Parallel worktree execution (C+D+E)** — agents build in parallel git
+   worktrees; subagents report ready-for-checkout when user action is required;
+   full checkout/provisioning at Recap/Review for environment testing.
+2. **Model switching per phase (G)** — Opus for planning/review, Sonnet for
+   execution; defined per role/phase.
+3. **Onboarding language config (A)** — three independent settings (chat,
+   commits, code comments) configurable at onboarding.
 
 ## Architectural Decisions
 
@@ -29,6 +39,10 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
   stack-packs, project overlay in `rules.md`.
 - **Review as its own phase (D28)** — code review precedes Commit, with a
   severity × fix-nature findings rubric.
+- **Concentrated-control execution (D29)** — human owns hard phases (planning,
+  recap, review, escalated bugs); execution is delegated to parallel agents in
+  git worktrees. *Why not constant per-step control:* the per-step model is too
+  slow once finely planned work can be parceled out and run in parallel.
 
 ## Non-Goals
 
@@ -38,4 +52,7 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
 
 ## Open Questions
 
-- (none)
+- **Per-agent model selection mechanics** — config location and override scope
+  for G. Resolved when G is planned.
+- **Worktree lifecycle** — when are parallel worktrees created, merged back,
+  and cleaned up? Resolved with C+D+E.
