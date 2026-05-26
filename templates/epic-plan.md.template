@@ -1,0 +1,49 @@
+# Epic {{NNN}} — {{title}}
+
+> Status: planning | decomposing | active | paused | completed
+> Epic-ID: epic-{{NNN}}
+> Epic-Slug: {{slug}}
+> Started: {{ISO_date}}
+> Phase: 3
+> plugin-version: {{plugin_version}}
+> Handoff active: no
+
+## Vision
+
+{{multi_sentence_vision_for_the_epic}}
+
+## Slice Decomposition
+
+> Initial decomposition into vertical slices. Each entry is a candidate `/craft:plan`
+> invocation later; treat the list as a roadmap, not a contract. Update as slices land.
+
+- [ ] {{slice_1_short_name}} — {{slice_1_one_line_intent}}
+- [ ] {{slice_2_short_name}} — {{slice_2_one_line_intent}}
+- [ ] {{slice_3_short_name}} — {{slice_3_one_line_intent}}
+
+## Decisions Made During This Epic
+
+> Architectural / product decisions that surface during epic shaping or while child
+> slices execute. Each entry is walked with the `[K]/[I]/[R]/[D]` promotion dialog
+> when the epic closes.
+
+- (none yet)
+
+## Recap Draft
+
+> Filled when the epic closes. Becomes the basis for the epic archive entry.
+
+(not yet recorded)
+
+## Handoff
+
+> Filled by `/craft:handoff` when context-poisoned. Read by the next session's
+> `/craft:prime`.
+
+(none)
+
+## Pause Note
+
+> Filled by `/craft:pause` when work pauses mid-phase.
+
+(none)
