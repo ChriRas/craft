@@ -12,7 +12,7 @@ Get a project ready for the 9-phase workflow. Two distinct sub-paths share one e
 - **Greenfield path** — `.claude/project/` does not exist. Scan the repo, draft project knowledge files dialogically, validate.
 - **Migration path** — `.claude/` exists with prior content (commands, agents, skills, CLAUDE.md). Classify each asset, move conflicts to `_legacy/`, split `CLAUDE.md` into `intent.md` / `rules.md` / `roadmap.md`.
 
-This command is a **durable-state mutation** and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md` (D24). Refer to that skill for the knowledge model (State / Intent / Rules) and `plugin-architecture.md` Decision D20 for the migration classification scheme.
+This command is a **durable-state mutation** and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md`. Refer to that skill for the knowledge model (State / Intent / Rules); the migration classification scheme is described in the procedure below.
 
 ---
 

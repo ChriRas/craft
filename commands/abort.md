@@ -12,7 +12,7 @@ Discard work on a slice that won't be completed. The slice plan file is deleted 
 
 If partial commits exist, they remain in the git history and the user is responsible for cleanup (revert, branch reset, etc.) as appropriate.
 
-This command is a **durable-state mutation** (file deletion) and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md` (D24).
+This command is a **durable-state mutation** (file deletion) and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md`.
 
 ---
 

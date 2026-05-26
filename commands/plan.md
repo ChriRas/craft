@@ -10,7 +10,7 @@ allowed-tools: ["Bash", "Read", "Write", "Glob"]
 
 Open Phase 3 of the workflow: break the next chunk of work into a vertical slice that is end-to-end testable, minimal, self-contained, and standalone-experienceable.
 
-This command is a **durable-state mutation** (writes a slice plan file, bumps the slice counter) and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md` (D24). The three universal questions from Phase 3 are non-negotiable — every slice must answer them before any code is written.
+This command is a **durable-state mutation** (writes a slice plan file, bumps the slice counter) and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md`. The three universal questions from Phase 3 are non-negotiable — every slice must answer them before any code is written.
 
 ---
 

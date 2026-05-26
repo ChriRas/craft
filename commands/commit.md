@@ -9,7 +9,7 @@ allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob"]
 
 Close the slice properly: split changes into atomic commits with Conventional Commits + `Slice:` footers, surface decisions for promotion to `intent.md` / `rules.md`, write the slice archive entry from the Phase 6 recap, and delete the ephemeral plan file.
 
-This command is a **durable-state mutation** (git history, project knowledge files, slice archive, plan deletion) and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md` (D24). Follow that skill for Phase 9 mechanics.
+This command is a **durable-state mutation** (git history, project knowledge files, slice archive, plan deletion) and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md`. Follow that skill for Phase 9 mechanics.
 
 ---
 
