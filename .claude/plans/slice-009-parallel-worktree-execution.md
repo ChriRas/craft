@@ -70,9 +70,20 @@ For an in-flight epic the user can pause at any time via `/craft:pause`; resume 
 - [ ] Add optional `## Review Checkpoints` section to `templates/epic-plan.md.template` (default: end-of-epic only).
 - [ ] Add `## Worktree Settings` block to `templates/rules.md.template` documenting the two configurable knobs (`worktree_path_pattern`, `branch_name_pattern`) with defaults; both optional.
 
+### Rename — Free Up `/craft:execute` for the Orchestrator
+
+- [ ] Rename `commands/execute.md` → `commands/build.md`. The file ships the Phase-4 build behavior; the rename frees the `execute` name for the new autonomous orchestrator.
+- [ ] Sweep all cross-references to `/craft:execute` that refer to the Phase-4 build command and replace with `/craft:build`. Known touch-points:
+  - `commands/continue.md` (routing table)
+  - `commands/plan.md` (output "Next:" hints)
+  - `commands/test.md` and any other phase command that references the previous step
+  - `skills/workflow/SKILL.md`
+  - `README.md`
+  - Any archived slice mentioning the historical name stays as-is (history, not behavior).
+
 ### New Commands
 
-- [ ] Create `commands/execute.md` — `/craft:execute <epic-or-slice>`: Pre-Assertions (onboarded, target plan exists, no in-flight execute, git tree clean on main), DAG resolution, subagent spawn loop, per-slice merge into epic-branch, "epic ready" signal, Post-Assertions, output block.
+- [ ] Create `commands/execute.md` (now empty after rename) — `/craft:execute <epic-or-slice>`: Pre-Assertions (onboarded, target plan exists, no in-flight execute, git tree clean on main), DAG resolution, subagent spawn loop, per-slice delegation to `/craft:build` → `/craft:test` → `/craft:recap` → `/craft:refactor` → `/craft:review` (Phase 4–7) inside each slice-worktree, merge into epic-branch on success, "epic ready" signal, Post-Assertions, output block.
 - [ ] Create `commands/checkout.md` — `/craft:checkout <slice|epic>`: resolves worktree path, prints `cd` instruction + stack-pack provisioning hint (no auto-install).
 - [ ] Create `commands/worktree-status.md` — `/craft:worktree-status`: lists active worktrees with slice/epic-ID, branch, path, last activity timestamp, handoff-marker presence.
 - [ ] Create `commands/worktree-clean.md` — `/craft:worktree-clean`: detects orphans (worktrees whose plan has been archived or no longer exists), lists them, asks before removing.
@@ -82,8 +93,9 @@ For an in-flight epic the user can pause at any time via `/craft:pause`; resume 
 - [ ] Modify `commands/plan.md` — add the optional `Depends-On:` question to the Phase-3 dialog; write the frontmatter field. Plan is still written on main (no worktree creation here).
 - [ ] Modify `commands/commit.md` — Phase 8 inside a worktree: merges slice-branch → epic-branch with `--no-ff`; Phase 8 on epic-branch: merges epic-branch → main with `--no-ff`. Lone-slice execute path: slice-branch → main directly.
 - [ ] Modify `commands/abort.md` — detect active worktree; if present, list uncommitted files, ask "Worktree und Branch entfernen [j/n]?" with default `n`.
-- [ ] Modify `commands/archive.md` — Phase 9: run `git worktree remove` and `git branch -d` for the slice (and for the epic on epic-archive).
+- [ ] Modify the Phase-9 archive command (`commands/archive.md` if it exists, otherwise the section of `commands/commit.md` that handles archival) — run `git worktree remove` and `git branch -d` for the slice (and for the epic on epic-archive).
 - [ ] Modify `commands/epic.md` — output block now mentions `/craft:execute <epic>` as the next step after slice-decomposition is filled in via `/craft:plan`.
+- [ ] Verify `commands/test.md`, `commands/recap.md`, `commands/refactor.md`, `commands/review.md` are safely callable from a subagent context (no interactive prompts that block; if any do, route them through a `.craft/handoff.md` write instead). Adjust as needed.
 
 ### Skills & Subagents
 
@@ -144,7 +156,9 @@ The following decisions were captured during Phase 3 planning (2026-05-26) and s
 - **Slice dependencies** — explicit `Depends-On: [slice-NNN, …]` frontmatter. *Why not* heuristic file-overlap detection: too magical, unsafe.
 - **Cleanup policy** — automatic worktree-remove and branch-delete at Phase 9 (Archive). *Why*: dovetails with the existing archive cleanup, keeps the filesystem clean.
 - **`/craft:abort` behavior** — asks before removing an active worktree, default `n`. *Why*: matches the "Human keeps control" rule for destructive operations.
-- **New commands** — `/craft:execute`, `/craft:checkout`, `/craft:worktree-status`, `/craft:worktree-clean`.
+- **New commands** — `/craft:execute` (orchestrator, fresh after rename), `/craft:checkout`, `/craft:worktree-status`, `/craft:worktree-clean`.
+- **Rename Phase-4 build command** — `/craft:execute` → `/craft:build`. *Why*: the autonomous orchestrator needs the semantically strongest name (`execute` = "run a planned thing"); the per-slice Phase-4 step is best described as `build` (= "write the code for one slice"). *Why not* a different name for the orchestrator: the user-facing `/craft:execute <epic>` is the most discoverable framing of "run my plan." A rename is a one-time migration cost; the wrong name lingers forever.
+- **Orchestrator delegation model** — the orchestrator does not duplicate Phase 4–7 logic. It invokes `/craft:build`, `/craft:test`, `/craft:recap`, `/craft:refactor`, `/craft:review` per slice inside the slice-worktree, each as a subagent task. *Why not* duplicated phase logic: two code paths drift; one canonical phase implementation is reused across manual and automated runs. The per-phase commands gain a "may be called from a subagent" contract.
 
 These will be walked individually in the Phase 9 `[K]/[I]/[R]/[D]` dialog to decide which get promoted to `brainstorm-decisions.md` as numbered architectural decisions versus living only in this slice's archive entry.
 
