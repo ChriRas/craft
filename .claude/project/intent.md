@@ -13,14 +13,14 @@ recap, review, escalated bugs); execution is delegated to safe, parallel agent w
 
 ## Active Goals
 
-Five of the original seven capabilities have shipped: **hierarchical planning (B)**
-via `/craft:epic` (slice-007), **bugfix autonomy (F)** via `skills/debug`, and the
+Six of the original seven capabilities have shipped: **hierarchical planning (B)**
+via `/craft:epic` (slice-007), **bugfix autonomy (F)** via `skills/debug`, the
 **parallel worktree execution cluster (C+D+E)** via `/craft:execute` + the
-`slice-builder` agent (slice-009). The remaining work, sequenced:
+`slice-builder` agent (slice-009), and **model switching per phase (G)** via
+subagent delegation (`code-reviewer: opus`, `slice-builder: sonnet`) with
+`rules.md` overrides (slice-010). The remaining work:
 
-1. **Model switching per phase (G)** — Opus for planning/review, Sonnet for
-   execution; defined per role/phase.
-2. **Onboarding language config (A)** — three independent settings (chat,
+1. **Onboarding language config (A)** — three independent settings (chat,
    commits, code comments) configurable at onboarding.
 
 ## Architectural Decisions
@@ -47,8 +47,11 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
 - No MCP server for CRAFT (D25) — commands, skills, and hooks suffice for now.
 - No per-user profile / behavior-preset system (D11).
 - No short-name command shims — the `/craft:` namespace is the only entry surface.
+- No per-command model frontmatter — Claude Code does not support it; per-phase
+  model selection routes through subagents only. Dialogic phases (Plan, Debug
+  autonomous loop) are NOT delegated either — their streaming/pause UX is
+  incompatible with a subagent boundary (slice-010).
 
 ## Open Questions
 
-- **Per-agent model selection mechanics** — config location and override scope
-  for G. Resolved when G is planned.
+(none currently)
