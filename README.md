@@ -87,17 +87,39 @@ When the next chunk of work is too large for a single vertical slice, capture it
 
 Epic and slice ID-spaces are independent — `.claude/plans/.next-id` counts slices, `.claude/plans/.next-epic-id` counts epics. Epics are a roadmap, not a contract: refine and reorder the decomposition as the work lands.
 
-#### Building a feature
+#### Building a feature — interactive flow
 
 ```
 /craft:plan reservation button    # Phase 3 — dialogic planning
-/craft:execute                    # Phase 4 — implementation
+/craft:build                      # Phase 4 — implementation
 /craft:test                       # Phase 5 — you exercise the artifact
 /craft:recap                      # Phase 6 — capture what was learned
 /craft:refactor                   # Phase 7 — make it cleaner
 /craft:review                     # Phase 8 — independent fresh-eyes review
 /craft:commit                     # Phase 9 — atomic commits + slice archive
 ```
+
+#### Building a feature — autonomous flow (epic-scale)
+
+When you have an epic with multiple slices that can run in parallel, hand the build off to the orchestrator. CRAFT spawns one git worktree per runnable slice, runs Phase 4 → 7 inside each via the `slice-builder` subagent, merges slice-branches into a dedicated epic-branch as they clear review, and stops for human review at epic-end.
+
+```
+/craft:epic reservation flow      # Phase 3 (epic-level) — Vision + Slice Decomposition
+/craft:plan slice-A               # Phase 3 (slice-level) — repeat for each entry
+/craft:plan slice-B               # — entries can declare Depends-On: [slice-A] in their frontmatter
+/craft:execute epic-001           # autonomous: parallel worktrees, Phase 4–7 per slice
+
+# When "Epic ready for review" surfaces:
+/craft:checkout epic-001          # cd into the merged-epic worktree to exercise the whole thing
+/craft:checkout slice-A           # — or inspect a single slice in isolation
+/craft:commit                     # merges epic-branch → main with --no-ff, archives every slice
+
+# Side tools:
+/craft:worktree-status            # overview of all active worktrees
+/craft:worktree-clean             # remove orphaned worktrees after manual aborts
+```
+
+Phase 5 (UX feedback), refactor decisions, and Heavy + needs-rethinking review findings always pause autonomous runs via a `.craft/handoff.md` marker — agents never fabricate human judgment.
 
 #### Stuck on a bug
 

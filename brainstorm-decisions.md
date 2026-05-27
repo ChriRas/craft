@@ -997,6 +997,120 @@ artifact is introduced.
 
 ---
 
+### D29 — Concentrated-Control Execution
+
+> Decided 2026-05-26. Inverts the original "constant control" framing of the plugin
+> for execution-heavy phases without weakening the human's grip on the hard ones.
+
+The original framing — *universality with constant control* — describes the discipline
+correctly but mis-positions where the control actually has to land. In practice the
+human's judgment is load-bearing in a small set of phases (Planning, Recap, Review of
+escalations, escalated Bugs); the others (Build, automated Test, in-phase Review
+fixes, mechanical Recap drafting) are mechanical enough to delegate.
+
+Decision: control is **concentrated at the hard phases**, delegated at the
+mechanical ones. The 9-phase loop is unchanged; the autonomy taxonomy (D13/D14) is
+unchanged. What changes is the implicit cadence — the agent is allowed to run
+several mechanical phases back-to-back without per-phase confirmation, and the
+human steps in at the planned checkpoints.
+
+This decision is the prerequisite for parallel-worktree execution (D30): without
+concentrated control the orchestrator would be impossible — every slice would need
+per-phase human input.
+
+---
+
+### D30 — Parallel Worktree Execution Architecture
+
+> Decided 2026-05-26 during the slice-009 planning session. Operationalizes D29 by
+> defining how the 9-phase loop runs across multiple git worktrees simultaneously.
+
+A new orchestrator command (`/craft:execute`, see D31) takes an epic or a single
+slice, creates one git worktree per runnable slice, runs Phases 4–7 inside each via
+the `slice-builder` subagent, merges slice-branches into an epic-branch as each
+slice clears review, and stops at epic-end for human review. The architecture has
+the following load-bearing choices:
+
+- **Worktree location** — `../<repo>-worktrees/<slice-id>-<slug>/`, neben dem Repo
+  (not inside `.craft/` in the repo). Reason: tools (npm/Docker/IDEs) scan the repo
+  and would otherwise mistake sub-checkouts for the main checkout. Path is
+  configurable via `## Worktree Settings` in `rules.md`.
+- **Lifecycle** — one worktree per slice, alive from start of Phase 4 until Phase 9
+  archive cleanup. Created by `/craft:execute`, not by `/craft:plan` (planning
+  stays on main; only execution moves into worktrees).
+- **Concurrency** — multiple slices run in parallel via subagents. Sub-tasks within
+  one slice remain sequential — cross-sub-task merge coordination has the same cost
+  as cross-slice merge coordination without comparable parallelism gain.
+- **Phase distribution** — Phase 1/2/3 on main; Phase 4–7 in slice-worktree;
+  Phase 8 = merge into epic-branch (orchestrator) or into main (`/craft:commit`);
+  Phase 9 = worktree + branch cleanup.
+- **Merge topology** — slices merge to an `epic-<NNN>-<slug>` branch inside a
+  dedicated epic-worktree; the epic-branch merges to main at `/craft:commit` time.
+  Reason: enables a "checkout the full epic for review" mode alongside per-slice
+  inspection.
+- **Merge strategy** — always `--no-ff` merge commits. Reason: preserves slice
+  topology in history, makes parallel build structure visible. Squash or rebase
+  would erase it.
+- **Slice dependencies** — explicit `Depends-On: [slice-NNN, ...]` frontmatter on
+  each slice plan. Reason: file-overlap heuristics are unsafe; cycles are detected
+  upfront from the explicit graph.
+- **Default review-stop** — at epic-end. Per-slice or per-checkpoint stops opt-in
+  via `## Review Checkpoints` in the epic plan. Reason: per-slice stops produce
+  review fatigue ("klickt ihn nur sinnlos weiter").
+- **Handoff signaling** — `.craft/handoff.md` marker file in the slice-worktree.
+  Phase commands write it in subagent mode whenever human judgment is required
+  (Phase 5 UX feedback, refactor decisions, Heavy + needs-rethinking findings,
+  test failures past the autonomy threshold). A SessionStart hook surfaces
+  pending markers when a new chat opens.
+- **Provisioning** — `/craft:checkout` does only `git worktree`-related navigation
+  and prints a stack-pack-specific hint (e.g., `composer install`). Reason: the
+  universal layer stays out of stack-specific dependency installation; the
+  stack-pack carries that knowledge.
+- **Cleanup** — automatic at Phase 9 archive (worktree-remove + branch-delete).
+  `/craft:worktree-clean` exists as a safety net for orphans from interrupted
+  runs. `/craft:abort` asks before removing an active worktree.
+
+#### Three companion commands
+
+- `/craft:checkout <slice|epic>` — switch into a worktree for human inspection.
+- `/craft:worktree-status` — list every active CRAFT worktree.
+- `/craft:worktree-clean` — reconcile orphans.
+
+These are described concretely in `commands/{execute,checkout,worktree-status,worktree-clean}.md`.
+
+---
+
+### D31 — `/craft:execute` Rename + Orchestrator-Delegation Pattern
+
+> Decided 2026-05-26 alongside D30. Resolves a naming collision and fixes the
+> "two code paths per phase" risk that D30 would otherwise introduce.
+
+The Phase-4 build command was originally named `/craft:execute`. The autonomous
+orchestrator introduced by D30 wants the same name — `/craft:execute <epic>` is the
+most discoverable framing of "run my plan." Rather than name the orchestrator
+something weaker, the Phase-4 command is renamed:
+
+- `/craft:execute` (Phase 4 build) → `/craft:build`. The Phase-4 work is
+  semantically "build the slice", and the new name reflects that.
+- `/craft:execute` is freed up for the orchestrator from D30.
+
+A one-time migration cost; the wrong name lingers forever.
+
+**Delegation pattern.** The orchestrator does **not** duplicate Phase 4–7 logic.
+Inside each slice-worktree, the `slice-builder` subagent invokes the existing
+per-phase commands (`/craft:build`, `/craft:test`, `/craft:recap`,
+`/craft:refactor`, `/craft:review`) in sequence. Each of those commands now carries
+a `## Subagent Mode` section defining what it does when invoked by the slice-builder
+rather than directly by a human: write `.craft/handoff.md` and pause (Phase 5,
+refactor decisions, Heavy + needs-rethinking findings) or auto-draft
+(Phase 6 recap). Reason: one canonical phase implementation, reused across manual
+and automated runs — no drift between two code paths.
+
+The workflow skill (`skills/workflow/SKILL.md`) carries the formal subagent-callable
+contract and the `.craft/handoff.md` schema.
+
+---
+
 ## 7. Carry-Over to Next Clusters
 
 - **Plans are ephemeral**: fully decided (D7 + D8).
