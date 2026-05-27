@@ -13,16 +13,14 @@ recap, review, escalated bugs); execution is delegated to safe, parallel agent w
 
 ## Active Goals
 
-Two of the original seven capabilities have shipped: **hierarchical planning (B)**
-via `/craft:epic` (slice-007) and **bugfix autonomy (F)** via `skills/debug`. The
-remaining five-capability expansion, sequenced:
+Five of the original seven capabilities have shipped: **hierarchical planning (B)**
+via `/craft:epic` (slice-007), **bugfix autonomy (F)** via `skills/debug`, and the
+**parallel worktree execution cluster (C+D+E)** via `/craft:execute` + the
+`slice-builder` agent (slice-009). The remaining work, sequenced:
 
-1. **Parallel worktree execution (C+D+E)** — agents build in parallel git
-   worktrees; subagents report ready-for-checkout when user action is required;
-   full checkout/provisioning at Recap/Review for environment testing.
-2. **Model switching per phase (G)** — Opus for planning/review, Sonnet for
+1. **Model switching per phase (G)** — Opus for planning/review, Sonnet for
    execution; defined per role/phase.
-3. **Onboarding language config (A)** — three independent settings (chat,
+2. **Onboarding language config (A)** — three independent settings (chat,
    commits, code comments) configurable at onboarding.
 
 ## Architectural Decisions
@@ -54,5 +52,3 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
 
 - **Per-agent model selection mechanics** — config location and override scope
   for G. Resolved when G is planned.
-- **Worktree lifecycle** — when are parallel worktrees created, merged back,
-  and cleaned up? Resolved with C+D+E.
