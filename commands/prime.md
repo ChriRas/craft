@@ -104,7 +104,7 @@ Procedure:
 
 The project may declare a CRAFT stack-pack in the `## Personality` block of
 `rules.md`. `/craft:prime` does **not** load the pack — the code-near phases
-(`/craft:execute`, `/craft:test`, `/craft:refactor`, `/craft:review`) do that — but it verifies the
+(`/craft:build`, `/craft:test`, `/craft:refactor`, `/craft:review`) do that — but it verifies the
 declaration early so a missing pack does not surprise the user mid-slice.
 
 - Read the `## Personality` section of `.claude/project/rules.md`.
@@ -210,6 +210,6 @@ Keep the block under 20 lines for the common case. If many slices are active and
 - It does **not** edit `intent.md` or `rules.md`. Use `/craft:intent-update` for the former; `/craft:onboard` for repair of the latter.
 - It does **not** decide what to do next on your behalf — it only **recommends**.
 - It does **not** start a slice. Use `/craft:plan` for that.
-- It does **not** activate any project-local skills. Those are loaded lazily by phase commands (`/craft:execute`, `/craft:refactor`, etc.) when needed.
+- It does **not** activate any project-local skills. Those are loaded lazily by phase commands (`/craft:build`, `/craft:refactor`, etc.) when needed.
 - It does **not** load or activate the declared stack-pack — it only checks that the pack's file exists. The code-near phases load it.
 - It does **not** correct drift autonomously. Drift is reported; the human chooses Bend / Override / Repeal (see `skills/workflow/SKILL.md` rule-conflict policy).

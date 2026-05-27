@@ -46,8 +46,8 @@ Pull `Status`, `Phase`, `Slice-ID`, and any pause/handoff notes.
 
 | Status | Recommended next |
 |---|---|
-| `planning` | `/craft:plan` (to finish planning) — or `/craft:execute` if planning is actually done |
-| `implementing` | `/craft:execute` |
+| `planning` | `/craft:plan` (to finish planning) — or `/craft:build` if planning is actually done |
+| `implementing` | `/craft:build` |
 | `testing` | `/craft:test` |
 | `review` (Phase 5 between iterations) | `/craft:test` to re-demo or `/craft:recap` if approved |
 | `refactoring` | `/craft:refactor` |
@@ -64,7 +64,7 @@ Pull `Status`, `Phase`, `Slice-ID`, and any pause/handoff notes.
 
 ### 5. Emit recommendation, do not auto-invoke
 
-`/craft:continue` recommends but does not run the phase command automatically. The user types the actual command (`/craft:execute`, `/craft:test`, etc.). This preserves the user's choice to take a different path (e.g., re-plan, abort).
+`/craft:continue` recommends but does not run the phase command automatically. The user types the actual command (`/craft:build`, `/craft:test`, etc.). This preserves the user's choice to take a different path (e.g., re-plan, abort).
 
 ---
 

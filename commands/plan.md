@@ -122,6 +122,14 @@ Each sub-task is a single bullet under `## Sub-Tasks`. Use `- [ ]` for unchecked
 
 For UI-bearing slices, ask: *"Do you have a sketch or wireframe? You can describe it in words or paste a path to an image."* Capture if provided.
 
+### 5b. Optional: dependency declaration
+
+Ask:
+
+> Does this slice depend on other slices that must finish first? Pass a comma-separated list of slice-IDs (e.g., `slice-005, slice-007`), or leave empty if independent.
+
+The answer fills the `Depends-On:` frontmatter field. Default is `[]` (no dependencies — runs in parallel with other independent slices under `/craft:execute`). The list must reference plans that exist in `.claude/plans/` or `.claude/project/slices/`; unresolved references are rejected with a prompt to fix or remove them.
+
 ### 6. Allocate slice ID
 
 - Slice ID = value from `.claude/plans/.next-id` (or `001` if the file is missing), zero-padded to 3 digits.
@@ -140,6 +148,7 @@ Use `templates/slice-plan.md.template`. Substitute:
 - Trigger, effect, and test answers in their sections
 - Sub-tasks
 - UI sketch reference (if any)
+- `Depends-On: <list>` frontmatter (default `[]` from step 5b)
 - Empty placeholders for `## Active Rule Overrides`, `## Bugs`, `## Verification Protocols`, `## Bug Fix Attempts`, `## Decisions Made During This Slice`
 
 Write to `.claude/plans/slice-<NNN>-<slug>.md`.
@@ -159,7 +168,7 @@ Run all four after the procedure completes. Any failure → warn loudly, surface
 - `Read` `.claude/plans/slice-<NNN>-<slug>.md`. Must exist and be non-empty.
 - Frontmatter must contain `Slice-ID: slice-<NNN>`, `Status: planning`, `Phase: 3`, `Started:` (ISO date), and `plugin-version:`.
 
-Failure → *"⚠ Plan file missing or malformed at `<path>`. Inspect manually before continuing to /craft:execute."*
+Failure → *"⚠ Plan file missing or malformed at `<path>`. Inspect manually before continuing to /craft:build."*
 
 ### P2 — Required sections present
 
@@ -181,7 +190,7 @@ Failure → *"⚠ Plan file is missing required sections: `<list>`. The template
 
 The three universal-question sections must each contain user-captured content (not the template placeholder).
 
-Failure → *"⚠ One or more of Trigger / Effect / Test sections is empty. The plan was written, but Phase 3 is not actually answered. Edit `<path>` before /craft:execute."*
+Failure → *"⚠ One or more of Trigger / Effect / Test sections is empty. The plan was written, but Phase 3 is not actually answered. Edit `<path>` before /craft:build."*
 
 ### P4 — Counter incremented
 
@@ -206,7 +215,7 @@ Success:
   Test:    <one line>
   Sub-tasks: <N>
 
-Next: /craft:execute
+Next: /craft:build
 ```
 
 Aborted:
@@ -220,7 +229,7 @@ Partial (post-assertion failure):
 ```
 ⚠ Plan partially written — <which assertion(s) failed>.
    File: <path>
-   Inspect and reconcile manually before running /craft:execute.
+   Inspect and reconcile manually before running /craft:build.
 ```
 
 ---
@@ -244,7 +253,7 @@ Partial (post-assertion failure):
 ## What This Command Does NOT Do
 
 - It does **not** write any code.
-- It does **not** start Phase 4. Update the slice plan's `Status:` to `implementing` only when `/craft:execute` actually starts — not here.
+- It does **not** start Phase 4. Update the slice plan's `Status:` to `implementing` only when `/craft:build` actually starts — not here.
 - It does **not** commit anything.
 - It does **not** modify `intent.md` or `rules.md`. Architectural insights surfaced during planning go into the plan's `## Decisions Made During This Slice` section and are promoted (or not) in Phase 9.
 - It does **not** auto-rollback on post-assertion failure. Partial state is surfaced for human reconciliation.

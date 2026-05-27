@@ -59,7 +59,7 @@ Recommended next: <command>
 ### Recommended next steps
 
 - Phase 2 of a new feature → `/craft:plan`
-- Mid-slice grill → `/craft:execute` or `/craft:continue`
+- Mid-slice grill → `/craft:build` or `/craft:continue`
 - Project-level decision worth promoting → `/craft:intent-update`
 
 ### Error handling

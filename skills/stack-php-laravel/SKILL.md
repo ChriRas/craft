@@ -1,6 +1,6 @@
 ---
 name: stack-php-laravel
-description: CRAFT stack-pack for PHP + Laravel projects — language idioms, framework patterns, and Pest test patterns. Loaded by /craft:execute, /craft:test, and /craft:refactor when a project declares it. Not auto-activated.
+description: CRAFT stack-pack for PHP + Laravel projects — language idioms, framework patterns, and Pest test patterns. Loaded by /craft:build, /craft:test, and /craft:refactor when a project declares it. Not auto-activated.
 disable-model-invocation: true
 ---
 
@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 The code-near personality layer for a PHP 8.4 / 8.5 + Laravel 12 project, using
 Filament for admin UI and Pest for tests. It is loaded on top of the Senior-Developer baseline by
-`/craft:execute`, `/craft:test`, and `/craft:refactor` when `rules.md` declares it in
+`/craft:build`, `/craft:test`, and `/craft:refactor` when `rules.md` declares it in
 its `## Personality` block. Project-specific conventions — domain rules, exact tool
 commands, the database in use — live in the project's own `rules.md`, not here.
 
