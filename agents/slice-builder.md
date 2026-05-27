@@ -2,6 +2,7 @@
 name: slice-builder
 description: Autonomous Phase 4–7 executor for one slice during a `/craft:execute` run. Runs inside a slice-worktree, delegates to `/craft:build → /craft:test → /craft:recap → /craft:refactor → /craft:review` in subagent mode, writes `.craft/handoff.md` on every human-required pause. Spawned by `/craft:execute`; not for direct human use.
 tools: ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "Task"]
+model: sonnet
 ---
 
 # slice-builder — Autonomous Slice Executor

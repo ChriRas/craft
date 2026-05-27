@@ -144,6 +144,32 @@ This plugin assumes you've seen the failure mode of unstructured agent coding: a
 
 ---
 
+## Per-Phase Model Switching
+
+The cognitively heaviest phases delegate to named subagents pinned at the right model:
+
+| Phase | Subagent | Model |
+|---|---|---|
+| Execute (Phase 4 via `/craft:execute` orchestrator) | `slice-builder` | `sonnet` |
+| Review (Phase 8) | `code-reviewer` | `opus` |
+
+The single-slice command `/craft:build` runs in-session and is **not** routed through a subagent — only the orchestrator path (`/craft:execute`, which spawns one `slice-builder` per slice in its own worktree) pins Sonnet.
+
+Dialogic phases — Plan (Phase 3) and the Debug autonomous loop — stay on the active session model because their value lives in the interaction with you. Switch the session model yourself if you want Opus for those.
+
+Projects can override any agent's model in `.claude/project/rules.md` under `## Agent Model Overrides`:
+
+```markdown
+## Agent Model Overrides
+
+- slice-builder: opus   # heavier judgment for a risky migration
+- code-reviewer: sonnet # faster review for low-stakes slices
+```
+
+`/craft:prime` reports the effective model per agent and flags invalid entries. See [`model-defaults.md`](./model-defaults.md) for the full default table, the override resolution rules, and the one-shot Issue-#173 verification procedure.
+
+---
+
 ## Project Files
 
 When you run `/craft:onboard`, the plugin creates:

@@ -119,6 +119,28 @@ declaration early so a missing pack does not surprise the user mid-slice.
 
 Like the drift check, this is **reported, never corrected** — the human decides.
 
+### 4b. Agent model resolution (informational + soft validation)
+
+Build the effective `Agent → Model` map so the user can see which model each CRAFT subagent will run on this session.
+
+1. **Defaults** — for every file in the plugin's `agents/` directory, read the frontmatter `model:` value. Missing `model:` means "session model". Resolve the plugin's `agents/` directory in this order, first match wins:
+   - `${CLAUDE_PLUGIN_ROOT}/agents/` if the environment variable is set (the documented Claude Code path for an installed-plugin run);
+   - else `<project-root>/agents/` if it exists (the CRAFT dev-repo dogfood case);
+   - else emit `⚠ Could not locate plugin agents/ directory — model-resolution disabled this session` and skip step 2.
+2. **Project overrides** — `Read` the `## Agent Model Overrides` section of `.claude/project/rules.md`. Parse only lines that (a) are not inside an HTML `<!-- ... -->` comment block and (b) match `- <agent-name>: <model-value>`. The template's example entries live inside `<!-- ... -->` precisely so they are inert by default — uncommenting is the activation step. Allowed model values: `opus`, `sonnet`, `haiku`, `inherit`.
+3. **Resolve** — for each agent, the override wins if present, else the default.
+4. **Soft validation** (warnings only, never abort):
+   - `⚠ Override for unknown agent '<name>' — typo or removed agent?`
+   - `⚠ Override '<agent>: <value>' uses invalid model — allowed: opus, sonnet, haiku, inherit.`
+
+Emit one status line per agent in the Output block (see Output Format). Format:
+
+```
+✓ Agent models: slice-builder=sonnet, code-reviewer=opus  [N overridden]
+```
+
+Collapse to a one-liner when nothing is overridden; expand to one line per overridden agent otherwise. See `model-defaults.md` for the design and the full default table.
+
 ### 5. Tool versions (informational)
 
 After tools are confirmed installed, capture and report versions for the status block:
@@ -175,6 +197,9 @@ The full status block — emit exactly this shape:
 ✓ Tools: context-mode ✓ (<version>), agent-browser ✓, git ✓ (<version>), gh ✓ (<version>)
 ✓ Senior-Developer baseline loaded
 <stack-pack line — only when a pack is declared; ✓ if found, ⚠ if missing (see step 4)>
+✓ Agent models: <one-line summary if no overrides; one line per overridden agent otherwise (see step 4b)>
+  ⚠ <override warning(s), if any>
+
 
 Active slices:
   → slice-NNN "<title>" — Phase X, Y/Z sub-tasks done
@@ -202,6 +227,9 @@ Keep the block under 20 lines for the common case. If many slices are active and
 | `rules.md` missing but `intent.md` present | Treat as inconsistent onboarding. Tell user: *"intent.md exists but rules.md is missing. Run `/craft:onboard` to repair the setup."* and stop. |
 | Slice plan file unreadable or malformed | Log it as `⚠ slice plan <file> unreadable — skipping`. Continue with other slices. |
 | Drift check sub-command itself errors out (e.g., grep on missing manifest) | Report `⚠ drift check incomplete: <reason>`. Continue. Do not abort the whole prime. |
+| `## Agent Model Overrides` section absent | Skip overrides; report defaults only. Not an error. |
+| Override line malformed | Emit `⚠ Override line not parseable: '<line>'` and skip that line. Continue. |
+| Override names an unknown agent or uses an invalid model value | Emit the soft warning (step 4b). Do not abort. |
 
 ---
 

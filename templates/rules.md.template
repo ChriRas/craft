@@ -63,3 +63,18 @@ Override `/debug`, `/craft:review`, and stale-slice defaults if needed.
 - **Token brake during loop:** 15000
 - **Stale slice threshold:** 7 days
 - **Review in-phase fix cap:** 5
+
+## Agent Model Overrides (optional)
+
+> Override CRAFT subagent models (defaults in plugin's `model-defaults.md`).
+> Allowed: `opus`, `sonnet`, `haiku`, `inherit`. Resolution: agent frontmatter →
+> this section. `/craft:prime` reports the effective model and soft-warns on
+> invalid entries.
+
+<!--
+Examples (uncomment to use):
+
+- slice-builder: opus     # heavier judgment for risky migrations
+- code-reviewer: sonnet   # faster review for low-stakes slices
+-->
+

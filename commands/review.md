@@ -56,7 +56,9 @@ Gather everything the fresh review agent needs to judge the slice. Do not summar
 
 ### Step 2 — Run the review subagent (fresh context window)
 
-Launch a subagent via the `Task` tool — a clean context window is the source of independence. Hand it the review brief from Step 1 and the rubric below. Instruct it to **classify, not fix** — it returns a structured findings list; the parent command applies fixes.
+Launch the **`code-reviewer`** subagent via the `Task` tool with `subagent_type: "code-reviewer"`. The named agent is pinned at `model: opus` for review-grade judgment (see `model-defaults.md`); a clean context window is the source of independence. Hand it the review brief from Step 1 and the rubric below. The agent classifies — it does not edit — and returns a structured findings list; the parent command applies fixes.
+
+If a project has overridden `code-reviewer` in `.claude/project/rules.md` → `## Agent Model Overrides`, the override's model is used instead. `/craft:prime` reports the effective value.
 
 #### Findings rubric — two orthogonal axes
 

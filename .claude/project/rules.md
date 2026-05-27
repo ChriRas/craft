@@ -57,3 +57,14 @@
 - **Auto-trigger threshold:** 2
 - **Token brake during loop:** 15000
 - **Stale slice threshold:** 7 days
+
+## Agent Model Overrides (optional)
+
+> Override CRAFT subagent models. Defaults in plugin's `model-defaults.md`.
+> Allowed values: `opus`, `sonnet`, `haiku`, `inherit`. Resolution: agent
+> frontmatter → this section. `/craft:prime` reports the effective model.
+
+<!--
+- slice-builder: opus
+- code-reviewer: sonnet
+-->
