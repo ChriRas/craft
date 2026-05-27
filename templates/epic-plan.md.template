@@ -21,6 +21,17 @@
 - [ ] {{slice_2_short_name}} — {{slice_2_one_line_intent}}
 - [ ] {{slice_3_short_name}} — {{slice_3_one_line_intent}}
 
+## Review Checkpoints
+
+> Optional. Controls where `/craft:execute` pauses for human review during the
+> autonomous run. Default: end-of-epic only.
+>
+> Each entry takes the form `- after slice-NNN` and pauses after that slice's
+> Phase-7 self-review completes, before merging into the epic-branch. Use
+> sparingly — per-slice stops produce review fatigue.
+
+- (none — review at end-of-epic only)
+
 ## Decisions Made During This Epic
 
 > Architectural / product decisions that surface during epic shaping or while child

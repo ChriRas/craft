@@ -13,7 +13,7 @@
 
 ## Personality
 
-> The CRAFT stack-pack this project loads during code-near phases (`/craft:execute`,
+> The CRAFT stack-pack this project loads during code-near phases (`/craft:build`,
 > `/craft:test`, `/craft:refactor`). Use the pack's directory name (e.g.
 > `stack-php-laravel`), or `none` if the project uses no stack-pack.
 
@@ -45,6 +45,14 @@ Things that must never happen.
 - **Release tagging:** {{tagging_scheme}}
 - **Deploy command:** {{deploy_command_or_workflow_path}}
 - **Pre-deploy checks:** {{checks}}
+
+## Worktree Settings (optional)
+
+> Override `/craft:execute` worktree defaults if the project needs different paths
+> or branch naming. Both are optional — when omitted, the defaults below apply.
+
+- **Worktree path pattern:** `../<repo>-worktrees/<slice-id>-<slug>/` (default)
+- **Branch name pattern:** `<slice-id>-<slug>` (default)
 
 ## Self-Verification Settings (optional)
 

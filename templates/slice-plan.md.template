@@ -7,6 +7,7 @@
 > Phase: 3
 > plugin-version: {{plugin_version}}
 > Handoff active: no
+> Depends-On: []
 
 ## Goal
 
