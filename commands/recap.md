@@ -119,6 +119,20 @@ Recommended next: /craft:refactor
 
 ---
 
+## Subagent Mode (when called by `/craft:execute`)
+
+When invoked by the `slice-builder` subagent during an autonomous run, there is no human to narrate to. The subagent drafts the What / Why / Walk-through from the slice plan plus the diff:
+
+- **What** — derived from `## Goal` and `## Effect` in the slice plan.
+- **Why** — derived from `## Trigger` and any entries in `## Decisions Made During This Slice`.
+- **Walk-through** — derived from the ordered `- [x]` sub-tasks and the actual code diff.
+
+The draft is written to `## Recap Draft` and clearly flagged at the top with `> Drafted by subagent — review at /craft:checkout`. The human reviews and edits the draft when they check out the worktree.
+
+No diagram is auto-generated in subagent mode (low signal/effort ratio without dialog).
+
+---
+
 ## What This Command Does NOT Do
 
 - It does **not** write the slice archive file. That happens in Phase 9 / `/craft:commit`.

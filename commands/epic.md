@@ -174,7 +174,14 @@ Success:
   Vision:        <one-line summary>
   Decomposition: <N> slices listed
 
-Next: refine the first decomposition entry with /craft:plan <name>
+Next:
+  /craft:plan <name>          refine each decomposition entry into a regular slice
+  /craft:execute epic-<NNN>   once every decomposition entry is planned, run the
+                              epic autonomously through Phase 4–7 in parallel
+                              worktrees (slices without dependencies run in
+                              parallel; the orchestrator stops for review at the
+                              epic-end or at any checkpoint declared in the epic
+                              plan's `## Review Checkpoints`).
 ```
 
 Aborted:

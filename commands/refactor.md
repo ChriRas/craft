@@ -118,6 +118,17 @@ Recommended next: /craft:review
 
 ---
 
+## Subagent Mode (when called by `/craft:execute`)
+
+When invoked by the `slice-builder` subagent during an autonomous run:
+
+- If the project's `rules.md` declares Phase 7 dropped (e.g., this very repo), skip cleanly — append `Phase 7 skipped (project rule)` to the slice plan's `## Decisions Made During This Slice` and advance to Phase 8.
+- Otherwise, the subagent surveys the slice's code change for the three Thorstensen prompts on its own (no user dialog), proposes up to 2 candidates, and **does not apply them**. It writes the candidate list to `.craft/handoff.md` with `Status: awaiting-refactor-decision` and pauses the slice. The human picks at `/craft:checkout` time, then runs `/craft:refactor` interactively (or skips with a Decision-log note).
+
+Refactor must never be silently applied without human judgment — it changes structure, and unsupervised structural change is a known failure mode of agent-driven development.
+
+---
+
 ## What This Command Does NOT Do
 
 - It does **not** add new functionality. Refactor preserves behavior.

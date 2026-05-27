@@ -73,6 +73,26 @@ These commits will REMAIN in git history. If you want them removed, you must
 do that manually (git reset, git revert, branch operations).
 ```
 
+### Step 2b — Check for active worktree
+
+`Bash` `git worktree list --porcelain`. If any worktree's branch matches `slice-<NNN>-*` for this slice:
+
+- `Bash` `git -C <worktree-path> status --porcelain` to detect uncommitted changes.
+- List the uncommitted files (if any) and the worktree path.
+
+Then ask, with the full lettered legend rendered every time per `skills/workflow/SKILL.md`:
+
+```
+⚠ A worktree for this slice exists at <path>.
+   <If uncommitted: "<N> uncommitted files would be lost: <list>">
+
+Remove the worktree and delete its branch as part of the abort?
+  [Y] Yes  — `git worktree remove <path>` + `git branch -d <branch>` (uses `-D` only if branch has unmerged commits AND user re-confirms)
+  [N] No   — leave the worktree intact; you can clean it up later with /craft:worktree-clean
+```
+
+Default is **No** — match the rest of `/craft:abort`'s "destructive operations need explicit confirmation" stance. If the user picks `[Y]` but `git branch -d` reports unmerged commits, escalate with a separate confirmation before falling back to `-D`. Never silent force-delete.
+
 ### Step 3 — Recency warning
 
 If the slice was last modified within the past 60 minutes (`stat`/`ls -lT` on the plan file), surface it:
@@ -122,6 +142,19 @@ mv <slice-plan> .claude/craft:plans/_aborted/
 
 Archival is never the default — only on explicit user request during this command run.
 
+### Step 6b — If requested, remove the worktree and branch
+
+If the user answered `[Y]` at Step 2b AND Step 5's typed-ID confirmation passed:
+
+```
+git worktree remove <path>
+git branch -d <branch>
+```
+
+Order matters — the worktree comes off first, then the branch. If `git worktree remove` reports uncommitted changes, surface the error and skip the `git branch -d` (the user must reconcile manually); do not pass `--force`. If `git branch -d` reports unmerged commits, surface and stop; do not fall back to `-D` without re-confirming (per the Step 2b legend).
+
+If the user answered `[N]` at Step 2b, this step does nothing — the worktree remains for manual cleanup via `/craft:worktree-clean`.
+
 ---
 
 ## Post-Assertions
@@ -134,6 +167,15 @@ Run both after Step 6. Any failure → warn loudly, surface to the user, do **no
 
 - Zero matches → P1 passes.
 - One or more matches → *"⚠ Slice plan still present at `<path>` after abort. The `rm`/`mv` may have failed silently. Inspect manually."*
+
+### P2b — If worktree removal was requested: worktree and branch gone
+
+Only runs when Step 6b executed:
+
+- `Bash` `git worktree list --porcelain` must not list the removed worktree path.
+- `Bash` `git branch --list <branch>` must return empty.
+
+Failure → *"⚠ Worktree-removal was requested but `<path>` or branch `<name>` is still present. Inspect with `git worktree list` / `git branch` and reconcile manually. The slice plan IS gone — recovery means recreating the worktree from main if needed."*
 
 ### P2 — If archival was requested: archive copy exists
 

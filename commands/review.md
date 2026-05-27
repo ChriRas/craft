@@ -32,7 +32,7 @@ Follow `skills/workflow/SKILL.md` Phase 8 mechanics — in particular the findin
 
 ### 3. Load the declared stack-pack
 
-Review is code-near work, so it loads the project's stack-pack the same way `/craft:execute` and `/craft:refactor` do. `Read` the `## Personality` section of `.claude/project/rules.md`:
+Review is code-near work, so it loads the project's stack-pack the same way `/craft:build` and `/craft:refactor` do. `Read` the `## Personality` section of `.claude/project/rules.md`:
 
 - If it declares a `Stack-Pack:` other than `none`, resolve the pack — `skills/<name>/SKILL.md` (plugin-shipped) or `~/.claude/craft-personalities/<name>/SKILL.md` (user-added). If found, `Read` it (and its `references/` files as the work needs) and emit `✓ Stack-pack loaded: <name>`.
 - If a pack is declared but the file cannot be found, emit `⚠ Stack-pack <name> declared but not found — reviewing on the Senior-Developer baseline only` and continue.
@@ -99,7 +99,7 @@ In **advisory mode**, skip this step: report local-edit findings as suggestions,
 ### Step 5 — Handle escalations (Level 1)
 
 - **Heavy + needs-rethinking** — never fixed here. For each, recommend one of two routes and let the user choose:
-  - *loop back to Phase 4* (`/craft:execute`) — the fix belongs in this slice's scope;
+  - *loop back to Phase 4* (`/craft:build`) — the fix belongs in this slice's scope;
   - *spin off a new slice* (`/craft:plan`) — it is genuinely separate work.
   These findings **block Commit** (Step 7).
 - **Light + needs-rethinking** — recorded as a **follow-up**. Commit proceeds; the follow-up lands in the slice archive's `## Follow-ups` section at Phase 9.
@@ -154,7 +154,7 @@ Findings: <H> heavy, <L> light
     - <description> → <loop-back to Phase 4 | new slice>
 
 Status stays `reviewing` — resolve the blocking finding(s) before Commit.
-Recommended next: /craft:execute  (or /craft:plan for a spun-off slice)
+Recommended next: /craft:build  (or /craft:plan for a spun-off slice)
 ```
 
 Advisory mode:
@@ -182,6 +182,21 @@ No fixes applied, no phase change. Fold these into your ongoing work.
 | In-phase fixes reach the soft cap | Stop fixing; recommend escalating the remaining batch (Step 4). Not a hard block. |
 | User waives the soft cap | Continue fixing, but note in `## Review Findings` that the cap was waived. |
 | `## Review Findings` section missing from the slice plan | Append the section, then write the findings into it. |
+
+---
+
+## Subagent Mode (when called by `/craft:execute`)
+
+`/craft:review` already runs its core work in a fresh-context subagent (the reviewer). When `/craft:review` itself is invoked by the `slice-builder` subagent during an autonomous run, that becomes a sub-subagent — supported.
+
+Behavior in this mode:
+
+- Steps 1–6 run normally; findings are classified and written to the slice plan's `## Review Findings`.
+- Step 4 (in-phase fix application) runs — fixing local-edit findings is mechanical and safe to automate.
+- Step 5 — **Heavy + needs-rethinking** findings do **not** prompt the user. They are written to `.craft/handoff.md` with `Status: awaiting-rethink-decision` plus the recommended route (loop-back or new slice) for each. The slice is paused for human resolution at `/craft:checkout` time.
+- Soft-cap breach (Step 4) → same handoff path: marker written, slice paused.
+
+The reviewer subagent itself never makes routing decisions; routing is always human-confirmed.
 
 ---
 

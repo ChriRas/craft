@@ -29,7 +29,15 @@ If a slice plan is found, read its `## Recap Draft` section (written in Phase 6)
 
 ## Pre-Assertions
 
-Run all five. Any failure stops the command before any commit, archive write, or deletion happens.
+Run all six. Any failure stops the command before any commit, archive write, or deletion happens.
+
+### A0 — Running from the main checkout
+
+`Bash` `git rev-parse --show-toplevel` and compare against the path of the **first** entry in `git worktree list --porcelain` (the primary worktree). They must match.
+
+Failure → abort: *"Run `/craft:commit` from the main checkout, not from inside a worktree. `cd` to `<main-path>` first."*
+
+This guards the Mode-Detection logic below — every mode requires `main` as the operating context.
 
 ### A1 — Exactly one active slice ready for commit
 
@@ -45,13 +53,14 @@ Parse the frontmatter of `<slice-plan>`. Required fields: `Slice-ID:`, `Status:`
 
 - `Status:` must be `committing` — the state `/craft:review` (Phase 8) writes when a slice clears review. Any other value → abort: *"Slice `<plan>` has `Status: <X>`. Phase 9 requires `committing`, reached when `/craft:review` (Phase 8) clears the slice. Run `/craft:review` first."*
 
-### A3 — Uncommitted changes present
+### A3 — Working state matches the detected mode
 
 ```
 git status --porcelain
 ```
 
-If the output is empty → abort: *"Nothing to commit. Did Phase 4 / Phase 7 / Phase 8 actually run?"*
+- **Standard mode**: output must be NON-empty (there are uncommitted changes to commit). If empty → abort: *"Nothing to commit. Did Phase 4 / Phase 7 / Phase 8 actually run?"*
+- **Slice-finalize / Epic-finalize mode**: output must be empty AND the corresponding worktree+branch from Mode Detection must exist. If `main` has uncommitted work AND a finalize mode was detected → abort: *"Working tree on `main` has uncommitted changes while a finalize-mode worktree is also present. Commit or stash the main-side changes before finalizing."*
 
 ### A4 — Tests green
 
@@ -69,9 +78,29 @@ The slice plan must contain a `## Recap Draft` section with content.
 
 ---
 
+## Mode Detection
+
+`/craft:commit` runs in one of three modes. Run this detection **before Step 1** and pick the matching procedure path. Run it from the **main checkout**, not from inside a worktree.
+
+- **Standard mode** — no `/craft:execute` run has been performed; changes are uncommitted on `main`. Follow Steps 1–7 exactly as written below.
+- **Slice-finalize mode** — `/craft:execute <slice-NNN>` has completed; a worktree at `../<repo>-worktrees/<slice-id>-<slug>/` holds the slice-branch with `Status: committing` and a clean tree. Follow Steps 1a, 5, 6, 7 (with the merge in Step 1a replacing Step 1's atomic split — the orchestrator already committed the sub-task work inside the worktree).
+- **Epic-finalize mode** — `/craft:execute <epic-NNN>` has completed; an `epic-<NNN>-<slug>` worktree exists with every contained slice already merged in. Follow Steps 1b, 5, 6, 7. The decisions walk in Step 4 runs once per included slice.
+
+Detection logic:
+
+1. `Bash` `git worktree list --porcelain`. If only the main worktree exists, mode = Standard.
+2. Otherwise, for each non-main worktree, look up the matching plan file under `.claude/plans/`.
+   - Branch starts with `epic-` and the epic plan exists with all decomposition entries archived/merged → Epic-finalize mode (the matching epic-worktree is the merge source).
+   - Branch matches `slice-<NNN>-<slug>` and the slice plan has `Status: committing` → Slice-finalize mode.
+   - Anything else → fall through. If multiple plausible modes match, ask the user which one to finalize (defensive — should not happen in normal flow).
+
+If the user invokes `/craft:commit` from inside a worktree, refuse: *"Run `/craft:commit` from the main checkout, not from inside a worktree. `cd` to `<main-path>` first."*
+
+---
+
 ## Procedure (Autonomy Level 1)
 
-### Step 1 — Propose atomic commit split
+### Step 1 — Propose atomic commit split (Standard mode only)
 
 - `git diff --stat` to see scope.
 - Map changes to the slice's sub-tasks. Propose one commit per logical change. Order: foundation first, leaves last.
@@ -97,6 +126,30 @@ Proceed with this split? (Y / propose-different / abort)
 ```
 
 If user wants a different split, iterate. Abort → clean exit, no mutation.
+
+### Step 1a — Slice-branch merge (Slice-finalize mode)
+
+The slice-branch already contains all sub-task commits authored inside the worktree by `/craft:execute`. There is nothing to split. Merge the branch into `main`:
+
+```
+git checkout main
+git merge --no-ff <slice-id>-<slug> -m "Merge <slice-id>: <slice-title>"
+```
+
+If the merge produces conflicts (rare — main should be ahead of the slice's fork point only by other merges, not by hand-edits), surface them and stop. Do not auto-resolve. The user inspects the slice worktree and decides whether to rebase the slice-branch onto current main and retry, or escalate.
+
+After a clean merge, skip directly to Step 2 with the merge commit as the single commit hash to record. Decisions promotion (Step 4) still runs.
+
+### Step 1b — Epic-branch merge (Epic-finalize mode)
+
+The epic-branch already contains the per-slice merge commits authored by `/craft:execute` (slice-branches merged with `--no-ff` into the epic-branch inside its worktree). Merge the epic-branch into `main`:
+
+```
+git checkout main
+git merge --no-ff epic-<NNN>-<slug> -m "Merge epic-<NNN>: <epic-title>"
+```
+
+Conflict handling is the same as Step 1a. After a clean merge, skip to Step 2; record the epic-branch's merge commit plus all contained slice-merge commits as the slice/epic's commit footprint. Decisions promotion (Step 4) walks each included slice's `## Decisions Made During This Slice` section in turn, and additionally walks the epic plan's `## Decisions Made During This Epic`.
 
 ### Step 2 — Compose commit messages
 
@@ -142,9 +195,9 @@ Decision: "<text of the decision>"
 
 Skipped entries default to K. Record the chosen disposition for each decision; Post-Assertion P4 verifies the writes that should have happened.
 
-### Step 5 — Write the slice archive entry
+### Step 5 — Write the slice (and, in Epic-finalize mode, epic) archive entry
 
-Compose the archive entry from `templates/slice-archive.md.template`. Fill:
+For each closing slice, compose the archive entry from `templates/slice-archive.md.template`. Fill:
 
 - Title from slice plan
 - Completed date (today, ISO)
@@ -155,7 +208,9 @@ Compose the archive entry from `templates/slice-archive.md.template`. Fill:
 - Follow-ups → `## Follow-ups` (the light + needs-rethinking findings from the slice plan's `## Review Findings`, if any)
 - Diagram (from `## Recap Draft` if present)
 
-Write to `.claude/project/slices/slice-<NNN>-<slug>.md`.
+Write each to `.claude/project/slices/slice-<NNN>-<slug>.md`.
+
+In **Epic-finalize mode**, also write an epic-level archive entry at `.claude/project/slices/epic-<NNN>-<slug>.md` summarizing the epic's Vision, the list of included slices (linked by ID), and any epic-level decisions promoted in Step 4. The per-slice archive entries link back to the epic archive.
 
 ### Step 6 — Optional: open a Pull Request
 
@@ -171,9 +226,27 @@ If yes:
 
 If push or PR creation fails: do **not** proceed to Step 7. The commits exist locally, the archive is written, the plan file is still present — the user reconciles manually.
 
-### Step 7 — Delete the active plan file
+### Step 7 — Delete the active plan files and clean up worktrees
 
-`rm .claude/craft:plans/slice-<NNN>-<slug>.md`. The slice archive + commits are now the durable record.
+In **Standard mode**: `rm .claude/plans/slice-<NNN>-<slug>.md`. The slice archive + commits are now the durable record. No worktree to remove (none was created).
+
+In **Slice-finalize mode**: `rm` the slice plan. Then remove the worktree and delete the slice-branch:
+
+```
+git worktree remove ../<repo>-worktrees/<slice-id>-<slug>
+git branch -d <slice-id>-<slug>
+```
+
+In **Epic-finalize mode**: `rm` every included slice's plan AND the epic plan. Then remove the slice-worktrees, the epic-worktree, and delete all the branches:
+
+```
+for each <slice-id>-<slug>: git worktree remove ../<repo>-worktrees/<slice-id>-<slug>
+                            git branch -d <slice-id>-<slug>
+git worktree remove ../<repo>-worktrees/epic-<NNN>-<slug>
+git branch -d epic-<NNN>-<slug>
+```
+
+If any `git branch -d` fails (unmerged commits — should not happen at this point), surface the warning, skip the delete, and let the user inspect. Never `-D` (force).
 
 ---
 
@@ -214,11 +287,20 @@ For each decision promoted to `[I]` or `[R]` in Step 4:
 
 Failure → *"⚠ Decision `<text>` was marked for promotion to `<intent.md | rules.md>` but the file does not contain it. The decision is preserved in the slice archive; reconcile manually if needed."*
 
-### P5 — Plan file deleted
+### P5 — Plan files deleted
 
-`.claude/craft:plans/slice-<NNN>-<slug>.md` must no longer exist.
+Every plan file removed in Step 7 must no longer exist:
+
+- **Standard / Slice-finalize**: `.claude/plans/slice-<NNN>-<slug>.md`.
+- **Epic-finalize**: every included slice's plan AND `.claude/plans/epic-<NNN>-<slug>.md`.
 
 Failure → *"⚠ Plan file still present at `<path>`. The slice did not fully close. Delete manually after confirming the archive is correct."*
+
+### P6 — Worktrees and branches removed (finalize modes)
+
+In Slice-finalize and Epic-finalize modes: every worktree removed in Step 7 must no longer appear in `git worktree list --porcelain`, and every deleted branch must not appear in `git branch --list <name>`.
+
+Failure → *"⚠ Worktree `<path>` or branch `<name>` was not cleaned up. Inspect with `git worktree list` and `git branch` — `/craft:worktree-clean` can reconcile orphans."*
 
 ---
 

@@ -17,7 +17,7 @@ Follow `skills/workflow/SKILL.md` Phase 5 mechanics (the three sub-steps 5a / 5b
 
 ### 1. Locate active slice
 
-- `Glob` `.claude/craft:plans/*.md`. Expect exactly one in `Status: testing` or `implementing`. If multiple, ask the user which slice. If none, stop with `No slice ready for testing. Run /craft:execute first or /craft:plan to start a new slice.`
+- `Glob` `.claude/craft:plans/*.md`. Expect exactly one in `Status: testing` or `implementing`. If multiple, ask the user which slice. If none, stop with `No slice ready for testing. Run /craft:build first or /craft:plan to start a new slice.`
 
 ### 2. Load slice plan
 
@@ -120,7 +120,7 @@ Wait for the answer — do not interpret. Once the answer is captured, ask:
 
 > Iterate now (one short fix + re-demo), or close the slice with the current behavior and revisit later (new slice)?
 
-If iterate: go back to `/craft:execute` for a focused fix, then return here for 5a / 5c. Loop until `[W]`.
+If iterate: go back to `/craft:build` for a focused fix, then return here for 5a / 5c. Loop until `[W]`.
 
 If close-and-revisit: capture the UX issue in `## Decisions Made During This Slice` for Phase 9 promotion consideration, then proceed to `/craft:recap`.
 
@@ -154,7 +154,7 @@ Recommended next: /craft:debug "<bug-description>"
 ```
 Iteration noted: <user's exact requested change>
 Resuming Phase 4 for a focused fix.
-Recommended next: /craft:execute
+Recommended next: /craft:build
 ```
 
 ---
@@ -163,16 +163,29 @@ Recommended next: /craft:execute
 
 | Situation | Behavior |
 |---|---|
-| No `Status: implementing` or `testing` slice found | Stop, recommend `/craft:execute` or `/craft:plan`. |
+| No `Status: implementing` or `testing` slice found | Stop, recommend `/craft:build` or `/craft:plan`. |
 | User reports "kind of works, but…" without picking W/B/U | Re-ask, force the single-letter choice. Do not interpret vague answers. |
 | Demo-setup cannot be derived (trigger field empty in plan) | Tell user the slice plan is missing the Trigger answer; recommend re-running `/craft:plan` to repair, or ask the user inline. |
 | User wants to skip Phase 5 because "tests are green" | Refuse politely: *"Phase 5 cannot be skipped — automated tests don't capture product feel. Take 60 seconds to run the demo."* |
 
 ---
 
+## Subagent Mode (when called by `/craft:execute`)
+
+When invoked by the `slice-builder` subagent during an autonomous `/craft:execute` run, the human cannot perform sub-step 5b in real time. The subagent therefore takes this path instead:
+
+0. Verify the slice plan is at `Status: testing` (set by `/craft:build` on clean Phase-4 completion). If any other status, write `.craft/handoff.md` with `Status: failure` and a one-line note "Out-of-band slice state — expected `testing`, found `<X>`" and stop. This catches a slipped Phase-4 transition before it pollutes Phase 5.
+1. Run 5a (Demo-Setup) and write its block to `.craft/handoff.md` inside the slice worktree with `Status: awaiting-test` and the trigger / try-this / expected-effect block embedded.
+2. Update the slice plan's `Status: paused` and append a Pause Note: *"Awaiting human Phase-5 exercise (subagent-invoked)."*
+3. Return control to the orchestrator. The orchestrator surfaces the handoff in the final "epic partially complete" block; the user resumes the slice via `/craft:checkout <slice-id>` + `/craft:continue` after exercising the artifact.
+
+The subagent does **not** fabricate the W/B/U answer — sub-step 5c always requires a human.
+
+---
+
 ## What This Command Does NOT Do
 
-- It does **not** modify code. UX iterations bounce back to `/craft:execute`.
+- It does **not** modify code. UX iterations bounce back to `/craft:build`.
 - It does **not** make the W/B/U decision for the user.
 - It does **not** auto-interpret UX feedback. Always asks the user to be specific.
 - It does **not** invoke `/craft:debug` automatically — it recommends, the user types.

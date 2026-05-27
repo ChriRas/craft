@@ -5,7 +5,7 @@ description: The 9-phase coding loop — the methodological backbone of this plu
 
 # Workflow — The 9-Phase Coding Loop
 
-This skill is the operational specification of the plugin's universal coding workflow. Every phase command (`/craft:brainstorm`, `/craft:grill-me`, `/craft:plan`, `/craft:execute`, `/craft:test`, `/craft:recap`, `/craft:refactor`, `/craft:review`, `/craft:commit`) reads this skill to know what it owes the user and what it is allowed to do.
+This skill is the operational specification of the plugin's universal coding workflow. Every phase command (`/craft:brainstorm`, `/craft:grill-me`, `/craft:plan`, `/craft:build`, `/craft:test`, `/craft:recap`, `/craft:refactor`, `/craft:review`, `/craft:commit`) reads this skill to know what it owes the user and what it is allowed to do.
 
 The workflow is **language- and stack-independent**. The same nine phases apply whether you are writing a shell script, a Python library, a Rust CLI, a Laravel monolith, or a Terraform module.
 
@@ -192,7 +192,7 @@ Even if automated tests in Phase 4 are green, Phase 5 must run. This is constitu
 
 **Soft volume cap:** once in-phase fixes exceed **N** (default 5; `Review in-phase fix cap` in `rules.md` `## Self-Verification Settings`), the agent stops and **recommends** escalating the whole batch rather than fixing it. Soft = a recommendation, not a hard block.
 
-**Escalation:** a Heavy + needs-rethinking finding is never auto-fixed. The agent **recommends** (Level 1), per finding, one of two routes — loop back to Phase 4 (`/craft:execute`) if the fix is in slice scope, or spin off a new slice (`/craft:plan`) if it is separate work. Phase 9 (Commit) is blocked until every Heavy + needs-rethinking finding is resolved.
+**Escalation:** a Heavy + needs-rethinking finding is never auto-fixed. The agent **recommends** (Level 1), per finding, one of two routes — loop back to Phase 4 (`/craft:build`) if the fix is in slice scope, or spin off a new slice (`/craft:plan`) if it is separate work. Phase 9 (Commit) is blocked until every Heavy + needs-rethinking finding is resolved.
 
 **Findings record:** all findings are written to the slice plan's `## Review Findings` section — an audit trail, format `Severity · Fix-nature · description · resolution`.
 
@@ -366,7 +366,7 @@ The pattern is mandatory for:
 The pattern is **not** applied to:
 
 - **Read-only commands** (`/craft:status`, `/craft:prime`, `/craft`) — no mutation, no assertions.
-- **Phase-execution commands** (`/craft:execute`, `/craft:test`, `/craft:refactor`, `/craft:review`) — open-ended code changes; assertions would be ceremonial.
+- **Phase-execution commands** (`/craft:build`, `/craft:test`, `/craft:refactor`, `/craft:review`) — open-ended code changes; assertions would be ceremonial.
 - **Pure-conversation commands** (`/craft:brainstorm`, `/craft:grill-me`, `/craft:debug`) — no filesystem mutation outside the slice plan body itself.
 
 Commands with small contained mutations (`/craft:continue`, `/craft:pause`, `/craft:handoff`, `/craft:intent-update`, `/craft:recap`) are currently out of scope. Extending the pattern to them requires a new banked decision.
@@ -448,6 +448,56 @@ If a slice is paused or abandoned mid-phase:
 - `/craft:pause` saves state; the plan file remains with its current `Status:` field.
 - `/craft:abort <slice>` asks confirmation (Level 0), then deletes the plan file. Aborted slices have no archive value.
 - `/craft:prime` detects stale slices (untouched for >N days) and asks: resume or discard.
+
+---
+
+## Worktree Execution Mode
+
+When `/craft:execute <epic-or-slice>` is used, the 9-phase loop runs across parallel git worktrees. The phase boundaries shift slightly:
+
+| Phase | Runs on | Notes |
+|---|---|---|
+| 1–2 (Brainstorm, Alignment) | main | Pre-slice; unchanged. |
+| 3 (Planning) | main | `/craft:plan` writes the plan file on main. Worktrees are NOT created here. |
+| 4 (Implementation) | slice-worktree | `/craft:execute` creates `../<repo>-worktrees/<slice-id>-<slug>/` on branch `<slice-id>-<slug>` from the epic-branch (or `main` for a lone slice). The `slice-builder` subagent runs `/craft:build` here. |
+| 5 (Testing) | slice-worktree | Subagent-callable mode of `/craft:test` writes `.craft/handoff.md` and pauses — Phase 5 requires a human and cannot be automated. |
+| 6 (Recap) | slice-worktree | Subagent-callable mode of `/craft:recap` auto-drafts the What/Why/Walk-through. Flagged for human review at checkout. |
+| 7 (Refactor) | slice-worktree | Subagent-callable mode of `/craft:refactor` skips if `rules.md` declares Phase 7 dropped; otherwise writes handoff candidates without applying. |
+| 8 (Review) | slice-worktree | Subagent-callable mode of `/craft:review` applies in-phase fixes automatically; Heavy + needs-rethinking findings and soft-cap breaches write a handoff and pause. |
+| 8 → epic-merge | epic-worktree | When a slice clears review, the orchestrator merges its branch into `epic-<NNN>-<slug>` with `--no-ff`. For a lone slice, this step is skipped — the slice-branch stays parked until Phase 9. |
+| 9 (Commit) | main | `/craft:commit` runs from main, detects the mode (Standard / Slice-finalize / Epic-finalize), merges with `--no-ff`, walks decisions across every included slice, writes archive entries, deletes plan files, and removes worktrees + branches. |
+
+### Subagent-callable contract
+
+Phase commands `/craft:build`, `/craft:test`, `/craft:recap`, `/craft:refactor`, `/craft:review` each carry a `## Subagent Mode` section that defines what they do when invoked by the `slice-builder` subagent rather than directly by a human. The orchestrator delegates rather than duplicating phase logic — one canonical implementation per phase, reused.
+
+The contract has two rules:
+
+1. **Never fabricate human judgment.** UX feedback (W/B/U), refactor candidate selection, escalation routing, decision promotions, commit-message edits — all stay human-only. Subagent mode either auto-drafts (Recap) and flags it for review, or writes a handoff marker and pauses (Test/Refactor/Review/Heavy findings).
+2. **Always surface state via `.craft/handoff.md`.** The marker file is the universal "human needed" signal. Hooks watch for it; `/craft:execute` collects it; `/craft:checkout` shows it.
+
+### Handoff marker format
+
+`<worktree-root>/.craft/handoff.md`:
+
+```markdown
+---
+Slice-ID: slice-NNN
+Status: awaiting-test | awaiting-refactor-decision | awaiting-rethink-decision | awaiting-protocol | failure
+Phase: 4 | 5 | 6 | 7 | 8
+Written: <ISO datetime>
+---
+
+# Handoff: <one-line title>
+
+<short paragraph describing what the subagent needs from the human>
+
+## Suggested next action
+
+<one-line — typically a /craft:command the human should run, with the slice or epic ID>
+```
+
+The orchestrator's "epic partially complete" output lists every active handoff with the slice-ID, the status, and the one-line title.
 
 ---
 
