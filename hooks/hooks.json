@@ -1,5 +1,5 @@
 {
-  "description": "Auto-prime when the project is onboarded (.claude/project/intent.md present); silent otherwise. Non-Craft projects are never nudged — the user opts in by invoking /craft. Fires on SessionStart, runs the bundled shell script which emits guidance read by Claude as session context.",
+  "description": "Two SessionStart hooks. (1) Auto-prime when the project is onboarded (.claude/project/intent.md present); silent otherwise. Non-Craft projects are never nudged — the user opts in by invoking /craft. (2) Surface any pending `.craft/handoff.md` markers from active worktrees so paused slices are visible at the start of a new session.",
   "hooks": {
     "SessionStart": [
       {
@@ -7,6 +7,11 @@
           {
             "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/worktree-handoff-notify.sh",
             "timeout": 10
           }
         ]
