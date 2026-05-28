@@ -150,6 +150,16 @@ After tools are confirmed installed, capture and report versions for the status 
 - `git`: `git --version` (first line).
 - `gh`: `gh --version` (first line).
 
+### 5b. Plugin version (informational)
+
+Resolve the CRAFT plugin manifest and extract its `version` field so the user always sees which release is active. Locate `.claude-plugin/plugin.json` in this order, first match wins:
+
+- `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json` if the env var is set (installed-plugin path);
+- else `<project-root>/.claude-plugin/plugin.json` if it exists (CRAFT dev-repo dogfood case);
+- else the version is unresolved (see below).
+
+Parse the JSON; read `.version`. On success, the output block's version line renders as `✓ CRAFT plugin v<version>`. If the manifest is not found or is unreadable / malformed, the version is unresolved: replace that line with the soft warning `⚠ CRAFT plugin version unknown — plugin.json <not found | malformed>` and continue. Never abort.
+
 ### 6. Scan active slices
 
 - `Glob` `.claude/craft:plans/*.md`.
@@ -192,6 +202,7 @@ The full status block — emit exactly this shape:
 
 ```
 ✓ Project: <name> (<stack tags>)
+✓ CRAFT plugin v<version>   (or ⚠ CRAFT plugin version unknown — see step 5b)
 ✓ Rules ↔ State drift check: <clean | ⚠ N drifts>
   <one line per drift, if any>
 ✓ Tools: context-mode ✓ (<version>), agent-browser ✓, git ✓ (<version>), gh ✓ (<version>)
@@ -230,6 +241,7 @@ Keep the block under 20 lines for the common case. If many slices are active and
 | `## Agent Model Overrides` section absent | Skip overrides; report defaults only. Not an error. |
 | Override line malformed | Emit `⚠ Override line not parseable: '<line>'` and skip that line. Continue. |
 | Override names an unknown agent or uses an invalid model value | Emit the soft warning (step 4b). Do not abort. |
+| `.claude-plugin/plugin.json` missing or malformed | Emit `⚠ CRAFT plugin version unknown — plugin.json <not found\|malformed>` and continue. Not a blocker. |
 
 ---
 

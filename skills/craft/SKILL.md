@@ -23,6 +23,12 @@ Detect project state, then present a single state-dependent menu of valid action
 
 Run these checks, in order:
 
+0. **Plugin version** — locate `.claude-plugin/plugin.json` (first match wins):
+   - `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json` if the env var is set;
+   - else `<project-root>/.claude-plugin/plugin.json` (dev-repo dogfood case).
+
+   Parse JSON; read `.version`. If missing or malformed, treat the version as `unknown` — never abort. The value is rendered in the state-report header (see Step 2).
+
 1. **Onboarded?** `Read` `.claude/project/intent.md`. If the file does not exist or is empty → state is `not-onboarded`. Skip to Step 2.
 2. **Active slices?** `Glob` `.claude/plans/slice-*.md`.
    - Zero matches → state is `onboarded-idle`.
@@ -33,12 +39,18 @@ Run these checks, in order:
 
 ### Step 2 — Emit the state report + action menu
 
-Format the output as a compact block. Pick the menu shape based on the detected state:
+Format the output as a compact block. Every state-report's first line is the plugin-version header:
+
+```
+CRAFT v<version> — project state: <state-label>
+```
+
+If the version could not be resolved (Step 0), substitute `v?` and keep going. Pick the menu shape based on the detected state:
 
 #### State: `not-onboarded`
 
 ```
-CRAFT — project state: not onboarded
+CRAFT v<version> — project state: not onboarded
 
 No .claude/project/intent.md found. Craft is not initialized in this project.
 
@@ -53,7 +65,7 @@ No other commands are offered. The user opts in by running `/craft:onboard` them
 #### State: `onboarded-idle`
 
 ```
-CRAFT — project state: onboarded, no active slices
+CRAFT v<version> — project state: onboarded, no active slices
 
 Project: <name from intent.md if discoverable, else current dir>
 Stack:   <one-line summary from rules.md if discoverable>
@@ -70,7 +82,7 @@ The recommendation order is intentional: planning is the most common next step a
 #### State: `active-slice`
 
 ```
-CRAFT — project state: <N> active slice(s)
+CRAFT v<version> — project state: <N> active slice(s)
 
   → slice-NNN "<title>" — Phase <X>, <Y>/<Z> sub-tasks done, started <K> days ago
   → slice-MMM "<title>" — Phase <X>, <Y>/<Z> sub-tasks done, started <K> days ago
@@ -89,6 +101,8 @@ Available actions:
 #### State: `active-slice-with-handoff`
 
 ```
+CRAFT v<version> — project state: handoff pending
+
 ⚠ Handoff waiting for slice-NNN — a previous session ended with /craft:handoff.
 
 Recommended next:
