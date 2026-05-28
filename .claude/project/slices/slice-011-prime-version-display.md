@@ -25,7 +25,7 @@
 
 > Optional — light / needs-rethinking findings carried over from Phase 8 Review. Each is a candidate for a future slice.
 
-- Pre-existing (not introduced by this slice): `commands/prime.md` Step 6 globs `.claude/craft:plans/*.md` while the rest of the codebase uses `.claude/plans/` — a stray glob typo worth a small fix slice.
+- ✅ Done (`f5e2213`) — pre-existing `.claude/craft:plans/` glob typo. Turned out systemic: 8 files (prime, continue, status, build, test, commit, abort, workflow skill) referenced the wrong path. Fixed all in one `fix(commands)` commit.
 
 ## How (Diagram)
 
