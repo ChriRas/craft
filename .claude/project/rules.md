@@ -1,8 +1,10 @@
 # Rules
 
-> How we build, always. Every rule here must be verifiable against State (code,
-> configs, manifests). Non-verifiable conventions belong in `intent.md`. Keep this
-> file under ~80 lines.
+> How we build, always. Most rules here must be verifiable against State (code,
+> configs, manifests); non-verifiable conventions belong in `intent.md`. Exception:
+> operational settings consumed by CRAFT commands (e.g. the `## Operational Language`
+> block) may live here even though they are not State-verifiable. Keep this file
+> under ~80 lines.
 
 ## Stack & Tools
 
