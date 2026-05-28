@@ -166,6 +166,7 @@ Slice: slice-<NNN>
 - `type` ∈ `feat | fix | refactor | test | docs | chore | perf | build | ci`
 - `scope` optional but encouraged
 - `Slice:` footer always present
+- **Language** — write the description and body in the project's commit language: the `Commits` key of the `## Operational Language` block in `rules.md` (default English when the key or block is absent). The `type`, `scope`, and `Slice:` footer are always literal regardless of language.
 
 The agent proposes each message; user can edit before staging.
 

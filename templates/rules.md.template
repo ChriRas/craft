@@ -19,6 +19,18 @@
 
 - **Stack-Pack:** {{stack_pack_name_or_none}}
 
+## Operational Language
+
+> Operational language settings, captured at onboarding. Three independent
+> settings. When this block (or any single key) is absent, the defaults apply:
+> `Chat` = the system language, `Commits` = English, `Comments` = English.
+> Consumed by `/craft:prime` (reports them), `/craft:commit` (commit-message
+> language), and `/craft:build` / `/craft:review` (code-comment language).
+
+- **Chat:** {{chat_language_or_system}}
+- **Commits:** {{commit_language_default_english}}
+- **Comments:** {{comment_language_default_english}}
+
 ## Workflow Rules
 
 Operational rules with verifiable conditions.

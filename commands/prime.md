@@ -141,6 +141,16 @@ Emit one status line per agent in the Output block (see Output Format). Format:
 
 Collapse to a one-liner when nothing is overridden; expand to one line per overridden agent otherwise. See `model-defaults.md` for the design and the full default table.
 
+### 4c. Language settings
+
+Read the `## Operational Language` block of `.claude/project/rules.md` and resolve the three settings so they govern this session and the consuming phases:
+
+- **Chat** — the language the agent converses in. Adopt it for the rest of the session. Default when the key (or the whole block) is absent: the system language.
+- **Commits** — the commit-message language, consumed by `/craft:commit`. Default: English.
+- **Comments** — the code-comment language, consumed by `/craft:build` / `/craft:review`. Default: English.
+
+Emit one status line reporting the three resolved values (see Output Format). Missing block → apply the defaults silently and still report them; never abort.
+
 ### 5. Tool versions (informational)
 
 After tools are confirmed installed, capture and report versions for the status block:
@@ -210,6 +220,7 @@ The full status block — emit exactly this shape:
 <stack-pack line — only when a pack is declared; ✓ if found, ⚠ if missing (see step 4)>
 ✓ Agent models: <one-line summary if no overrides; one line per overridden agent otherwise (see step 4b)>
   ⚠ <override warning(s), if any>
+✓ Language: chat=<lang>, commits=<lang>, comments=<lang>  (see step 4c)
 
 
 Active slices:

@@ -112,6 +112,7 @@ Ask 3–5 targeted questions, one at a time:
 - Tabus: "What patterns or actions should never happen here?"
 - Roadmap (optional): "Do you have longer-term phases? If yes, name them. If no, skip."
 - Stack-Pack: present the candidate from the heuristic scan and run the proposal in the Stack-Pack Detection sub-procedure — the confirmed value fills `## Personality` `Stack-Pack:` in `rules.md`.
+- Language: run the Language Config sub-procedure — the confirmed values fill the `## Operational Language` block in `rules.md`.
 
 ### 4. Write project files
 
@@ -251,6 +252,7 @@ Parse the source file. Identify sections that map to:
 - **Product Vision** → `intent.md` (auto-import; clean prose, low ambiguity)
 - **Stack & Tools** → `rules.md` (auto-import; structured)
 - **Personality / stack-pack** → `rules.md` `## Personality` block — the source file rarely declares one, so fill `Stack-Pack:` via the Stack-Pack Detection sub-procedure (propose-and-confirm).
+- **Language settings** → `rules.md` `## Operational Language` block. A migration source rarely declares language preferences, so fill the block with defaults (`Chat` = system language, `Commits` = English, `Comments` = English) without extra interrogation. Only run the full Language Config sub-procedure dialog if the source explicitly states a chat/commit/comment language preference.
 - **Architectural Decisions** → `intent.md` (auto-import)
 - **Code Conventions / Patterns** → `rules.md` (auto-import)
 - **Tabus / Anti-Patterns** → `rules.md` (auto-import)
@@ -348,6 +350,47 @@ Detected stack-pack candidate: <name>
 Write the chosen value into the `## Personality` `Stack-Pack:` field of the generated
 `rules.md`. When detection yields `none`, still surface the prompt so the user can
 override.
+
+---
+
+## Language Config (shared sub-procedure)
+
+Both modes fill the `## Operational Language` block of `rules.md` with three
+independent settings. The block is consumed downstream by `/craft:prime` (reports
+them), `/craft:commit` (commit-message language), and `/craft:build` /
+`/craft:review` (code-comment language).
+
+Detect the **system language** first (the language the user is currently writing in,
+falling back to the host locale, e.g. `de-DE` → German). Then run the proposal —
+rendering the full `[S]/[O]` legend for chat, per the lettered-choice-prompt
+convention in `skills/workflow/SKILL.md`:
+
+```
+Language settings (detected system language: <lang>):
+
+  Chat — how I converse with you:
+    [S] System language (<lang>) — I converse with you in <lang>
+    [O] Other                    — name a language; I use it for all chat
+```
+
+Then ask for commits and comments, each defaulting to English (just confirm or
+override — no forced choice):
+
+```
+  Commits  — commit-message language  [default: English]
+  Comments — code-comment language     [default: English]
+```
+
+Write the three confirmed values into the `## Operational Language` block, mapping
+them onto the template placeholders `{{chat_language_or_system}}`,
+`{{commit_language_default_english}}`, and `{{comment_language_default_english}}`:
+
+- **Chat:** the chosen chat language (system language if `[S]`).
+- **Commits:** the chosen commit language (English unless overridden).
+- **Comments:** the chosen comment language (English unless overridden).
+
+If the user skips the dialog entirely, write the defaults: `Chat` = system language,
+`Commits` = English, `Comments` = English.
 
 ---
 

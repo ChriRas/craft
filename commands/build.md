@@ -78,6 +78,7 @@ Briefly state the approach for the current sub-task. No long planning — this i
 - Code edits inside slice scope: Level 2 (act, then bundle).
 - Code edits outside slice scope (e.g., shared utility, unrelated file): drop to Level 1 — ask explicitly before editing.
 - Run tests after meaningful changes. Test runs are Level 3 silent unless red.
+- **Code comments** — write any code comments in the project's comment language: the `Comments` key of the `## Operational Language` block in `rules.md` (default English when the key or block is absent). Applies only to comment prose, never to identifiers, keywords, or string literals required by the code.
 
 ### 4. Self-verification trigger awareness
 

@@ -52,6 +52,7 @@ Gather everything the fresh review agent needs to judge the slice. Do not summar
 - **all prior slice archives** under `.claude/project/slices/` — the decision history, so the reviewer can catch a *silent revocation* of an earlier decision;
 - the **diff under review** — `git diff HEAD` for the slice's uncommitted Phase-4 / Phase-7 changes (Commit is Phase 9, so the slice delta is still in the working tree);
 - the **Phase-6 Recap** — the slice plan's `## Recap Draft`, the developer's what/why "thinking trace", playing the role of a human PR description;
+- the project's **comment language** — the `Comments` key of the `## Operational Language` block in `rules.md` (default English when absent). The reviewer flags code comments not written in this language as a Light finding;
 - the **findings rubric** (Step 2).
 
 ### Step 2 — Run the review subagent (fresh context window)
