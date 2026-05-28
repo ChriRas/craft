@@ -30,7 +30,7 @@ The 9-phase loop solves both by keeping each iteration short, end-to-end testabl
 |---|---|---|---|---|
 | 1 | **Brainstorm** | Level 0 | Idea exploration before code | A short Markdown checkpoint of explored ideas |
 | 2 | **Alignment** | Level 0 | Shared understanding (human ↔ agent, or human ↔ team) | A short Markdown checkpoint of decisions and constraints |
-| 3 | **Planning** | Level 1 | Vertical-slice plan with test strategy | `.claude/craft:plans/slice-NNN-<slug>.md` |
+| 3 | **Planning** | Level 1 | Vertical-slice plan with test strategy | `.claude/plans/slice-NNN-<slug>.md` |
 | 4 | **Implementation** | Level 2 | Code that satisfies the slice | Code changes, green automated tests |
 | 5 | **Testing & UX feedback** | Level 1 | Human hands-on verification | Confirmation or bug/UX-issue feedback |
 | 6 | **Recap** | Level 1 | Explanation of what was built and why | Slice archive entry draft |
@@ -89,7 +89,7 @@ In single-developer agent-coding, slices are **feature-shaped**, not component-s
 
 #### Output
 
-`.claude/craft:plans/slice-NNN-<slug>.md` using the slice plan template. Includes the plugin version in the frontmatter for later mid-slice update safety.
+`.claude/plans/slice-NNN-<slug>.md` using the slice plan template. Includes the plugin version in the frontmatter for later mid-slice update safety.
 
 ---
 
@@ -218,7 +218,7 @@ Even if automated tests in Phase 4 are green, Phase 5 must run. This is constitu
    - `[R]ules` (promote to `.claude/project/rules.md` — human confirms diff)
    - `[D]iscard`
 4. **Slice archive entry** — agent writes `.claude/project/slices/slice-NNN-<slug>.md` from the Phase 6 recap draft and the harvested decisions; any Phase-8 light / needs-rethinking findings are folded in under `## Follow-ups`.
-5. **Plan deletion** — `.claude/craft:plans/slice-NNN-<slug>.md` is deleted. The slice archive plus commit history is the durable record.
+5. **Plan deletion** — `.claude/plans/slice-NNN-<slug>.md` is deleted. The slice archive plus commit history is the durable record.
 
 #### Commit convention
 
@@ -253,7 +253,7 @@ Plus three supporting files:
 
 - `.claude/project/roadmap.md` — long-term phases / releases (optional)
 - `.claude/project/slices/slice-NNN-<slug>.md` — archived completed slices (Decision Log)
-- `.claude/craft:plans/slice-NNN-<slug>.md` — currently active slice plans (ephemeral)
+- `.claude/plans/slice-NNN-<slug>.md` — currently active slice plans (ephemeral)
 
 #### Rules discipline
 
@@ -356,7 +356,7 @@ Commands that mutate durable state outside the running session (filesystem files
 The pattern is mandatory for:
 
 - `/craft:onboard` — creates `.claude/project/intent.md` + `rules.md`.
-- `/craft:plan` — creates `.claude/craft:plans/slice-NNN-<slug>.md`.
+- `/craft:plan` — creates `.claude/plans/slice-NNN-<slug>.md`.
 - `/craft:commit` — git commit + plan deletion + slice archive write.
 - `/craft:abort` — plan file deletion.
 - `/craft:upgrade` — marketplace clone sync (reference implementation).

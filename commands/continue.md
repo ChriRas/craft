@@ -24,8 +24,8 @@ Pick up work on an open slice without re-thinking the entry point. Reads the sli
 
 ### 1. Identify the target slice
 
-- If `<slice-NNN>` argument is given, find `.claude/craft:plans/slice-<NNN>-*.md`.
-- Otherwise, `Glob` `.claude/craft:plans/*.md`:
+- If `<slice-NNN>` argument is given, find `.claude/plans/slice-<NNN>-*.md`.
+- Otherwise, `Glob` `.claude/plans/*.md`:
   - If exactly one file → use it.
   - If multiple → list them and ask the user to pick:
 

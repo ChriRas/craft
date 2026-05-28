@@ -17,7 +17,7 @@ Follow `skills/workflow/SKILL.md` Phase 4 mechanics and the autonomy matrix. Cod
 
 ### 1. Locate active slice
 
-- `Glob` `.claude/craft:plans/*.md`.
+- `Glob` `.claude/plans/*.md`.
 - If multiple slices → run `/craft:continue` to select one first, then this command.
 - If none → tell user `No active slices. Run /craft:plan first.` and stop.
 

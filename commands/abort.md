@@ -36,10 +36,10 @@ Failure → abort: *"`/craft:abort` requires a slice ID (e.g., `/craft:abort sli
 
 ### A2 — Slice plan file exists
 
-`Glob` `.claude/craft:plans/slice-<NNN>-*.md`.
+`Glob` `.claude/plans/slice-<NNN>-*.md`.
 
 - Zero matches → abort: *"No active slice plan found for `slice-<NNN>`. Run `/craft:status` to see active slices."*
-- Multiple matches → abort with the list: *"Multiple plan files match `slice-<NNN>-*`: `<list>`. This should not happen — inspect `.claude/craft:plans/` manually."*
+- Multiple matches → abort with the list: *"Multiple plan files match `slice-<NNN>-*`: `<list>`. This should not happen — inspect `.claude/plans/` manually."*
 - Exactly one match → record the path as `<slice-plan>`.
 
 ---
@@ -136,8 +136,8 @@ rm <slice-plan>
 If the user explicitly requested archival earlier ("move to `_aborted/` instead"), substitute:
 
 ```
-mkdir -p .claude/craft:plans/_aborted/
-mv <slice-plan> .claude/craft:plans/_aborted/
+mkdir -p .claude/plans/_aborted/
+mv <slice-plan> .claude/plans/_aborted/
 ```
 
 Archival is never the default — only on explicit user request during this command run.
@@ -163,7 +163,7 @@ Run both after Step 6. Any failure → warn loudly, surface to the user, do **no
 
 ### P1 — Slice plan removed from active path
 
-`Glob` `.claude/craft:plans/slice-<NNN>-*.md`.
+`Glob` `.claude/plans/slice-<NNN>-*.md`.
 
 - Zero matches → P1 passes.
 - One or more matches → *"⚠ Slice plan still present at `<path>` after abort. The `rm`/`mv` may have failed silently. Inspect manually."*
@@ -181,9 +181,9 @@ Failure → *"⚠ Worktree-removal was requested but `<path>` or branch `<name>`
 
 Only runs when Step 6 used the `_aborted/` path:
 
-- `Glob` `.claude/craft:plans/_aborted/slice-<NNN>-*.md`. Must yield exactly one match.
+- `Glob` `.claude/plans/_aborted/slice-<NNN>-*.md`. Must yield exactly one match.
 
-Failure → *"⚠ Archival was requested but the moved file is not at `.claude/craft:plans/_aborted/`. The slice plan may have been lost. Inspect manually."*
+Failure → *"⚠ Archival was requested but the moved file is not at `.claude/plans/_aborted/`. The slice plan may have been lost. Inspect manually."*
 
 ---
 
@@ -205,7 +205,7 @@ Recommended next: /craft:status to see remaining active slices, or /craft:plan f
 Success (archival requested):
 
 ```
-✓ slice-<NNN> aborted. Plan file moved to .claude/craft:plans/_aborted/.
+✓ slice-<NNN> aborted. Plan file moved to .claude/plans/_aborted/.
 ✓ Pre-assertions: argument ✓, plan file located
 ✓ Post-assertions: plan removed from active path, archive copy present
 
@@ -225,7 +225,7 @@ Partial (post-assertion failure):
 
 ```
 ⚠ Abort partially complete — <which assertion(s) failed>.
-   Inspect `.claude/craft:plans/` manually to confirm the state.
+   Inspect `.claude/plans/` manually to confirm the state.
 ```
 
 ---

@@ -17,7 +17,7 @@ This command is a **durable-state mutation** (git history, project knowledge fil
 
 ### Step 1 — Locate active slice
 
-- `Glob` `.claude/craft:plans/*.md`. Identify the slice expected to be in `Status: committing` (or `refactoring` if jumping here directly).
+- `Glob` `.claude/plans/*.md`. Identify the slice expected to be in `Status: committing` (or `refactoring` if jumping here directly).
 
 This step is informational. The Pre-Assertions enforce that a single, valid slice plan is present.
 
@@ -41,7 +41,7 @@ This guards the Mode-Detection logic below — every mode requires `main` as the
 
 ### A1 — Exactly one active slice ready for commit
 
-`Glob` `.claude/craft:plans/*.md`.
+`Glob` `.claude/plans/*.md`.
 
 - Zero matches → abort: *"No active slice plan found. Phase 9 requires a slice in `Status: committing`. Did the earlier phases actually run?"*
 - More than one match → abort with the list and ask the user to specify which slice to commit (this command does not auto-pick).

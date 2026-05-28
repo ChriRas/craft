@@ -162,7 +162,7 @@ Parse the JSON; read `.version`. On success, the output block's version line ren
 
 ### 6. Scan active slices
 
-- `Glob` `.claude/craft:plans/*.md`.
+- `Glob` `.claude/plans/*.md`.
 - For each slice plan file:
   - Read its frontmatter (`Status`, `Slice-ID`, `Started`, `Phase`).
   - Read its `## Sub-Tasks` section, count completed (`- [x]`) vs. total.

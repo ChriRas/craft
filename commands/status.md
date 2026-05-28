@@ -15,7 +15,7 @@ This is the read-only counterpart to `/craft:prime`'s slice section. No tool hea
 
 ## Procedure
 
-1. `Glob` `.claude/craft:plans/*.md`.
+1. `Glob` `.claude/plans/*.md`.
 2. For each slice plan file:
    - Read its frontmatter: `Status`, `Slice-ID`, `Started`, `Phase`.
    - Read its `## Sub-Tasks` section, count completed (`- [x]`) vs. total.
@@ -44,7 +44,7 @@ If no active slices: `No active slices. Run /craft:plan <feature-name> to start 
 
 | Situation | Behavior |
 |---|---|
-| `.claude/craft:plans/` does not exist | Report `No active slices` (the project may simply have no slices in flight). |
+| `.claude/plans/` does not exist | Report `No active slices` (the project may simply have no slices in flight). |
 | A slice plan file is unreadable | Log `⚠ slice plan <file> unreadable — skipping`, continue with the rest. |
 
 ---
