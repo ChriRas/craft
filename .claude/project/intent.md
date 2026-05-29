@@ -13,15 +13,15 @@ recap, review, escalated bugs); execution is delegated to safe, parallel agent w
 
 ## Active Goals
 
-Six of the original seven capabilities have shipped: **hierarchical planning (B)**
-via `/craft:epic` (slice-007), **bugfix autonomy (F)** via `skills/debug`, the
+All seven original capabilities have shipped: **hierarchical planning (B)** via
+`/craft:epic` (slice-007), **bugfix autonomy (F)** via `skills/debug`, the
 **parallel worktree execution cluster (C+D+E)** via `/craft:execute` + the
-`slice-builder` agent (slice-009), and **model switching per phase (G)** via
-subagent delegation (`code-reviewer: opus`, `slice-builder: sonnet`) with
-`rules.md` overrides (slice-010). The remaining work:
+`slice-builder` agent (slice-009), **model switching per phase (G)** via subagent
+delegation with `rules.md` overrides (slice-010), and **onboarding language
+config (A)** — three independent chat/commit/comment settings in the
+`## Operational Language` block (slice-012).
 
-1. **Onboarding language config (A)** — three independent settings (chat,
-   commits, code comments) configurable at onboarding.
+No capability work remains; further slices are enhancements and maintenance.
 
 ## Architectural Decisions
 
