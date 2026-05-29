@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-05-29
+
+First stable release — all seven original capabilities (A–G) shipped.
+
+### Added
+- **Plugin version display** (slice-011) — `/craft:prime` emits `✓ CRAFT plugin v<version>` and `/craft` prefixes its state-report headers with `CRAFT v<version>`; read from `plugin.json` (`${CLAUDE_PLUGIN_ROOT}` → project-root) with a soft `v?` fallback that never aborts.
+- **Configurable language** (slice-012) — `/craft:onboard` captures chat / commit / comment language into a `## Operational Language` block in `rules.md`; consumed by `/craft:prime` (reports and adopts the chat language), `/craft:commit` (commit-message language), and `/craft:build` / `/craft:review` (code-comment language). Defaults: chat = system language, commits and comments = English; a missing block applies defaults and never aborts.
+
+### Fixed
+- `.claude/plans` glob path typo across 8 command/skill files (`prime`, `continue`, `status`, `build`, `test`, `commit`, `abort`, and the workflow skill) — they referenced a non-existent `.claude/craft:plans/` directory (slice-011 review follow-up).
+
+### Changed
+- `rules.md` doctrine note now admits operational, non-State-verifiable settings (the `## Operational Language` block) as a sanctioned exception.
+- `intent.md` marks all seven capabilities (A–G) shipped; no capability work remains.
+
 ## [0.4.0] - 2026-05-27
 
 ### Added
