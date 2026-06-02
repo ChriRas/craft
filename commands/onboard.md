@@ -123,6 +123,14 @@ Generate using the plugin templates:
 - `.claude/project/roadmap.md` (only if user provided roadmap content)
 - `CLAUDE.md` in repo root — slim index pointing to the above
 
+Do **not** pre-create an empty `.claude/project/design/` — the directory is the
+**Durable Capture** home for cross-cutting design knowledge (domain model, scenario
+catalogs, matrices) and is populated on demand, the first time such knowledge is
+produced (see `skills/workflow/SKILL.md` → Knowledge Model → Durable Capture). The
+generated `CLAUDE.md` index already points at it so the convention is discoverable — the
+link is forward-looking; the directory appears the first time it is populated, exactly as
+the `roadmap.md` link does.
+
 #### Post-write size check
 
 After writing, count lines for `intent.md` and `rules.md`. If either exceeds **80 lines**, emit the oversize warning (same text as in the migration knowledge-split sub-procedure). Warning only — no refusal.
@@ -227,6 +235,7 @@ Final preview — about to execute:
   Generate:                .claude/project/intent.md
                            .claude/project/rules.md
                            [.claude/project/roadmap.md]
+                           [.claude/project/design/<topic>.md  (cross-cutting knowledge, if any)]
                            CLAUDE.md (replaced with index)
   Validate:                Rules ↔ State drift check after write
 
@@ -258,6 +267,10 @@ Parse the source file. Identify sections that map to:
 - **Tabus / Anti-Patterns** → `rules.md` (auto-import)
 - **Deployment** → `rules.md` (auto-import)
 - **Phase Plans / Roadmap** → `roadmap.md` (auto-import)
+- **Cross-cutting design knowledge** (domain model, scenario catalogs, matrices, or any
+  hand-rolled concept doc such as a `concept.md` that spans multiple slices/epics) →
+  `.claude/project/design/<topic>.md`, one focused file per topic — the **Durable
+  Capture** home for design knowledge that is neither *why* (intent) nor *how* (rules).
 - **Common Commands** → `CLAUDE.md` index (under `## Common Commands`)
 - **Notes / Working Notes / freeform** → **dialogic triage** (see below)
 - **Project Structure tree, Key Files table, State references** → **discard** (this is State; lives in code)
@@ -452,6 +465,7 @@ Created:
   .claude/project/intent.md
   .claude/project/rules.md
   [.claude/project/roadmap.md]
+  [.claude/project/design/<topic>.md …]
   CLAUDE.md
 
 [Migration only]

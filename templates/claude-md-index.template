@@ -7,6 +7,7 @@ This project uses the [`craft`](https://github.com/{{plugin_repo}}) Claude Code 
 - [`.claude/project/intent.md`](./.claude/project/intent.md) — Vision, goals, architectural decisions.
 - [`.claude/project/rules.md`](./.claude/project/rules.md) — Stack, conventions, deployment, tabus.
 - [`.claude/project/roadmap.md`](./.claude/project/roadmap.md) — Long-term phases (optional).
+- [`.claude/project/design/`](./.claude/project/design/) — Cross-cutting design knowledge: domain model, scenario catalogs, matrices (on-demand reference; optional).
 - [`.claude/project/slices/`](./.claude/project/slices/) — Archived completed slices (Decision Log).
 
 ## Active Work
