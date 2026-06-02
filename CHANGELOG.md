@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-06-03
+
+### Added
+- **Durable Capture** (slice-013) — a named methodological principle in the workflow Knowledge Model: an agent's context is ephemeral (cleared on `/clear`, compaction, or session end), so any analysis, decision, scenario, domain model, or proposal of lasting value produced during planning / design must be written to a durable artifact in the same turn it is produced. Maxim: *"Chat is not storage."* Ships a routing table mapping each kind of lasting output to its home, plus a worked example.
+- **`.claude/project/design/` knowledge home** — a canonical, on-demand directory for cross-cutting design knowledge (domain model, scenario catalogs, matrices) that is neither *why* (intent) nor *how* (rules). Not loaded on `/craft:prime`, so it adds no session-context budget. Wired into `/craft:onboard` (greenfield documentation + migration knowledge-split routing) and the `CLAUDE.md` index template.
+- **Closing-capture enforcement** in the planning commands — `/craft:plan` gains Procedure step 9 + Post-Assertion P5, and `/craft:epic` mirrors them as step 6 + P5. Each sweeps the planning dialog for material insight and routes it to its durable home before the command finishes: *"Do not end a planning turn leaving material insight only in chat."*
+
+### Changed
+- `skills/senior-developer/SKILL.md` workflow gates now cross-reference Durable Capture, so the principle applies session-wide, beyond the two planning commands.
+- `intent.md` records Durable Capture as a headline architectural decision.
+
 ## [1.0.0] - 2026-05-29
 
 First stable release — all seven original capabilities (A–G) shipped.
