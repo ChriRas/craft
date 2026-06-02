@@ -41,6 +41,11 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
   recap, review, escalated bugs); execution is delegated to parallel agents in
   git worktrees. *Why not constant per-step control:* the per-step model is too
   slow once finely planned work can be parceled out and run in parallel.
+- **Durable Capture** — planning/design output is written to a durable artifact in
+  the same turn it is produced ("chat is not storage"); a routing table sends each
+  kind to its home, with cross-cutting design knowledge (neither *why* nor *how*)
+  living in `.claude/project/design/`. *Why a canonical home:* projects were inventing
+  ad-hoc concept docs; a named slot closes the gap instead of codifying the workaround.
 
 ## Non-Goals
 
