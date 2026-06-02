@@ -41,6 +41,11 @@ A lower item never justifies sacrificing a higher one.
 - **Validate after every meaningful change.** Run the project's test / analysis /
   lint gates; a red gate is fixed before moving on.
 - **When uncertain, ask.** Do not guess, and do not paper over a doubt with a change.
+- **Durable Capture — chat is not storage.** Context is wiped on `/clear`, on compaction,
+  and at session end. Any analysis, decision, scenario, or design of lasting value
+  produced while planning or designing is written to a durable artifact *in the same turn*
+  — routed per the table in `skills/workflow/SKILL.md` (Knowledge Model → Durable
+  Capture). Never end a planning turn leaving material insight only in chat.
 - **Commits are atomic and conventional.** One logical change per commit,
   `<type>(scope): subject`. Code and docs commit separately. No `Co-Authored-By` trailer.
 - **Do not self-merge.** Implementation ends ready for review; the human decides on

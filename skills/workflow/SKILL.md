@@ -249,11 +249,47 @@ Three layers, distinct sources of truth, distinct discipline.
 | **Intent** | What we want & why | Human-authored | `.claude/project/intent.md` (≤80 lines) |
 | **Rules** | Operational distillation | Derived from State + Intent, **materialized** | `.claude/project/rules.md` (≤80 lines) |
 
-Plus three supporting files:
+Plus supporting files:
 
 - `.claude/project/roadmap.md` — long-term phases / releases (optional)
+- `.claude/project/design/*.md` — cross-cutting design knowledge (domain model, scenario
+  catalog, matrices); on-demand reference, **not** loaded on `/craft:prime` (see Durable
+  Capture below)
 - `.claude/project/slices/slice-NNN-<slug>.md` — archived completed slices (Decision Log)
 - `.claude/plans/slice-NNN-<slug>.md` — currently active slice plans (ephemeral)
+
+### Durable Capture
+
+An agent's context is **ephemeral** — it is wiped on `/clear`, on compaction, and at
+session end. Therefore any analysis, decision, scenario, domain model, or proposal of
+lasting value produced during planning, brainstorm, or design **must be written to a
+durable artifact in the same turn it is produced**.
+
+> **Chat is not storage.**
+
+Route each kind of lasting output to its home:
+
+| Lasting output | Durable home |
+|---|---|
+| Why we want it | `.claude/project/intent.md` |
+| How we build it | `.claude/project/rules.md` |
+| Long-term phases / releases | `.claude/project/roadmap.md` |
+| Per-slice decisions | slice archive (`.claude/project/slices/`) |
+| Per-epic decisions | epic plan's `## Decisions Made During This Epic` |
+| Cross-cutting design knowledge (domain model, scenario catalog, matrices) | `.claude/project/design/` |
+
+The last row is the catch-all for design knowledge that is neither *why* (Intent) nor
+*how* (Rules) and spans more than one slice or epic. These docs are reference material —
+loaded **on demand**, not on every `/craft:prime` like the core trio — so the directory
+can hold as many focused documents as the project needs (`domain-model.md`,
+`scenario-catalog.md`, an email-handling matrix, …) without inflating session context.
+
+**Worked example.** In a planning session a full scenario catalog and an email-handling
+matrix were worked out in chat but never written to any file. They would have been lost
+on the next `/clear`. Under Durable Capture they are written to `.claude/project/design/`
+in the same turn they are produced — before the planning turn ends. The planning
+commands enforce this (see `/craft:plan` and `/craft:epic`): **a planning turn never ends
+leaving material insight only in chat.**
 
 #### Rules discipline
 
