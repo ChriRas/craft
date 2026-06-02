@@ -123,11 +123,30 @@ Write to `.claude/plans/epic-<NNN>-<slug>.md`.
 
 Write the next integer back to `.claude/plans/.next-epic-id`. If the file did not exist before, create it now with the value `2` (since epic `001` was just written).
 
+### 6. Durable Capture — close the loop before finishing
+
+Apply the **Durable Capture** principle (`skills/workflow/SKILL.md` → Knowledge Model →
+Durable Capture): *chat is not storage.* Before this command finishes, sweep the epic-
+shaping dialog for any material insight that surfaced but is not yet written to disk —
+architectural or product decisions, scope trade-offs, scenarios or constraints
+enumerated, a domain model or matrix sketched — and route each to its durable home:
+
+- A decision or trade-off scoped to **this epic** → the plan's `## Decisions Made During
+  This Epic` section.
+- **Cross-cutting design knowledge** (a domain model, scenario catalog, matrix — anything
+  that will outlive this epic or be shared by its child slices) → a focused file under
+  `.claude/project/design/`, and note the pointer in the Decisions section so the link is
+  not lost.
+
+**Do not end a planning turn leaving material insight only in chat.** If nothing of
+lasting value surfaced beyond Vision and Decomposition, this step is a no-op — say so
+explicitly rather than skipping silently.
+
 ---
 
 ## Post-Assertions
 
-Run all four after the procedure completes. Any failure → warn loudly, surface to the user, do **not** pretend success. No auto-rollback.
+Run all five after the procedure completes. Any failure → warn loudly, surface to the user, do **not** pretend success. No auto-rollback.
 
 ### P1 — Plan file exists with valid frontmatter
 
@@ -160,6 +179,23 @@ Failure → *"⚠ Vision and/or Decomposition is empty or under-filled. The plan
 
 Failure → *"⚠ Epic counter not incremented — the next /craft:epic call may collide with this epic ID. Inspect `.claude/plans/.next-epic-id` and fix manually."*
 
+### P5 — Durable Capture closed
+
+The epic-shaping dialog left no material insight stranded in chat (Procedure step 6 ran).
+Verify one of two states holds:
+
+- The `## Decisions Made During This Epic` section contains the decisions/trade-offs that
+  surfaced in the dialog (not the `- (none yet)` placeholder), **and** any cross-cutting
+  design knowledge produced was written under `.claude/project/design/` with a pointer
+  recorded in that section; or
+- the dialog genuinely produced nothing of lasting value beyond Vision and Decomposition,
+  and that was stated explicitly.
+
+Failure → *"⚠ Durable Capture skipped — material insight from the epic-shaping dialog may
+exist only in chat and will be lost on the next /clear or compaction. Review the dialog
+and write decisions to `## Decisions Made During This Epic` (or cross-cutting knowledge to
+`.claude/project/design/`) in `<path>` before relying on the epic."*
+
 ---
 
 ## Output Format
@@ -169,7 +205,7 @@ Success:
 ```
 ✓ Epic: .claude/plans/epic-<NNN>-<slug>.md
 ✓ Pre-assertions: onboarded, template ✓, manifest ✓, counter ✓
-✓ Post-assertions: frontmatter ✓, sections ✓, vision + decomposition non-empty, counter incremented
+✓ Post-assertions: frontmatter ✓, sections ✓, vision + decomposition non-empty, counter incremented, durable capture ✓
 
   Vision:        <one-line summary>
   Decomposition: <N> slices listed
@@ -213,6 +249,7 @@ Partial (post-assertion failure):
 | Slug collides with an existing epic file | Append `-2`, `-3`, etc., to the slug. Handled before step 1. |
 | P1/P2/P3 fail after write | Warn loudly; emit partial-completion block; do not auto-rollback. |
 | P4 fails (counter not incremented) | Warn loudly; user fixes `.next-epic-id` manually before the next /craft:epic. |
+| P5 fails (Durable Capture skipped) | Warn loudly; the dialog's material insight may live only in chat. Capture it to `## Decisions Made During This Epic` (or `.claude/project/design/`) before relying on the epic. |
 
 ---
 
@@ -221,5 +258,5 @@ Partial (post-assertion failure):
 - It does **not** plan individual slices. Use `/craft:plan <slice-name>` for that — typically taking entries from the epic's `## Slice Decomposition`.
 - It does **not** link slices back to the epic. Slice-to-epic association is a future capability (separate slice).
 - It does **not** execute, decompose interactively, or track epic completion. Those are future capabilities.
-- It does **not** modify `intent.md` or `rules.md`. Decisions surfaced during epic shaping go into the epic's `## Decisions Made During This Epic` section.
+- It does **not** modify `intent.md` or `rules.md`. Decisions surfaced during epic shaping go into the epic's `## Decisions Made During This Epic` section (Durable Capture, Procedure step 6) — or, when cross-cutting, into `.claude/project/design/`.
 - It does **not** auto-rollback on post-assertion failure. Partial state is surfaced for human reconciliation.

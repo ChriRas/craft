@@ -157,11 +157,29 @@ Write to `.claude/plans/slice-<NNN>-<slug>.md`.
 
 Write the next integer back to `.claude/plans/.next-id`. If the file did not exist before, create it now with the value `2` (since slice `001` was just written).
 
+### 9. Durable Capture — close the loop before finishing
+
+Apply the **Durable Capture** principle (`skills/workflow/SKILL.md` → Knowledge Model →
+Durable Capture): *chat is not storage.* Before this command finishes, sweep the planning
+dialog for any material insight that surfaced but is not yet written to disk —
+architectural or product decisions, trade-offs weighed, scenarios or edge cases
+enumerated, a domain model or matrix sketched — and route each to its durable home:
+
+- A decision or trade-off scoped to **this slice** → the plan's `## Decisions Made During
+  This Slice` section.
+- **Cross-cutting design knowledge** (a domain model, scenario catalog, matrix — anything
+  spanning more than this slice) → a focused file under `.claude/project/design/`, and
+  note the pointer in the Decisions section so the link is not lost.
+
+**Do not end a planning turn leaving material insight only in chat.** If nothing of
+lasting value surfaced beyond the three universal questions, this step is a no-op — say so
+explicitly rather than skipping silently.
+
 ---
 
 ## Post-Assertions
 
-Run all four after the procedure completes. Any failure → warn loudly, surface to the user, do **not** pretend success. No auto-rollback.
+Run all five after the procedure completes. Any failure → warn loudly, surface to the user, do **not** pretend success. No auto-rollback.
 
 ### P1 — Plan file exists with valid frontmatter
 
@@ -199,6 +217,23 @@ Failure → *"⚠ One or more of Trigger / Effect / Test sections is empty. The 
 
 Failure → *"⚠ Slice counter not incremented — the next /craft:plan call may collide with this slice ID. Inspect `.claude/plans/.next-id` and fix manually."*
 
+### P5 — Durable Capture closed
+
+The planning dialog left no material insight stranded in chat (Procedure step 9 ran).
+Verify one of two states holds:
+
+- The `## Decisions Made During This Slice` section contains the decisions/trade-offs that
+  surfaced in the dialog (not the `- (none yet)` placeholder), **and** any cross-cutting
+  design knowledge produced was written under `.claude/project/design/` with a pointer
+  recorded in that section; or
+- the dialog genuinely produced nothing of lasting value beyond the three universal
+  questions, and that was stated explicitly.
+
+Failure → *"⚠ Durable Capture skipped — material insight from the planning dialog may
+exist only in chat and will be lost on the next /clear or compaction. Review the dialog
+and write decisions to `## Decisions Made During This Slice` (or cross-cutting knowledge
+to `.claude/project/design/`) in `<path>` before continuing."*
+
 ---
 
 ## Output Format
@@ -208,7 +243,7 @@ Success:
 ```
 ✓ Plan: .claude/plans/slice-<NNN>-<slug>.md
 ✓ Pre-assertions: onboarded, template ✓, manifest ✓, counter ✓
-✓ Post-assertions: frontmatter ✓, sections ✓, three universal questions answered, counter incremented
+✓ Post-assertions: frontmatter ✓, sections ✓, three universal questions answered, counter incremented, durable capture ✓
 
   Trigger: <one line>
   Effect:  <one line>
@@ -247,6 +282,7 @@ Partial (post-assertion failure):
 | User wants to plan with no clear test strategy | Push back: *"Phase 3 requires a test strategy before Phase 4. If we cannot articulate one, the slice may be too vague — let's break it down further or revisit the goal."* Do not proceed to step 7. |
 | P1/P2/P3 fail after write | Warn loudly; emit partial-completion block; do not auto-rollback. |
 | P4 fails (counter not incremented) | Warn loudly; user fixes `.next-id` manually before the next /craft:plan. |
+| P5 fails (Durable Capture skipped) | Warn loudly; the dialog's material insight may live only in chat. Capture it to the Decisions section (or `.claude/project/design/`) before /craft:build. |
 
 ---
 
@@ -255,5 +291,5 @@ Partial (post-assertion failure):
 - It does **not** write any code.
 - It does **not** start Phase 4. Update the slice plan's `Status:` to `implementing` only when `/craft:build` actually starts — not here.
 - It does **not** commit anything.
-- It does **not** modify `intent.md` or `rules.md`. Architectural insights surfaced during planning go into the plan's `## Decisions Made During This Slice` section and are promoted (or not) in Phase 9.
+- It does **not** modify `intent.md` or `rules.md`. Architectural insights surfaced during planning go into the plan's `## Decisions Made During This Slice` section (Durable Capture, Procedure step 9) — or, when cross-cutting, into `.claude/project/design/` — and are promoted (or not) in Phase 9.
 - It does **not** auto-rollback on post-assertion failure. Partial state is surfaced for human reconciliation.
