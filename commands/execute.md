@@ -78,7 +78,39 @@ Failure → abort with the specific issue: cycle, missing slice plan, or unresol
 
 Write `.claude/plans/.execute.lock` containing the current PID and the resolved target. Lock is released in Post-Assertions (or on graceful abort).
 
-### 2. Create the epic-worktree (epic target only)
+### 2. Trust the worktree base directory
+
+Worktrees live **outside** the project root (`../<repo>-worktrees/…`), which Claude Code does not trust by default. Without this step every file operation a `slice-builder` performs inside a worktree raises a per-path permission prompt and stalls the autonomous run. The fix is one entry: the base directory that holds all worktrees goes into `permissions.additionalDirectories` of the project-local `.claude/settings.local.json`. Then the whole worktree tree inherits the project root's trust level.
+
+This is a **durable-state mutation on user settings** — never silent. Follow the announce-then-apply flow:
+
+1. **Resolve the pattern.** Use the project's `Worktree path pattern` from `rules.md` `## Worktree Settings`, or the default `../<repo>-worktrees/<slice-id>-<slug>/` when absent.
+
+2. **Check (read-only).** `Bash`:
+
+   ```
+   bash ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-worktree-trust.sh --check --pattern '<resolved-pattern>'
+   ```
+
+   The script prints `BASE_DIR=…` and `STATUS=present|absent` and exits `0` (already trusted) or `10` (absent). Any other non-zero exit is an error (e.g. `ERROR=python3_not_found`, `ERROR=settings_unparseable`) — surface it and fall back to telling the user to add `BASE_DIR` to `permissions.additionalDirectories` manually; do **not** proceed to worktree creation until trust is established.
+
+3. **If `STATUS=present`** → already trusted (idempotent no-op on every subsequent run). Note it in one line and continue to step 3.
+
+4. **If `STATUS=absent`** → announce the exact change and confirm once (Level 0):
+
+   ```
+   CRAFT will add the worktree base directory to permissions.additionalDirectories
+   so per-worktree permission prompts don't interrupt the run:
+
+     + <BASE_DIR>   →  .claude/settings.local.json
+
+   This is a personal, gitignored override. Existing permissions are preserved.
+   Proceed? [Y] add it (recommended)   [N] skip (expect per-path prompts)
+   ```
+
+   On `[Y]` (default), `Bash` the same script with `--apply`. It idempotently merges the entry (never overwriting existing `allow`/`deny`/`additionalDirectories`), creates `settings.local.json` if missing, ensures it is gitignored, and re-reads the file to verify it is valid JSON containing `BASE_DIR`. Confirm `STATUS=present` in the output before continuing. On `[N]`, continue but warn that per-worktree prompts are expected this run.
+
+### 3. Create the epic-worktree (epic target only)
 
 For an epic target:
 
@@ -86,9 +118,9 @@ For an epic target:
 - Worktree path: `../<repo>-worktrees/epic-<NNN>-<epic-slug>/`.
 - `Bash`: `git worktree add <path> -b <branch>` rooted at `main`.
 
-For a single slice: skip — the slice-branch is created directly from `main` in step 4 and will merge back to `main`.
+For a single slice: skip — the slice-branch is created directly from `main` in step 5 and will merge back to `main`.
 
-### 3. Resolve the runnable frontier
+### 4. Resolve the runnable frontier
 
 A slice is "runnable" when every entry in its `Depends-On:` either:
 - has been merged into the current epic-branch within this execute run, or
@@ -96,7 +128,7 @@ A slice is "runnable" when every entry in its `Depends-On:` either:
 
 Initially the frontier is every slice with an empty `Depends-On:`.
 
-### 4. Spawn slice-builders for the frontier
+### 5. Spawn slice-builders for the frontier
 
 For each runnable slice in the frontier, in parallel:
 
@@ -105,7 +137,7 @@ For each runnable slice in the frontier, in parallel:
 - `Bash`: `git worktree add <path> -b <branch>` rooted at the epic-branch (epic target) or `main` (lone slice).
 - Spawn a `slice-builder` subagent via `Task` with the worktree path as its working directory and the slice plan as its target. The subagent runs Phase 4 → 5 → 6 → (optional 7 — skipped if `rules.md` drops Phase 7) → 8 via the existing per-phase commands (`/craft:build`, `/craft:test`, `/craft:recap`, `/craft:refactor`, `/craft:review`).
 
-### 5. Collect slice outcomes
+### 6. Collect slice outcomes
 
 Each subagent ends in one of three states:
 
@@ -113,19 +145,19 @@ Each subagent ends in one of three states:
 - **Handoff** — slice's worktree contains `.craft/handoff.md` with a stop reason. The subagent has stopped and surfaced a marker file.
 - **Failure** — subagent crashed or returned an unstructured error.
 
-For each success: merge the slice-branch into the epic-branch (epic target) or stash it for the user-approved final merge (lone slice — see step 7). Merge uses `--no-ff`:
+For each success: merge the slice-branch into the epic-branch (epic target) or stash it for the user-approved final merge (lone slice — see step 8). Merge uses `--no-ff`:
 
 ```
 git -C <epic-worktree> merge --no-ff <slice-branch> -m "Merge <slice-id> into epic-<NNN>"
 ```
 
-After a successful merge, mark the slice's dependents as candidates for the next frontier and loop to step 4 until either the frontier is empty (all slices done) or a Handoff/Failure blocks progress.
+After a successful merge, mark the slice's dependents as candidates for the next frontier and loop to step 5 until either the frontier is empty (all slices done) or a Handoff/Failure blocks progress.
 
-### 6. Surface handoffs and failures
+### 7. Surface handoffs and failures
 
 Whenever a slice ends in Handoff or Failure, **the orchestrator does not abort** — it continues spawning any other independent slices in the frontier, then stops once nothing else is runnable. The final output lists every Handoff/Failure with the slice-ID, the worktree path, and a one-line summary from the marker file.
 
-### 7. Epic-ready or slice-ready prompt
+### 8. Epic-ready or slice-ready prompt
 
 When the frontier is exhausted:
 
@@ -134,11 +166,11 @@ When the frontier is exhausted:
 - **Lone slice succeeded** → emit `Slice <slice-NNN> ready for review` and the checkout hint. The slice-branch is not yet merged into `main`; `/craft:commit` does that after user review.
 - **Lone slice handoff/failure** → emit the stop reason and recommend `/craft:continue <slice-NNN>` inside the slice worktree.
 
-### 8. Respect per-slice review checkpoints
+### 9. Respect per-slice review checkpoints
 
 If the epic plan's `## Review Checkpoints` section lists `after slice-NNN`, the orchestrator pauses after that slice's Phase-7 self-review completes — **before** merging it into the epic-branch. Emit `Review checkpoint reached after slice-NNN — /craft:checkout slice-NNN to inspect, then re-run /craft:execute to continue`.
 
-### 9. Release the lock
+### 10. Release the lock
 
 Delete `.claude/plans/.execute.lock` regardless of success or partial outcome — but only after the Post-Assertions have run.
 
@@ -242,7 +274,7 @@ Review checkpoint reached:
 | A4 fails (lock exists) | Abort with lock path; user removes if crashed. |
 | A6 fails (cycle / missing dep) | Abort. Name the cycle or missing slice. |
 | `git worktree add` fails (path collision) | Abort the affected slice cleanly; other slices may still proceed. List the collision in the final output. |
-| Subagent crashes mid-Phase | Treat as Failure (step 6). Continue with other independent slices. |
+| Subagent crashes mid-Phase | Treat as Failure (step 7). Continue with other independent slices. |
 | Slice's `/craft:review` blocks with Heavy + needs-rethinking | Treat as Handoff. The slice's worktree is intact for `/craft:checkout`. |
 | User interrupts (signal, `/craft:pause`) | Drop into pause: write Pause Note to every in-flight slice, release the lock, stop. |
 | P1–P4 fail | Warn loudly. The user reconciles manually. Do not retry automatically. |
