@@ -53,6 +53,17 @@
   `/craft:upgrade` syncs the marketplace clone.
 - **Pre-release check:** `claude plugin validate`.
 
+## Worktree Settings (optional)
+
+- **Worktree path pattern:** `../<repo>-worktrees/<slice-id>-<slug>/` (default)
+- **Branch name pattern:** `<slice-id>-<slug>` (default)
+
+> Worktrees live outside the project root, so `/craft:execute` adds their shared
+> base directory to `permissions.additionalDirectories` in
+> `.claude/settings.local.json` on first run — once, after a confirmation — to
+> avoid per-path permission prompts. Idempotent; existing permissions are merged,
+> never overwritten; the file stays gitignored.
+
 ## Self-Verification Settings (optional)
 
 - **Max attempts:** 5

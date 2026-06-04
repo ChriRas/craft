@@ -66,6 +66,14 @@ Things that must never happen.
 - **Worktree path pattern:** `../<repo>-worktrees/<slice-id>-<slug>/` (default)
 - **Branch name pattern:** `<slice-id>-<slug>` (default)
 
+> Because worktrees live outside the project root, `/craft:execute` adds their
+> shared **base directory** (derived from the path pattern above) to
+> `permissions.additionalDirectories` in `.claude/settings.local.json` on first
+> run — once, after a confirmation — so subagents working inside worktrees don't
+> trigger per-path permission prompts. Idempotent; existing permissions are
+> merged, never overwritten; the file stays gitignored. Change the pattern here
+> and the next run trusts the new base.
+
 ## Self-Verification Settings (optional)
 
 Override `/debug`, `/craft:review`, and stale-slice defaults if needed.
