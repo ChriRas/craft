@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-07
+
+### Added
+- **Worktree trust via `additionalDirectories`** (slice-014) — `/craft:execute` now resolves the base directory of the configured `Worktree path pattern` and idempotently records it in `permissions.additionalDirectories` of `.claude/settings.local.json` before creating any worktree. This stops the per-path permission prompts that previously stalled autonomous runs (worktrees live outside the project root, which Claude Code does not trust by default). Ships `scripts/ensure-worktree-trust.sh`, which derives the base path platform-neutrally, merges without overwriting existing permissions, creates + gitignores the settings file when missing, and verifies the result is valid JSON. Durable-state contract preserved: announced once, applied on confirmation, then a silent no-op on every later run.
+
+### Changed
+- `## Worktree Settings` in the `rules.md` template (and this repo's own `rules.md`) documents that `/craft:execute` maintains the worktree base directory in `permissions.additionalDirectories`.
+
 ## [1.1.0] - 2026-06-03
 
 ### Added
