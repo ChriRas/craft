@@ -170,6 +170,24 @@ Projects can override any agent's model in `.claude/project/rules.md` under `## 
 
 ---
 
+## CRAFT Profile
+
+Each project gets a portable **operating profile** that bundles its autonomy, commit, merge, language, and model settings into one file — `.claude/project/craft-profile.md`. It is auto-read on every `/craft:prime`, may deviate freely from the shipped defaults, and is **portable**: copy it into a sibling project to reuse a setup.
+
+Three named presets ship with the plugin (`/craft:onboard` copies one in; "give me the defaults" picks `balanced`):
+
+| Preset | Execution | Auto-commit | Merge | Epic | Permissions |
+|---|---|---|---|---|---|
+| `careful` | in-place | off | protected-`main` PR you approve | sequential | minimal |
+| `balanced` *(defaults)* | worktree | on | direct | parallel | standard |
+| `autonomous` | worktree | on | direct | parallel | broad |
+
+When no profile file is present, the implicit profile equals `balanced`, so adopting the profile system changes nothing until you edit it. `/craft:prime` reports the active profile and soft-warns on malformed values. See [`craft-profile-defaults.md`](./craft-profile-defaults.md) for the full field reference, resolution rules, and validation.
+
+> **Rolling out.** The profile *file format, presets, and `/craft:prime` reporting* ship now; the onboarding write-out (`/craft:onboard` copying a preset in) and the individual knobs (in-place autonomous builds, the "Freigabe ≠ Merge" PR flow, sequential epics, permission-scope allowlists) are adopted by the consuming commands progressively across the `autonomy-profiles` epic. Until then, drop a preset at `.claude/project/craft-profile.md` by hand to try it.
+
+---
+
 ## Project Files
 
 When you run `/craft:onboard`, the plugin creates:
@@ -181,6 +199,7 @@ When you run `/craft:onboard`, the plugin creates:
     ├── project/
     │   ├── intent.md               # Vision, goals, architectural decisions
     │   ├── rules.md                # Stack, conventions, deployment, tabus
+    │   ├── craft-profile.md        # Portable operating profile (optional; autonomy/commit/merge/lang/models)
     │   ├── roadmap.md              # Long-term phases (optional)
     │   └── slices/                 # Archived completed slices (Decision Log)
     └── plans/                      # Active slice plans
