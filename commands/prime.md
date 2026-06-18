@@ -151,6 +151,42 @@ Read the `## Operational Language` block of `.claude/project/rules.md` and resol
 
 Emit one status line reporting the three resolved values (see Output Format). Missing block → apply the defaults silently and still report them; never abort.
 
+> **Migration note:** until the `settings-migration` slice lands, the `## Operational
+> Language` and `## Agent Model Overrides` blocks are still read from `rules.md` here
+> (steps 4b/4c). The CRAFT profile (step 4d) carries the same settings as their future
+> home and is reported alongside; section 4d does not yet override 4b/4c.
+
+### 4d. CRAFT profile (detect, validate, report)
+
+Detect and report the project's CRAFT profile — the portable per-project operating
+config (autonomy, commit, merge, language, model settings). Like the drift and
+stack-pack checks, this is **reported, never corrected**.
+
+1. **Detect** — `Read` `.claude/project/craft-profile.md`.
+   - **Absent** → emit the defaults line and stop this step:
+     `✓ CRAFT profile: none — plugin defaults (balanced: execution=worktree, commit=on, merge=direct, epic=parallel, permissions=standard)`.
+     The defaults are documented in `craft-profile-defaults.md`.
+   - **Present** → parse the `> Preset:` line and the block fields below.
+
+2. **Validate** (warnings only, never abort). Emit a `⚠` line for each issue found:
+   - **Unknown block or field key** — `⚠ CRAFT profile: unknown key '<key>' — ignored.` The `## Operational Language` and `## Agent Model Overrides` blocks are expected profile members (their values are validated/reported by steps 4c/4b) — never flag them as unknown.
+   - **Value outside its enum:**
+     - `Execution → Mode` ∈ `worktree | in-place`
+     - `Commit Policy → Auto-commit` ∈ `on | off`
+     - `Merge Workflow → Type` ∈ `direct | pull-request`; `Protected-main` ∈ `yes | no`; `Approval` ∈ `chat | github-pr-review`; `Approval-granularity` ∈ `per-slice | per-epic | auto`
+     - `Epic Mode → Default` ∈ `parallel | sequential`
+     - `Permissions → Scope` ∈ `minimal | standard | broad`
+     - Out-of-enum → `⚠ CRAFT profile: '<block> → <field>: <value>' invalid — allowed: <list>.`
+   - **Constraint** — `Auto-commit: off` with `Mode: worktree` → `⚠ CRAFT profile: Auto-commit=off requires Execution Mode=in-place (the worktree merge model needs per-sub-task commits).`
+   - A missing block/field within an otherwise-present profile is **not** a warning — it falls back to the plugin default for that field.
+
+3. **Report** — emit one status line with the active preset and the effective settings:
+   `✓ CRAFT profile: <preset> — execution=<mode>, commit=<on|off>, merge=<type>[/protected/<approval>], epic=<mode>, permissions=<scope>`.
+   Append the `/protected/<approval>` segment **only when `Protected-main: yes`**; otherwise emit just `merge=<type>`.
+   The profile's `## Operational Language` and `## Agent Model Overrides` are reported by
+   steps 4c/4b respectively (their consumer source moves to the profile in the
+   `settings-migration` slice).
+
 ### 5. Tool versions (informational)
 
 After tools are confirmed installed, capture and report versions for the status block:
@@ -221,6 +257,8 @@ The full status block — emit exactly this shape:
 ✓ Agent models: <one-line summary if no overrides; one line per overridden agent otherwise (see step 4b)>
   ⚠ <override warning(s), if any>
 ✓ Language: chat=<lang>, commits=<lang>, comments=<lang>  (see step 4c)
+✓ CRAFT profile: <preset — effective settings | none — plugin defaults>  (see step 4d)
+  ⚠ <profile warning(s), if any>
 
 
 Active slices:
@@ -253,6 +291,8 @@ Keep the block under 20 lines for the common case. If many slices are active and
 | Override line malformed | Emit `⚠ Override line not parseable: '<line>'` and skip that line. Continue. |
 | Override names an unknown agent or uses an invalid model value | Emit the soft warning (step 4b). Do not abort. |
 | `.claude-plugin/plugin.json` missing or malformed | Emit `⚠ CRAFT plugin version unknown — plugin.json <not found\|malformed>` and continue. Not a blocker. |
+| `craft-profile.md` absent | Report `✓ CRAFT profile: none — plugin defaults`. Not an error (step 4d). |
+| `craft-profile.md` malformed (unknown key, out-of-enum value, or `Auto-commit: off`+`Mode: worktree`) | Emit the `⚠ CRAFT profile: …` warning(s) from step 4d and continue. Never a blocker. |
 
 ---
 
