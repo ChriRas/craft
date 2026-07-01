@@ -52,14 +52,14 @@ Gather everything the fresh review agent needs to judge the slice. Do not summar
 - **all prior slice archives** under `.claude/project/slices/` — the decision history, so the reviewer can catch a *silent revocation* of an earlier decision;
 - the **diff under review** — `git diff HEAD` for the slice's uncommitted Phase-4 / Phase-7 changes (Commit is Phase 9, so the slice delta is still in the working tree);
 - the **Phase-6 Recap** — the slice plan's `## Recap Draft`, the developer's what/why "thinking trace", playing the role of a human PR description;
-- the project's **comment language** — the `Comments` key of the `## Operational Language` block in `rules.md` (default English when absent). The reviewer flags code comments not written in this language as a Light finding;
+- the project's **comment language** — the `Comments` key of the `## Operational Language` block in `.claude/project/craft-profile.md` (default English when the profile, the block, or the key is absent). The reviewer flags code comments not written in this language as a Light finding;
 - the **findings rubric** (Step 2).
 
 ### Step 2 — Run the review subagent (fresh context window)
 
 Launch the **`code-reviewer`** subagent via the `Task` tool with `subagent_type: "code-reviewer"`. The named agent is pinned at `model: opus` for review-grade judgment (see `model-defaults.md`); a clean context window is the source of independence. Hand it the review brief from Step 1 and the rubric below. The agent classifies — it does not edit — and returns a structured findings list; the parent command applies fixes.
 
-If a project has overridden `code-reviewer` in `.claude/project/rules.md` → `## Agent Model Overrides`, the override's model is used instead. `/craft:prime` reports the effective value.
+If a project has overridden `code-reviewer` in `.claude/project/craft-profile.md` → `## Agent Model Overrides`, the override's model is used instead. `/craft:prime` reports the effective value.
 
 #### Findings rubric — two orthogonal axes
 

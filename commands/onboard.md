@@ -67,12 +67,14 @@ existing repository.
 
 ### A3 — Templates available
 
-The plugin must ship the four templates this command writes from. Confirm `Read`-ability of:
+The plugin must ship the templates and base preset this command writes from. Confirm `Read`-ability of:
 
 - `${CLAUDE_PLUGIN_ROOT}/templates/intent.md.template`
 - `${CLAUDE_PLUGIN_ROOT}/templates/rules.md.template`
 - `${CLAUDE_PLUGIN_ROOT}/templates/roadmap.md.template`
 - `${CLAUDE_PLUGIN_ROOT}/templates/claude-md-index.template`
+- `${CLAUDE_PLUGIN_ROOT}/templates/craft-profile.md.template`
+- `${CLAUDE_PLUGIN_ROOT}/templates/profiles/balanced.md` (base preset for the generated profile)
 
 If any template is missing → abort: *"Plugin templates missing at `<path>`. The CRAFT install may be corrupted — re-install the plugin and re-run /craft:onboard."*
 
@@ -112,7 +114,7 @@ Ask 3–5 targeted questions, one at a time:
 - Tabus: "What patterns or actions should never happen here?"
 - Roadmap (optional): "Do you have longer-term phases? If yes, name them. If no, skip."
 - Stack-Pack: present the candidate from the heuristic scan and run the proposal in the Stack-Pack Detection sub-procedure — the confirmed value fills `## Personality` `Stack-Pack:` in `rules.md`.
-- Language: run the Language Config sub-procedure — the confirmed values fill the `## Operational Language` block in `rules.md`.
+- Language: run the Language Config sub-procedure — the confirmed values fill the `## Operational Language` block of the CRAFT profile (`.claude/project/craft-profile.md`).
 
 ### 4. Write project files
 
@@ -120,6 +122,7 @@ Generate using the plugin templates:
 
 - `.claude/project/intent.md`
 - `.claude/project/rules.md`
+- `.claude/project/craft-profile.md` — rendered from `templates/craft-profile.md.template`: the `Preset:` and autonomy/commit/merge/permission placeholders take the literal values from the `balanced` preset (`templates/profiles/balanced.md`), the `## Operational Language` placeholders (`{{chat_language_or_system}}` etc.) take the Language Config sub-procedure's values, and `## Agent Model Overrides` is left at its default (empty). Interactive preset selection is the `onboarding-wizard` slice.
 - `.claude/project/roadmap.md` (only if user provided roadmap content)
 - `CLAUDE.md` in repo root — slim index pointing to the above
 
@@ -234,6 +237,7 @@ Final preview — about to execute:
   Split source:            CLAUDE.md (<N> lines) → intent.md + rules.md [+ roadmap.md]
   Generate:                .claude/project/intent.md
                            .claude/project/rules.md
+                           .claude/project/craft-profile.md
                            [.claude/project/roadmap.md]
                            [.claude/project/design/<topic>.md  (cross-cutting knowledge, if any)]
                            CLAUDE.md (replaced with index)
@@ -261,7 +265,7 @@ Parse the source file. Identify sections that map to:
 - **Product Vision** → `intent.md` (auto-import; clean prose, low ambiguity)
 - **Stack & Tools** → `rules.md` (auto-import; structured)
 - **Personality / stack-pack** → `rules.md` `## Personality` block — the source file rarely declares one, so fill `Stack-Pack:` via the Stack-Pack Detection sub-procedure (propose-and-confirm).
-- **Language settings** → `rules.md` `## Operational Language` block. A migration source rarely declares language preferences, so fill the block with defaults (`Chat` = system language, `Commits` = English, `Comments` = English) without extra interrogation. Only run the full Language Config sub-procedure dialog if the source explicitly states a chat/commit/comment language preference.
+- **Language settings** → the CRAFT profile (`.claude/project/craft-profile.md`) `## Operational Language` block. A migration source rarely declares language preferences, so fill the block with defaults (`Chat` = system language, `Commits` = English, `Comments` = English) without extra interrogation. Only run the full Language Config sub-procedure dialog if the source explicitly states a chat/commit/comment language preference.
 - **Architectural Decisions** → `intent.md` (auto-import)
 - **Code Conventions / Patterns** → `rules.md` (auto-import)
 - **Tabus / Anti-Patterns** → `rules.md` (auto-import)
@@ -368,10 +372,10 @@ override.
 
 ## Language Config (shared sub-procedure)
 
-Both modes fill the `## Operational Language` block of `rules.md` with three
-independent settings. The block is consumed downstream by `/craft:prime` (reports
-them), `/craft:commit` (commit-message language), and `/craft:build` /
-`/craft:review` (code-comment language).
+Both modes fill the `## Operational Language` block of the CRAFT profile
+(`.claude/project/craft-profile.md`) with three independent settings. The block is
+consumed downstream by `/craft:prime` (reports them), `/craft:commit` (commit-message
+language), and `/craft:build` / `/craft:review` (code-comment language).
 
 Detect the **system language** first (the language the user is currently writing in,
 falling back to the host locale, e.g. `de-DE` → German). Then run the proposal —
@@ -394,9 +398,10 @@ override — no forced choice):
   Comments — code-comment language     [default: English]
 ```
 
-Write the three confirmed values into the `## Operational Language` block, mapping
-them onto the template placeholders `{{chat_language_or_system}}`,
-`{{commit_language_default_english}}`, and `{{comment_language_default_english}}`:
+Write the three confirmed values into the profile's `## Operational Language` block,
+mapping them onto the `craft-profile.md.template` placeholders
+`{{chat_language_or_system}}`, `{{commit_language_default_english}}`, and
+`{{comment_language_default_english}}`:
 
 - **Chat:** the chosen chat language (system language if `[S]`).
 - **Commits:** the chosen commit language (English unless overridden).
@@ -409,7 +414,7 @@ If the user skips the dialog entirely, write the defaults: `Chat` = system langu
 
 ## Post-Assertions
 
-Run all four after the chosen procedure completes. Any failure → warn loudly, surface to the user, do **not** pretend success. No auto-rollback.
+Run all five after the chosen procedure completes. Any failure → warn loudly, surface to the user, do **not** pretend success. No auto-rollback.
 
 ### P1 — `intent.md` written and well-formed
 
@@ -424,6 +429,13 @@ Failure → *"⚠ intent.md was not written or is malformed. Inspect `.claude/pr
 - Must contain a `## Stack & Tools` section header.
 
 Failure → *"⚠ rules.md was not written or is malformed. Inspect `.claude/project/rules.md` manually."*
+
+### P2b — `craft-profile.md` written and well-formed
+
+- `Read` `.claude/project/craft-profile.md`. Must exist and be non-empty.
+- Must contain a `## Operational Language` section header and a `> Preset:` line.
+
+Failure → *"⚠ craft-profile.md was not written or is malformed. Inspect `.claude/project/craft-profile.md` manually before running /craft:prime."*
 
 ### P3 — `CLAUDE.md` index present
 
@@ -459,11 +471,12 @@ Final status block, emitted once everything is written and post-assertions compl
 ```
 ✓ Onboarding complete (<greenfield | migration>)
 ✓ Pre-assertions: in git repo, not previously onboarded, templates available
-✓ Post-assertions: intent.md ✓, rules.md ✓, CLAUDE.md ✓[, migration cleanup ✓]
+✓ Post-assertions: intent.md ✓, rules.md ✓, craft-profile.md ✓, CLAUDE.md ✓[, migration cleanup ✓]
 
 Created:
   .claude/project/intent.md
   .claude/project/rules.md
+  .claude/project/craft-profile.md
   [.claude/project/roadmap.md]
   [.claude/project/design/<topic>.md …]
   CLAUDE.md

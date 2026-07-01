@@ -127,7 +127,7 @@ Build the effective `Agent → Model` map so the user can see which model each C
    - `${CLAUDE_PLUGIN_ROOT}/agents/` if the environment variable is set (the documented Claude Code path for an installed-plugin run);
    - else `<project-root>/agents/` if it exists (the CRAFT dev-repo dogfood case);
    - else emit `⚠ Could not locate plugin agents/ directory — model-resolution disabled this session` and skip step 2.
-2. **Project overrides** — `Read` the `## Agent Model Overrides` section of `.claude/project/rules.md`. Parse only lines that (a) are not inside an HTML `<!-- ... -->` comment block and (b) match `- <agent-name>: <model-value>`. The template's example entries live inside `<!-- ... -->` precisely so they are inert by default — uncommenting is the activation step. Allowed model values: `opus`, `sonnet`, `haiku`, `inherit`.
+2. **Project overrides** — `Read` the `## Agent Model Overrides` section of `.claude/project/craft-profile.md` (the profile is the home for model overrides since slice-016; when the profile file or the block is absent, there are no overrides and the defaults from step 1 stand). Parse only lines that (a) are not inside an HTML `<!-- ... -->` comment block and (b) match `- <agent-name>: <model-value>`. The template's example entries live inside `<!-- ... -->` precisely so they are inert by default — uncommenting is the activation step. Allowed model values: `opus`, `sonnet`, `haiku`, `inherit`.
 3. **Resolve** — for each agent, the override wins if present, else the default.
 4. **Soft validation** (warnings only, never abort):
    - `⚠ Override for unknown agent '<name>' — typo or removed agent?`
@@ -143,18 +143,13 @@ Collapse to a one-liner when nothing is overridden; expand to one line per overr
 
 ### 4c. Language settings
 
-Read the `## Operational Language` block of `.claude/project/rules.md` and resolve the three settings so they govern this session and the consuming phases:
+Read the `## Operational Language` block of `.claude/project/craft-profile.md` and resolve the three settings so they govern this session and the consuming phases (the profile is the home for language settings since slice-016; when the profile file or the block is absent, apply the defaults below):
 
 - **Chat** — the language the agent converses in. Adopt it for the rest of the session. Default when the key (or the whole block) is absent: the system language.
 - **Commits** — the commit-message language, consumed by `/craft:commit`. Default: English.
 - **Comments** — the code-comment language, consumed by `/craft:build` / `/craft:review`. Default: English.
 
 Emit one status line reporting the three resolved values (see Output Format). Missing block → apply the defaults silently and still report them; never abort.
-
-> **Migration note:** until the `settings-migration` slice lands, the `## Operational
-> Language` and `## Agent Model Overrides` blocks are still read from `rules.md` here
-> (steps 4b/4c). The CRAFT profile (step 4d) carries the same settings as their future
-> home and is reported alongside; section 4d does not yet override 4b/4c.
 
 ### 4d. CRAFT profile (detect, validate, report)
 
@@ -183,9 +178,9 @@ stack-pack checks, this is **reported, never corrected**.
 3. **Report** — emit one status line with the active preset and the effective settings:
    `✓ CRAFT profile: <preset> — execution=<mode>, commit=<on|off>, merge=<type>[/protected/<approval>], epic=<mode>, permissions=<scope>`.
    Append the `/protected/<approval>` segment **only when `Protected-main: yes`**; otherwise emit just `merge=<type>`.
-   The profile's `## Operational Language` and `## Agent Model Overrides` are reported by
-   steps 4c/4b respectively (their consumer source moves to the profile in the
-   `settings-migration` slice).
+   The profile's `## Operational Language` and `## Agent Model Overrides` are read and
+   reported by steps 4c/4b respectively — this report line covers the autonomy/commit/
+   merge/epic/permissions settings only, to avoid double-reporting.
 
 ### 5. Tool versions (informational)
 
