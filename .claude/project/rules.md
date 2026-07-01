@@ -2,9 +2,12 @@
 
 > How we build, always. Most rules here must be verifiable against State (code,
 > configs, manifests); non-verifiable conventions belong in `intent.md`. Exception:
-> operational settings consumed by CRAFT commands (e.g. the `## Operational Language`
+> operational settings consumed by CRAFT commands (e.g. the `## Worktree Settings`
 > block) may live here even though they are not State-verifiable. Keep this file
 > under ~80 lines.
+>
+> Language, model-override, and autonomy/commit/merge settings live in the CRAFT
+> profile (`.claude/project/craft-profile.md`), not here.
 
 ## Stack & Tools
 
@@ -70,14 +73,3 @@
 - **Auto-trigger threshold:** 2
 - **Token brake during loop:** 15000
 - **Stale slice threshold:** 7 days
-
-## Agent Model Overrides (optional)
-
-> Override CRAFT subagent models. Defaults in plugin's `model-defaults.md`.
-> Allowed values: `opus`, `sonnet`, `haiku`, `inherit`. Resolution: agent
-> frontmatter → this section. `/craft:prime` reports the effective model.
-
-<!--
-- slice-builder: opus
-- code-reviewer: sonnet
--->

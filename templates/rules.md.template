@@ -1,6 +1,9 @@
 # Rules
 
 > How we build, always. Every rule here must be **verifiable against State** (code, configs, manifests). Non-verifiable conventions belong in `intent.md`. Keep this file under ~80 lines.
+>
+> Language, model-override, and autonomy/commit/merge settings live in the CRAFT profile
+> (`.claude/project/craft-profile.md`), not here — see `craft-profile-defaults.md`.
 
 ## Stack & Tools
 
@@ -18,18 +21,6 @@
 > `stack-php-laravel`), or `none` if the project uses no stack-pack.
 
 - **Stack-Pack:** {{stack_pack_name_or_none}}
-
-## Operational Language
-
-> Operational language settings, captured at onboarding. Three independent
-> settings. When this block (or any single key) is absent, the defaults apply:
-> `Chat` = the system language, `Commits` = English, `Comments` = English.
-> Consumed by `/craft:prime` (reports them), `/craft:commit` (commit-message
-> language), and `/craft:build` / `/craft:review` (code-comment language).
-
-- **Chat:** {{chat_language_or_system}}
-- **Commits:** {{commit_language_default_english}}
-- **Comments:** {{comment_language_default_english}}
 
 ## Workflow Rules
 
@@ -83,18 +74,3 @@ Override `/debug`, `/craft:review`, and stale-slice defaults if needed.
 - **Token brake during loop:** 15000
 - **Stale slice threshold:** 7 days
 - **Review in-phase fix cap:** 5
-
-## Agent Model Overrides (optional)
-
-> Override CRAFT subagent models (defaults in plugin's `model-defaults.md`).
-> Allowed: `opus`, `sonnet`, `haiku`, `inherit`. Resolution: agent frontmatter →
-> this section. `/craft:prime` reports the effective model and soft-warns on
-> invalid entries.
-
-<!--
-Examples (uncomment to use):
-
-- slice-builder: opus     # heavier judgment for risky migrations
-- code-reviewer: sonnet   # faster review for low-stakes slices
--->
-
