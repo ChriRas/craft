@@ -31,9 +31,9 @@ This file documents the default values, the resolution rules, and the validation
 | Operational Language | Comments | `English` | Code-comment language (`/craft:build`, `/craft:review`). |
 | Agent Model Overrides | — | none (use defaults) | Subagent models resolve from `model-defaults.md`. See that file. |
 
-> Language and model defaults are the same ones CRAFT applied before the profile
-> existed (see `templates/rules.md.template` `## Operational Language` and
-> `model-defaults.md`). The profile becomes their home; the values are unchanged.
+> Language and model defaults are unchanged from what CRAFT applied before the profile
+> became their home (model defaults: `model-defaults.md`). The profile is now their only
+> home — `rules.md` no longer carries these settings (migrated in slice-016).
 
 ---
 

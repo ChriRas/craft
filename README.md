@@ -157,7 +157,7 @@ The single-slice command `/craft:build` runs in-session and is **not** routed th
 
 Dialogic phases — Plan (Phase 3) and the Debug autonomous loop — stay on the active session model because their value lives in the interaction with you. Switch the session model yourself if you want Opus for those.
 
-Projects can override any agent's model in `.claude/project/rules.md` under `## Agent Model Overrides`:
+Projects can override any agent's model in `.claude/project/craft-profile.md` under `## Agent Model Overrides`:
 
 ```markdown
 ## Agent Model Overrides

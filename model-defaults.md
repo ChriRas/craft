@@ -54,7 +54,7 @@ reads the agent files directly.
 ## Per-Project Overrides
 
 A project may override any agent's model by adding an `## Agent Model Overrides`
-section to its `.claude/project/rules.md`:
+section to its `.claude/project/craft-profile.md`:
 
 ```markdown
 ## Agent Model Overrides
@@ -83,7 +83,7 @@ section to its `.claude/project/rules.md`:
 ## Resolution Order
 
 1. **Default** — `model:` from the agent's own frontmatter (`agents/<name>.md`).
-2. **Project override** — matching entry in `rules.md` → `## Agent Model Overrides`,
+2. **Project override** — matching entry in `craft-profile.md` → `## Agent Model Overrides`,
    if present.
 
 Project override wins. No further sources.
