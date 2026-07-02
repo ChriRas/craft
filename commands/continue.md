@@ -53,6 +53,7 @@ Pull `Status`, `Phase`, `Slice-ID`, and any pause/handoff notes.
 | `refactoring` | `/craft:refactor` |
 | `reviewing` | `/craft:review` |
 | `committing` | `/craft:commit` |
+| `awaiting-release` | `/craft:release` — the in-place review halt (built in place, paused before Phase 5); review the raw diff in your IDE, then release to resume into Phase 5 |
 | `committed` | this slice is done — recommend `/craft:plan` for the next one |
 | `paused` | ask whether to resume; if yes, route based on the `Phase:` field |
 | any unrecognized value | log warning, ask the user what to do |

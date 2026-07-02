@@ -1,5 +1,5 @@
 ---
-description: Autonomously execute an epic or single slice — creates parallel git worktrees, delegates Phase 4–7 to subagents per slice, merges slice-branches into an epic-branch, stops for human review at epic-end.
+description: Autonomously execute an epic or single slice. Worktree mode (default) creates parallel git worktrees and delegates Phase 4–7 to subagents per slice, merging into an epic-branch; in-place mode builds a single slice on a branch in the main checkout, makes no commits, and halts before Phase 5 for IDE review (resumed via /craft:release).
 argument-hint: "<epic-NNN | slice-NNN>"
 allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "Task"]
 ---
@@ -22,6 +22,7 @@ For a single slice without an epic, the orchestrator runs the same loop with one
 
 - `Read` `.claude/project/intent.md` and `.claude/project/rules.md`. Hold both in context.
 - `Read` the project's `## Worktree Settings` section in `rules.md`, if present. Note any overrides for `Worktree path pattern` or `Branch name pattern`; otherwise use defaults (`../<repo>-worktrees/<slice-id>-<slug>/` and `<slice-id>-<slug>`).
+- `Read` `.claude/project/craft-profile.md`, if present. Note `Execution → Mode` (`worktree` | `in-place`) and `Commit Policy → Auto-commit` (`on` | `off`). When the profile or a field is absent, apply the documented defaults — `Mode: worktree`, `Auto-commit: on` (see `craft-profile-defaults.md`). `Mode` selects the execution path in Procedure step 1b.
 
 ### Step 2 — Resolve target
 
@@ -31,7 +32,7 @@ The argument is `epic-NNN` or `slice-NNN`. If absent, abort: *"`/craft:execute` 
 
 ## Pre-Assertions
 
-Run all six. Any failure stops the command before any worktree is created.
+Run all of the following. Any failure stops the command before any worktree is created.
 
 ### A1 — Project is onboarded
 
@@ -70,6 +71,16 @@ For a single slice target: trivially one-node graph. If the slice has `Depends-O
 
 Failure → abort with the specific issue: cycle, missing slice plan, or unresolved dependency.
 
+### A7 — In-place mode requires a single slice
+
+If the `Execution → Mode` resolved in Pre-flight is `in-place` and the target is an
+**epic**, abort: *"In-place mode runs a single slice at a time — the main checkout cannot
+host parallel slices. Epic-level in-place execution is the `epic-sequential` slice. Run the
+epic in `worktree` mode, or execute its slices individually with `/craft:execute
+<slice-NNN>`."*
+
+For a `worktree`-mode target this assertion is a no-op.
+
 ---
 
 ## Procedure (Autonomy Level 2 inside plan scope, Level 0 for the final commit)
@@ -77,6 +88,13 @@ Failure → abort with the specific issue: cycle, missing slice plan, or unresol
 ### 1. Acquire the lock
 
 Write `.claude/plans/.execute.lock` containing the current PID and the resolved target. Lock is released in Post-Assertions (or on graceful abort).
+
+### 1b. Branch on execution mode
+
+Read the `Execution → Mode` resolved in Pre-flight (default `worktree`).
+
+- **`worktree`** (default) — continue with steps 2–10 below: the parallel, worktree-isolated path, unchanged. It always auto-commits per sub-task inside the worktree (its merge model depends on it — epic Decision C), so `Auto-commit: off` is ignored here.
+- **`in-place`** — skip steps 2–10 entirely and follow the **In-place path** sub-procedure (immediately after step 10). It builds the single slice on a branch in the main checkout, makes no commits, and halts before Phase 5 for human IDE review.
 
 ### 2. Trust the worktree base directory
 
@@ -176,11 +194,69 @@ Delete `.claude/plans/.execute.lock` regardless of success or partial outcome �
 
 ---
 
+## In-place path (Mode: in-place)
+
+Followed instead of steps 2–10 when `Execution → Mode` is `in-place` (Procedure step 1b).
+Single-slice only (A7). No worktree is created, no worktree-trust step runs, and nothing is
+auto-committed — the slice's changes stay in the main checkout's working tree until you
+release. The lock (step 1) is already held and is released at the end here, just as step 10
+does for the worktree path.
+
+### i1 — Create the slice branch in the main checkout
+
+A3 guaranteed a clean tree on `main`. Create and check out the slice branch **in place** —
+no worktree:
+
+```
+git checkout -b <slice-id>-<slug>
+```
+
+Use the `Branch name pattern` from `rules.md` `## Worktree Settings` if overridden. If the
+branch already exists (e.g. a prior in-place run left it behind), abort: *"Branch
+`<slice-id>-<slug>` already exists — a previous in-place run may not have finished. Resume it
+with `/craft:release <slice-NNN>`, or delete the stale branch before re-running."* Never
+overwrite it. Otherwise the main checkout is now on the slice branch with a still-clean tree.
+
+### i2 — Run Phase 4 in place (no subagent, no commits)
+
+Delegate Phase 4 to `/craft:build` **inline** — the main session follows `commands/build.md`
+directly on the slice branch. There is no `slice-builder` subagent and no worktree: that
+subagent exists for the isolation and parallelism a single in-place slice does not need, and
+running inline is what lets you review the result in your own IDE afterwards. Build works the
+sub-tasks to completion and leaves `Status: testing`. Build never commits, so the changes
+simply accumulate **uncommitted** in the working tree — exactly the in-place contract.
+`Auto-commit: off` is the consistent profile setting for in-place; the review-halt model
+holds changes uncommitted until release regardless of the field's value.
+
+If build stops early (a `/craft:debug` loop, an out-of-scope question), that pause stands —
+in-place mode surfaces it to you directly (you are present), rather than writing a worktree
+handoff.
+
+### i3 — Halt before Phase 5
+
+When Phase 4 completes, `/craft:build`'s phase-end bundle will have recommended
+`/craft:test` — in in-place mode that recommendation is **superseded** by this halt; do
+**not** follow it and do **not** proceed to Phase 5 (`Status: testing`). Instead:
+
+1. Set the slice plan `Status: awaiting-release` — the dedicated in-place review-halt state.
+2. Release the lock (delete `.claude/plans/.execute.lock`).
+3. Emit the in-place halted block (see Output Format): the branch name, that the changes are
+   uncommitted in the main checkout for IDE review, and the resume gesture
+   `/craft:release <slice-NNN>`.
+
+You do not run Phase 5–9. The human reviews the raw diff in their IDE, then releases with
+`/craft:release`, which resumes the slice forward (Phase 5 onward) toward the commit — the
+commit happens only after that release.
+
+---
+
 ## Post-Assertions
 
-Run all four after the procedure completes. Any failure → warn loudly. No auto-rollback.
+Run all of the following after the procedure completes. P1 and P3 apply to the worktree path only; P5 applies to the in-place path. Any failure → warn loudly. No auto-rollback.
 
 ### P1 — Worktrees exist for every spawned slice
+
+*(Worktree path only — in-place mode creates no worktrees; see P5.)*
 
 `Bash` `git worktree list --porcelain` must show every slice-worktree created this run (or, for succeeded slices that have been merged, the worktrees must still exist — cleanup happens at Phase 9 `/craft:archive`).
 
@@ -188,7 +264,7 @@ Failure → *"⚠ Worktree accounting mismatch — expected `<list>`, found `<li
 
 ### P2 — Slice plans have correct Status
 
-Each succeeded slice's plan file has `Status: committing` (cleared review) or `Status: reviewing` (open finding); each stopped slice has `Status: paused` with the Pause Note filled. No slice is left with `Status: implementing`.
+Each succeeded slice's plan file has `Status: committing` (cleared review) or `Status: reviewing` (open finding); each stopped slice has `Status: paused` with the Pause Note filled. No slice is left with `Status: implementing`. In **in-place** mode the single slice ends at `Status: awaiting-release` (Phase 4 done, halted before Phase 5).
 
 Failure → *"⚠ Slice `<id>` has Status `<X>` after execute — should be `<expected>`. Inspect `<path>`."*
 
@@ -203,6 +279,17 @@ Failure → *"⚠ Epic-branch is missing merge commits for slices: `<list>`. Re-
 `.claude/plans/.execute.lock` must not exist after the command returns.
 
 Failure → *"⚠ Execute lock not released. Remove `.claude/plans/.execute.lock` before the next `/craft:execute` run."*
+
+### P5 — In-place slice halted correctly (in-place mode only)
+
+For an in-place run: `Bash` `git branch --show-current` is the slice branch,
+`git status --porcelain` is non-empty (the slice's uncommitted changes), the slice plan
+`Status:` is `awaiting-release`, and no worktree exists for this slice
+(`git worktree list --porcelain` shows only the main worktree).
+
+Failure → *"⚠ In-place run did not halt cleanly — expected the slice branch checked out with
+uncommitted changes and `Status: awaiting-release`. Inspect `git status` and the slice
+plan."*
 
 ---
 
@@ -249,6 +336,16 @@ Lone slice succeeded:
    Then:      /craft:commit         (merges <slice-NNN>-<slug> → main with --no-ff)
 ```
 
+In-place slice halted for review:
+
+```
+✓ Slice <slice-NNN> built in place — halted before Phase 5 for your IDE review
+   Branch: <slice-NNN>-<slug>   (in the main checkout; changes uncommitted)
+
+   Review the raw diff in your IDE, then release:
+   /craft:release <slice-NNN>    (resumes into Phase 5 → … → /craft:commit)
+```
+
 Aborted:
 
 ```
@@ -271,6 +368,7 @@ Review checkpoint reached:
 | Situation | Behavior |
 |---|---|
 | A3 fails (dirty tree / not on main) | Abort. Do not stash automatically. |
+| In-place (i1): slice branch already exists | Abort cleanly; hint to `/craft:release` the prior run or delete the stale branch. Never force-overwrite. |
 | A4 fails (lock exists) | Abort with lock path; user removes if crashed. |
 | A6 fails (cycle / missing dep) | Abort. Name the cycle or missing slice. |
 | `git worktree add` fails (path collision) | Abort the affected slice cleanly; other slices may still proceed. List the collision in the final output. |
@@ -289,3 +387,4 @@ Review checkpoint reached:
 - It does **not** auto-resolve Heavy + needs-rethinking findings. Those escalate to the user via Handoff.
 - It does **not** modify `intent.md` or `rules.md`. Architectural decisions surfaced inside a slice live in that slice's `## Decisions Made During This Slice` for Phase 9 promotion.
 - It does **not** push to remote. No `git push` happens here — that is a separate user step.
+- In **in-place** mode it does **not** create a worktree, does **not** auto-commit, and does **not** run past Phase 4 — it halts before Phase 5 and hands off to `/craft:release`. Epic targets are rejected in in-place mode (A7).
