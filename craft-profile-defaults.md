@@ -52,6 +52,25 @@ into `.claude/project/craft-profile.md`; the project may then edit it freely.
 
 ---
 
+## Permission Allowlist
+
+The `Permissions → Scope` field records *which* read-only allowlist onboarding wrote; the
+concrete entries live in `.claude/settings.local.json` (gitignored). All three scopes are
+**read-only** — they auto-allow only non-mutating commands, so trust is never widened
+silently and mutating commands always keep prompting. The exact entries per scope are
+defined in the Permission Allowlist sub-procedure of `/craft:onboard`:
+
+| Scope (preset) | Read-only allowlist |
+|---|---|
+| `minimal` (`careful`) | `git status`/`diff`/`log`, `ls` |
+| `standard` (`balanced`) | `minimal` + `cat`, `grep`, `git show`, read-only `gh` (`pr view`/`pr list`) |
+| `broad` (`autonomous`) | `standard` + `wc`, `head`, `tail`, `git blame`, `gh issue view`/`run view` |
+
+Onboarding merges the tier idempotently — re-running never duplicates entries and never
+removes anything already present.
+
+---
+
 ## Resolution Order
 
 1. **Profile file** — `.claude/project/craft-profile.md`, if present. Its values win
