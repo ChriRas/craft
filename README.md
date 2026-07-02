@@ -114,6 +114,11 @@ When you have an epic with multiple slices that can run in parallel, hand the bu
 /craft:checkout slice-A           # — or inspect a single slice in isolation
 /craft:commit                     # merges epic-branch → main with --no-ff, archives every slice
 
+# Or, for a single slice under a profile with Execution Mode: in-place:
+/craft:execute slice-A            # in-place: branch in the main checkout, no commits, halts before Phase 5
+                                  # review the raw uncommitted diff in your IDE, then:
+/craft:release slice-A            # lift the halt → Phase 5 → … → /craft:commit
+
 # Side tools:
 /craft:worktree-status            # overview of all active worktrees
 /craft:worktree-clean             # remove orphaned worktrees after manual aborts

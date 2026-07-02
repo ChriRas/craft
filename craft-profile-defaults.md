@@ -35,6 +35,10 @@ This file documents the default values, the resolution rules, and the validation
 > became their home (model defaults: `model-defaults.md`). The profile is now their only
 > home — `rules.md` no longer carries these settings (migrated in slice-016).
 
+> **In-place caveat:** `Auto-commit` has no effect when `Mode: in-place` — the in-place
+> review-halt model (slice-018) holds all changes uncommitted until you release, regardless
+> of `Auto-commit`. The field governs the worktree path only, where it is pinned `on`.
+
 ---
 
 ## Named Presets
