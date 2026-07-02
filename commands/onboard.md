@@ -74,7 +74,9 @@ The plugin must ship the templates and base preset this command writes from. Con
 - `${CLAUDE_PLUGIN_ROOT}/templates/roadmap.md.template`
 - `${CLAUDE_PLUGIN_ROOT}/templates/claude-md-index.template`
 - `${CLAUDE_PLUGIN_ROOT}/templates/craft-profile.md.template`
-- `${CLAUDE_PLUGIN_ROOT}/templates/profiles/balanced.md` (base preset for the generated profile)
+- `${CLAUDE_PLUGIN_ROOT}/templates/profiles/balanced.md` (base preset + the `[D]` fast-defaults source)
+- `${CLAUDE_PLUGIN_ROOT}/templates/profiles/careful.md` (guided preset-name matching)
+- `${CLAUDE_PLUGIN_ROOT}/templates/profiles/autonomous.md` (guided preset-name matching)
 
 If any template is missing → abort: *"Plugin templates missing at `<path>`. The CRAFT install may be corrupted — re-install the plugin and re-run /craft:onboard."*
 
@@ -115,6 +117,7 @@ Ask 3–5 targeted questions, one at a time:
 - Roadmap (optional): "Do you have longer-term phases? If yes, name them. If no, skip."
 - Stack-Pack: present the candidate from the heuristic scan and run the proposal in the Stack-Pack Detection sub-procedure — the confirmed value fills `## Personality` `Stack-Pack:` in `rules.md`.
 - Language: run the Language Config sub-procedure — the confirmed values fill the `## Operational Language` block of the CRAFT profile (`.claude/project/craft-profile.md`).
+- Profile: run the Profile Config sub-procedure — the `[D]` fast-defaults or `[G]` guided answers fill the Execution / Commit Policy / Merge Workflow / Epic Mode / Permissions blocks of the CRAFT profile, and the chosen permission scope drives the Permission Allowlist write in step 4.
 
 ### 4. Write project files
 
@@ -122,7 +125,7 @@ Generate using the plugin templates:
 
 - `.claude/project/intent.md`
 - `.claude/project/rules.md`
-- `.claude/project/craft-profile.md` — rendered from `templates/craft-profile.md.template`: the `Preset:` and autonomy/commit/merge/permission placeholders take the literal values from the `balanced` preset (`templates/profiles/balanced.md`), the `## Operational Language` placeholders (`{{chat_language_or_system}}` etc.) take the Language Config sub-procedure's values, and `## Agent Model Overrides` is left at its default (empty). Interactive preset selection is the `onboarding-wizard` slice.
+- `.claude/project/craft-profile.md` — rendered from `templates/craft-profile.md.template`: the `> Preset:` line and the Execution / Commit Policy / Merge Workflow / Epic Mode / Permissions placeholders take the **Profile Config sub-procedure's resolved values** (`[D]` fast-defaults → the `balanced` preset's literals from `templates/profiles/balanced.md`; `[G]` guided → the per-knob answers), the `## Operational Language` placeholders (`{{chat_language_or_system}}` etc.) take the Language Config sub-procedure's values, and `## Agent Model Overrides` is left at its default (empty). Immediately after writing the profile, run the Permission Allowlist sub-procedure to write the chosen scope's read-only allowlist into `.claude/settings.local.json`.
 - `.claude/project/roadmap.md` (only if user provided roadmap content)
 - `CLAUDE.md` in repo root — slim index pointing to the above
 
@@ -266,6 +269,7 @@ Parse the source file. Identify sections that map to:
 - **Stack & Tools** → `rules.md` (auto-import; structured)
 - **Personality / stack-pack** → `rules.md` `## Personality` block — the source file rarely declares one, so fill `Stack-Pack:` via the Stack-Pack Detection sub-procedure (propose-and-confirm).
 - **Language settings** → the CRAFT profile (`.claude/project/craft-profile.md`) `## Operational Language` block. A migration source rarely declares language preferences, so fill the block with defaults (`Chat` = system language, `Commits` = English, `Comments` = English) without extra interrogation. Only run the full Language Config sub-procedure dialog if the source explicitly states a chat/commit/comment language preference.
+- **Autonomy / commit / merge / permission settings** → the CRAFT profile's Execution / Commit Policy / Merge Workflow / Epic Mode / Permissions blocks. Run the Profile Config sub-procedure (`[D]` fast-defaults is the sensible migration default; `[G]` guided is available), then the Permission Allowlist sub-procedure to write the chosen scope's read-only allowlist into `.claude/settings.local.json`.
 - **Architectural Decisions** → `intent.md` (auto-import)
 - **Code Conventions / Patterns** → `rules.md` (auto-import)
 - **Tabus / Anti-Patterns** → `rules.md` (auto-import)
@@ -412,9 +416,139 @@ If the user skips the dialog entirely, write the defaults: `Chat` = system langu
 
 ---
 
+## Profile Config (shared sub-procedure)
+
+Both modes populate the CRAFT profile's autonomy/commit/merge/epic/permission blocks
+(`.claude/project/craft-profile.md`). Two paths render the **same** template — the choice
+only decides how the knob values are sourced. The `## Operational Language` block is filled
+by the Language Config sub-procedure and the `## Agent Model Overrides` block stays at its
+default (empty); this sub-procedure covers everything else.
+
+### Step 1 — Fast-defaults or guided (Level 0)
+
+Render the full `[D]/[G]` legend per the lettered-choice-prompt convention in
+`skills/workflow/SKILL.md`:
+
+```
+CRAFT autonomy / commit / merge / permission setup:
+  [D] Defaults (fast) — apply the `balanced` preset: worktree builds · per-sub-task
+      auto-commit · direct merge to trunk · parallel epics · standard (read-only)
+      permission allowlist. CRAFT's out-of-the-box behaviour.
+  [G] Guided — one multiple-choice question per knob; deviate wherever you want.
+```
+
+`[D]` → take every knob value from the `balanced` preset (`templates/profiles/balanced.md`),
+set `Preset: balanced`, and skip to Step 3. `[G]` → run Step 2.
+
+### Step 2 — Guided knob dialog (Level 0)
+
+Ask one multiple-choice question per knob, in order, each rendering its full legend. Carry
+the answers into memory for the render in Step 3 and enforce the cross-field rule as you go.
+
+1. **Execution mode**
+   ```
+   Execution mode — how /craft:execute runs work:
+     [W] worktree  — parallel-safe; slices build in throwaway git worktrees outside the repo (default)
+     [I] in-place  — build on a branch in the main checkout so you can eyeball the raw diff in your IDE
+   ```
+2. **Auto-commit** — ask **only** when Execution mode = `in-place`. When `worktree`, force
+   `on` and say so (the worktree merge model requires per-sub-task commits):
+   ```
+   Auto-commit (in-place only):
+     [N] on  — commit each sub-task as it lands
+     [F] off — hold everything uncommitted until you release it in Phase 9
+   ```
+3. **Merge workflow**
+   ```
+   Merge workflow — how a finished slice/epic lands:
+     [D] direct       — merge straight to the trunk via /craft:commit (default)
+     [P] pull-request — open a PR; on protected `main` you approve it and CRAFT merges via gh ("Freigabe ≠ Merge")
+   ```
+   On `[P]`, set `Type: pull-request`, `Protected-main: yes`, `Approval: github-pr-review`, then
+   ask granularity; on `[D]`, set `Type: direct`, `Protected-main: no`, `Approval: chat`,
+   `Approval-granularity: auto` and skip the granularity question:
+   ```
+   PR approval granularity:
+     [A] auto      — sequential epic → per slice; parallel epic → once at epic end (default)
+     [S] per-slice — a PR + approval for every slice
+     [E] per-epic  — one PR + approval at the epic boundary
+   ```
+4. **Epic mode**
+   ```
+   Default epic execution for /craft:execute <epic>:
+     [P] parallel   — independent slices run concurrently in worktrees (default)
+     [S] sequential — slices run one-by-one in place, commit per slice, review halt between
+   ```
+5. **Permission scope** — selects how broad the **read-only** allowlist onboarding writes
+   to `.claude/settings.local.json` is (see the Permission Allowlist sub-procedure). Every
+   scope is read-only; mutating commands always keep prompting:
+   ```
+   Permission scope — size of the read-only default allowlist:
+     [M] minimal  — smallest read-only set (git status/diff/log, ls)
+     [S] standard — moderate read-only set (adds cat, grep, git show, read-only gh) (default)
+     [B] broad    — widest read-only set (adds wc, head, tail, git blame, gh issue/run view)
+   ```
+
+**Cross-field validation:** `Auto-commit: off` is reachable only via `in-place`; a
+`worktree` choice pins `Auto-commit: on`. Never write the invalid `off` + `worktree`
+combination (the same rule `/craft:prime` warns on).
+
+### Step 3 — Hold the resolved knob values + name the preset
+
+Carry the resolved values (Execution Mode, Auto-commit, Merge Type, Protected-main,
+Approval, Approval-granularity, Epic Default, Permission Scope) into memory. Set the
+`> Preset:` field: `balanced` on the fast path; on the guided path, use a named preset if
+the values match one exactly (`careful` / `balanced` / `autonomous`), otherwise `custom`.
+The profile write (greenfield step 4 / migration knowledge-split) renders these onto the
+`craft-profile.md.template` placeholders, and the Permission Allowlist sub-procedure writes
+the matching allowlist into `.claude/settings.local.json`.
+
+---
+
+## Permission Allowlist (shared sub-procedure)
+
+Onboarding writes a **read-only default permission allowlist** into
+`.claude/settings.local.json` so common non-mutating commands stop prompting — without ever
+auto-granting a mutating one. The Permission Scope chosen in Profile Config (or `standard`
+on the fast-defaults path) selects the tier. The file is gitignored by repo convention; the
+write is an **idempotent merge** — existing `permissions.allow` entries are preserved and
+never duplicated, and nothing is removed.
+
+### Tiers (all read-only — a mutating command is never added)
+
+- **minimal** — `Bash(git status:*)`, `Bash(git diff:*)`, `Bash(git log:*)`, `Bash(ls:*)`
+- **standard** — the `minimal` set **plus** `Bash(cat:*)`, `Bash(grep:*)`,
+  `Bash(git show:*)`, `Bash(gh pr view:*)`, `Bash(gh pr list:*)`
+- **broad** — the `standard` set **plus** `Bash(wc:*)`, `Bash(head:*)`, `Bash(tail:*)`,
+  `Bash(git blame:*)`, `Bash(gh issue view:*)`, `Bash(gh run view:*)`
+
+Every entry is audited to have **no mutating mode under any flag** — which is exactly why
+`find` is excluded (`find … -delete` / `-exec` mutate). No tier includes a mutating command
+(`git add` / `commit` / `push`, `rm`, `mv`, package installs, test runners, formatters), nor
+a read command that can mutate via a subcommand or flag — those keep prompting, so trust is
+never widened silently. This matches CRAFT's Tabu against silent state changes.
+
+### Write procedure
+
+1. `Read` `.claude/settings.local.json` if it exists; otherwise start from `{}`.
+2. Ensure `.permissions` is an object and `.permissions.allow` is an array (create either
+   if absent).
+3. Merge the chosen tier's entries into `.permissions.allow`, **de-duplicating** — an entry
+   already present is not added again; entries already there for any other reason are left
+   untouched. Never touch `.permissions.deny`, `.permissions.ask`,
+   `.permissions.additionalDirectories`, or any unrelated key.
+4. `Write` the merged JSON back (2-space indent, trailing newline).
+5. Confirm `.claude/settings.local.json` is gitignored; if a project does not ignore it,
+   note that in the output block but still write.
+
+Re-running onboarding is safe: merging the same tier twice yields the identical allowlist
+(the idempotency Post-Assertion P2c verifies this).
+
+---
+
 ## Post-Assertions
 
-Run all five after the chosen procedure completes. Any failure → warn loudly, surface to the user, do **not** pretend success. No auto-rollback.
+Run all of the following after the chosen procedure completes. Any failure → warn loudly, surface to the user, do **not** pretend success. No auto-rollback.
 
 ### P1 — `intent.md` written and well-formed
 
@@ -436,6 +570,17 @@ Failure → *"⚠ rules.md was not written or is malformed. Inspect `.claude/pro
 - Must contain a `## Operational Language` section header and a `> Preset:` line.
 
 Failure → *"⚠ craft-profile.md was not written or is malformed. Inspect `.claude/project/craft-profile.md` manually before running /craft:prime."*
+
+### P2c — Permission allowlist written to `settings.local.json`
+
+- `Read` `.claude/settings.local.json`. `.permissions.allow` must exist as an array and
+  contain every entry of the chosen scope's tier (Permission Allowlist sub-procedure).
+- No entry written by onboarding may be a mutating command — the tier is read-only by
+  construction; a mutating entry means the wrong set was written.
+- Idempotency: each written entry appears exactly once (no duplicates), and any
+  pre-existing `permissions.allow` entries are still present.
+
+Failure → *"⚠ Permission allowlist missing, incomplete, or containing a mutating entry in `.claude/settings.local.json`. Inspect it against the chosen scope's tier before running /craft:prime."*
 
 ### P3 — `CLAUDE.md` index present
 
@@ -471,12 +616,13 @@ Final status block, emitted once everything is written and post-assertions compl
 ```
 ✓ Onboarding complete (<greenfield | migration>)
 ✓ Pre-assertions: in git repo, not previously onboarded, templates available
-✓ Post-assertions: intent.md ✓, rules.md ✓, craft-profile.md ✓, CLAUDE.md ✓[, migration cleanup ✓]
+✓ Post-assertions: intent.md ✓, rules.md ✓, craft-profile.md ✓, settings.local.json ✓, CLAUDE.md ✓[, migration cleanup ✓]
 
 Created:
   .claude/project/intent.md
   .claude/project/rules.md
   .claude/project/craft-profile.md
+  .claude/settings.local.json  (created or updated — <scope> read-only allowlist merged, gitignored)
   [.claude/project/roadmap.md]
   [.claude/project/design/<topic>.md …]
   CLAUDE.md
@@ -520,7 +666,7 @@ Partial (post-assertion failure):
 | User cancels during inventory report | Clean abort; no file changes. |
 | Migration: a target `_legacy/` file already exists with the same name | Append a numeric suffix (`-1`, `-2`) and continue. |
 | Drift on final validation | Reported via P5; user revises `rules.md`. No auto-correction. |
-| P1/P2/P3 fail after write | Warn loudly; emit partial-completion block; do not auto-rollback. |
+| P1/P2/P2b/P2c/P3 fail after write | Warn loudly; emit partial-completion block; do not auto-rollback. |
 | P4 fails (migration cleanup incomplete) | Warn loudly; user reconciles `.claude/` manually. |
 
 ---
