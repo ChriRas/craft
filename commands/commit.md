@@ -51,7 +51,7 @@ This guards the Mode-Detection logic below — every mode requires `main` as the
 
 Parse the frontmatter of `<slice-plan>`. Required fields: `Slice-ID:`, `Status:`, `Phase:`.
 
-- `Status:` must be `committing` — the state `/craft:review` (Phase 8) writes when a slice clears review. Any other value → abort: *"Slice `<plan>` has `Status: <X>`. Phase 9 requires `committing`, reached when `/craft:review` (Phase 8) clears the slice. Run `/craft:review` first."*
+- `Status:` must be `committing` — the state `/craft:review` (Phase 8) writes when a slice clears review. Any other value → abort: *"Slice `<plan>` has `Status: <X>`. Phase 9 requires `committing`, reached when `/craft:review` (Phase 8) clears the slice. Run `/craft:review` first (or, when `Status: awaiting-release`, `/craft:release` then the remaining phases)."*
 
 ### A3 — Working state matches the detected mode
 
