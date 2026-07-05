@@ -39,6 +39,13 @@ This file documents the default values, the resolution rules, and the validation
 > review-halt model (slice-018) holds all changes uncommitted until you release, regardless
 > of `Auto-commit`. The field governs the worktree path only, where it is pinned `on`.
 
+> **Protected-main gate:** `Merge → Type: pull-request` + `Protected-main: yes` switches
+> `/craft:commit` to the "Freigabe ≠ Merge" flow (slice-019) — it opens a PR and merges via
+> `gh` only after a GitHub **approval**, instead of a direct merge. `Approval`
+> (`chat` | `github-pr-review`) and `Approval-granularity` (`per-slice` | `per-epic` | `auto`)
+> tune it; `auto` = lone slice / parallel epic → one PR at the finalize. The default `direct`
+> merges straight to the trunk as before.
+
 ---
 
 ## Named Presets

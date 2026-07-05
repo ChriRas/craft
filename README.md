@@ -119,6 +119,11 @@ When you have an epic with multiple slices that can run in parallel, hand the bu
                                   # review the raw uncommitted diff in your IDE, then:
 /craft:release slice-A            # lift the halt → Phase 5 → … → /craft:commit
 
+# Or, on a protected-`main` project (profile Merge: pull-request + Protected-main: yes):
+/craft:commit                     # opens a PR (branch → main), halts — main NOT merged
+                                  # approve the PR on GitHub (a real review), then:
+/craft:commit                     # detects the approval and merges via gh ("Freigabe ≠ Merge")
+
 # Side tools:
 /craft:worktree-status            # overview of all active worktrees
 /craft:worktree-clean             # remove orphaned worktrees after manual aborts
@@ -189,7 +194,7 @@ Three named presets ship with the plugin (`/craft:onboard` copies one in; "give 
 
 When no profile file is present, the implicit profile equals `balanced`, so adopting the profile system changes nothing until you edit it. `/craft:prime` reports the active profile and soft-warns on malformed values. See [`craft-profile-defaults.md`](./craft-profile-defaults.md) for the full field reference, resolution rules, and validation.
 
-> **Rolling out.** The profile *file format, presets, and `/craft:prime` reporting* ship now; the onboarding write-out (`/craft:onboard` copying a preset in) and the individual knobs (in-place autonomous builds, the "Freigabe ≠ Merge" PR flow, sequential epics, permission-scope allowlists) are adopted by the consuming commands progressively across the `autonomy-profiles` epic. Until then, drop a preset at `.claude/project/craft-profile.md` by hand to try it.
+> **Rolling out.** The profile file format, presets, `/craft:prime` reporting, the guided `/craft:onboard` write-out, permission-scope allowlists, **in-place autonomous builds** (`/craft:execute` in-place → `/craft:release`), and the **"Freigabe ≠ Merge" PR flow** (`/craft:commit` on a `pull-request` + protected-`main` profile) all ship now. Sequential epics are the one remaining knob, adopted next in the `autonomy-profiles` epic. Drop a preset at `.claude/project/craft-profile.md` (or run `/craft:onboard`) to use them.
 
 ---
 
