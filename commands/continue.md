@@ -54,6 +54,7 @@ Pull `Status`, `Phase`, `Slice-ID`, and any pause/handoff notes.
 | `reviewing` | `/craft:review` |
 | `committing` | `/craft:commit` |
 | `awaiting-release` | `/craft:release` — the in-place review halt (built in place, paused before Phase 5); review the raw diff in your IDE, then release to resume into Phase 5 |
+| `awaiting-approval` | `/craft:commit` — a protected-main PR is open and waiting; approve it on GitHub, then re-run `/craft:commit` to merge via `gh` |
 | `committed` | this slice is done — recommend `/craft:plan` for the next one |
 | `paused` | ask whether to resume; if yes, route based on the `Phase:` field |
 | any unrecognized value | log warning, ask the user what to do |
