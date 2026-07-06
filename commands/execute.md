@@ -1,5 +1,5 @@
 ---
-description: Autonomously execute an epic or single slice. Worktree mode (default) creates parallel git worktrees and delegates Phase 4–7 to subagents per slice, merging into an epic-branch; in-place mode builds a single slice on a branch in the main checkout, makes no commits, and halts before Phase 5 for IDE review (resumed via /craft:release).
+description: Autonomously execute an epic or single slice. Parallel worktree mode (default) creates parallel git worktrees and delegates Phase 4–7 to subagents per slice, merging into an epic-branch; in-place mode builds a single slice on a branch in the main checkout, halts before Phase 5 for IDE review (resumed via /craft:release); sequential epic mode runs an epic's slices one-by-one in place, committing per slice with a review halt between.
 argument-hint: "<epic-NNN | slice-NNN>"
 allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "Task"]
 ---
@@ -22,7 +22,7 @@ For a single slice without an epic, the orchestrator runs the same loop with one
 
 - `Read` `.claude/project/intent.md` and `.claude/project/rules.md`. Hold both in context.
 - `Read` the project's `## Worktree Settings` section in `rules.md`, if present. Note any overrides for `Worktree path pattern` or `Branch name pattern`; otherwise use defaults (`../<repo>-worktrees/<slice-id>-<slug>/` and `<slice-id>-<slug>`).
-- `Read` `.claude/project/craft-profile.md`, if present. Note `Execution → Mode` (`worktree` | `in-place`) and `Commit Policy → Auto-commit` (`on` | `off`). When the profile or a field is absent, apply the documented defaults — `Mode: worktree`, `Auto-commit: on` (see `craft-profile-defaults.md`). `Mode` selects the execution path in Procedure step 1b.
+- `Read` `.claude/project/craft-profile.md`, if present. Note `Execution → Mode` (`worktree` | `in-place`), `Commit Policy → Auto-commit` (`on` | `off`), and `Epic Mode → Default` (`parallel` | `sequential`). When the profile or a field is absent, apply the documented defaults — `Mode: worktree`, `Auto-commit: on`, `Epic Mode: parallel` (see `craft-profile-defaults.md`). In Procedure step 1b, `Execution → Mode` selects the path for a **single-slice** target and `Epic Mode` for an **epic** target.
 
 ### Step 2 — Resolve target
 
@@ -71,15 +71,14 @@ For a single slice target: trivially one-node graph. If the slice has `Depends-O
 
 Failure → abort with the specific issue: cycle, missing slice plan, or unresolved dependency.
 
-### A7 — In-place mode requires a single slice
+### A7 — Epic targets use Epic Mode, not Execution Mode
 
-If the `Execution → Mode` resolved in Pre-flight is `in-place` and the target is an
-**epic**, abort: *"In-place mode runs a single slice at a time — the main checkout cannot
-host parallel slices. Epic-level in-place execution is the `epic-sequential` slice. Run the
-epic in `worktree` mode, or execute its slices individually with `/craft:execute
-<slice-NNN>`."*
-
-For a `worktree`-mode target this assertion is a no-op.
+`Execution → Mode` (`worktree` | `in-place`) governs **single-slice** targets only. For an
+**epic** target the path is chosen by `Epic Mode` (step 1b): `parallel` → the worktree
+fan-out; `sequential` → the epic's slices run one-by-one in place. So a project-wide
+`Execution → Mode: in-place` setting does **not** conflict with an epic target — the epic
+simply follows its `Epic Mode`. This assertion is informational: there is no invalid
+Execution-Mode × target combination to reject.
 
 ---
 
@@ -89,12 +88,16 @@ For a `worktree`-mode target this assertion is a no-op.
 
 Write `.claude/plans/.execute.lock` containing the current PID and the resolved target. Lock is released in Post-Assertions (or on graceful abort).
 
-### 1b. Branch on execution mode
+### 1b. Branch on mode
 
-Read the `Execution → Mode` resolved in Pre-flight (default `worktree`).
+Pick the path from the target kind and the profile:
 
-- **`worktree`** (default) — continue with steps 2–10 below: the parallel, worktree-isolated path, unchanged. It always auto-commits per sub-task inside the worktree (its merge model depends on it — epic Decision C), so `Auto-commit: off` is ignored here.
-- **`in-place`** — skip steps 2–10 entirely and follow the **In-place path** sub-procedure (immediately after step 10). It builds the single slice on a branch in the main checkout, makes no commits, and halts before Phase 5 for human IDE review.
+- **Single-slice target** — branch on `Execution → Mode` (default `worktree`):
+  - **`worktree`** (default) — continue with steps 2–10 below: the parallel, worktree-isolated path, unchanged. It always auto-commits per sub-task inside the worktree (its merge model depends on it — epic Decision C), so `Auto-commit: off` is ignored here.
+  - **`in-place`** — skip steps 2–10 entirely and follow the **In-place path** sub-procedure. It builds the single slice on a branch in the main checkout, makes no commits, and halts before Phase 5 for human IDE review.
+- **Epic target** — branch on `Epic Mode` (default `parallel`):
+  - **`parallel`** (default) — continue with steps 2–10 below: the existing worktree fan-out + epic-branch merge, unchanged.
+  - **`sequential`** — skip steps 2–10 entirely and follow the **Sequential epic path** sub-procedure. It runs the epic's slices **one-by-one in dependency order**, each built in-place in the main checkout and committed per slice, halting for review between slices. (`Execution → Mode` governs single-slice targets only; it does not apply to epic targets — an epic runs in place via `Epic Mode: sequential`, per A7.)
 
 ### 2. Trust the worktree base directory
 
@@ -250,9 +253,73 @@ commit happens only after that release.
 
 ---
 
+## Sequential epic path (Epic Mode: sequential)
+
+Followed instead of steps 2–10 when the target is an **epic** and `Epic Mode` is `sequential`
+(Procedure step 1b). It runs the epic's slices **one-by-one in dependency order**, each built
+in-place on the trunk in the main checkout and committed per slice, halting for review between
+slices. No worktree is created and there is no epic-branch — each slice lands on its own. The
+lock (step 1) is held for one execute invocation and released at the end here.
+
+> **Scope (slice-020):** sequential mode supports the **`direct`** Merge Workflow. Combining
+> `Epic Mode: sequential` with `Merge → Type: pull-request` + `Protected-main: yes` is a
+> **pending follow-up** — it needs the in-place PR-branch resume (the mid-landing slice sits on
+> its branch while `/craft:execute`'s A3 requires the trunk) plus a local↔remote sync after a
+> `gh pr merge`. If the profile is protected-main **and** `Epic Mode: sequential`, abort before
+> s1: *"Sequential epic mode does not yet support the protected-main PR workflow. Use `Merge →
+> Type: direct` for a sequential epic, or run the epic in `Epic Mode: parallel`."*
+
+### s1 — Resolve the order and the next runnable slice
+
+Read the epic's `## Slice Decomposition` and each slice plan's `Depends-On:` (A6 validated the
+DAG is acyclic). Topologically sort. The **next runnable slice** is the first slice, in that
+order, whose plan is not yet archived under `.claude/project/slices/` (= not landed) and whose
+`Depends-On:` are all landed. If every slice is landed → go to **s5**.
+
+### s2 — Build the one slice in-place on the trunk
+
+Build **only that single slice** through Phase 4–8 in the main checkout, directly on the trunk
+(the `direct` workflow commits per slice on `main` in s3 — no branch, so no branch→`main` gap):
+
+- **Delegate Phase 4–8** to the per-phase commands (`/craft:build → /craft:test → /craft:recap
+  → /craft:review`; Phase 7 skipped when `rules.md` drops it). Execute drives the phases without
+  a per-phase re-invocation, but the human touchpoints CRAFT already requires (the Phase-5
+  `[W]/[B]/[U]` exercise, any review escalation) still halt the run — surface them directly; you
+  are present; never fabricate them.
+- **Mid-slice hard stop** (a `[B]` → `/craft:debug`, a Heavy+rethink escalation, a build
+  early-stop) reaches neither s4 nor s5, so **release the lock** (`rm
+  .claude/plans/.execute.lock`) and stop — otherwise the resume re-run trips A4. The slice's
+  uncommitted work is on the trunk; the human resolves the slice, then re-runs `/craft:execute
+  <epic-NNN>`.
+
+When the slice clears Phase 8 (`Status: committing`), go to s3.
+
+### s3 — Land the slice on the trunk (per slice)
+
+Land via `/craft:commit` — its A1 now targets the single plan at `Status: committing`, so the
+coexisting epic + sibling plans do not trip it. For the `direct` workflow `/craft:commit`
+commits the per-slice work on `main` and archives the plan — the slice is now **landed**. This
+is the "commit per slice" of sequential mode; there is **no** epic-branch merge.
+
+### s4 — Halt between slices (or finish)
+
+After the slice lands, consult s1's order: **if an unlanded slice remains**, stop — release the
+lock and emit the sequential-landed block (see Output Format): the slice that landed, the next
+runnable slice, and the resume gesture — review, then re-run `/craft:execute <epic-NNN>`. On the
+re-run, s1 skips the landed slice and continues. **If no unlanded slice remains** (this was the
+last), go straight to **s5** — do not emit a halt with a phantom "next slice". (This is the
+"review halt between them" of `Epic Mode: sequential`.)
+
+### s5 — Epic complete
+
+Emit `Epic <epic-NNN> complete — all <N> slices landed sequentially` (there is no epic-branch
+to merge; each slice already landed on `main`). Release the lock.
+
+---
+
 ## Post-Assertions
 
-Run all of the following after the procedure completes. P1 and P3 apply to the worktree path only; P5 applies to the in-place path. Any failure → warn loudly. No auto-rollback.
+Run all of the following after the procedure completes. P1 and P3 apply to the parallel worktree path only; P5 to the in-place path; P6 to the sequential epic path. Any failure → warn loudly. No auto-rollback.
 
 ### P1 — Worktrees exist for every spawned slice
 
@@ -290,6 +357,19 @@ For an in-place run: `Bash` `git branch --show-current` is the slice branch,
 Failure → *"⚠ In-place run did not halt cleanly — expected the slice branch checked out with
 uncommitted changes and `Status: awaiting-release`. Inspect `git status` and the slice
 plan."*
+
+### P6 — Sequential epic landed cleanly (sequential mode only)
+
+For a sequential epic run: `git worktree list --porcelain` shows **only the main worktree**
+(no worktree created) and there is no epic-branch; the slice handled this invocation is
+either **landed** (its plan archived under `.claude/project/slices/`, its per-slice commit(s)
+on `main`) or halted mid-flight with its plan `Status:` reflecting
+the phase it stopped at; and the run ended either at a between-slices halt (s4) or at
+epic-complete (s5).
+
+Failure → *"⚠ Sequential epic run in an unexpected state — expected no worktrees/epic-branch
+and the current slice landed-or-cleanly-halted. Inspect `git log`, the slice plans, and
+`.claude/project/slices/`."*
 
 ---
 
@@ -346,6 +426,24 @@ In-place slice halted for review:
    /craft:release <slice-NNN>    (resumes into Phase 5 → … → /craft:commit)
 ```
 
+Sequential epic — slice landed, review halt before the next:
+
+```
+✓ Slice <slice-NNN> landed (sequential epic <epic-NNN>) — committed per slice
+   Next runnable: slice-<MMM> "<title>"
+   Review what landed, then continue:
+   /craft:execute <epic-NNN>    (resumes at the next runnable slice)
+```
+
+Sequential epic — complete:
+
+```
+✓ Epic <epic-NNN> complete — all <N> slices landed sequentially
+   (no epic-branch; each slice already landed on main)
+
+   Recommended next: /craft:prime to refresh, or /craft:plan for the next epic.
+```
+
 Aborted:
 
 ```
@@ -387,4 +485,5 @@ Review checkpoint reached:
 - It does **not** auto-resolve Heavy + needs-rethinking findings. Those escalate to the user via Handoff.
 - It does **not** modify `intent.md` or `rules.md`. Architectural decisions surfaced inside a slice live in that slice's `## Decisions Made During This Slice` for Phase 9 promotion.
 - It does **not** push to remote. No `git push` happens here — that is a separate user step.
-- In **in-place** mode it does **not** create a worktree, does **not** auto-commit, and does **not** run past Phase 4 — it halts before Phase 5 and hands off to `/craft:release`. Epic targets are rejected in in-place mode (A7).
+- In **in-place** mode (single-slice) it does **not** create a worktree, does **not** auto-commit, and does **not** run past Phase 4 — it halts before Phase 5 and hands off to `/craft:release`. An **epic** target follows its `Epic Mode` regardless of `Execution → Mode` (A7), running in place via `Epic Mode: sequential`.
+- In **sequential epic** mode (`Epic Mode: sequential`) it does **not** create worktrees or an epic-branch, and does **not** run slices in parallel — it lands the epic's slices one-by-one in place, committing per slice, and halts for review between slices (resume by re-running `/craft:execute <epic>`).
