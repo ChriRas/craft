@@ -44,7 +44,7 @@ This guards the Mode-Detection logic below — every mode requires `main` as the
 `Glob` `.claude/plans/*.md`.
 
 - Zero matches → abort: *"No active slice plan found. Phase 9 requires a slice in `Status: committing`. Did the earlier phases actually run?"*
-- More than one match → abort with the list and ask the user to specify which slice to commit (this command does not auto-pick).
+- More than one match → the target is the **single plan at `Status: committing` or `awaiting-approval`** (the other plans are not ready to land — e.g. a parent epic plan, or sibling slices during a `sequential`-epic run). If **exactly one** plan is at that status, record it as `<slice-plan>` and continue. If **zero or more than one** plan is at that status, abort with the list and ask the user to specify which slice to commit (this command does not auto-pick).
 - Exactly one match → record the plan path as `<slice-plan>`.
 
 ### A2 — Plan frontmatter is valid
@@ -303,7 +303,22 @@ this step only decides the *landing*.
 
 In **Standard mode**: `rm .claude/plans/slice-<NNN>-<slug>.md`. The slice archive + commits are now the durable record. No worktree to remove (none was created).
 
-> **In-place branch after a protected-main merge:** an in-place run (slice-018) merged via the Step 6 PR gate leaves you checked out on the now-merged `<slice-id>-<slug>` branch in the main checkout. Deleting that local branch and switching back to the trunk is **not** handled here — it remains the slice-018 in-place-finalize follow-up. The PR merge itself succeeded; only the local-branch cleanup is deferred.
+> **In-place-finalize (a slice built in-place on a non-trunk branch):** when the landed slice
+> was built in-place on a `<slice-id>-<slug>` branch in the main checkout (slice-018 in-place,
+> or a `sequential`-epic slice under a `pull-request` workflow) — i.e. only the primary
+> worktree exists **and** the current branch is not the trunk — return to the trunk after
+> landing, so the next run starts clean on `main`:
+> - `direct` workflow → the commits are on the branch; land them on the trunk:
+>   `git checkout <trunk>` then `git merge --no-ff <slice-id>-<slug>`, then
+>   `git branch -d <slice-id>-<slug>`.
+> - `pull-request` + protected-main → the Step 6 `gh pr merge` landed the merge on the
+>   **remote**, so sync local first: `git checkout <trunk>`, then `git fetch origin <trunk>`
+>   and `git merge --ff-only origin/<trunk>` (so local `<trunk>` contains the merged work),
+>   then `git branch -d <slice-id>-<slug>`.
+> Then continue the Standard-mode cleanup (`rm` the plan). If `git branch -d` fails (unmerged
+> — should not happen post-land), surface it and skip the delete. Never `-D` (force).
+> (A `direct` **sequential**-epic slice builds directly on the trunk with no branch, so it
+> skips this entirely — it is already on `main`.)
 
 In **Slice-finalize mode**: `rm` the slice plan. Then remove the worktree and delete the slice-branch:
 
