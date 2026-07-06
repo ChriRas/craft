@@ -46,7 +46,7 @@ server (D25 holds).
 - [x] settings-migration — Flip the language + model-override consumers (`commit`, `build`, `review`, `execute`) to read from the profile, and remove the two blocks from `rules.md` + its template (Decision A, full migration out of `rules.md`).
 - [x] onboarding-wizard — Interactive setup in `/craft:onboard`: "defaults" fast-path vs. guided multiple-choice; writes the profile (incl. language + models) and a default permission allowlist (wildcards) into `.claude/settings.local.json` (Decisions A + B).
 - [x] inplace-autonomous — Autonomous + In-place execution mode: build on a branch in the main checkout, no auto-commit, halt before Phase 5 for IDE review, commit on your explicit release; auto-commit stays mandatory in the worktree path (Decision C).
-- [ ] protected-main-pr — "Freigabe ≠ Merge": PR + GitHub approval gate after Phase 8, then the system merges via `gh`; project setting, protected-`main` detected/asked (Decision D). Verify `gh`/branch-protection mechanics before building.
+- [x] protected-main-pr — "Freigabe ≠ Merge": PR + GitHub approval gate after Phase 8, then the system merges via `gh`; project setting, protected-`main` detected/asked (Decision D). Verify `gh`/branch-protection mechanics before building.
 - [ ] epic-sequential — Additive slice-by-slice sequential epic mode (commit per slice), running alongside — not replacing — the existing parallel worktree mechanic (Decision E).
 
 ## Review Checkpoints
