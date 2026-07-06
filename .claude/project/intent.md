@@ -46,6 +46,13 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
   kind to its home, with cross-cutting design knowledge (neither *why* nor *how*)
   living in `.claude/project/design/`. *Why a canonical home:* projects were inventing
   ad-hoc concept docs; a named slot closes the gap instead of codifying the workaround.
+- **Approve ≠ merge on protected `main` (epic Decision D)** — in a project whose profile
+  sets protected-`main` PR mode, `/craft:commit` runs `gh pr merge` itself, but **only after
+  a real human GitHub PR approval** (never `--admin`, so branch protection genuinely gates
+  it). A deliberate reinterpretation of the Senior-Developer baseline's *"do not self-merge;
+  the human decides on review and merge"*: the human **approves**, the system merges.
+  *Why:* collapses the flow to "everything in the PR → approve → auto-merge" while the human
+  stays the real gate.
 
 ## Non-Goals
 
