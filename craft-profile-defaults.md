@@ -46,6 +46,11 @@ This file documents the default values, the resolution rules, and the validation
 > tune it; `auto` = lone slice / parallel epic → one PR at the finalize. The default `direct`
 > merges straight to the trunk as before.
 
+> **Sequential epic (slice-020):** `Epic Mode: sequential` runs `/craft:execute <epic>`'s
+> slices one-by-one in dependency order, **in place** in the main checkout, committing per
+> slice with a review halt between them (resume by re-running `/craft:execute <epic>`) —
+> additive to the default `parallel` worktree fan-out.
+
 ---
 
 ## Named Presets

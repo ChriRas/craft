@@ -124,6 +124,10 @@ When you have an epic with multiple slices that can run in parallel, hand the bu
                                   # approve the PR on GitHub (a real review), then:
 /craft:commit                     # detects the approval and merges via gh ("Freigabe ≠ Merge")
 
+# Or, on a profile with Epic Mode: sequential (slices one-by-one, in place):
+/craft:execute epic-001           # runs the next slice in-place, commits it, halts for review
+/craft:execute epic-001           # re-run continues at the next slice … until the epic is complete
+
 # Side tools:
 /craft:worktree-status            # overview of all active worktrees
 /craft:worktree-clean             # remove orphaned worktrees after manual aborts
@@ -194,7 +198,7 @@ Three named presets ship with the plugin (`/craft:onboard` copies one in; "give 
 
 When no profile file is present, the implicit profile equals `balanced`, so adopting the profile system changes nothing until you edit it. `/craft:prime` reports the active profile and soft-warns on malformed values. See [`craft-profile-defaults.md`](./craft-profile-defaults.md) for the full field reference, resolution rules, and validation.
 
-> **Rolling out.** The profile file format, presets, `/craft:prime` reporting, the guided `/craft:onboard` write-out, permission-scope allowlists, **in-place autonomous builds** (`/craft:execute` in-place → `/craft:release`), and the **"Freigabe ≠ Merge" PR flow** (`/craft:commit` on a `pull-request` + protected-`main` profile) all ship now. Sequential epics are the one remaining knob, adopted next in the `autonomy-profiles` epic. Drop a preset at `.claude/project/craft-profile.md` (or run `/craft:onboard`) to use them.
+> **Rolling out.** The profile file format, presets, `/craft:prime` reporting, the guided `/craft:onboard` write-out, permission-scope allowlists, **in-place autonomous builds** (`/craft:execute` in-place → `/craft:release`), and the **"Freigabe ≠ Merge" PR flow** (`/craft:commit` on a `pull-request` + protected-`main` profile) all ship now. **Sequential epics** (`Epic Mode: sequential`, `direct` merge workflow) now ship too — the `autonomy-profiles` epic is complete (protected-main × sequential is a follow-up). Drop a preset at `.claude/project/craft-profile.md` (or run `/craft:onboard`) to use them.
 
 ---
 
