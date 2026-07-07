@@ -1,6 +1,6 @@
 # Slice 024 — Unblock Wiring
 
-> Status: planning
+> Status: review
 > Slice-ID: slice-024
 > Slice-Slug: unblock-wiring
 > Started: 2026-07-07
@@ -17,10 +17,10 @@ to the exact execution status it was blocked at.
 
 ## Vertical Slice Definition
 
-Plugin-authoring slice spanning two commands: `commands/commit.md` (auto-resurface on
-prerequisite close) and `commands/continue.md` (`blocked`-status routing, the resume fork, and
-the `(pending)` → real-ID back-fill). Consumes the `blocked` schema from slice-023; epic-002
-slice 2 of 4.
+Plugin-authoring slice spanning: `commands/commit.md` (auto-resurface on prerequisite close), a
+new `commands/unblock.md` (the resume fork + `(pending)` → real-ID back-fill — the mutating
+unblock surface), and a minimal read-only routing row in `commands/continue.md` (`blocked` →
+`/craft:unblock`). Consumes the `blocked` schema from slice-023; epic-002 slice 2 of 4.
 
 ## Trigger
 
@@ -35,10 +35,11 @@ Persistent state change:
   just-closed slice/epic ID has its block cleared — `Status: blocked` → its stored
   `Blocked-status`, the on-demand blocker frontmatter fields removed, the `## Blocker` section
   marked resolved (audit note), and a notification emitted listing the freed slice(s).
-- On `/craft:continue` of a blocked slice: the `resume | re-plan | abort` fork is presented;
-  **resume** restores `Status: Blocked-status`; **re-plan** routes to reshape the slice;
-  **abort** routes to `/craft:abort`. A `Blocked-on: (pending — …)` slice is first offered the
-  back-fill prompt (enter the created prerequisite's ID) so auto-resurface can later match it.
+- On `/craft:continue` of a blocked slice: it **routes** (read-only) to `/craft:unblock`.
+- `/craft:unblock <slice>` presents the `resume | re-plan | abort` fork — **resume** restores
+  `Status: Blocked-status`; **re-plan** routes to reshape the slice; **abort** routes to
+  `/craft:abort`. On a `Blocked-on: (pending — …)` slice it first offers the back-fill prompt
+  (enter the created prerequisite's ID) so auto-resurface can later match it by ID.
 
 ## Test Strategy
 
@@ -48,19 +49,20 @@ This repo's convention — `claude plugin validate` + structural checks; no beha
 - Auto-resurface: running `/craft:commit`'s new resurface step against `slice-0P` closing
   flips `slice-0D` to `Status: testing`, strips its blocker fields, and marks `## Blocker`
   resolved.
-- Resume fork: `/craft:continue` on a blocked scratch slice presents `resume | re-plan | abort`
+- Resume fork: `/craft:unblock` on a blocked scratch slice presents `resume | re-plan | abort`
   and, on resume, restores the recorded `Blocked-status`.
-- Back-fill: `/craft:continue` on a `Blocked-on: (pending — …)` scratch slice prompts for and
+- Back-fill: `/craft:unblock` on a `Blocked-on: (pending — …)` scratch slice prompts for and
   writes the real prerequisite ID.
-- Structural greps: `commands/commit.md` carries the auto-resurface step; `commands/continue.md`
-  carries a `blocked` handler + the fork + the back-fill prompt. `claude plugin validate` green.
+- Structural greps: `commands/commit.md` carries the auto-resurface step; `commands/unblock.md`
+  exists with Pre/Post-Assertions, the fork, and the back-fill; `commands/continue.md` routes
+  `blocked` → `/craft:unblock` and stays read-only (Read/Glob). `claude plugin validate` green.
 
 ## Sub-Tasks
 
-- [ ] `commands/commit.md` — add the auto-resurface step (after archive write / plan delete): scan `.claude/plans/*.md` for `Blocked-on:` referencing the closed slice/epic ID → clear block (Status → `Blocked-status`, strip blocker fields, mark `## Blocker` resolved), notify
-- [ ] `commands/continue.md` — add `blocked`-status routing + the `resume | re-plan | abort` fork; resume restores `Status: Blocked-status`
-- [ ] `commands/continue.md` — back-fill: on a `Blocked-on: (pending — …)` slice, prompt for the created prerequisite's ID and write it (the slice-023 follow-up)
-- [ ] Validate + dry-run the auto-resurface, resume-fork, and back-fill scenarios; `claude plugin validate` green
+- [x] `commands/commit.md` — add the auto-resurface step (after archive write / plan delete): scan `.claude/plans/*.md` for `Blocked-on:` referencing the closed slice/epic ID → clear block (Status → `Blocked-status`, strip blocker fields, mark `## Blocker` resolved), notify
+- [x] `commands/unblock.md` (new) — mutating unblock command with Pre/Post-Assertions (D24): the `resume | re-plan | abort` fork (resume restores `Status: Blocked-status`) + the `(pending)` → real-ID back-fill/link
+- [x] `commands/continue.md` — minimal read-only routing: add a `blocked` row to the Status table → recommend `/craft:unblock`; keep the read-only contract (Read/Glob, no mutation)
+- [x] Validate + dry-run the auto-resurface, resume-fork, and back-fill scenarios; `claude plugin validate` green (interactive scenario dry-runs deferred to Phase 5)
 
 ## Active Rule Overrides
 
@@ -93,10 +95,15 @@ This repo's convention — `claude plugin validate` + structural checks; no beha
 - **Design record** — implements the Unblocking & resume section of
   [`../project/design/d1-blocked-state.md`](../project/design/d1-blocked-state.md) (epic-002,
   slice 2 of 4).
-- **Back-fill owner = `/craft:continue`** — the `(pending)` → real-ID link is written when the
-  user resumes/inspects the blocked slice via `/craft:continue`. *Why not* `/craft:commit`
-  auto-scan or `/craft:plan` reverse-link: keeps the linking inside the unblock domain and off
-  commands that shouldn't need to know the blocked schema.
+- **Dedicated `/craft:unblock` command** (build-phase architecture decision) — `/craft:continue`
+  is contractually a read-only router (`Read`/`Glob`; "does not modify the plan / change
+  Status"). The unblock mutations (resume-fork, back-fill) live in a new `/craft:unblock`
+  instead; `continue.md` only gains a `blocked` → `/craft:unblock` routing row. Symmetric to
+  `/craft:block`; resolves the design record's open question (yes, add `/craft:unblock`).
+- **Back-fill owner = `/craft:unblock`** — the `(pending)` → real-ID link is written by
+  `/craft:unblock` (routed from `/craft:continue`). *Why not* `/craft:commit` auto-scan or
+  `/craft:plan` reverse-link: keeps linking inside the unblock domain and off commands that
+  shouldn't need to know the blocked schema.
 - **Unblock cleanup policy** — on auto-resurface, restore `Status: Blocked-status` and **remove**
   the four on-demand blocker frontmatter fields (they are on-demand by slice-023's decision);
   leave the `## Blocker` section as a resolved historical note (`> Resolved: <date>`) for audit
