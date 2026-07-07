@@ -31,7 +31,7 @@ Scope edges: no nested dependency stacks (flat edges only); the spawn-threshold 
 > invocation later; treat the list as a roadmap, not a contract. Update as slices land.
 
 - [x] block-command-and-schema — `/craft:block` command + `blocked` frontmatter schema + spawn-boundary heuristic (incl. the Problem-Playbook baseline clause) — landed slice-023
-- [ ] unblock-wiring — auto-resurface in `/craft:commit` + `resume | re-plan | abort` fork in `/craft:continue`
+- [x] unblock-wiring — auto-resurface in `/craft:commit` + `resume | re-plan | abort` fork (via new `/craft:unblock`) + `(pending)` back-fill — landed slice-024
 - [ ] surfacing — blocked slices in `/craft:prime` + `/craft:status` + orphan detection
 - [ ] autonomous-handoff — blocker classification in `.craft/handoff.md` / `slice-builder` for `/craft:execute`
 
