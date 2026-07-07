@@ -57,8 +57,10 @@ The slice `Status` must be an in-flight execution state — one of `implementing
   Abort.
 - `Status: committed` → *"Slice already closed. Nothing to block."* Abort.
 - `Status: blocked` → not a failure: offer to **update** the existing blocker (re-classify or
-  re-word) rather than stacking a second one.
+  re-word) rather than stacking a second one. Step 4 **preserves** the existing
+  `Blocked-status` on this path.
 - `Status: paused` → allowed; blocking supersedes the pause (note it in the confirmation).
+  Step 4 asks for the resume execution status, since pause did not structure it.
 
 ### A2 — Slice plan readable with valid frontmatter
 
@@ -116,10 +118,18 @@ Collect three things (this becomes the `## Blocker` section):
 
 ### 4. Determine the resume status
 
-`Blocked-status` = the slice's current execution `Status` token (e.g. `testing`, `review`) —
-the value that `blocked` is about to overwrite. `/craft:continue` restores this exact token
-when the slice is unblocked. Capture it from the live `Status:` field, **not** from `Phase:`
-(which is a plan-time stamp and can read stale).
+`Blocked-status` records the token `/craft:continue` restores when the slice is unblocked. It
+must **always** hold an execution `Status` token — one of `implementing`, `testing`, `review`,
+`refactoring`, `reviewing`, `committing` — never `paused` or `blocked`. Read it from the live
+`Status:` field, **not** from `Phase:` (a plan-time stamp that can read stale), per three cases:
+
+- **Live status is an execution token** → `Blocked-status` = that token.
+- **Live status is `paused`** (A1 allows blocking a paused slice) → the pre-pause phase is not
+  structured anywhere (pause records it only in prose), so **ask** the user which execution
+  token to resume into and record their answer. Never store `paused`.
+- **Live status is `blocked`** (A1 re-block / update path) → **preserve** the slice's existing
+  `Blocked-status`; do not recompute it from the live `blocked` token. Only the blocker
+  classification and `## Blocker` prose are updated.
 
 ### 5. Write the blocked state
 
@@ -163,7 +173,7 @@ mutates (rules.md). On confirmation, edit the active slice plan:
 
   Type:      <blocker-type>
   Blocked-on: <blocked-on>
-  Resume at: <blocked-status> (the status blocking overwrote)
+  Resume at: <blocked-status> (execution status restored on unblock)
 
 <for prerequisite-work + Spawn: "Next: /craft:plan <name> to build the prerequisite — its
 ID will be back-filled into Blocked-on.">
