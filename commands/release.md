@@ -158,12 +158,11 @@ Release cancelled — no state change. Slice-<NNN> stays at Status awaiting-rele
 
 - It does **not** commit, merge, or push — it only lifts the review halt. `/craft:commit`
   (Phase 9) commits, after the remaining phases run.
-- ⚠ **Reaching `main` (pending follow-up):** on a direct-merge / trunk project,
-  `/craft:commit` currently commits the in-place changes on the `<slice-id>-<slug>` branch
-  but does **not** yet merge that branch to `main` (the in-place-finalize mode is a pending
-  follow-up). Until it ships, either run in-place under a `pull-request` merge workflow
-  (where `/craft:commit` opens a PR) or merge the branch to `main` yourself after
-  `/craft:commit`, so the work is not stranded on the branch.
+- **Reaching `main`:** `/craft:release` only lifts the halt; the in-place branch reaches
+  `main` in Phase 9 via `/craft:commit`'s Step 7 *In-place-finalize*. On a `direct` project it
+  merges `<slice-id>-<slug>` → the trunk and deletes the branch; on `pull-request` +
+  `Protected-main: yes` it opens a PR, and after your GitHub approval merges via `gh` and syncs
+  the local trunk. Either way the work is not stranded on the branch.
 - It does **not** run Phase 5 — it hands off to `/craft:test`.
 - It does **not** apply to `worktree`-mode slices — those never halt for in-place review, and
   are resumed via `/craft:continue` / re-running `/craft:execute`.
