@@ -84,7 +84,7 @@
 > fields below `Status:` (absent on a normal slice):
 > `Blocker-type:` (prerequisite-work | external | decision | access) ·
 > `Blocked-on:` (slice/epic-ID, free text, or `(pending — create via /craft:plan)`) ·
-> `Blocked-since:` (ISO date) · `Blocked-phase:` (phase to resume into).
+> `Blocked-since:` (ISO date) · `Blocked-status:` (prior execution Status to restore on unblock).
 
 (none)
 

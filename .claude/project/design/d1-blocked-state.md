@@ -43,7 +43,8 @@ visible status.
 - `Blocker-type:` prerequisite-work | external | decision | access
 - `Blocked-on:` slice/epic-ID (for prerequisite-work) or free text
 - `Blocked-since:` date (staleness)
-- `Blocked-phase:` phase to resume into
+- `Blocked-status:` prior execution Status token to restore on unblock (captured from the
+  live `Status:`, which tracks the phase — `Phase:` is a plan-time stamp and reads stale)
 - Prose block (handoff-style): what's missing · what was tried · what "unblocked" looks
   like (the resume acceptance).
 
@@ -62,7 +63,7 @@ piles; composes with existing epic machinery.
 ## Unblocking & resume
 
 - Automatic: when a prerequisite slice reaches Phase 9, `/craft:commit` checks for any slice
-  `Blocked-on: <this-id>` → clears the block, sets `Status` back to `Blocked-phase`, notifies.
+  `Blocked-on: <this-id>` → clears the block, sets `Status` back to `Blocked-status`, notifies.
 - Resume fork: `/craft:continue` on an unblocked slice offers *resume | re-plan | abort* (the
   prerequisite may have shown the original slice was mis-scoped → deferred descope).
 - Visibility: `/craft:prime` + `/craft:status` show blocked slices distinctly (like today's

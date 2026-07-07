@@ -114,16 +114,19 @@ Collect three things (this becomes the `## Blocker` section):
 - **external / decision / access** — no spawn. `Blocked-on` holds a free-text description of
   what is being waited on / decided / granted.
 
-### 4. Determine the resume phase
+### 4. Determine the resume status
 
-`Blocked-phase` = the phase number the slice is currently in (from `Phase:` / the execution
-`Status`). This is where `/craft:continue` will drop the slice back once unblocked.
+`Blocked-status` = the slice's current execution `Status` token (e.g. `testing`, `review`) —
+the value that `blocked` is about to overwrite. `/craft:continue` restores this exact token
+when the slice is unblocked. Capture it from the live `Status:` field, **not** from `Phase:`
+(which is a plan-time stamp and can read stale).
 
 ### 5. Write the blocked state
 
 Edit the active slice plan:
 
-- Set `Status: blocked` in the frontmatter.
+- Set `Status: blocked` in the frontmatter. **Leave the `Phase:` field untouched** — it is a
+  static plan-time stamp; the resume point is captured in `Blocked-status` below.
 - Add the **on-demand** blocker frontmatter fields directly below the `Status:` line (they are
   absent on a normal slice; write them only now):
 
@@ -131,7 +134,7 @@ Edit the active slice plan:
   > Blocker-type: <prerequisite-work | external | decision | access>
   > Blocked-on: <slice-NNN | epic-NNN | (pending — create via /craft:plan) | free text>
   > Blocked-since: <ISO date>
-  > Blocked-phase: <phase number to resume into>
+  > Blocked-status: <prior execution Status token to restore on unblock, e.g. testing>
   ```
 
 - Add (or, when re-blocking, overwrite) the `## Blocker` section:
@@ -158,7 +161,7 @@ Edit the active slice plan:
 
   Type:      <blocker-type>
   Blocked-on: <blocked-on>
-  Resume at: Phase <blocked-phase>
+  Resume at: <blocked-status> (the status blocking overwrote)
 
 <for prerequisite-work + Spawn: "Next: /craft:plan <name> to build the prerequisite — its
 ID will be back-filled into Blocked-on.">
@@ -177,7 +180,7 @@ pretend success. No auto-rollback.
 ### P1 — Blocked frontmatter written
 
 `Read` the slice plan. Frontmatter must now show `Status: blocked` plus all four fields
-`Blocker-type`, `Blocked-on`, `Blocked-since`, `Blocked-phase` with non-placeholder values.
+`Blocker-type`, `Blocked-on`, `Blocked-since`, `Blocked-status` with non-placeholder values.
 
 Failure → *"⚠ Blocked frontmatter incomplete in `<path>`. Inspect before relying on the
 blocked state."*
