@@ -61,6 +61,9 @@ The slice `Status` must be an in-flight execution state — one of `implementing
   `Blocked-status` on this path.
 - `Status: paused` → allowed; blocking supersedes the pause (note it in the confirmation).
   Step 4 asks for the resume execution status, since pause did not structure it.
+- Any other `Status` (e.g. `awaiting-release`, `awaiting-approval`, or an unrecognized value)
+  → surface it and ask the user how to proceed rather than mutating blindly, as
+  `/craft:continue` does for unrecognized statuses.
 
 ### A2 — Slice plan readable with valid frontmatter
 
@@ -126,7 +129,8 @@ must **always** hold an execution `Status` token — one of `implementing`, `tes
 - **Live status is an execution token** → `Blocked-status` = that token.
 - **Live status is `paused`** (A1 allows blocking a paused slice) → the pre-pause phase is not
   structured anywhere (pause records it only in prose), so **ask** the user which execution
-  token to resume into and record their answer. Never store `paused`.
+  token to resume into — offer the six execution tokens as a pick-list and propose a default
+  read from the slice's `## Pause Note`. Record their answer; never store `paused`.
 - **Live status is `blocked`** (A1 re-block / update path) → **preserve** the slice's existing
   `Blocked-status`; do not recompute it from the live `blocked` token. Only the blocker
   classification and `## Blocker` prose are updated.
@@ -140,7 +144,10 @@ mutates (rules.md). On confirmation, edit the active slice plan:
 - Set `Status: blocked` in the frontmatter. **Leave the `Phase:` field untouched** — it is a
   static plan-time stamp; the resume point is captured in `Blocked-status` below.
 - Add the **on-demand** blocker frontmatter fields directly below the `Status:` line (they are
-  absent on a normal slice; write them only now):
+  absent on a normal slice; write them only now). On a **re-block** (A1 update path), update the
+  existing fields in place — do **not** append a second set: preserve `Blocked-status` (per
+  step 4), refresh `Blocked-since` to the re-block date, and overwrite `Blocker-type` /
+  `Blocked-on` with the new classification.
 
   ```
   > Blocker-type: <prerequisite-work | external | decision | access>
@@ -174,6 +181,7 @@ mutates (rules.md). On confirmation, edit the active slice plan:
   Type:      <blocker-type>
   Blocked-on: <blocked-on>
   Resume at: <blocked-status> (execution status restored on unblock)
+<if blocking superseded a pause: "  (supersedes an earlier pause — its Pause Note is now stale)">
 
 <for prerequisite-work + Spawn: "Next: /craft:plan <name> to build the prerequisite — its
 ID will be back-filled into Blocked-on.">
