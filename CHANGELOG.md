@@ -6,6 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-07
+
+Epic-001 (Autonomy Profiles) plus the in-place / sequential execution and protected-`main` slices.
+
+### Added
+- **Portable CRAFT profile format** (slice-015) — a new `.claude/project/craft-profile.md` carrying autonomy, language, commit/merge, and per-agent model settings in one portable file, with named presets and sensible defaults. `/craft:prime` detects, validates, and reports the active profile; documented in the README and project index.
+- **Guided onboarding profile wizard + read-only permission allowlist** (slice-017) — `/craft:onboard` now walks the user through profile creation and seeds a tiered read-only permission allowlist in `.claude/settings.local.json`, cutting the per-command permission prompts on common read-only tools.
+- **In-place autonomous execution mode + `/craft:release`** (slice-018) — `/craft:execute` gains `Mode: in-place`, which builds a slice on a branch in the main checkout, makes no commits, and halts before Phase 5 so the raw uncommitted diff can be reviewed in the IDE. The new `/craft:release` command is the human "approve-to-proceed" gesture that lifts the halt and resumes the slice into Phase 5 and the rest of the flow.
+- **Profile-driven protected-`main` PR merge gate** (slice-019) — on a project whose profile sets protected-`main` PR mode, `/craft:commit` runs `gh pr merge` itself, but **only after a real human GitHub PR approval** (never `--admin`, so branch protection genuinely gates it). "Approve ≠ merge": the human approves, the system merges.
+- **Sequential epic mode** (slice-020) — `/craft:execute` gains `Epic Mode: sequential`, running an epic's slices one after another through the direct workflow instead of parallel worktrees; `/craft:commit` gains status-aware A1 handling and an in-place-finalize path.
+
+### Changed
+- **Language and per-agent model settings now live in `craft-profile.md`** (slice-016) — sourced by `/craft:prime`, `/craft:commit`, `/craft:build`, and `/craft:review`. The `## Operational Language` and `## Agent Model Overrides` blocks were removed from the `rules.md` template and this repo's own `rules.md`. **Migration:** projects that kept language or model-override settings in `rules.md` should move them into `.claude/project/craft-profile.md` — run `/craft:onboard` to generate one and migrate existing settings automatically.
+- `intent.md` promotes "approve ≠ merge on protected `main`" to a headline architectural decision.
+
+### Fixed
+- `/craft:commit` awaiting-release recovery now points at `/craft:release` (it referenced a stale recovery path).
+
 ## [1.2.0] - 2026-06-07
 
 ### Added

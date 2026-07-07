@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Local development marketplace for the CRAFT plugin — wraps the in-tree plugin so it can be installed into a running Claude Code session for dogfooding.",
-    "version": "1.2.0"
+    "version": "1.3.0"
   },
   "plugins": [
     {
       "name": "craft",
       "source": "./",
       "description": "Universal coding workflow plugin: a 9-phase loop with explicit knowledge management, autonomy controls, vertical slicing, and bug-verification — works identically across shell scripts, libraries, REST APIs, full-stack apps, and infrastructure code.",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "author": {
         "name": "Christoph Raschke"
       },
