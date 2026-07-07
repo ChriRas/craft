@@ -53,6 +53,7 @@ Pull `Status`, `Phase`, `Slice-ID`, and any pause/handoff notes.
 | `refactoring` | `/craft:refactor` |
 | `reviewing` | `/craft:review` |
 | `committing` | `/craft:commit` |
+| `blocked` | `/craft:unblock` — the slice is blocked on a prerequisite or decision; `/craft:unblock` presents the resume / re-plan / abort fork and restores the recorded `Blocked-status`. (A `prerequisite-work` block also auto-resurfaces when its prerequisite closes via `/craft:commit`.) |
 | `awaiting-release` | `/craft:release` — the in-place review halt (built in place, paused before Phase 5); review the raw diff in your IDE, then release to resume into Phase 5 |
 | `awaiting-approval` | `/craft:commit` — a protected-main PR is open and waiting; approve it on GitHub, then re-run `/craft:commit` to merge via `gh`. **Sequential-epic slice** (an active `epic-<NNN>` plan lists it in `## Slice Decomposition` under an `Epic Mode: sequential` + protected-main profile): re-run `/craft:execute <epic-NNN>` instead — its `s0` merges this slice and continues the epic. |
 | `committed` | this slice is done — recommend `/craft:plan` for the next one |
@@ -63,6 +64,7 @@ Pull `Status`, `Phase`, `Slice-ID`, and any pause/handoff notes.
 
 - If the slice plan has a `## Handoff` section that was filled (i.e., this is a fresh-context restart) → show its summary to the user and route based on `Phase`.
 - If the slice was paused with a `## Pause Note`, surface that note and ask whether the user wants to continue from that point.
+- If the slice is `blocked`, surface its `## Blocker` section (what's missing / resume acceptance) and route to `/craft:unblock` — do not mutate here; unblocking is that command's job.
 
 ### 5. Emit recommendation, do not auto-invoke
 

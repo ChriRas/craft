@@ -341,6 +341,36 @@ git branch -d epic-<NNN>-<slug>
 
 If any `git branch -d` fails (unmerged commits — should not happen at this point), surface the warning, skip the delete, and let the user inspect. Never `-D` (force).
 
+### Step 7b — Auto-resurface blocked dependents
+
+A slice/epic that just closed may have been the prerequisite another slice was blocked on. Once
+the close is durable (Step 7 done), free the dependents:
+
+1. Collect the **closed ID(s)**: the slice-ID just archived (Standard / Slice-finalize), or in
+   Epic-finalize the epic-ID **and** every included slice-ID.
+2. `Glob` `.claude/plans/*.md` and read each remaining plan's frontmatter. Match any plan whose
+   `Blocked-on:` value equals one of the closed IDs. (A `Blocked-on: (pending — …)` marker holds
+   no ID and never matches — it must be back-filled via `/craft:unblock` before its prerequisite
+   closes, or it will not auto-resurface. Surface a one-line reminder if a `(pending)` dependent
+   exists for a closed prerequisite the user likely meant to link.)
+3. For each matched dependent plan, clear the block:
+   - set `Status:` back to the plan's `Blocked-status` value;
+   - remove the four on-demand blocker frontmatter fields (`Blocker-type`, `Blocked-on`,
+     `Blocked-since`, `Blocked-status`);
+   - mark its `## Blocker` section resolved — prepend `> Resolved: <ISO date> — <closed-id> landed`
+     and keep the prose as an audit note (do not delete it).
+4. Emit a notification listing each freed slice and the status it resumed at:
+
+   ```
+   ↻ Unblocked by this close:
+     slice-<NNN> "<title>" → resumed at <status>   (was Blocked-on <closed-id>)
+   ```
+
+   If nothing was blocked on the closed ID(s), this step is a silent no-op.
+
+This step never deletes or commits — it only rewrites the dependents' frontmatter/`## Blocker`
+section. It is safe to run in every mode; the closed ID set is what scopes it.
+
 ---
 
 ## Post-Assertions
@@ -394,6 +424,16 @@ Failure → *"⚠ Plan file still present at `<path>`. The slice did not fully c
 In Slice-finalize and Epic-finalize modes: every worktree removed in Step 7 must no longer appear in `git worktree list --porcelain`, and every deleted branch must not appear in `git branch --list <name>`.
 
 Failure → *"⚠ Worktree `<path>` or branch `<name>` was not cleaned up. Inspect with `git worktree list` and `git branch` — `/craft:worktree-clean` can reconcile orphans."*
+
+### P7 — Auto-resurfaced dependents are consistent (Step 7b)
+
+For every dependent freed in Step 7b: its plan's `Status:` equals the `Blocked-status` value it
+recorded while blocked, the four on-demand blocker fields are gone, and its `## Blocker` section
+carries the `> Resolved:` marker. If no dependent was blocked on the closed ID(s), this passes
+vacuously.
+
+Failure → *"⚠ Dependent `<slice>` was matched for auto-resurface but its state is inconsistent
+(Status/blocker-fields/Blocker-marker). Inspect its plan before resuming it."*
 
 ---
 
