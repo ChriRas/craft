@@ -1,6 +1,6 @@
 # Slice 025 — Surfacing Blocked Slices
 
-> Status: review
+> Status: reviewing
 > Slice-ID: slice-025
 > Slice-Slug: surfacing
 > Started: 2026-07-07
@@ -102,7 +102,30 @@ This repo's convention — `claude plugin validate` + structural checks; no beha
 
 > Filled by `/recap` (Phase 6). Becomes the basis for the slice archive in Phase 9.
 
-(not yet recorded)
+### What
+Blocked slices are now visible where the user looks: `/craft:prime`'s session-start status block
+and `/craft:status` mark each blocked slice with a `⛔` flag (its `Blocked-on` target +
+`Blocker-type`) and flag orphaned blockers. Prime's "recommended next" gives a blocked slice its
+own priority — routing to `/craft:unblock`, never offering it as a plain `/craft:continue`.
+
+### Why
+An invisible blocked slice is a trap — forgotten, or worse, recommended for "continue" when it
+can't proceed. Decisions: (1) prime's recommendation treats `blocked` as its own priority, so a
+waiting slice is surfaced honestly with a route to `/craft:unblock`; (2) orphan detection is
+scoped to `prerequisite-work` with an unresolvable ID only — `(pending)` is intentional and
+`external`/`decision`/`access` carry free-text with no ID — mirroring slice-024's auto-resurface
+`Blocker-type` guard so the feature is consistent about which blockers reference IDs.
+
+### Walk-through
+On `/craft:prime` or `/craft:status`, the slice scan reads each plan's frontmatter. For a
+`Status: blocked` slice, the phase label is derived from `Blocked-status` (never rendered as
+"blocked"), and a `⛔` marker with `Blocked-on` + `Blocker-type` is appended. If `Blocker-type`
+is `prerequisite-work` and `Blocked-on` resolves to neither an active plan (`.claude/plans/`) nor
+an archive (`.claude/project/slices/`), a `⚠ orphan` marker is added. In prime, a blocked slice
+enters the recommended-next priority order as its own case → `/craft:unblock`.
+
+### Diagram
+(none — 2 files, single read-only reporting layer; below the complexity threshold)
 
 ## Review Findings
 
