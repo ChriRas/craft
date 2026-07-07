@@ -1,6 +1,6 @@
 # Slice 024 — Unblock Wiring
 
-> Status: review
+> Status: reviewing
 > Slice-ID: slice-024
 > Slice-Slug: unblock-wiring
 > Started: 2026-07-07
@@ -116,7 +116,40 @@ This repo's convention — `claude plugin validate` + structural checks; no beha
 
 > Filled by `/recap` (Phase 6). Becomes the basis for the slice archive in Phase 9.
 
-(not yet recorded)
+### What
+A blocked slice now comes back to life. Closing its prerequisite (via `/craft:commit`)
+auto-resurfaces every slice blocked on it, restoring the exact execution status it was blocked
+at; and a new `/craft:unblock` command is the manual surface (`resume | re-plan | abort` +
+`(pending)` → real-ID back-fill). With slice-023's `/craft:block`, the block → unblock loop is
+closed.
+
+### Why
+The unblock mutations needed a home allowed to mutate, but `/craft:continue` is contractually a
+read-only router — so a dedicated `/craft:unblock` owns them (symmetric to `/craft:block`) and
+`continue` only routes to it. Auto-resurface lives in `/craft:commit` because a prerequisite
+becoming *done* is a commit event. The back-fill is owned by `/craft:unblock` and must precede
+the prerequisite's commit, else auto-resurface has no ID to match.
+
+### Walk-through
+Two entry points. (1) A prerequisite reaches Phase 9 → `commit.md` Step 7b collects the closed
+ID(s), scans `.claude/plans` for slices `Blocked-on` them, and for each restores `Status` from
+`Blocked-status`, strips the four blocker fields, marks `## Blocker` resolved, notifies. (2)
+`/craft:continue` on a blocked slice surfaces the `## Blocker` and routes to `/craft:unblock` →
+`resume | re-plan | abort` (resume restores `Blocked-status`); a `(pending)` blocker is
+back-filled first so path (1) can match by ID.
+
+### Diagram
+```mermaid
+flowchart LR
+  A[slice in flight] -->|/craft:block| B[Status: blocked]
+  B -->|prerequisite closes: /craft:commit Step 7b| C[auto-resurface: Status = Blocked-status]
+  B -->|/craft:continue routes| D[/craft:unblock]
+  D -->|R resume| C
+  D -->|P re-plan| E[/craft:plan]
+  D -->|A abort| F[/craft:abort]
+  B -.Blocked-on pending.-> G[/craft:unblock back-fill: pending = slice-NNN]
+  G -.-> B
+```
 
 ## Review Findings
 
