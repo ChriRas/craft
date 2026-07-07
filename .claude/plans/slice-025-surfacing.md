@@ -1,6 +1,6 @@
 # Slice 025 — Surfacing Blocked Slices
 
-> Status: planning
+> Status: review
 > Slice-ID: slice-025
 > Slice-Slug: surfacing
 > Started: 2026-07-07
@@ -54,10 +54,10 @@ This repo's convention — `claude plugin validate` + structural checks; no beha
 
 ## Sub-Tasks
 
-- [ ] `commands/prime.md` — surface blocked slices in the active-slices block (marker + `Blocked-on` + `Blocker-type`); add a blocked case to the "recommended next action" priority order that routes to `/craft:unblock` and never offers plain continue
-- [ ] `commands/status.md` — mark blocked slices in the overview with `Blocked-on` + `Blocker-type`
-- [ ] Orphan detection — in prime + status, flag a `prerequisite-work` blocker whose `Blocked-on` ID resolves to neither an active plan nor an archive (`(pending)` and free-text blockers excluded)
-- [ ] Validate + dry-run the surfacing, orphan, and recommendation scenarios; `claude plugin validate` green
+- [x] `commands/prime.md` — surface blocked slices in the active-slices block (marker + `Blocked-on` + `Blocker-type`); add a blocked case to the "recommended next action" priority order that routes to `/craft:unblock` and never offers plain continue
+- [x] `commands/status.md` — mark blocked slices in the overview with `Blocked-on` + `Blocker-type`
+- [x] Orphan detection — in prime + status, flag a `prerequisite-work` blocker whose `Blocked-on` ID resolves to neither an active plan nor an archive (`(pending)` and free-text blockers excluded)
+- [x] Validate + dry-run the surfacing, orphan, and recommendation scenarios; `claude plugin validate` green (interactive scenario dry-runs deferred to Phase 5)
 
 ## Active Rule Overrides
 
