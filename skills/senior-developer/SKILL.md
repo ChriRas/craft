@@ -70,7 +70,11 @@ Coverage is systematic, not anecdotal. For the code under change, walk this matr
   is needed, propose an alternative. A small adaptation: apply it and note it in the
   commit. A larger deviation: stop and get a human decision.
 - **An unforeseen dependency surfaces** — check whether it already exists. If not,
-  implement it minimally — only what the current task needs, no more.
+  implement it minimally — only what the current task needs, no more. But if the missing
+  thing exceeds "minimal" — it (a) would have its own test / observable effect, (b) exceeds
+  the slice's declared scope, or (c) is an unsanctioned direction — then it is a *blocker*,
+  not in-slice work. Do not grow the slice: escalate via `/craft:block`, which records the
+  blocked state and routes the prerequisite to its own slice/epic. In doubt, escalate.
 - **A test fails red** — your own test: fix it now. A pre-existing test: decide
   whether your change is correct. If yes, adapt the test and record why. If no, fix
   your code. Never delete a test silently to make the bar green.

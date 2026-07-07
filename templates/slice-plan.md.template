@@ -1,6 +1,6 @@
 # Slice {{NNN}} — {{title}}
 
-> Status: planning | implementing | testing | review | refactoring | reviewing | committing | paused | committed
+> Status: planning | implementing | testing | review | refactoring | reviewing | committing | blocked | paused | committed
 > Slice-ID: slice-{{NNN}}
 > Slice-Slug: {{slug}}
 > Started: {{ISO_date}}
@@ -76,6 +76,17 @@
 > Filled by `/craft:review` (Phase 8). Audit trail — one line per finding: `Severity · Fix-nature · description · resolution`.
 
 (none yet)
+
+## Blocker
+
+> Filled by `/craft:block` when the slice cannot proceed until an out-of-scope prerequisite
+> or decision is resolved. On block, `/craft:block` also adds these on-demand frontmatter
+> fields below `Status:` (absent on a normal slice):
+> `Blocker-type:` (prerequisite-work | external | decision | access) ·
+> `Blocked-on:` (slice/epic-ID, free text, or `(pending — create via /craft:plan)`) ·
+> `Blocked-since:` (ISO date) · `Blocked-phase:` (phase to resume into).
+
+(none)
 
 ## Handoff
 
