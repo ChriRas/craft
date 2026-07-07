@@ -24,6 +24,16 @@ This is the read-only counterpart to `/craft:prime`'s slice section. No tool hea
 4. Render a **progress bar** from `done` / `total` (see below).
 5. **Partition** the slices into two groups: `Active` and `Stale`. A slice is stale when its `Started` is older than the threshold (default **7 days**, overridable in `.claude/project/rules.md` under `## Self-Verification Settings` → `Stale slice threshold`) **and** it is not in Phase 9. All other slices are Active.
 6. Mark any slice whose frontmatter has `Handoff active: yes` with a **handoff flag** (`⊹ handoff`).
+7. Mark any `Status: blocked` slice with a **blocked flag** — `⛔ blocked → <Blocked-on> (<Blocker-type>)` (see **Blocked flag** below), including orphan detection.
+
+### Blocked flag
+
+A `Status: blocked` slice appends `⛔ blocked → <Blocked-on> (<Blocker-type>)` to its line (mirrors
+`⊹ handoff`). **Orphan detection:** when `Blocker-type` is `prerequisite-work` and `Blocked-on`
+resolves to neither an active plan (`.claude/plans/`) nor an archive (`.claude/project/slices/`),
+append `· ⚠ orphan` — the prerequisite was aborted or never created. A `Blocked-on: (pending — …)`
+marker and free-text `Blocked-on` (the `external` / `decision` / `access` types) are **never**
+orphans — they carry no resolvable ID.
 
 ### Phase label
 
@@ -37,6 +47,11 @@ The label answers "where in the 9-phase loop is this slice?". Derive it from `St
 | `implementing` | Phase 4 (Build) | `reviewing` | Phase 8 (Review) |
 | `testing` | Phase 5 (Test) | `committing` | Phase 9 (Commit) |
 | `review` | Phase 6 (Recap) | `committed` | Phase 9 (Commit ✓) |
+
+**Blocked — `Status: blocked`.** Never render `blocked` as a phase. The live phase is carried by
+the `Blocked-status` frontmatter (always an execution token): resolve the label from
+`Blocked-status` through the primary table above, and append the blocked flag (see **Blocked
+flag** below) so the reader sees both where it will resume *and* that it is waiting.
 
 **Fallback — `Phase:` number → name.** When `Status` is `paused` (it does not encode a phase), an `awaiting-*` orchestration state, or any value absent from the table above, fall back to the `Phase:` frontmatter number through this map (command-aligned short names; source of truth: the `### Phase N —` headers in `skills/workflow/SKILL.md`):
 
@@ -70,9 +85,10 @@ Render as `<bar> <done>/<total>`. Rounding is **half-up**, and the full 5-cell b
 Slices are rendered in two groups, each with a count header, separated by a blank line. The `Stale` group is omitted entirely when empty; the `Active` group is always shown (even at count 0) so the reader can distinguish "no active work" from "only stale work left".
 
 ```
-Active (2):
+Active (3):
   → slice-NNN "<title>" — Phase 4 (Build)     ▓▓░░░ 2/5 · 1d ago
   → slice-MMM "<title>" — Phase 8 (Review)    ▓▓▓▓▓ 5/5 · 3d ago  ⊹ handoff
+  → slice-QQQ "<title>" — Phase 5 (Test)      ▓▓▓░░ 3/5 · 2d ago  ⛔ blocked → slice-030 (prerequisite-work)
 
 Stale (1):
   ⚠ slice-PPP "<title>" — Phase 3 (Plan)      ░░░░░ 0/0 · untouched 9d — resume or discard?

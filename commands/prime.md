@@ -211,6 +211,15 @@ Parse the JSON; read `.version`. On success, the output block's version line ren
 
 Build a list of active slices with: `slice-NNN "<title>" — Phase <X>, <Y>/<Z> sub-tasks done`.
 
+For any slice with `Status: blocked`, derive its phase from `Blocked-status` (never render
+`blocked` as a phase — it is an execution token that says where the slice resumes) and append a
+**blocked marker** `⛔ blocked → <Blocked-on> (<Blocker-type>)`. **Orphan detection:** when
+`Blocker-type` is `prerequisite-work` and `Blocked-on` resolves to neither an active plan
+(`.claude/plans/`) nor an archive (`.claude/project/slices/`), append `· ⚠ orphan` — the
+prerequisite was aborted or never created. A `Blocked-on: (pending — …)` marker and free-text
+`Blocked-on` (the `external` / `decision` / `access` types) carry no resolvable ID and are
+**never** orphans.
+
 ### 7. Stale-slice detection
 
 Any slice with `Started` older than **7 days** (default — overridable in `rules.md` under `## Self-Verification Settings`) and not in Phase 9 is flagged:
@@ -231,9 +240,17 @@ Pick one based on the state, in priority order — first matching condition wins
    ```
 
 2. **Stale slice flagged** — recommend resolving it first: `Recommended next: resolve stale slice-MMM (resume or /craft:abort) before continuing`.
-3. **Exactly one active slice** → recommend continuing it: `Recommended next: continue slice-NNN (Phase X) → /craft:continue to resume`.
-4. **Multiple active slices** → list them and ask which to focus on: `Multiple active slices — pick one to focus: /craft:continue <slice-NNN>`.
-5. **No active slice** → recommend planning new work: `Recommended next: /craft:plan <feature-name> to start a new slice`.
+3. **Blocked slice(s)** — a `Status: blocked` slice is never recommended as a plain `/craft:continue` (it cannot be worked until its blocker clears). Surface it with its blocker and route to `/craft:unblock`:
+
+   ```
+   ⛔ slice-NNN blocked on <Blocked-on> (<Blocker-type>)<· ⚠ orphan, if dangling>.
+   Recommended next: /craft:unblock slice-NNN → resume | re-plan | abort (or resolve the prerequisite).
+   ```
+
+   For a `prerequisite-work` block whose prerequisite has since landed, note that `/craft:commit` auto-resurfaces it — `/craft:unblock` may just confirm. This case wins over 4/5 below when the only non-stale active slices are blocked; if some active slices are unblocked, surface the blocked one(s) here **and** fall through to 4/5 for the workable slice(s).
+4. **Exactly one active (non-blocked) slice** → recommend continuing it: `Recommended next: continue slice-NNN (Phase X) → /craft:continue to resume`.
+5. **Multiple active (non-blocked) slices** → list them and ask which to focus on: `Multiple active slices — pick one to focus: /craft:continue <slice-NNN>`.
+6. **No active slice** → recommend planning new work: `Recommended next: /craft:plan <feature-name> to start a new slice`.
 
 ---
 
@@ -258,7 +275,7 @@ The full status block — emit exactly this shape:
 
 Active slices:
   → slice-NNN "<title>" — Phase X, Y/Z sub-tasks done
-  → slice-MMM "<title>" — Phase X, Y/Z sub-tasks done
+  → slice-QQQ "<title>" — Phase 5 (Test), 3/5 sub-tasks done  ⛔ blocked → slice-030 (prerequisite-work)
 ⚠ slice-PPP untouched for K days — resume or discard?
 
 Recommended next: <action>
