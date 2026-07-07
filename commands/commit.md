@@ -103,7 +103,7 @@ that then cannot be pushed.
 
 `/craft:commit` runs in one of three modes. Run this detection **before Step 1** and pick the matching procedure path. Run it from the **main checkout**, not from inside a worktree.
 
-- **Standard mode** — no `/craft:execute` run has been performed; changes are uncommitted on `main`. Follow Steps 1–7 exactly as written below.
+- **Standard mode** — changes are uncommitted on the **current branch**: usually `main` with no `/craft:execute` run, but also a `<slice-id>-<slug>` branch when a slice was built in-place on a branch in the main checkout (an in-place single slice, or a sequential-epic slice under `pull-request` + `Protected-main: yes` — A6 needs that branch to open the PR from). Follow Steps 1–7 exactly as written below.
 - **Slice-finalize mode** — `/craft:execute <slice-NNN>` has completed; a worktree at `../<repo>-worktrees/<slice-id>-<slug>/` holds the slice-branch with `Status: committing` (first pass) or `awaiting-approval` (protected-main PR completion, second pass) and a clean tree. Follow Steps 1a, 5, 6, 7 (with the merge in Step 1a replacing Step 1's atomic split — the orchestrator already committed the sub-task work inside the worktree).
 - **Epic-finalize mode** — `/craft:execute <epic-NNN>` has completed; an `epic-<NNN>-<slug>` worktree exists with every contained slice already merged in. Follow Steps 1b, 5, 6, 7. The decisions walk in Step 4 runs once per included slice.
 
@@ -294,8 +294,11 @@ this step only decides the *landing*.
   5. `gh pr merge` fails despite `APPROVED` (e.g. a required check still pending) → surface the `gh` error and stop; the slice stays `awaiting-approval` for another re-run.
 
   **Granularity** (`Approval-granularity: auto`, the default): a lone slice opens one PR; a
-  parallel epic opens one PR at the epic-finalize (the whole epic-branch → `main`).
-  Sequential-epic per-slice granularity is forward-looking (lands with `epic-sequential`).
+  parallel epic opens one PR at the epic-finalize (the whole epic-branch → `main`); a
+  **sequential epic opens one PR per slice** — `s3` in `/craft:execute`'s Sequential epic path
+  opens it (first invocation, from the slice's `<slice-id>-<slug>` branch), and the next
+  `/craft:execute <epic>` invocation's `s0` completes it (second invocation → `gh pr merge` +
+  the Step 7 In-place-finalize local↔remote sync). Each slice lands on its own approved PR.
 
 ### Step 7 — Delete the active plan files and clean up worktrees
 

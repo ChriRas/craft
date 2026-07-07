@@ -1,5 +1,5 @@
 ---
-description: Autonomously execute an epic or single slice. Parallel worktree mode (default) creates parallel git worktrees and delegates Phase 4–7 to subagents per slice, merging into an epic-branch; in-place mode builds a single slice on a branch in the main checkout, halts before Phase 5 for IDE review (resumed via /craft:release); sequential epic mode runs an epic's slices one-by-one in place, committing per slice with a review halt between.
+description: Autonomously execute an epic or single slice. Parallel worktree mode (default) creates parallel git worktrees and delegates Phase 4–7 to subagents per slice, merging into an epic-branch; in-place mode builds a single slice on a branch in the main checkout, halts before Phase 5 for IDE review (resumed via /craft:release); sequential epic mode runs an epic's slices one-by-one in place, landing each per slice — committed directly on the trunk (direct) or via an approved PR (pull-request/protected-main) — with a review halt between.
 argument-hint: "<epic-NNN | slice-NNN>"
 allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "Task"]
 ---
@@ -53,6 +53,25 @@ Failure → abort: *"No plan found for `<target>`. Run `/craft:plan` or `/craft:
 
 Failure → abort: *"Working tree is not clean / not on main. Commit, stash, or move to main before `/craft:execute` — worktrees require a clean starting point."*
 
+**Exception — protected-main sequential-epic resume.** When the target is an **epic** whose
+profile is `Epic Mode: sequential` + `Merge → Type: pull-request` + `Protected-main: yes`, **and**
+a slice listed in that epic's `## Slice Decomposition` has `Status: awaiting-approval` (its PR
+was opened in a prior invocation), the working tree legitimately sits on **that slice's
+`<slice-id>-<slug>` branch** rather than the trunk. A3 then passes when the tree is **clean** and
+the current branch **is that awaiting-approval slice's branch** — the Sequential epic path's `s0`
+merges the approved PR (its `/craft:commit` second pass runs from the PR branch, which
+`/craft:commit`'s A6 requires) and returns to the trunk before the next slice. The git checkout
+persists on that branch across `/clear` and new sessions, so the resume normally lands here with
+no manual step.
+
+If instead the tree is clean but the current branch is the **trunk** (or any other branch) while
+such a mid-landing slice exists, do **not** proceed — `/craft:commit`'s second pass would trip its
+A6 on the trunk. Abort with a directed hint: *"A protected-main sequential-epic slice
+`<slice-id>` is mid-landing (its PR is open); check out its branch first — `git checkout
+<slice-id>-<slug>` — then re-run `/craft:execute <epic-NNN>`."* (A3 aborts before the lock is
+acquired, so nothing leaks.) This exception is scoped to exactly that combination; every other
+target still requires a clean trunk.
+
 ### A4 — No concurrent execute run
 
 Check for `.claude/plans/.execute.lock`. If present, abort: *"Another `/craft:execute` is in progress (lock file `<path>` exists with PID `<pid>`). Wait for it to finish or remove the lock manually if it crashed."*
@@ -97,7 +116,7 @@ Pick the path from the target kind and the profile:
   - **`in-place`** — skip steps 2–10 entirely and follow the **In-place path** sub-procedure. It builds the single slice on a branch in the main checkout, makes no commits, and halts before Phase 5 for human IDE review.
 - **Epic target** — branch on `Epic Mode` (default `parallel`):
   - **`parallel`** (default) — continue with steps 2–10 below: the existing worktree fan-out + epic-branch merge, unchanged.
-  - **`sequential`** — skip steps 2–10 entirely and follow the **Sequential epic path** sub-procedure. It runs the epic's slices **one-by-one in dependency order**, each built in-place in the main checkout and committed per slice, halting for review between slices. (`Execution → Mode` governs single-slice targets only; it does not apply to epic targets — an epic runs in place via `Epic Mode: sequential`, per A7.)
+  - **`sequential`** — skip steps 2–10 entirely and follow the **Sequential epic path** sub-procedure. It runs the epic's slices **one-by-one in dependency order**, each built in the main checkout and landed per slice (committed on the trunk under `direct`, or via an approved PR under `pull-request` + `Protected-main: yes`), halting for review between slices. (`Execution → Mode` governs single-slice targets only; it does not apply to epic targets — an epic runs in place via `Epic Mode: sequential`, per A7.)
 
 ### 2. Trust the worktree base directory
 
@@ -256,18 +275,46 @@ commit happens only after that release.
 ## Sequential epic path (Epic Mode: sequential)
 
 Followed instead of steps 2–10 when the target is an **epic** and `Epic Mode` is `sequential`
-(Procedure step 1b). It runs the epic's slices **one-by-one in dependency order**, each built
-in-place on the trunk in the main checkout and committed per slice, halting for review between
-slices. No worktree is created and there is no epic-branch — each slice lands on its own. The
-lock (step 1) is held for one execute invocation and released at the end here.
+(Procedure step 1b). It runs the epic's slices **one-by-one in dependency order**, each built in
+the main checkout and landed per slice (the Merge Workflow note below picks the landing style),
+halting for review between slices. No worktree is created and there is no epic-branch — each
+slice lands on its own. The lock (step 1) is held for one execute invocation and released at the
+end here.
 
-> **Scope (slice-020):** sequential mode supports the **`direct`** Merge Workflow. Combining
-> `Epic Mode: sequential` with `Merge → Type: pull-request` + `Protected-main: yes` is a
-> **pending follow-up** — it needs the in-place PR-branch resume (the mid-landing slice sits on
-> its branch while `/craft:execute`'s A3 requires the trunk) plus a local↔remote sync after a
-> `gh pr merge`. If the profile is protected-main **and** `Epic Mode: sequential`, abort before
-> s1: *"Sequential epic mode does not yet support the protected-main PR workflow. Use `Merge →
-> Type: direct` for a sequential epic, or run the epic in `Epic Mode: parallel`."*
+> **Merge Workflow (two landing styles).** Sequential mode supports **both** the `direct` and
+> the `pull-request` + `Protected-main: yes` workflows; the profile's `## Merge Workflow`
+> selects which per-slice landing s2–s4 use:
+> - **`direct`** (default) — each slice is built directly on the trunk and committed on `main`
+>   per slice (no branch, no PR). The between-slices halt is s4.
+> - **`pull-request` + `Protected-main: yes`** — each slice is built on its own
+>   `<slice-id>-<slug>` branch in the main checkout and landed via an **approved** PR: `s3`
+>   opens the PR (slice → `Status: awaiting-approval`) and the run halts for the human's GitHub
+>   approval; the next invocation's `s0` merges the approved PR, syncs the local trunk with the
+>   remote, and continues to the next slice. This is the **"Freigabe ≠ Merge"** gate applied
+>   once per slice.
+
+### s0 — Resume a mid-landing slice (protected-main workflow only)
+
+Only under `Merge → Type: pull-request` + `Protected-main: yes`; the `direct` workflow lands
+each slice synchronously in `s3` and never reaches this state, so skip s0 for `direct`.
+
+Check whether any slice listed in the epic's `## Slice Decomposition` has
+`Status: awaiting-approval` — a PR opened by a prior invocation's `s3`, not yet merged. If none,
+skip to s1 (a fresh run, or the `direct` workflow). If one exists, it is the **mid-landing
+slice** — complete its landing before starting any new slice by delegating to `/craft:commit`
+(its **second invocation**, since the slice is `awaiting-approval`). `/craft:commit` reads the PR
+and:
+
+- **Approved → merged** — it runs `gh pr merge`, then its Step 7 *In-place-finalize* syncs the
+  local trunk with the remote (`git checkout <trunk>`, `git fetch origin <trunk>`,
+  `git merge --ff-only origin/<trunk>`), deletes the slice branch, and archives the plan. The
+  slice is now **landed** and the working tree is back on the synced trunk. Continue to s1.
+- **Not yet approved** (`reviewDecision` not `APPROVED`, PR still `OPEN`) — `/craft:commit`
+  changes nothing and reports it. Release the lock (`rm .claude/plans/.execute.lock`) and
+  re-emit the awaiting-approval halt (see Output Format): the human approves on GitHub, then
+  re-runs `/craft:execute <epic-NNN>`. Do **not** start the next slice.
+- **PR closed unmerged** — surface `/craft:commit`'s message, release the lock, and stop; the
+  slice stays `awaiting-approval` for the human to resolve on GitHub.
 
 ### s1 — Resolve the order and the next runnable slice
 
@@ -276,10 +323,28 @@ DAG is acyclic). Topologically sort. The **next runnable slice** is the first sl
 order, whose plan is not yet archived under `.claude/project/slices/` (= not landed) and whose
 `Depends-On:` are all landed. If every slice is landed → go to **s5**.
 
-### s2 — Build the one slice in-place on the trunk
+### s2 — Build the one slice in the main checkout
 
-Build **only that single slice** through Phase 4–8 in the main checkout, directly on the trunk
-(the `direct` workflow commits per slice on `main` in s3 — no branch, so no branch→`main` gap):
+Build **only that single slice** through Phase 4–8 in the main checkout. **Where** it is built
+depends on the Merge Workflow:
+
+- **`direct`** — build directly on the trunk (the `direct` workflow commits per slice on `main`
+  in s3 — no branch, so no branch→`main` gap).
+- **`pull-request` + `Protected-main: yes`** — first create the slice branch off the trunk, so
+  `s3`'s `/craft:commit` has a branch to open the PR from (a direct trunk commit is rejected by
+  `/craft:commit`'s A6):
+
+  ```
+  git checkout -b <slice-id>-<slug>
+  ```
+
+  Use the `Branch name pattern` from `rules.md` `## Worktree Settings` if overridden. If the
+  branch already exists (a prior invocation's build), abort: *"Branch `<slice-id>-<slug>` already
+  exists — a previous invocation may not have finished. Resolve it (`/craft:continue
+  <slice-NNN>`) or delete the stale branch before re-running."* Never overwrite it. Then build
+  Phase 4–8 on that branch.
+
+Then, on whichever line was set up above:
 
 - **Delegate Phase 4–8** to the per-phase commands (`/craft:build → /craft:test → /craft:recap
   → /craft:review`; Phase 7 skipped when `rules.md` drops it). Execute drives the phases without
@@ -289,19 +354,36 @@ Build **only that single slice** through Phase 4–8 in the main checkout, direc
 - **Mid-slice hard stop** (a `[B]` → `/craft:debug`, a Heavy+rethink escalation, a build
   early-stop) reaches neither s4 nor s5, so **release the lock** (`rm
   .claude/plans/.execute.lock`) and stop — otherwise the resume re-run trips A4. The slice's
-  uncommitted work is on the trunk; the human resolves the slice, then re-runs `/craft:execute
-  <epic-NNN>`.
+  uncommitted work is on the trunk (`direct`) or on its `<slice-id>-<slug>` branch
+  (`pull-request` + `Protected-main: yes`); the human resolves the slice, then re-runs
+  `/craft:execute <epic-NNN>`.
 
 When the slice clears Phase 8 (`Status: committing`), go to s3.
 
-### s3 — Land the slice on the trunk (per slice)
+### s3 — Land the slice (per slice)
 
-Land via `/craft:commit` — its A1 now targets the single plan at `Status: committing`, so the
-coexisting epic + sibling plans do not trip it. For the `direct` workflow `/craft:commit`
-commits the per-slice work on `main` and archives the plan — the slice is now **landed**. This
-is the "commit per slice" of sequential mode; there is **no** epic-branch merge.
+Land via `/craft:commit` — its A1 targets the single plan at `Status: committing`, so the
+coexisting epic + sibling plans do not trip it. There is **no** epic-branch merge; each slice
+lands on its own. The landing follows the Merge Workflow:
 
-### s4 — Halt between slices (or finish)
+- **`direct`** — `/craft:commit` commits the per-slice work on `main` and archives the plan; the
+  slice is now **landed**. Continue to s4. This is the "commit per slice" of sequential mode.
+- **`pull-request` + `Protected-main: yes`** — this is `/craft:commit`'s **first invocation**: it
+  commits the sub-task work on the slice branch, opens the PR, sets the slice
+  `Status: awaiting-approval`, and does **not** merge (the "Freigabe ≠ Merge" gate). The slice is
+  **not yet landed** — it awaits the human's GitHub approval. Release the lock (`rm
+  .claude/plans/.execute.lock`) and emit the awaiting-approval halt (see Output Format): the PR
+  URL and the resume gesture — approve on GitHub, then re-run `/craft:execute <epic-NNN>`, whose
+  `s0` merges it and continues. `/craft:commit` prints its own PR-opened block ending in a
+  `/craft:commit` resume gesture; for a sequential-epic slice that gesture is **superseded** by
+  execute's halt — surface only `/craft:execute <epic-NNN>` (a lone `/craft:commit` merge would
+  land the slice but strand the epic loop). Do **not** fall through to s4.
+
+### s4 — Halt between slices (or finish) — `direct` workflow
+
+Reached only on the `direct` workflow (under `pull-request` + `Protected-main: yes`, s3 already
+halted at the awaiting-approval PR gate, and the next invocation's s0 continues the epic — so s4
+is not reached).
 
 After the slice lands, consult s1's order: **if an unlanded slice remains**, stop — release the
 lock and emit the sequential-landed block (see Output Format): the slice that landed, the next
@@ -312,8 +394,10 @@ last), go straight to **s5** — do not emit a halt with a phantom "next slice".
 
 ### s5 — Epic complete
 
-Emit `Epic <epic-NNN> complete — all <N> slices landed sequentially` (there is no epic-branch
-to merge; each slice already landed on `main`). Release the lock.
+Reached from s1 (every slice landed) or s4. Emit `Epic <epic-NNN> complete — all <N> slices
+landed sequentially` (there is no epic-branch to merge; each slice already landed on `main` —
+directly on `direct`, or via its own approved PR on `pull-request` + `Protected-main: yes`, with
+the local trunk synced). Release the lock.
 
 ---
 
@@ -361,15 +445,23 @@ plan."*
 ### P6 — Sequential epic landed cleanly (sequential mode only)
 
 For a sequential epic run: `git worktree list --porcelain` shows **only the main worktree**
-(no worktree created) and there is no epic-branch; the slice handled this invocation is
-either **landed** (its plan archived under `.claude/project/slices/`, its per-slice commit(s)
-on `main`) or halted mid-flight with its plan `Status:` reflecting
-the phase it stopped at; and the run ended either at a between-slices halt (s4) or at
-epic-complete (s5).
+(no worktree created) and there is no epic-branch; and the run ended in one of these states,
+per the Merge Workflow:
+
+- **`direct`** — the slice handled this invocation is **landed** (plan archived under
+  `.claude/project/slices/`, its per-slice commit(s) on `main`) or halted mid-flight with its
+  plan `Status:` reflecting where it stopped; the run ended at a between-slices halt (s4) or at
+  epic-complete (s5), with the current branch on the trunk.
+- **`pull-request` + `Protected-main: yes`** — the run ended **either** at a per-slice
+  awaiting-approval halt (exactly one epic slice has `Status: awaiting-approval`, the working
+  tree is clean on that slice's `<slice-id>-<slug>` branch, and its PR is open) **or** at
+  epic-complete (every slice archived under `.claude/project/slices/` via a merged PR, the
+  current branch is the synced trunk, and no `<slice-id>-<slug>` branches or `awaiting-approval`
+  plans remain).
 
 Failure → *"⚠ Sequential epic run in an unexpected state — expected no worktrees/epic-branch
-and the current slice landed-or-cleanly-halted. Inspect `git log`, the slice plans, and
-`.claude/project/slices/`."*
+and the current slice landed, cleanly-halted, or awaiting-approval on its PR branch. Inspect
+`git log`, `git branch`, the slice plans, and `.claude/project/slices/`."*
 
 ---
 
@@ -426,13 +518,23 @@ In-place slice halted for review:
    /craft:release <slice-NNN>    (resumes into Phase 5 → … → /craft:commit)
 ```
 
-Sequential epic — slice landed, review halt before the next:
+Sequential epic — slice landed, review halt before the next (`direct` workflow):
 
 ```
 ✓ Slice <slice-NNN> landed (sequential epic <epic-NNN>) — committed per slice
    Next runnable: slice-<MMM> "<title>"
    Review what landed, then continue:
    /craft:execute <epic-NNN>    (resumes at the next runnable slice)
+```
+
+Sequential epic — PR opened, awaiting approval (`pull-request` + `Protected-main: yes`):
+
+```
+⏸ Slice <slice-NNN> "<title>" (sequential epic <epic-NNN>) — PR opened, awaiting your GitHub approval
+   PR:     <url>   (#N)
+   Branch: <slice-NNN>-<slug> → <trunk>   (main NOT merged yet)
+   Approve the PR on GitHub (a real review), then continue the epic:
+   /craft:execute <epic-NNN>    (s0 merges this slice, then builds the next)
 ```
 
 Sequential epic — complete:
@@ -467,6 +569,9 @@ Review checkpoint reached:
 |---|---|
 | A3 fails (dirty tree / not on main) | Abort. Do not stash automatically. |
 | In-place (i1): slice branch already exists | Abort cleanly; hint to `/craft:release` the prior run or delete the stale branch. Never force-overwrite. |
+| Sequential protected-main (s2): slice branch already exists | Abort cleanly; hint to `/craft:continue <slice-NNN>` the prior invocation or delete the stale branch. Never force-overwrite. |
+| Sequential protected-main (s0): PR not yet approved on re-run | s0 reports it; release the lock and re-emit the awaiting-approval halt. The human approves on GitHub, then re-runs `/craft:execute <epic-NNN>`. |
+| Sequential protected-main (s0): PR closed unmerged | Surface the message, release the lock, stop. The slice stays `awaiting-approval` for the human to resolve on GitHub. |
 | A4 fails (lock exists) | Abort with lock path; user removes if crashed. |
 | A6 fails (cycle / missing dep) | Abort. Name the cycle or missing slice. |
 | `git worktree add` fails (path collision) | Abort the affected slice cleanly; other slices may still proceed. List the collision in the final output. |
@@ -486,4 +591,4 @@ Review checkpoint reached:
 - It does **not** modify `intent.md` or `rules.md`. Architectural decisions surfaced inside a slice live in that slice's `## Decisions Made During This Slice` for Phase 9 promotion.
 - It does **not** push to remote. No `git push` happens here — that is a separate user step.
 - In **in-place** mode (single-slice) it does **not** create a worktree, does **not** auto-commit, and does **not** run past Phase 4 — it halts before Phase 5 and hands off to `/craft:release`. An **epic** target follows its `Epic Mode` regardless of `Execution → Mode` (A7), running in place via `Epic Mode: sequential`.
-- In **sequential epic** mode (`Epic Mode: sequential`) it does **not** create worktrees or an epic-branch, and does **not** run slices in parallel — it lands the epic's slices one-by-one in place, committing per slice, and halts for review between slices (resume by re-running `/craft:execute <epic>`).
+- In **sequential epic** mode (`Epic Mode: sequential`) it does **not** create worktrees or an epic-branch, and does **not** run slices in parallel — it lands the epic's slices one-by-one in place and halts for review between slices (resume by re-running `/craft:execute <epic>`). Each slice lands per the Merge Workflow: committed directly on the trunk (`direct`), or via its own approved PR that the human merges through the "Freigabe ≠ Merge" gate (`pull-request` + `Protected-main: yes`), with the local trunk synced after each merge.
