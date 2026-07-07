@@ -123,7 +123,9 @@ when the slice is unblocked. Capture it from the live `Status:` field, **not** f
 
 ### 5. Write the blocked state
 
-Edit the active slice plan:
+Before writing, echo the assembled block back to the user — the four frontmatter fields and
+the `## Blocker` prose — and get a one-word go-ahead. The agent proposes, never silently
+mutates (rules.md). On confirmation, edit the active slice plan:
 
 - Set `Status: blocked` in the frontmatter. **Leave the `Phase:` field untouched** — it is a
   static plan-time stamp; the resume point is captured in `Blocked-status` below.
@@ -180,7 +182,9 @@ pretend success. No auto-rollback.
 ### P1 — Blocked frontmatter written
 
 `Read` the slice plan. Frontmatter must now show `Status: blocked` plus all four fields
-`Blocker-type`, `Blocked-on`, `Blocked-since`, `Blocked-status` with non-placeholder values.
+`Blocker-type`, `Blocked-on`, `Blocked-since`, `Blocked-status` populated with non-empty
+values. The sanctioned `Blocked-on: (pending — create via /craft:plan)` marker counts as
+populated — its resolvability is P3's concern, not P1's.
 
 Failure → *"⚠ Blocked frontmatter incomplete in `<path>`. Inspect before relying on the
 blocked state."*
