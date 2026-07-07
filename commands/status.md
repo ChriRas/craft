@@ -53,7 +53,7 @@ the `Blocked-status` frontmatter (always an execution token): resolve the label 
 `Blocked-status` through the primary table above, and append the blocked flag (see **Blocked
 flag** below) so the reader sees both where it will resume *and* that it is waiting.
 
-**Fallback — `Phase:` number → name.** When `Status` is `paused` (it does not encode a phase), an `awaiting-*` orchestration state, or any value absent from the table above, fall back to the `Phase:` frontmatter number through this map (command-aligned short names; source of truth: the `### Phase N —` headers in `skills/workflow/SKILL.md`):
+**Fallback — `Phase:` number → name.** When `Status` is `paused` (it does not encode a phase), an `awaiting-*` orchestration state, or any value absent from the table above (other than `blocked`, which the **Blocked** rule above handles), fall back to the `Phase:` frontmatter number through this map (command-aligned short names; source of truth: the `### Phase N —` headers in `skills/workflow/SKILL.md`):
 
 | Phase | Name | Phase | Name |
 |---|---|---|---|

@@ -211,8 +211,9 @@ Parse the JSON; read `.version`. On success, the output block's version line ren
 
 Build a list of active slices with: `slice-NNN "<title>" — Phase <X>, <Y>/<Z> sub-tasks done`.
 
-For any slice with `Status: blocked`, derive its phase from `Blocked-status` (never render
-`blocked` as a phase — it is an execution token that says where the slice resumes) and append a
+For any slice with `Status: blocked`, derive its phase from `Blocked-status` via the Status→phase
+mapping in `/craft:status` (`commands/status.md` → **Phase label**) — never render `blocked` as a
+phase; `Blocked-status` is an execution token that says where the slice resumes — and append a
 **blocked marker** `⛔ blocked → <Blocked-on> (<Blocker-type>)`. **Orphan detection:** when
 `Blocker-type` is `prerequisite-work` and `Blocked-on` resolves to neither an active plan
 (`.claude/plans/`) nor an archive (`.claude/project/slices/`), append `· ⚠ orphan` — the
@@ -230,7 +231,7 @@ Any slice with `Started` older than **7 days** (default — overridable in `rule
 
 ### 8. Recommended next action
 
-Pick one based on the state, in priority order — first matching condition wins:
+Pick one based on the state, in priority order — the first matching condition determines the primary recommendation. Exception: case 3 (blocked) may additionally **co-fire** with case 4/5 when blocked and unblocked slices coexist (surface the blocker *and* recommend the workable slice).
 
 1. **Pending handoff** — if any active slice has `Handoff active: yes` in its frontmatter → surface it prominently:
 
@@ -275,7 +276,7 @@ The full status block — emit exactly this shape:
 
 Active slices:
   → slice-NNN "<title>" — Phase X, Y/Z sub-tasks done
-  → slice-QQQ "<title>" — Phase 5 (Test), 3/5 sub-tasks done  ⛔ blocked → slice-030 (prerequisite-work)
+  → slice-QQQ "<title>" — Phase 5, 3/5 sub-tasks done  ⛔ blocked → slice-030 (prerequisite-work)
 ⚠ slice-PPP untouched for K days — resume or discard?
 
 Recommended next: <action>
