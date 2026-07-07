@@ -64,8 +64,11 @@ piles; composes with existing epic machinery.
 
 - Automatic: when a prerequisite slice reaches Phase 9, `/craft:commit` checks for any slice
   `Blocked-on: <this-id>` → clears the block, sets `Status` back to `Blocked-status`, notifies.
-- Resume fork: `/craft:continue` on an unblocked slice offers *resume | re-plan | abort* (the
-  prerequisite may have shown the original slice was mis-scoped → deferred descope).
+- Resume fork: a dedicated `/craft:unblock` offers *resume | re-plan | abort* (the prerequisite
+  may have shown the original slice was mis-scoped → deferred descope); it also owns the
+  `(pending)` → real-ID back-fill. `/craft:continue` stays a read-only router and just routes a
+  `blocked` slice to `/craft:unblock`. *(Resolved in slice-024: a mutating unblock belongs in
+  its own command, not in the read-only continue router — symmetric to `/craft:block`.)*
 - Visibility: `/craft:prime` + `/craft:status` show blocked slices distinctly (like today's
   handoff marker) + orphan detection ("blocked on slice-NNN, but that was aborted").
 
@@ -84,7 +87,8 @@ change, not a rewrite.
 ## Proposed slice decomposition (~4–5)
 
 1. `/craft:block` command + `blocked` frontmatter schema + spawn-boundary heuristic.
-2. Unblock wiring: auto-resurface in `/craft:commit` + resume fork in `/craft:continue`.
+2. Unblock wiring: auto-resurface in `/craft:commit` + a new `/craft:unblock` (resume fork +
+   back-fill); `/craft:continue` routes `blocked` → `/craft:unblock`.
 3. Surfacing in `/craft:prime` + `/craft:status` + orphan detection.
 4. Autonomous-mode integration: blocker classification in `.craft/handoff.md` / `slice-builder`.
 5. Baseline edit (Problem-Playbook) — may fold into slice 1.
@@ -92,5 +96,6 @@ change, not a rewrite.
 ## Open questions
 
 - Configurable-threshold format for the spawn boundary (ties to D2 / craft-profile).
-- Does `decision`/`access` want a lightweight `/craft:unblock` gesture, or is the
-  `/craft:continue` resume-fork enough? (Leaning: resume-fork suffices.)
+- ~~Does `decision`/`access` want a lightweight `/craft:unblock` gesture~~ — **resolved
+  (slice-024): yes, a dedicated `/craft:unblock` owns all unblock mutation; `/craft:continue`
+  stays read-only and routes to it.**
