@@ -184,6 +184,35 @@ stack-pack checks, this is **reported, never corrected**.
    reported by steps 4c/4b respectively — this report line covers the autonomy/commit/
    merge/epic/permissions settings only, to avoid double-reporting.
 
+### 4e. Read-only context sources sync
+
+Declared external "connected projects" (the `## Read-Only Context Sources` block of
+`.claude/project/rules.md`) must sit in `permissions.additionalDirectories` to be
+*readable*; the PreToolUse guard (`readonly-context-guard.sh`) keeps them
+*write-blocked* regardless. The in-repo `research/` folder needs no entry — it is inside
+the project root and protected by convention.
+
+Resolve the helper `scripts/ensure-readonly-context.sh` in this order, first match wins:
+`${CLAUDE_PLUGIN_ROOT}/scripts/` (installed plugin), else `<project-root>/scripts/`
+(dev-repo dogfood). Run it in `--check` mode via Bash; it parses the declared paths and
+reports each as present/absent in `additionalDirectories`, plus an aggregate `STATUS=` and
+`DECLARED=<n>`.
+
+- **`DECLARED=0`** → emit no line (nothing declared — silent, like the stack-pack check).
+- **All present** (`STATUS=present`, exit 0) → status line
+  `✓ Read-only context: N connected project(s) trusted + research/ (convention)`.
+- **Some absent** (`STATUS=absent`, exit 10) → status line
+  `⚠ Read-only context: M of N connected project(s) not yet readable`, then **offer** to run
+  `--apply` (Level 1 — ask before it writes). On a yes, run
+  `scripts/ensure-readonly-context.sh --apply` and report `CHANGED=`. This is the only
+  prime step that may mutate durable state, and only after explicit confirmation — never
+  silently. On a no, leave the `⚠` line and continue.
+- **Helper error** (python3 missing, settings unparseable) → emit
+  `⚠ Read-only context check incomplete: <ERROR>` and continue. Never abort prime.
+
+Like the drift and stack-pack checks, the drift itself is **reported**; the write to
+`settings.local.json` happens only on the human's yes.
+
 ### 5. Tool versions (informational)
 
 After tools are confirmed installed, capture and report versions for the status block:
@@ -289,6 +318,7 @@ The full status block — emit exactly this shape:
 ✓ Language: chat=<lang>, commits=<lang>, comments=<lang>  (see step 4c)
 ✓ CRAFT profile: <preset — effective settings | none — plugin defaults>  (see step 4d)
   ⚠ <profile warning(s), if any>
+<read-only-context line — only when connected projects are declared; ✓ if all trusted, ⚠ if some not readable (see step 4e)>
 
 
 Active slices:
@@ -325,6 +355,8 @@ After emitting the block, prime silently writes the `.claude/plans/.primed` sess
 | `.claude-plugin/plugin.json` missing or malformed | Emit `⚠ CRAFT plugin version unknown — plugin.json <not found\|malformed>` and continue. Not a blocker. |
 | `craft-profile.md` absent | Report `✓ CRAFT profile: none — plugin defaults`. Not an error (step 4d). |
 | `craft-profile.md` malformed (unknown key, out-of-enum value, or `Auto-commit: off`+`Mode: worktree`) | Emit the `⚠ CRAFT profile: …` warning(s) from step 4d and continue. Never a blocker. |
+| Declared connected project not yet in `additionalDirectories` (step 4e) | Emit the `⚠ Read-only context …` line and offer `--apply` (confirmation-gated). Not a blocker. |
+| `ensure-readonly-context.sh` errors (python3 missing / settings unparseable) | Emit `⚠ Read-only context check incomplete: <reason>` and continue. Never abort. |
 
 ---
 
