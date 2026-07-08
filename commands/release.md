@@ -25,6 +25,8 @@ to the in-place review halt.
 
 ## Pre-flight
 
+> **Ensure-primed gate** — before the checks below, if the session marker `.claude/plans/.primed` is absent, emit *"Session not primed — running /craft:prime first"*, run `/craft:prime` (it loads project context, verifies the four required tools, and writes the marker), then resume this command. Silent no-op when the marker is already present. Defined in `skills/workflow/SKILL.md` → **Session Priming Gate**.
+
 - `Read` `.claude/project/intent.md` and `.claude/project/rules.md` to confirm onboarding. If
   either is missing, tell the user to run `/craft:onboard` and stop.
 

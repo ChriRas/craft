@@ -465,6 +465,77 @@ The plugin cannot declare these as installable dependencies in the Claude Code p
 
 ---
 
+## Session Priming Gate
+
+A CRAFT command is only safe to run once the session is **primed** — project context
+(intent / rules / Senior-Developer baseline) is loaded **and** the four required tools
+are verified. `/craft:prime` does both. To guarantee that no context-dependent command
+ever runs on unloaded context or an unverified toolchain, those commands self-protect
+with a shared **ensure-primed gate** in their pre-flight.
+
+### Session marker
+
+`/craft:prime` writes an empty sentinel `.claude/plans/.primed` on successful
+completion. The SessionStart hook (`hooks/session-start.sh`) deletes it at the start of
+every session, so the marker is **per-session**: present only after prime has run in the
+current session, and correctly cleared after `/clear` (context is genuinely wiped then,
+so re-priming is the right behavior). The marker is ephemeral session state — gitignored,
+never committed. Its path is exactly `.claude/plans/.primed` everywhere it appears.
+
+### Command classification
+
+| Class | Needs priming? | Commands |
+|---|---|---|
+| **Context-free** | No — safe on unloaded context | `prime`, `onboard`, `upgrade`, the `craft` entry skill, the Phase 1/2 ideation commands `brainstorm` / `grill-me`, and the lightweight standalone read-only / single-file / maintenance commands `status`, `worktree-status`, `worktree-clean`, `checkout`, `pause`, `handoff`, `abort` |
+| **Context-dependent** | Yes — gated | the 9-phase commands `build`, `test`, `recap`, `refactor`, `review`, `commit`; the planning commands `plan`, `epic`; the execution command `execute`; the flow-resumption commands `continue`, `release`; the blocked-state commands `block`, `unblock`; the `debug` skill; and `intent-update` |
+
+What unites the context-free set is that **none needs the project's loaded context**
+(intent / rules / baseline) to do its job correctly: they either *are* prime, bootstrap
+the project (`onboard`), or are quick read-only / single-file / worktree-maintenance
+operations — including durable-state maintenance like `worktree-clean`, which self-checks
+onboarding in its own Pre-Assertions — where forcing a full prime would cost more than it
+protects. The Phase 1/2 ideation commands `brainstorm` and `grill-me` are context-free
+too: they precede both code and the plan, run divergently as a sparring partner, and
+`brainstorm` in particular may open a **green-field, pre-onboarding** session — where
+`/craft:prime` (which requires onboarding) could not run anyway, so gating them would
+block a legitimate entry point. Context-dependent commands touch code, plans, or project
+knowledge and assume loaded context — they carry the gate.
+
+### The ensure-primed gate (sub-procedure)
+
+Every context-dependent command runs this as the first step of its pre-flight:
+
+1. **Check** — does `.claude/plans/.primed` exist?
+2. **Absent** → emit the notice *"Session not primed — running /craft:prime first"*,
+   run `/craft:prime` (which loads context, verifies the four tools — aborting with the
+   loud ⚠ + repair hint if any is missing — and writes the marker), then continue with
+   the original command.
+3. **Present** → silent no-op; continue immediately.
+
+The gate never duplicates the tool-availability check — it inherits it by routing
+through `/craft:prime`. If prime aborts (a required tool is missing, or the project is
+not onboarded), the gated command does not run either.
+
+### Under `/craft:execute` (worktree execution)
+
+`/craft:execute` runs Phases 4–8 inside `slice-builder` subagents in parallel git
+worktrees. Two facts would break the normal marker lifecycle there: the `.primed` marker
+is gitignored (absent from a fresh worktree checkout) and **SessionStart hooks do not
+fire for `Task` subagents** — so the gate would always read the marker as absent and every
+slice-builder would wrongly auto-run `/craft:prime` inside its worktree (redundant at
+best; an abort of the autonomous run at worst, if prime's strict tool check cannot reach a
+tool from the subagent).
+
+The orchestrator therefore **seeds the marker per worktree**: immediately after
+`git worktree add`, `/craft:execute` writes `.claude/plans/.primed` into the new worktree
+(see `commands/execute.md` → *Spawn slice-builders*). The context those subagents need is
+already guaranteed — the orchestrator primed on `main` and briefs each slice-builder with
+`intent.md` / `rules.md` — so the seeded marker is a truthful "this execution context is
+primed" signal and the gate is a silent no-op for every slice-builder. In-place execution
+mode needs no seed: it builds inline in the already-primed main session.
+
+---
+
 ## Cross-Slice Memory
 
 After Phase 9 deletes the plan file, the slice's surviving signal lives in three places:

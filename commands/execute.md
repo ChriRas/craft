@@ -18,6 +18,8 @@ For a single slice without an epic, the orchestrator runs the same loop with one
 
 ## Pre-flight
 
+> **Ensure-primed gate** — before the checks below, if the session marker `.claude/plans/.primed` is absent, emit *"Session not primed — running /craft:prime first"*, run `/craft:prime` (it loads project context, verifies the four required tools, and writes the marker), then resume this command. Silent no-op when the marker is already present. Defined in `skills/workflow/SKILL.md` → **Session Priming Gate**.
+
 ### Step 1 — Hold project knowledge
 
 - `Read` `.claude/project/intent.md` and `.claude/project/rules.md`. Hold both in context.
@@ -175,6 +177,7 @@ For each runnable slice in the frontier, in parallel:
 - Determine branch name (`<slice-id>-<slug>` or pattern from `rules.md`).
 - Determine worktree path (`../<repo>-worktrees/<slice-id>-<slug>/`).
 - `Bash`: `git worktree add <path> -b <branch>` rooted at the epic-branch (epic target) or `main` (lone slice).
+- `Bash`: seed the ensure-primed marker in the fresh worktree — `mkdir -p <path>/.claude/plans && touch <path>/.claude/plans/.primed` — so the **ensure-primed gate** is a silent no-op for the slice-builder. The orchestrator has already primed on `main` and briefs the subagent with `intent.md` / `rules.md`; `SessionStart` hooks do not fire for `Task` subagents and the marker is gitignored (absent from the checkout), so without this seed every slice-builder would wrongly auto-run `/craft:prime` inside its worktree. See `skills/workflow/SKILL.md` → *Session Priming Gate → Under /craft:execute*.
 - Spawn a `slice-builder` subagent via `Task` with the worktree path as its working directory and the slice plan as its target. The subagent runs Phase 4 → 5 → 6 → (optional 7 — skipped if `rules.md` drops Phase 7) → 8 via the existing per-phase commands (`/craft:build`, `/craft:test`, `/craft:recap`, `/craft:refactor`, `/craft:review`).
 
 ### 6. Collect slice outcomes

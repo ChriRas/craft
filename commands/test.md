@@ -15,6 +15,8 @@ Follow `skills/workflow/SKILL.md` Phase 5 mechanics (the three sub-steps 5a / 5b
 
 ## Pre-flight
 
+> **Ensure-primed gate** — before the checks below, if the session marker `.claude/plans/.primed` is absent, emit *"Session not primed — running /craft:prime first"*, run `/craft:prime` (it loads project context, verifies the four required tools, and writes the marker), then resume this command. Silent no-op when the marker is already present. Defined in `skills/workflow/SKILL.md` → **Session Priming Gate**.
+
 ### 1. Locate active slice
 
 - `Glob` `.claude/plans/*.md`. Expect exactly one in `Status: testing` or `implementing`. If multiple, ask the user which slice. If none, stop with `No slice ready for testing. Run /craft:build first or /craft:plan to start a new slice.`

@@ -16,6 +16,8 @@ Pick up work on an open slice without re-thinking the entry point. Reads the sli
 
 ## Pre-flight
 
+> **Ensure-primed gate** — before the checks below, if the session marker `.claude/plans/.primed` is absent, emit *"Session not primed — running /craft:prime first"*, run `/craft:prime` (it loads project context, verifies the four required tools, and writes the marker), then resume this command. Silent no-op when the marker is already present. Defined in `skills/workflow/SKILL.md` → **Session Priming Gate**.
+
 - `Read` the project knowledge files quickly to confirm onboarding (`.claude/project/intent.md`, `.claude/project/rules.md`). If missing, tell user to run `/craft:onboard` and stop.
 
 ---

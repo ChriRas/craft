@@ -16,6 +16,8 @@ This command is a **durable-state mutation** (writes a slice plan file, bumps th
 
 ## Pre-flight
 
+> **Ensure-primed gate** — before the checks below, if the session marker `.claude/plans/.primed` is absent, emit *"Session not primed — running /craft:prime first"*, run `/craft:prime` (it loads project context, verifies the four required tools, and writes the marker), then resume this command. Silent no-op when the marker is already present. Defined in `skills/workflow/SKILL.md` → **Session Priming Gate**.
+
 ### Step 1 — Hold project knowledge
 
 - `Read` `.claude/project/intent.md` and `.claude/project/rules.md`. Hold both in context for use during the dialogic phase.

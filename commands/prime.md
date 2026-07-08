@@ -255,6 +255,21 @@ Pick one based on the state, in priority order — the first matching condition 
 5. **Multiple active (non-blocked) slices** → list them and ask which to focus on: `Multiple active slices — pick one to focus: /craft:continue <slice-NNN>`.
 6. **No active slice** → recommend planning new work: `Recommended next: /craft:plan <feature-name> to start a new slice`.
 
+### 9. Mark the session primed
+
+After the status block is emitted — i.e., pre-flight passed and context loaded
+successfully — write the empty session marker so context-dependent commands know this
+session is primed:
+
+- Create `.claude/plans/.primed` via Bash: `mkdir -p .claude/plans && touch .claude/plans/.primed`. The `mkdir -p` guards the **first** prime right after `/craft:onboard` (which creates `.claude/project/` but not `.claude/plans/` — that directory is otherwise created lazily by the first `/craft:plan`).
+
+This marker is **per-session** (the SessionStart hook clears it at the next session
+start) and gitignored. It is the sentinel the **ensure-primed gate**
+(`skills/workflow/SKILL.md` → *Session Priming Gate*) checks before every
+context-dependent command. Write it **only on a successful prime**: when pre-flight
+aborts (a required tool is missing, or the project is not onboarded), prime stops before
+this step and the marker is not written, so the gate correctly re-primes next time.
+
 ---
 
 ## Output Format
@@ -288,6 +303,8 @@ Recommended next: <action>
 If no active slices, replace that section with `No active slices.`
 
 Keep the block under 20 lines for the common case. If many slices are active and the block would exceed that, summarize older slices into a one-line collapse: `+ 4 more slices (run /craft:status for full list)`.
+
+After emitting the block, prime silently writes the `.claude/plans/.primed` session marker (Procedure step 9) — no extra output line.
 
 ---
 

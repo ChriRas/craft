@@ -15,6 +15,8 @@ This command is a **durable-state mutation** (git history, project knowledge fil
 
 ## Pre-flight
 
+> **Ensure-primed gate** — before the checks below, if the session marker `.claude/plans/.primed` is absent, emit *"Session not primed — running /craft:prime first"*, run `/craft:prime` (it loads project context, verifies the four required tools, and writes the marker), then resume this command. Silent no-op when the marker is already present. Defined in `skills/workflow/SKILL.md` → **Session Priming Gate**.
+
 ### Step 1 — Locate active slice
 
 - `Glob` `.claude/plans/*.md`. Identify the slice expected to be in `Status: committing` (or `refactoring` if jumping here directly).

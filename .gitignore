@@ -8,6 +8,9 @@
 # Claude Code local state (kept out of plugin distribution)
 .claude/settings.local.json
 
+# CRAFT per-session prime marker (written by /craft:prime, cleared on SessionStart)
+.claude/plans/.primed
+
 # AI tooling local config
 .ai/
 

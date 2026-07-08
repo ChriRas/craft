@@ -17,6 +17,8 @@ Used when, mid-work, the user realizes the project's intent has shifted (e.g., a
 
 ## Pre-flight
 
+> **Ensure-primed gate** — before the checks below, if the session marker `.claude/plans/.primed` is absent, emit *"Session not primed — running /craft:prime first"*, run `/craft:prime` (it loads project context, verifies the four required tools, and writes the marker), then resume this command. Silent no-op when the marker is already present. Defined in `skills/workflow/SKILL.md` → **Session Priming Gate**.
+
 - `Read` `.claude/project/intent.md`. If missing → tell user to run `/craft:onboard` and stop.
 
 ---

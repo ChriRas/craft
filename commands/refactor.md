@@ -15,6 +15,8 @@ Follow `skills/workflow/SKILL.md` Phase 7 mechanics. **Max 2–3 refactor items 
 
 ## Pre-flight
 
+> **Ensure-primed gate** — before the checks below, if the session marker `.claude/plans/.primed` is absent, emit *"Session not primed — running /craft:prime first"*, run `/craft:prime` (it loads project context, verifies the four required tools, and writes the marker), then resume this command. Silent no-op when the marker is already present. Defined in `skills/workflow/SKILL.md` → **Session Priming Gate**.
+
 - `Glob` `.claude/plans/*.md`. Expect a slice in `Status: refactoring` (or `review` if jumping here directly after Phase 6).
 - If none → stop with `No slice ready for refactor. Run /craft:recap first.`
 - Update `Status: refactoring` if not already.
