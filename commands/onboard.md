@@ -115,6 +115,7 @@ Ask 3–5 targeted questions, one at a time:
 - Architectural Decisions: "What major technical choice should the next agent know about? Why?"
 - Tabus: "What patterns or actions should never happen here?"
 - Roadmap (optional): "Do you have longer-term phases? If yes, name them. If no, skip."
+- Read-only context (optional): "Any external reference projects the agent should be able to *read* but never *modify*? Give absolute paths — they fill the `## Read-Only Context Sources` block in `rules.md`, and `/craft:prime` trusts them read-only. The in-repo `research/` folder is auto-protected either way." Skip if none.
 - Stack-Pack: present the candidate from the heuristic scan and run the proposal in the Stack-Pack Detection sub-procedure — the confirmed value fills `## Personality` `Stack-Pack:` in `rules.md`.
 - Language: run the Language Config sub-procedure — the confirmed values fill the `## Operational Language` block of the CRAFT profile (`.claude/project/craft-profile.md`).
 - Profile: run the Profile Config sub-procedure — the `[D]` fast-defaults or `[G]` guided answers fill the Execution / Commit Policy / Merge Workflow / Epic Mode / Permissions blocks of the CRAFT profile, and the chosen permission scope drives the Permission Allowlist write in step 4.
@@ -124,7 +125,7 @@ Ask 3–5 targeted questions, one at a time:
 Generate using the plugin templates:
 
 - `.claude/project/intent.md`
-- `.claude/project/rules.md`
+- `.claude/project/rules.md` — rendered from `templates/rules.md.template`. If the Read-Only Context (optional) question collected any connected-project paths, write them as `- <absolute-path>` bullets into the `## Read-Only Context Sources` block, replacing the template's `(no connected projects declared)` placeholder; if none were given, leave the placeholder as-is.
 - `.claude/project/craft-profile.md` — rendered from `templates/craft-profile.md.template`: the `> Preset:` line and the Execution / Commit Policy / Merge Workflow / Epic Mode / Permissions placeholders take the **Profile Config sub-procedure's resolved values** (`[D]` fast-defaults → the `balanced` preset's literals from `templates/profiles/balanced.md`; `[G]` guided → the per-knob answers), the `## Operational Language` placeholders (`{{chat_language_or_system}}` etc.) take the Language Config sub-procedure's values, and `## Agent Model Overrides` is left at its default (empty). Immediately after writing the profile, run the Permission Allowlist sub-procedure to write the chosen scope's read-only allowlist into `.claude/settings.local.json`.
 - `.claude/project/roadmap.md` (only if user provided roadmap content)
 - `CLAUDE.md` in repo root — slim index pointing to the above

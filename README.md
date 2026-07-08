@@ -25,6 +25,7 @@ A complete coding-loop scaffolding:
 - **A two-tier architecture**: the plugin ships the universal shell; your project keeps its own language/framework specialists in `.claude/skills/` and `.claude/agents/`, lazy-loaded at runtime.
 - **Personality autoload**: the Senior-Developer baseline above is the universal Tier 1; on top of it, optional **stack-packs** (e.g. `stack-php-laravel`) — language/framework idiom packs a project declares in `rules.md` — load automatically during the code-near phases.
 - **A SessionStart hook** that auto-runs `/craft:prime` in Craft-onboarded projects so every fresh chat orients itself; stays silent in non-Craft projects.
+- **A read-only context guard** — keep reference material the agent may *read* but never *write*: the in-repo `research/` folder (protected by convention) and external "connected projects" declared in `rules.md`. A PreToolUse hook blocks `Write`/`Edit`/`NotebookEdit` on those paths, while `/craft:prime` keeps declared projects *readable* via `additionalDirectories`.
 - **A migration path** for projects that already have a `.claude/` setup — `/craft:onboard` detects the existing content and moves conflicting commands to `_legacy/` while preserving project-specific specialists.
 
 ---

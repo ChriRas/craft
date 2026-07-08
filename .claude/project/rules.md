@@ -67,6 +67,17 @@
 > avoid per-path permission prompts. Idempotent; existing permissions are merged,
 > never overwritten; the file stays gitignored.
 
+## Read-Only Context Sources (optional)
+
+> Reference material the agent may **read** but never **write**. A PreToolUse guard
+> (`readonly-context-guard.sh`) denies Write/Edit/NotebookEdit targeting any path below.
+> The in-repo `research/` folder is always protected by convention — no entry needed.
+> Declare external "connected projects" as `- <absolute-path>` bullets; each is added
+> read-only to `permissions.additionalDirectories` (idempotent, gitignored) so it stays
+> readable but write-blocked.
+
+(no connected projects declared)
+
 ## Self-Verification Settings (optional)
 
 - **Max attempts:** 5
