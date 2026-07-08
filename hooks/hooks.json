@@ -1,5 +1,5 @@
 {
-  "description": "Two SessionStart hooks. (1) Clear the per-session `.claude/plans/.primed` marker (so the ensure-primed gate re-triggers this session, incl. after /clear) and auto-prime when the project is onboarded (.claude/project/intent.md present); silent otherwise. Non-Craft projects are never nudged — the user opts in by invoking /craft. (2) Surface any pending `.craft/handoff.md` markers from active worktrees so paused slices are visible at the start of a new session.",
+  "description": "Two SessionStart hooks plus a PreToolUse guard. (1) Clear the per-session `.claude/plans/.primed` marker (so the ensure-primed gate re-triggers this session, incl. after /clear) and auto-prime when the project is onboarded (.claude/project/intent.md present); silent otherwise. Non-Craft projects are never nudged — the user opts in by invoking /craft. (2) Surface any pending `.craft/handoff.md` markers from active worktrees so paused slices are visible at the start of a new session. (3) PreToolUse: readonly-context-guard.sh denies Write/Edit/NotebookEdit targeting a read-only context source — the in-repo research/ folder or any declared connected project (F1).",
   "hooks": {
     "SessionStart": [
       {
@@ -12,6 +12,18 @@
           {
             "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/worktree-handoff-notify.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/readonly-context-guard.sh",
             "timeout": 10
           }
         ]
