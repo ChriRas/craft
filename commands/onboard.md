@@ -458,7 +458,13 @@ the answers into memory for the render in Step 3 and enforce the cross-field rul
      [N] on  — commit each sub-task as it lands
      [F] off — hold everything uncommitted until you release it in Phase 9
    ```
-3. **Merge workflow**
+3. **Co-Authored-By trailer** — always asked (independent of execution mode):
+   ```
+   Co-Authored-By trailer on each commit (consumer-project opt-in):
+     [F] off — no trailer (default, recommended)
+     [O] on  — /craft:commit appends `Co-Authored-By: Claude <noreply@anthropic.com>` to every commit
+   ```
+4. **Merge workflow**
    ```
    Merge workflow — how a finished slice/epic lands:
      [D] direct       — merge straight to the trunk via /craft:commit (default)
@@ -473,13 +479,13 @@ the answers into memory for the render in Step 3 and enforce the cross-field rul
      [S] per-slice — a PR + approval for every slice
      [E] per-epic  — one PR + approval at the epic boundary
    ```
-4. **Epic mode**
+5. **Epic mode**
    ```
    Default epic execution for /craft:execute <epic>:
      [P] parallel   — independent slices run concurrently in worktrees (default)
      [S] sequential — slices run one-by-one in place, commit per slice, review halt between
    ```
-5. **Permission scope** — selects how broad the **read-only** allowlist onboarding writes
+6. **Permission scope** — selects how broad the **read-only** allowlist onboarding writes
    to `.claude/settings.local.json` is (see the Permission Allowlist sub-procedure). Every
    scope is read-only; mutating commands always keep prompting:
    ```
@@ -495,8 +501,9 @@ combination (the same rule `/craft:prime` warns on).
 
 ### Step 3 — Hold the resolved knob values + name the preset
 
-Carry the resolved values (Execution Mode, Auto-commit, Merge Type, Protected-main,
-Approval, Approval-granularity, Epic Default, Permission Scope) into memory. Set the
+Carry the resolved values (Execution Mode, Auto-commit, Co-Authored-By, Merge Type,
+Protected-main, Approval, Approval-granularity, Epic Default, Permission Scope) into memory
+(on the fast path, `Co-Authored-By` resolves to `off` from the `balanced` preset). Set the
 `> Preset:` field: `balanced` on the fast path; on the guided path, use a named preset if
 the values match one exactly (`careful` / `balanced` / `autonomous`), otherwise `custom`.
 The profile write (greenfield step 4 / migration knowledge-split) renders these onto the

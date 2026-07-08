@@ -27,8 +27,12 @@
 > `Auto-commit: off` holds all changes uncommitted until you release them — only valid
 > in the `in-place` path. The `worktree` path **always** auto-commits (its merge model
 > depends on per-sub-task commits), so `Auto-commit: off` + `Mode: worktree` is invalid.
+>
+> `Co-Authored-By: on` makes `/craft:commit` append the trailer
+> `Co-Authored-By: Claude <noreply@anthropic.com>` to each commit message. Default `off`.
 
 - **Auto-commit:** on
+- **Co-Authored-By:** off
 
 ## Merge Workflow
 

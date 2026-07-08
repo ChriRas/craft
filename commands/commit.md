@@ -201,11 +201,13 @@ For each commit:
 <optional body — what and why, not how>
 
 Slice: slice-<NNN>
+<Co-Authored-By: Claude <noreply@anthropic.com> — only when the profile enables it>
 ```
 
 - `type` ∈ `feat | fix | refactor | test | docs | chore | perf | build | ci`
 - `scope` optional but encouraged
 - `Slice:` footer always present
+- **Co-Authored-By trailer** — read the `Co-Authored-By` field of the `## Commit Policy` block in `.claude/project/craft-profile.md` (default `off` when the profile, the block, or the field is absent). When `on`, append the literal trailer line `Co-Authored-By: Claude <noreply@anthropic.com>` below the `Slice:` footer of **every** commit in this run; when `off`/absent, omit it entirely. The trailer is always literal, regardless of the commit language.
 - **Language** — write the description and body in the project's commit language: the `Commits` key of the `## Operational Language` block in `.claude/project/craft-profile.md` (default English when the profile, the block, or the key is absent). The `type`, `scope`, and `Slice:` footer are always literal regardless of language.
 
 The agent proposes each message; user can edit before staging.

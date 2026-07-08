@@ -168,6 +168,7 @@ stack-pack checks, this is **reported, never corrected**.
    - **Value outside its enum:**
      - `Execution → Mode` ∈ `worktree | in-place`
      - `Commit Policy → Auto-commit` ∈ `on | off`
+     - `Commit Policy → Co-Authored-By` ∈ `on | off`
      - `Merge Workflow → Type` ∈ `direct | pull-request`; `Protected-main` ∈ `yes | no`; `Approval` ∈ `chat | github-pr-review`; `Approval-granularity` ∈ `per-slice | per-epic | auto`
      - `Epic Mode → Default` ∈ `parallel | sequential`
      - `Permissions → Scope` ∈ `minimal | standard | broad`
@@ -176,8 +177,9 @@ stack-pack checks, this is **reported, never corrected**.
    - A missing block/field within an otherwise-present profile is **not** a warning — it falls back to the plugin default for that field.
 
 3. **Report** — emit one status line with the active preset and the effective settings:
-   `✓ CRAFT profile: <preset> — execution=<mode>, commit=<on|off>, merge=<type>[/protected/<approval>], epic=<mode>, permissions=<scope>`.
+   `✓ CRAFT profile: <preset> — execution=<mode>, commit=<on|off>[+coauthored-by], merge=<type>[/protected/<approval>], epic=<mode>, permissions=<scope>`.
    Append the `/protected/<approval>` segment **only when `Protected-main: yes`**; otherwise emit just `merge=<type>`.
+   Append the `+coauthored-by` suffix to the `commit=` segment **only when `Co-Authored-By: on`**; otherwise omit it (the default `off` stays silent).
    The profile's `## Operational Language` and `## Agent Model Overrides` are read and
    reported by steps 4c/4b respectively — this report line covers the autonomy/commit/
    merge/epic/permissions settings only, to avoid double-reporting.

@@ -20,6 +20,7 @@ This file documents the default values, the resolution rules, and the validation
 |---|---|---|---|
 | Execution | Mode | `worktree` | `/craft:execute` builds slices in throwaway git worktrees outside the repo (parallel-safe). |
 | Commit Policy | Auto-commit | `on` | Per-sub-task commits are authored inside the worktree (required by the worktree merge model). |
+| Commit Policy | Co-Authored-By | `off` | When `on`, `/craft:commit` appends `Co-Authored-By: Claude <noreply@anthropic.com>` to each commit message. Off by default; a consumer-project opt-in. |
 | Merge Workflow | Type | `direct` | A finished slice/epic merges straight to the trunk via `/craft:commit`. |
 | Merge Workflow | Protected-main | `no` | The trunk accepts direct merges; no PR gate. |
 | Merge Workflow | Approval | `chat` | Human go-ahead is a chat confirmation, not a GitHub PR review. |
@@ -65,6 +66,9 @@ into `.claude/project/craft-profile.md`; the project may then edit it freely.
 | `autonomous` | worktree | on | direct | parallel | broad |
 
 "Give me the defaults" during onboarding resolves to `balanced`.
+
+All three presets ship `Co-Authored-By: off` — the commit trailer is an explicit per-project
+opt-in, independent of the preset.
 
 ---
 
