@@ -519,7 +519,7 @@ The contract has two rules:
 ```markdown
 ---
 Slice-ID: slice-NNN
-Status: awaiting-test | awaiting-refactor-decision | awaiting-rethink-decision | awaiting-protocol | failure
+Status: awaiting-test | awaiting-refactor-decision | awaiting-rethink-decision | awaiting-protocol | awaiting-block-decision | failure
 Phase: 4 | 5 | 6 | 7 | 8
 Written: <ISO datetime>
 ---
@@ -533,7 +533,7 @@ Written: <ISO datetime>
 <one-line — typically a /craft:command the human should run, with the slice or epic ID>
 ```
 
-The orchestrator's "epic partially complete" output lists every active handoff with the slice-ID, the status, and the one-line title.
+The orchestrator's "epic partially complete" output lists every active handoff with the slice-ID, the status, and the one-line title. Most statuses pair with a slice plan at `Status: paused`; the exception is `awaiting-block-decision`, which the subagent pairs with the first-class `Status: blocked` state (frontmatter + `## Blocker`) and which resolves via `/craft:unblock` rather than a plain `/craft:continue`.
 
 ---
 

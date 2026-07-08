@@ -181,6 +181,8 @@ When invoked by the `slice-builder` subagent during an autonomous `/craft:execut
 
 The subagent does **not** fabricate the W/B/U answer — sub-step 5c always requires a human.
 
+If 5a cannot even be prepared because a prerequisite is missing — classically, the artifact cannot be exercised because deployment infrastructure does not exist yet — that is a **blocker**, not an `awaiting-test` pause. The subagent follows the slice-builder's **Blocker detection & escalation** instead: classify the blocker, write the first-class `blocked` state (`Blocked-status: testing`), write `.craft/handoff.md` with `Status: awaiting-block-decision`, and stop — rather than writing the `awaiting-test` handoff for an artifact that cannot be run.
+
 ---
 
 ## What This Command Does NOT Do
