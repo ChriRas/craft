@@ -33,7 +33,7 @@ Scope edges: no nested dependency stacks (flat edges only); the spawn-threshold 
 - [x] block-command-and-schema — `/craft:block` command + `blocked` frontmatter schema + spawn-boundary heuristic (incl. the Problem-Playbook baseline clause) — landed slice-023
 - [x] unblock-wiring — auto-resurface in `/craft:commit` + `resume | re-plan | abort` fork (via new `/craft:unblock`) + `(pending)` back-fill — landed slice-024
 - [x] surfacing — blocked slices in `/craft:prime` + `/craft:status` + orphan detection — landed slice-025
-- [ ] autonomous-handoff — blocker classification in `.craft/handoff.md` / `slice-builder` for `/craft:execute`
+- [x] autonomous-handoff — blocker classification in `.craft/handoff.md` / `slice-builder` for `/craft:execute` — landed slice-026
 
 ## Review Checkpoints
 
