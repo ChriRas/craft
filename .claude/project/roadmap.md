@@ -9,14 +9,11 @@
 
 | # | ID | Type | Size | Item |
 |---|----|------|------|------|
-| 1 | F2 | Feature | slice | Auto-prime fallback for context-dependent commands in an unprimed session + tool-availability guard |
-| 2 | F1 | Feature | slice/epic | Read-only context sources: a `Research/` dump folder + declared connected projects — readable, never writable |
-| 3 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
-| 4 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
+| 1 | F1 | Feature | slice/epic | Read-only context sources: a `Research/` dump folder + declared connected projects — readable, never writable |
+| 2 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
+| 3 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
 
 ## Notes per item
-
-**F2 — Auto-prime + tool-guard.** Classify commands: context-free (`onboard`, `prime`, `upgrade`) vs. context-dependent. A context-dependent command in an unprimed session auto-runs prime first (with notice). BUT gate on tools: context-mode (etc.) missing → loud `⚠️`, repair hint (`/ctx-doctor`, `/ctx-upgrade`, re-install), ask before proceeding. Needs a "primed" sentinel (marker file) — chat context isn't inspectable.
 
 **F1 — Read-only context sources.** Unifies "Research folder" + "connected projects": read-only sources declared at onboarding (or a `Research/` folder auto-detected). Agent may read/extract/copy-from, never write. Teeth = a PreToolUse hook blocking Write/Edit on declared paths; connected-project paths go into `additionalDirectories` read-only.
 
