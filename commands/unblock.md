@@ -35,7 +35,7 @@ This command is a **durable-state mutation** (it rewrites the slice plan's front
 
 - `Glob` `.claude/plans/*.md`. Identify the target **slice**:
   - `<slice-NNN>` argument given → that slice.
-  - Else exactly one `Status: blocked` slice → use it.
+  - Else exactly one `Status: blocked` slice → use it. <!-- craft:reads status=blocked -->
   - Else multiple blocked → ask which.
   - None blocked → *"No blocked slice to unblock."* and stop.
 - `Read` the chosen slice plan. Hold `Slice-ID`, `Status`, and the blocker frontmatter

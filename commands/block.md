@@ -143,6 +143,7 @@ Before writing, echo the assembled block back to the user — the four frontmatt
 the `## Blocker` prose — and get a one-word go-ahead. The agent proposes, never silently
 mutates (rules.md). On confirmation, edit the active slice plan:
 
+<!-- craft:writes status=blocked -->
 - Set `Status: blocked` in the frontmatter. **Leave the `Phase:` field untouched** — it is a
   static plan-time stamp; the resume point is captured in `Blocked-status` below.
 - Add the **on-demand** blocker frontmatter fields directly below the `Status:` line (they are

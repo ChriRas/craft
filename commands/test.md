@@ -19,6 +19,7 @@ Follow `skills/workflow/SKILL.md` Phase 5 mechanics (the three sub-steps 5a / 5b
 
 ### 1. Locate active slice
 
+<!-- craft:reads status=testing -->
 - `Glob` `.claude/plans/*.md`. Expect exactly one in `Status: testing` or `implementing`. If multiple, ask the user which slice. If none, stop with `No slice ready for testing. Run /craft:build first or /craft:plan to start a new slice.`
 
 ### 2. Load slice plan
@@ -97,6 +98,7 @@ Render this prompt with its full legend — each letter, its meaning, and its ne
 
 #### If `[W]` Works
 
+<!-- craft:writes status=review -->
 - Update `Status: review` in the slice plan.
 - Emit: `✓ Phase 5 passed. Recommended next: /craft:recap.`
 - Stop.
@@ -178,7 +180,7 @@ When invoked by the `slice-builder` subagent during an autonomous `/craft:execut
 
 0. Verify the slice plan is at `Status: testing` (set by `/craft:build` on clean Phase-4 completion). If any other status, write `.craft/handoff.md` with `Status: failure` and a one-line note "Out-of-band slice state — expected `testing`, found `<X>`" and stop. This catches a slipped Phase-4 transition before it pollutes Phase 5.
 1. Run 5a (Demo-Setup) and write its block to `.craft/handoff.md` inside the slice worktree with `Status: awaiting-test` and the trigger / try-this / expected-effect block embedded.
-2. Update the slice plan's `Status: paused` and append a Pause Note: *"Awaiting human Phase-5 exercise (subagent-invoked)."*
+2. <!-- craft:writes status=paused --> Update the slice plan's `Status: paused` and append a Pause Note: *"Awaiting human Phase-5 exercise (subagent-invoked)."*
 3. Return control to the orchestrator. The orchestrator surfaces the handoff in the final "epic partially complete" block; the user resumes the slice via `/craft:checkout <slice-id>` + `/craft:continue` after exercising the artifact.
 
 The subagent does **not** fabricate the W/B/U answer — sub-step 5c always requires a human.

@@ -35,8 +35,11 @@ Follow `skills/workflow/SKILL.md` Phase 4 mechanics and the autonomy matrix. Cod
 
 ### 3. Update Status
 
-If `Status` is `planning`, update it to `implementing` and write back.
+<!-- craft:reads status=planning -->
+<!-- craft:writes status=implementing -->
+If `Status` is `planning`, write `Status: implementing` back to the slice plan.
 
+<!-- craft:reads status=implementing -->
 If `Status` is already `implementing` or `paused`, resume without status change.
 
 ### 4. Load the stack-pack and detect specialists
@@ -125,6 +128,7 @@ When all sub-tasks are checked, emit a final bundle:
 Recommended next: /craft:test to start Phase 5 (you exercise the artifact).
 ```
 
+<!-- craft:writes status=testing -->
 Update `Status: testing` in the slice plan.
 
 ---
@@ -154,7 +158,7 @@ Update `Status: testing` in the slice plan.
 
 When the `slice-builder` subagent invokes `/craft:build` during an autonomous run, the main procedure runs unchanged — the build loop is mechanical and safe to automate. Four behavioral overrides apply:
 
-- **Self-verification trigger** (Procedure step 4) — instead of asking the human "Should we enter `/craft:debug` mode?" on a 2nd same-symptom fix attempt, write `.craft/handoff.md` in the worktree with `Status: awaiting-protocol`, set the slice plan `Status: paused` plus a Pause Note describing the recurring symptom, and stop. The subagent does not negotiate a verification protocol with no human present.
+- **Self-verification trigger** (Procedure step 4) — instead of asking the human "Should we enter `/craft:debug` mode?" on a 2nd same-symptom fix attempt, write `.craft/handoff.md` in the worktree with `Status: awaiting-protocol` (a handoff-file status, not a slice-plan one), <!-- craft:writes status=paused --> set the slice plan `Status: paused` plus a Pause Note describing the recurring symptom, and stop. The subagent does not negotiate a verification protocol with no human present.
 - **Outside-scope edits** (Procedure step 3 / Error Handling row 5) — instead of asking the human for approval at Level 1, write a handoff with `Status: awaiting-scope-decision` and stop. The plan boundary is a contract; the subagent never expands scope unilaterally.
 - **Out-of-scope blocker** (Problem-Playbook: an unforeseen dependency that exceeds minimal in-slice work) — when a *whole prerequisite* is missing (infra/API/service), or a `decision` / `access` / `external` wait stands in the way per the spawn-boundary heuristic, this is a blocker, not a scope-spill: follow the slice-builder's **Blocker detection & escalation** — classify, write the first-class `blocked` state, write `.craft/handoff.md` with `Status: awaiting-block-decision`, and stop. (The distinction from *Outside-scope edits*: that is permission to touch an unnamed file; this is a missing unit of work or a direction call the subagent must never make.)
 - **Bundle countdowns** — the "[continuing in 3s — type 'pause' to stop]" line is omitted in subagent output. There is no human to type during the countdown.

@@ -17,8 +17,48 @@ Follow `skills/workflow/SKILL.md` Phase 7 mechanics. **Max 2–3 refactor items 
 
 > **Ensure-primed gate** — before the checks below, if the session marker `.claude/plans/.primed` is absent, emit *"Session not primed — running /craft:prime first"*, run `/craft:prime` (it loads project context, verifies the four required tools, and writes the marker), then resume this command. Silent no-op when the marker is already present. Defined in `skills/workflow/SKILL.md` → **Session Priming Gate**.
 
-- `Glob` `.claude/plans/*.md`. Expect a slice in `Status: refactoring` (or `review` if jumping here directly after Phase 6).
+**Phase-7-dropped gate — runs FIRST, before any status write.** Read the `## Workflow Rules`
+section of `.claude/project/rules.md` and apply the **Phase-7-dropped rule** defined in
+`skills/workflow/SKILL.md` (Phase Transition Rules). If the project drops Phase 7, this command
+has no seat — but it still may not move a slice that has not reached the hand-off.
+
+`Glob` `.claude/plans/*.md` and check the active slice's `Status:`:
+
+- **`review` / `reviewing` / `refactoring`** — the slice is at (or past) the Phase-6 hand-off, so
+  the skip applies. Append `Phase 7 skipped (project rule)` to its `## Decisions Made During This
+  Slice`, and
+
+  <!-- craft:writes status=reviewing when=phase7-dropped -->
+  set `Status: reviewing`, then stop with
+
+  ```
+  Phase 7 is dropped by this project's rules.md — skipping. Status: reviewing.
+  Recommended next: /craft:review
+  ```
+
+- **any other status** (`planning`, `implementing`, `testing`, `committing`, `awaiting-*`), a
+  `blocked` / `paused` slice, or no active slice at all → **do not touch the status.** Stop with
+  `No slice ready for refactor. Run /craft:recap first.` The allow-list above is closed: anything
+  not on it lands here. A slice at `implementing` or `testing` has not passed the Phase-5 human
+  demo, and Phase 5 cannot be skipped (`skills/workflow/SKILL.md` → *Phase 5 cannot be skipped*).
+  Yanking it to `reviewing` would jump that gate.
+
+The gate is checked before the lookup below on purpose: once `/craft:recap` hands a Phase-7-dropped
+slice straight to Phase 8, that slice sits at `reviewing`, which the Phase-7-kept lookup does not
+expect — so a human running `/craft:refactor` out of habit would otherwise be told "No slice ready
+for refactor" and never reach this skip.
+
+**This gate is the single definition of the Phase-7-dropped behavior for this command.** Subagent
+Mode does not restate it — it delegates here (see below). The interactive and autonomous paths
+therefore cannot drift apart, which is exactly how B1 came about.
+
+Otherwise (Phase 7 kept):
+
+<!-- craft:reads status=refactoring -->
+- `Glob` `.claude/plans/*.md`. Expect a slice in `Status: refactoring`, or `review` if jumping here directly after Phase 6. **Not `reviewing`** — in a Phase-7-keeping project that can only mean Phase 8 has already started, and pulling such a slice back to `refactoring` would yank it out of a running review.
 - If none → stop with `No slice ready for refactor. Run /craft:recap first.`
+
+<!-- craft:writes status=refactoring when=phase7-kept -->
 - Update `Status: refactoring` if not already.
 
 Then load the declared stack-pack — `Read` the `## Personality` section of
@@ -84,6 +124,7 @@ Append to the slice plan's `## Decisions Made During This Slice` (so Phase 9 can
 
 ### 5. Advance to Phase 8 (Review)
 
+<!-- craft:writes status=reviewing when=phase7-kept -->
 After the chosen items are done and tests are green, update `Status: reviewing` and emit:
 
 ```
@@ -124,7 +165,13 @@ Recommended next: /craft:review
 
 When invoked by the `slice-builder` subagent during an autonomous run:
 
-- If the project's `rules.md` declares Phase 7 dropped (e.g., this very repo), skip cleanly — append `Phase 7 skipped (project rule)` to the slice plan's `## Decisions Made During This Slice` and advance to Phase 8.
+<!-- craft:delegates rule=phase7-dropped to=preflight -->
+- If the project's `rules.md` declares Phase 7 dropped (e.g., this very repo), apply the
+  **Phase-7-dropped gate defined in Pre-flight above** — the same gate, the same status
+  precondition, the same status write. No separate rule is restated here on purpose: two
+  descriptions of one contract, with only one of them maintained, is exactly the defect this slice
+  exists to fix (it is how B1 survived — the subagent path handled the drop while the interactive
+  path did not). One route, one marker, one row.
 - Otherwise, the subagent surveys the slice's code change for the three Thorstensen prompts on its own (no user dialog), proposes up to 2 candidates, and **does not apply them**. It writes the candidate list to `.craft/handoff.md` with `Status: awaiting-refactor-decision` and pauses the slice. The human picks at `/craft:checkout` time, then runs `/craft:refactor` interactively (or skips with a Decision-log note).
 
 Refactor must never be silently applied without human judgment — it changes structure, and unsupervised structural change is a known failure mode of agent-driven development.

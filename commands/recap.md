@@ -17,6 +17,7 @@ Follow `skills/workflow/SKILL.md` Phase 6 mechanics.
 
 > **Ensure-primed gate** — before the checks below, if the session marker `.claude/plans/.primed` is absent, emit *"Session not primed — running /craft:prime first"*, run `/craft:prime` (it loads project context, verifies the four required tools, and writes the marker), then resume this command. Silent no-op when the marker is already present. Defined in `skills/workflow/SKILL.md` → **Session Priming Gate**.
 
+<!-- craft:reads status=review -->
 - `Glob` `.claude/plans/*.md`. Find the slice in `Status: review` (or `testing` if Phase 5 just passed).
 - If no such slice → tell user `No slice ready for recap. Run /craft:test first.` and stop.
 
@@ -80,9 +81,24 @@ Store the draft in the slice plan under a new section `## Recap Draft`:
 
 ### 4. Confirm and advance
 
-Ask: *"Recap captured. Ready for Phase 7 (refactor)?"*
+Where Phase 6 hands off depends on whether the project keeps Phase 7. Read the
+`## Workflow Rules` section of `.claude/project/rules.md` and apply the **Phase-7-dropped
+rule** defined in `skills/workflow/SKILL.md` (Phase Transition Rules): the project drops
+Phase 7 when a `## Workflow Rules` bullet declares Phase 7 (Refactor) dropped or skipped.
 
-If yes, update `Status: refactoring` in the slice plan and emit `Recommended next: /craft:refactor`.
+<!-- craft:writes status=refactoring when=phase7-kept -->
+- **Phase 7 kept (default)** — ask: *"Recap captured. Ready for Phase 7 (refactor)?"* If yes,
+  update `Status: refactoring` in the slice plan and emit
+  `Recommended next: /craft:refactor`.
+
+<!-- craft:writes status=reviewing when=phase7-dropped -->
+- **Phase 7 dropped** — there is no refactor seat to hand to, so Phase 6 hands **directly to
+  Phase 8**. Ask: *"Recap captured. Ready for Phase 8 (review)?"* If yes, update
+  `Status: reviewing` in the slice plan and emit `Recommended next: /craft:review`.
+  Do not hand this slice to `/craft:refactor`: that command never runs in this project, so the
+  hand-off would dangle — the slice either sits in a phase that does not exist, or stays at
+  `review`, which `/craft:review` reads as pre-Phase-8 and answers with advisory mode (findings
+  only, Commit never gated). That is the slice-030 failure.
 
 If user wants to revise the recap, edit the `## Recap Draft` section in the slice plan based on their corrections.
 
@@ -105,8 +121,11 @@ Walk-through:
 [Diagram block if produced]
 
 Recap draft written to slice plan.
-Recommended next: /craft:refactor
+Recommended next: /craft:refactor      (Phase 7 kept  → Status: refactoring)
+Recommended next: /craft:review        (Phase 7 dropped → Status: reviewing)
 ```
+
+Emit whichever of the two `Recommended next:` lines applies — never both.
 
 ---
 

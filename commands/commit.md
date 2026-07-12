@@ -19,7 +19,8 @@ This command is a **durable-state mutation** (git history, project knowledge fil
 
 ### Step 1 — Locate active slice
 
-- `Glob` `.claude/plans/*.md`. Identify the slice expected to be in `Status: committing` (or `refactoring` if jumping here directly).
+<!-- craft:reads status=committing -->
+- `Glob` `.claude/plans/*.md`. Identify the slice expected to be in `Status: committing` (or `awaiting-approval`, completing a protected-main PR). Pre-Assertion A2 below aborts on anything else.
 
 This step is informational. The Pre-Assertions enforce that a single, valid slice plan is present.
 
@@ -53,6 +54,7 @@ This guards the Mode-Detection logic below — every mode requires `main` as the
 
 Parse the frontmatter of `<slice-plan>`. Required fields: `Slice-ID:`, `Status:`, `Phase:`.
 
+<!-- craft:reads status=awaiting-approval -->
 - `Status:` must be `committing` (a slice cleared by `/craft:review`) **or** `awaiting-approval` (completing an already-opened protected-main PR — Step 6, second invocation). Any other value → abort: *"Plan `<plan>` has `Status: <X>`. Phase 9 requires `committing` (reached when `/craft:review` clears the slice) or `awaiting-approval` (a protected-main PR waiting for its approval to be merged). Run `/craft:review` first (or, when `Status: awaiting-release`, `/craft:release` then the remaining phases)."*
 
 ### A3 — Working state matches the detected mode
@@ -284,7 +286,7 @@ this step only decides the *landing*.
   **First invocation** (slice `Status: committing`):
   1. `git push -u origin <branch>` (Level 0 — external).
   2. `gh pr create --base <trunk> --title "<slice/epic title>" --body "<What / Why / Commits summary>"`. Capture the PR number `#N` and URL. On the PR path there is no merge commit, so the slice archive's `## Commits` records the branch's own commit range (`<first>..<last>` on the branch) plus the PR `#N` — backfill `#N` into that line.
-  3. Set the slice plan `Status: awaiting-approval` and record `> PR: #N <url>` in the plan frontmatter — a fresh-context second invocation reads `#N` from there (failing that, derives it via `gh pr list --head <branch> --json number -q '.[0].number'`). Do **not** merge and do **not** run Step 7 — the plan file stays.
+  3. <!-- craft:writes status=awaiting-approval --> Set the slice plan `Status: awaiting-approval` and record `> PR: #N <url>` in the plan frontmatter — a fresh-context second invocation reads `#N` from there (failing that, derives it via `gh pr list --head <branch> --json number -q '.[0].number'`). Do **not** merge and do **not** run Step 7 — the plan file stays.
   4. Emit the awaiting-approval block (Output Format): the PR URL, that `main` is not merged, and the resume gesture — approve the PR on GitHub, then re-run `/craft:commit`.
 
   If `git push` or `gh pr create` fails here: do **not** set `awaiting-approval`; the commits +

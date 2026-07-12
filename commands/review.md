@@ -23,13 +23,13 @@ Follow `skills/workflow/SKILL.md` Phase 8 mechanics — in particular the findin
 
 - `Glob` `.claude/plans/*.md`.
 - If multiple slices → ask the user which one to review.
-- If none → stop with `No active slice to review. Run /craft:refactor first, or /craft:plan to start one.`
+- If none → stop with `No active slice to review. Run /craft:recap first (Phase 6 is what hands a slice to Review — via /craft:refactor only in a project that keeps Phase 7), or /craft:plan to start one.`
 
 ### 2. Determine the mode
 
 `/craft:review` runs in one of two modes, decided by the slice's `Status:`:
 
-- **Phase-8 mode** — `Status:` is `refactoring`, `reviewing`, or `committing` (the slice has reached the review phase). Full review: classify, fix bounded local edits in-phase, escalate the rest, gate Commit. Update `Status: reviewing` if not already.
+- **Phase-8 mode** — <!-- craft:reads status=reviewing --> `Status:` is `refactoring`, `reviewing`, or `committing` (the slice has reached the review phase). Full review: classify, fix bounded local edits in-phase, escalate the rest, gate Commit. <!-- craft:writes status=reviewing --> Update `Status: reviewing` if not already.
 - **Advisory mode** — `Status:` is any earlier value (`planning`, `implementing`, `testing`, `review`). This is an ad-hoc mid-flow review — the large-slice escape hatch. It **produces findings only**: it fixes nothing, writes no in-phase edits, and changes no `Status:`. Tell the user: `Ad-hoc advisory review — findings only, no fixes, no phase change.`
 
 ### 3. Load the declared stack-pack
@@ -128,7 +128,7 @@ If the slice plan has no `## Review Findings` section yet, append one.
 - **Advisory mode** — stop. Emit the findings report; do not touch `Status:`.
 - **Phase-8 mode** —
   - If any **Heavy + needs-rethinking** finding is open → Commit is **blocked**. Leave `Status: reviewing`. Emit the blocking finding(s) and the chosen route(s). The slice may not close until they are resolved and re-reviewed.
-  - If none → the review is **clear**. Update `Status: committing` and emit `Recommended next: /craft:commit`.
+  - If none → the review is **clear**. <!-- craft:writes status=committing --> Update `Status: committing` and emit `Recommended next: /craft:commit`.
 
 ---
 
@@ -179,7 +179,7 @@ No fixes applied, no phase change. Fold these into your ongoing work.
 
 | Situation | Behavior |
 |---|---|
-| No active slice plan | Stop; recommend `/craft:refactor` or `/craft:plan`. |
+| No active slice plan | Stop; recommend `/craft:recap` (or `/craft:refactor` in a Phase-7-keeping project), else `/craft:plan`. |
 | Multiple active slices | Ask the user which slice to review. |
 | `git diff HEAD` is empty (no slice delta) | Tell the user there is nothing to review; recommend confirming Phase 4 actually ran. |
 | The review subagent returns no structured findings | Re-run once with the rubric restated; if still unstructured, present the raw output and ask the user to classify. |

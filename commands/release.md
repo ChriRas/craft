@@ -48,6 +48,7 @@ built, not from inside a worktree."*
 ### A1 — Target slice resolved
 
 - If `<slice-NNN>` is given, `Glob` `.claude/plans/slice-<NNN>-*.md`.
+<!-- craft:reads status=awaiting-release -->
 - Otherwise `Glob` `.claude/plans/*.md` and select the single slice at
   `Status: awaiting-release`.
   - Zero → abort: *"No in-place slice is awaiting release. `/craft:release` only resumes a
@@ -91,6 +92,7 @@ On `[N]` → clean exit, no state change. On `[Y]` → continue.
 
 ### 2. Lift the halt
 
+<!-- craft:writes status=testing -->
 Set the slice plan `Status: testing` via `Edit` (resume into Phase 5). Do **not** commit,
 merge, or push — the changes stay uncommitted on the slice branch exactly as they were.
 

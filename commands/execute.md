@@ -263,7 +263,7 @@ When Phase 4 completes, `/craft:build`'s phase-end bundle will have recommended
 `/craft:test` — in in-place mode that recommendation is **superseded** by this halt; do
 **not** follow it and do **not** proceed to Phase 5 (`Status: testing`). Instead:
 
-1. Set the slice plan `Status: awaiting-release` — the dedicated in-place review-halt state.
+1. <!-- craft:writes status=awaiting-release --> Set the slice plan `Status: awaiting-release` — the dedicated in-place review-halt state.
 2. Release the lock (delete `.claude/plans/.execute.lock`).
 3. Emit the in-place halted block (see Output Format): the branch name, that the changes are
    uncommitted in the main checkout for IDE review, and the resume gesture

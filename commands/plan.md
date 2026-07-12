@@ -141,6 +141,8 @@ The answer fills the `Depends-On:` frontmatter field. Default is `[]` (no depend
 
 Use `templates/slice-plan.md.template`. Substitute:
 
+<!-- craft:writes status=planning -->
+
 - Title from `<feature-or-slice-name>`
 - `Slice-ID: slice-<NNN>`
 - `Started: <ISO date>`
@@ -195,7 +197,7 @@ Failure → *"⚠ Plan file missing or malformed at `<path>`. Inspect manually b
 The plan file must contain these section headers:
 
 - `## Trigger`
-- `## Observable Effect`
+- `## Effect`
 - `## Test Strategy`
 - `## Sub-Tasks`
 - `## Active Rule Overrides`

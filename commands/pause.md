@@ -30,6 +30,7 @@ If user provides nothing, the agent composes a minimal note from current state (
 
 ### 2. Update the slice plan
 
+<!-- craft:writes status=paused -->
 - Set `Status: paused` in the frontmatter.
 - Append (or overwrite) a `## Pause Note` section:
 
