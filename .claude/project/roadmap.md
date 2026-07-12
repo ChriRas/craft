@@ -10,9 +10,8 @@
 | # | ID | Type | Size | Item |
 |---|----|------|------|------|
 | 1 | B1 | Fix | slice | Phase-7-dropped projects can never reach `/craft:review`'s Phase-8 mode — `/craft:recap` only advances to `refactoring`, and only `/craft:refactor` sets `reviewing` |
-| 2 | F1 | Feature | slice/epic | Read-only context sources: a `Research/` dump folder + declared connected projects — readable, never writable |
-| 3 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
-| 4 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
+| 2 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
+| 3 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
 
 ## Notes per item
 
@@ -25,8 +24,6 @@ mode** — findings only, no in-phase fixes, no `Status:` change, Commit never g
 in slice-030 by setting `Status: reviewing` by hand. Candidate fix: `/craft:recap` advances to
 `reviewing` (not `refactoring`) when Phase 7 is dropped. Check the same gap for other
 project-configurable phase skips.
-
-**F1 — Read-only context sources.** Unifies "Research folder" + "connected projects": read-only sources declared at onboarding (or a `Research/` folder auto-detected). Agent may read/extract/copy-from, never write. Teeth = a PreToolUse hook blocking Write/Edit on declared paths; connected-project paths go into `additionalDirectories` read-only.
 
 **F3 — Cleanup skill.** Epic. Novel core = fidelity check: strip/condense comments → fresh-context review must reconstruct the same information breadth (fixed "why does this exist / what decision does this encode" battery, diffed before/after) → write back on loss. Scope param repo/epic/slice; uses archive context; interactive; may drop now-irrelevant historical decisions.
 
