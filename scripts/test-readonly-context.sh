@@ -32,13 +32,24 @@ FIX="$(mktemp -d)"
 trap 'rm -rf "$FIX"' EXIT
 mkdir -p "$FIX/.claude/project" "$FIX/research" "$FIX/commands"
 
-# rules.md declares one external connected project (absolute fixture path).
+# rules.md declares two external connected projects: one plain, and one whose
+# declared path carries a ".." segment — the latter proves the guard normalizes
+# declared *roots* (not just the target), matching the helper's os.path.normpath.
 CONNECTED="$FIX/connected-ref"
+CONNECTED_TRAVERSE_DECL="$FIX/ref-parent/child/../real"   # normalizes to $FIX/ref-parent/real
+CONNECTED_TRAVERSE="$FIX/ref-parent/real"
+# A third bullet in "~/" form: guard (pure Bash) and helper (os.path.expanduser) must
+# expand it to the same root, or the helper grants read access to a path the guard
+# does not watch. Nothing is written under $HOME — the guard only decides on strings.
+HOME_DECL_RAW="~/craft-readonly-fixture"
+HOME_DECL="$HOME/craft-readonly-fixture"
 cat > "$FIX/.claude/project/rules.md" <<EOF
 # Rules
 ## Read-Only Context Sources (optional)
 > Reference material the agent may read but never write.
 - $CONNECTED
+- $CONNECTED_TRAVERSE_DECL
+- $HOME_DECL_RAW
 ## Self-Verification Settings (optional)
 - Max attempts: 5
 EOF
@@ -62,6 +73,34 @@ allow Read         file_path     "$FIX/research/x.md"                  "Read of 
 allow Read         file_path     "$CONNECTED/x.md"                     "Read of a connected project is allowed (write-tool gate)"
 allow Write        file_path     "$FIX/research-notes/x.md"            "Sibling research-notes/ is not a false-positive match"
 
+# traversal / normalization cases (slice-030): "." / ".." / redundant "/" are
+# resolved lexically before the prefix comparison.
+deny  Write file_path "$FIX/commands/../research/x.md" "Traversal into research (commands/../research/x) is denied after normalization"
+allow Write file_path "$FIX/research/../commands/x.md" "Traversal out of research (research/../commands/x) is allowed after normalization"
+deny  Write file_path "$FIX/research/./x.md"           "Dot segment (research/./x) is denied after normalization"
+deny  Write file_path "$FIX/research//x.md"            "Redundant slash (research//x) is denied after normalization"
+deny  Write file_path "$CONNECTED/sub/../x.md"         "Traversal within a declared connected project is denied after normalization"
+deny  Write file_path "$CONNECTED_TRAVERSE/x.md"       "Declared root carrying '..' is normalized, so a write under its canonical form is denied"
+deny  Write file_path "$HOME_DECL/x.md"                "Declared '~/' root is expanded, so a write under the real home path is denied"
+
+# guard↔helper normalizer agreement: the guard's own normalize_path (invoked via
+# --normalize) must match python3 os.path.normpath on a shared fixture set, so a
+# declared path is blocked by the guard exactly as the helper records it. Asserting
+# the real guard function (not a copy) is what prevents the two parsers drifting.
+# The fixtures deliberately include the inputs where a naive Bash normalizer *does*
+# deviate from normpath — empty string, the POSIX "//" root, an embedded newline,
+# whitespace and glob characters — since a tripwire that only covers the easy cases
+# is not a tripwire.
+echo "AGREEMENT:"
+for raw in \
+  "/a/b/../c" "/a/./b" "/a//b" "a/b/../../c" "research/../commands/x" \
+  "$FIX/commands/../research/x.md" "/x/.." "a/.." "./a/b" "/a/b/" \
+  "" "//a/b" "///a/b" "//" "/a b/c" "/a/*/b" "/a/.../b" $'/a\nb/c'; do
+  g="$(bash "$GUARD" --normalize "$raw")"
+  h="$(python3 -c 'import os,sys; print(os.path.normpath(sys.argv[1]))' "$raw")"
+  [[ "$g" == "$h" ]] && ok "normalizer agrees on '${raw//$'\n'/\\n}' → '${g//$'\n'/\\n}'" || bad "normalizer disagreement on '${raw//$'\n'/\\n}': guard='$g' helper='$h'"
+done
+
 # --- helper: check/apply/idempotency/preservation ----------------------------
 echo "HELPER:"
 # pre-seed settings with unrelated entries that must survive the merge.
@@ -80,6 +119,18 @@ python3 - "$FIX/.claude/settings.local.json" "$CONNECTED" <<'PY' && ok "existing
 import json, sys
 d = json.load(open(sys.argv[1])); ad = d["permissions"]["additionalDirectories"]
 sys.exit(0 if ("/pre/existing" in ad and sys.argv[2] in ad and d["permissions"]["allow"] == ["Bash(git status:*)"]) else 1)
+PY
+
+# Pipeline agreement: the roots the helper *records* must be the roots the guard
+# *blocks* — the normalizer-agreement loop above only proves normalize_path itself
+# agrees, not that the bullet→root pipeline (tilde expansion, relative-join,
+# normalization) lands on the same string on both sides. The guard's deny cases
+# above prove it blocks $CONNECTED_TRAVERSE and $HOME_DECL; this asserts the helper
+# grants read access to exactly those, and not to some divergent spelling.
+python3 - "$FIX/.claude/settings.local.json" "$CONNECTED_TRAVERSE" "$HOME_DECL" <<'PY' && ok "helper records the same roots the guard blocks ('..'-bearing and '~/' bullets)" || bad "guard↔helper pipeline divergence: a declared root is readable but unguarded"
+import json, sys
+ad = json.load(open(sys.argv[1]))["permissions"]["additionalDirectories"]
+sys.exit(0 if (sys.argv[2] in ad and sys.argv[3] in ad) else 1)
 PY
 
 out="$(CLAUDE_PROJECT_DIR="$FIX" bash "$HELPER" --check)"; rc=$?
