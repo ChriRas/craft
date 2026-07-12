@@ -12,6 +12,8 @@
 
 A Claude Code plugin that wraps a disciplined, language-agnostic coding workflow into reusable slash commands and skills. Drop it into any repository — shell script, library, REST API, full-stack web app, data pipeline, infrastructure code — and the agent will guide you through the same 9-phase loop with the same controls every time.
 
+📖 **Documentation:** [chriras.github.io/craft](https://chriras.github.io/craft/) — illustrated guide to the 9-phase loop, every branch-off, and all configuration knobs (English & German).
+
 > **Core principle:** Universality with constant control. Same workflow, same control surface, regardless of stack.
 
 ---
