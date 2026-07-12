@@ -14,9 +14,16 @@
 - **Language:** Markdown (commands in `commands/`, skills in `skills/`) + JSON
   (`.claude-plugin/plugin.json`, `marketplace.json`); Bash for `hooks/`.
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate`. The read-only context guard + sync helper have a
-  standalone Bash harness: `bash scripts/test-readonly-context.sh` (it also
-  asserts the guard↔helper normalizer agreement — keep it green).
+  `claude plugin validate`. Two standalone Bash harnesses cover what is
+  mechanically checkable; keep both green:
+  `bash scripts/test-readonly-context.sh` (read-only guard + sync helper, incl.
+  the guard↔helper normalizer agreement) and
+  `bash scripts/test-workflow-status-graph.sh` — asserts the phase graph declared in
+  `skills/workflow/SKILL.md` is closed under both Phase-7 configurations, that the
+  commands' `craft:writes` / `craft:reads` markers and the table agree **in both
+  directions**, and that `/craft:continue` routes each status to the graph's consumer.
+  Markers are the contract: prose is not checked, because a grep cannot tell a
+  prescription from a prohibition.
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.

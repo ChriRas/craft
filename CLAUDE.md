@@ -30,11 +30,21 @@ claude plugin validate
 # asserts that the guard's normalize_path and the helper's os.path.normpath agree,
 # which is the only thing keeping the two implementations from drifting. Keep green.
 bash scripts/test-readonly-context.sh
+
+# Workflow phase-transition graph — the Status graph declared in skills/workflow/SKILL.md
+# (## Phase Transition Rules) must stay closed under both Phase-7 configurations, the
+# commands' <!-- craft:writes --> / <!-- craft:reads --> markers must match the table in
+# BOTH directions, and /craft:continue must route each status to the graph's consumer.
+# The markers are the contract — prose is deliberately NOT checked, because a grep cannot
+# tell a prescription from a prohibition. Mark any new Status write, or the graph goes
+# blind. Run after touching any command's Status handling. Keep green.
+bash scripts/test-workflow-status-graph.sh
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The one exception is the harness
-above, which covers the `hooks/` + `scripts/` Bash surface.
+commands/skills, JSON manifests, and Bash hooks. The two harnesses above are the
+exception: they cover the `hooks/` + `scripts/` Bash surface and the phase-transition
+graph the command Markdown encodes.
 
 ## Workflow
 
