@@ -161,6 +161,45 @@ Even if automated tests in Phase 4 are green, Phase 5 must run. This is constitu
 
 **Test impact:** If refactor breaks tests, the test fixes belong to the same slice.
 
+#### The Phase-7-dropped rule
+
+Phase 7 is the one phase a project may drop wholesale — some codebases (a plugin shipping
+Markdown assets, say) rarely accumulate structure worth improving mid-slice. **A project drops
+Phase 7 when a bullet in its `rules.md` `## Workflow Rules` section declares Phase 7 (Refactor)
+dropped or skipped.** This is the single definition; `/craft:recap`, `/craft:refactor` and
+`/craft:execute` resolve the drop against it rather than each carrying their own test.
+`/craft:continue` deliberately does **not** consult it — it routes a `review` slice to
+`/craft:recap` in *both* configurations, because `review` is an advisory status for
+`/craft:review` and routing there directly would leave Commit ungated. Being
+config-independent is a property worth stating, not an omission.
+
+The drop **re-routes the phase graph** — it does not merely skip a step:
+
+| | Phase 7 kept (default) | Phase 7 dropped |
+|---|---|---|
+| Phase 6 (`/craft:recap`) hands to | Phase 7, writing `Status: refactoring` | **Phase 8, writing `Status: reviewing`** |
+| `Status: refactoring` is consumed by | `/craft:refactor` | *nothing* — it is an **orphan status** |
+| `Status: reviewing` is produced by | `/craft:refactor` | **`/craft:recap`** |
+| `/craft:refactor` invoked anyway | runs the Thorstensen prompts | skips cleanly **if the slice is at `review` / `reviewing` / `refactoring`**: records `Phase 7 skipped (project rule)`, sets `Status: reviewing`, routes to `/craft:review`. At any earlier status it must **not** touch the status — a slice at `implementing` / `testing` has not passed the Phase-5 human demo, and Phase 5 cannot be skipped. |
+
+**Why this matters — the actual failure mode.** In a Phase-7-dropped project, the *only* route out
+of Phase 6 leads to `/craft:refactor`, a command the project never runs. There is then no good
+move: follow the recommendation and the slice sits in a phase that does not exist; decline it and
+the slice stays at `Status: review`, which `/craft:review` reads as a pre-Phase-8 status and
+answers with **advisory mode** — findings only, no in-phase fixes, Commit never gated. That is
+precisely what happened in slice-030, where the status had to be repaired by hand before Phase 8
+would engage.
+
+Note what is *not* the mechanism: `refactoring` is **not** an advisory status.
+`commands/review.md` lists it among the Phase-8-mode statuses, and rightly so — a slice mid-Phase-7
+is review-ready. The damage is done by the dangling hand-off, not by that status value.
+
+**The invariant:** every **marked** status write must have a consumer under the project's active
+configuration. `scripts/test-workflow-status-graph.sh` asserts it — see the marker contract below,
+which is what makes the assertion real rather than a claim about prose. The qualifier is load-
+bearing and stated deliberately: the harness sees markers, not prose, so an *unmarked* write is
+invisible to it. Mark every new status write, or the graph goes blind on that one.
+
 ---
 
 ### Phase 8 — Review
@@ -236,6 +275,119 @@ Slice: slice-NNN
 - No separate `Phase:` footer — `type` already signals phase (`refactor` ≈ Phase 7, `test` ≈ Phase 5, `feat`/`fix` ≈ Phase 4)
 
 **Enforcement:** Recommendation only, not blocking. Real development is non-linear; the agent suggests a corrected message but never blocks the commit on style.
+
+---
+
+## Phase Transition Rules
+
+The slice plan's `Status:` is the execution token that moves a slice between phases: one command
+**produces** it, another **consumes** it. The table below is the **canonical graph** — the single
+source of truth that the phase commands implement.
+
+Keep the table and the commands in lockstep. If you change a `Status:` write in a command, change
+the row too; the harness fails when they diverge. The `Config` column is `any` (the row is live in
+every project) or `phase7-kept` / `phase7-dropped` (the row is live only under that setting — see
+**The Phase-7-dropped rule** above).
+
+### The marker contract
+
+A command is prose, and prose is not checkable: a grep for `` `Status: refactoring` `` cannot tell
+the sentence that *prescribes* the write from the one that *forbids* it. The first version of this
+harness learned that the hard way — deleting a whole routing branch left it green, because the
+status literal survived in a "never write this" sentence. So the affirmative writes and reads are
+marked, and **only the markers count**:
+
+- `<!-- craft:writes status=<x> [when=<config>] -->` — placed immediately above the instruction
+  that actually writes `Status: <x>`. Optional `when=` scopes it to `phase7-kept` /
+  `phase7-dropped`.
+- `<!-- craft:reads status=<x> -->` — placed on the pre-flight or routing step that *accepts* a
+  slice at `Status: <x>`.
+
+A prohibition carries no marker and therefore proves nothing — which is the point. Three further
+rules exist because each was, at some point, the hole a reviewer walked through:
+
+- a `craft:writes` marker must sit **on or within 6 lines above** the `Status: <x>` instruction it
+  describes, and markers inside **fenced code blocks are ignored** — a marker parked in an example
+  under "What This Command Does NOT Do" once kept a deleted gate green;
+- **exactly one** `craft:writes` marker per table row — not "at least one". With two markers on one
+  row, either can be deleted and the other covers for it, so the row binds neither;
+- a command must not restate another's rule. `/craft:refactor`'s Subagent-Mode section **delegates**
+  to the single Phase-7 gate instead of carrying its own copy, and marks that with a
+  `<!-- craft:delegates rule=<r> to=<target> -->` token. The harness asserts the token is present
+  **and** that the delegating section declares no status write of its own — neither a `craft:writes`
+  marker nor a `Status: <x>` literal in its prose. Duplication is how B1 survived, and a duplicated
+  rule writes nothing the status checks would otherwise see. **What the token does not do:** it
+  binds its own presence, not the meaning of the prose beneath it. A section that keeps the token
+  and negates the rule in words still passes — the same residual as marker drift, and it is stated
+  here because an earlier version of this document claimed the token had closed it. It had not: the
+  negation never lived in a phrase's absence, it lives in the prose.
+
+The contract runs **both ways**, and that is what makes the invariant real:
+
+1. every marker in `commands/` must have a matching row in the table, and
+2. every table row must have its producer's `craft:writes` and its consumer's `craft:reads` marker.
+
+So a status a command writes but the table forgets is a failure, not a blind spot; and a row whose
+command silently lost its write is a failure too. `scripts/test-workflow-status-graph.sh` then
+reasons about closure on the table — `/craft:commit` reachable from `/craft:plan`, no live row
+handing to a command the configuration disables — and checks the two directions above.
+
+The marker's weakness is honest and worth naming: it can drift from the prose beneath it. Keep it
+adjacent to the instruction it describes, so the drift is visible to a reader in one glance.
+
+<!-- craft:transitions -->
+
+| Producer | Status | Consumer | Config |
+|---|---|---|---|
+| `/craft:plan` | `planning` | `/craft:build` | any |
+| `/craft:build` | `implementing` | `/craft:build` | any |
+| `/craft:build` | `testing` | `/craft:test` | any |
+| `/craft:build` | `paused` | `/craft:continue` | any |
+| `/craft:test` | `review` | `/craft:recap` | any |
+| `/craft:test` | `paused` | `/craft:continue` | any |
+| `/craft:recap` | `refactoring` | `/craft:refactor` | phase7-kept |
+| `/craft:recap` | `reviewing` | `/craft:review` | phase7-dropped |
+| `/craft:refactor` | `refactoring` | `/craft:refactor` | phase7-kept |
+| `/craft:refactor` | `reviewing` | `/craft:review` | phase7-kept |
+| `/craft:refactor` | `reviewing` | `/craft:review` | phase7-dropped |
+| `/craft:review` | `reviewing` | `/craft:review` | any |
+| `/craft:review` | `committing` | `/craft:commit` | any |
+| `/craft:execute` | `awaiting-release` | `/craft:release` | any |
+| `/craft:release` | `testing` | `/craft:test` | any |
+| `/craft:commit` | `awaiting-approval` | `/craft:commit` | any |
+| `/craft:block` | `blocked` | `/craft:unblock` | any |
+| `/craft:pause` | `paused` | `/craft:continue` | any |
+
+<!-- /craft:transitions -->
+
+Three notes the table cannot carry itself:
+
+- `/craft:refactor` produces `reviewing` under **both** configs, but by **two different routes**,
+  so it gets **two rows**: in a Phase-7-keeping project at the end of its refactor items
+  (`when=phase7-kept`), and in a Phase-7-dropped project via the skip gate (`when=phase7-dropped`).
+  They must stay separate: with a single `any` row, either marker alone satisfied it, and the skip
+  gate could be deleted *together with its marker* while the harness stayed green — the guard would
+  bind the file, not the fix.
+- Some commands **produce the status they also consume** (`/craft:build` → `implementing`,
+  `/craft:refactor` → `refactoring`, `/craft:review` → `reviewing`): they normalize a slice that
+  arrives one step early. Those are real rows, not artifacts.
+- `committed` has **no row**, and that is correct: no command ever writes it. `/craft:commit`
+  deletes the plan file instead — the archive and the git history are the record. It survives in
+  the plan template and in a few abort checks as a legacy value.
+
+**Not in this graph** — three legitimate exclusions, all unmarked and unrowed on purpose. (There
+was briefly a fourth, and it was *not* on purpose: `/craft:refactor`'s Subagent-Mode section
+restated the Phase-7-dropped rule and wrote `reviewing` a second time, unmarked and unrowed. It is
+gone — the subagent section now delegates to the one gate via a `craft:delegates` token, and the
+harness asserts the token's presence and that the section carries no status write of its own.)
+
+- the `.craft/handoff.md` statuses (`awaiting-test`, `awaiting-protocol`, `awaiting-scope-decision`,
+  `awaiting-block-decision`, `awaiting-rethink-decision`, `awaiting-refactor-decision`, `failure`)
+  — they live in the worktree handoff file, not in a slice plan, and are a separate namespace;
+- `/craft:unblock`'s restore-write — it writes back the *recorded* `Blocked-status`, a variable, not
+  a fixed value, so it has no single edge to declare;
+- `/craft:epic`'s `Status: planning` — that is written into an **epic** plan, a different artifact
+  with its own lifecycle.
 
 ---
 
