@@ -39,12 +39,21 @@ bash scripts/test-readonly-context.sh
 # tell a prescription from a prohibition. Mark any new Status write, or the graph goes
 # blind. Run after touching any command's Status handling. Keep green.
 bash scripts/test-workflow-status-graph.sh
+
+# Docs-site consistency — docs/index.html (the bilingual GitHub Pages site) must stay
+# in sync with the plugin surface: version badge == plugin.json, asset counts ==
+# directory listings, EN/DE parity, anchors, tag balance. This is the staleness
+# detector for the published docs. The editorial contract and regeneration guide live
+# in .claude/skills/docs-site/SKILL.md. Run after touching docs/ or any plugin asset.
+# Keep green.
+bash scripts/test-docs-site.sh
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The two harnesses above are the
-exception: they cover the `hooks/` + `scripts/` Bash surface and the phase-transition
-graph the command Markdown encodes.
+commands/skills, JSON manifests, and Bash hooks. The three harnesses above are the
+exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
+graph the command Markdown encodes, and the published docs-site's sync with the
+plugin surface.
 
 ## Workflow
 
