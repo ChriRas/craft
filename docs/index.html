@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRAFT — Coding with Rules, Autonomy, Feedback, Tests</title>
+<meta name="description" content="CRAFT is a Claude Code plugin: a 9-phase coding loop with explicit knowledge management, autonomy controls, vertical slicing and bug verification.">
+<style>
+:root{
+  --bg:#0a0e14; --bg-panel:#0d1117; --bg-elev:#161b22; --bg-code:#11161d;
+  --border:#30363d; --border-dim:#21262d;
+  --fg:#c9d1d9; --fg-bright:#e6edf3; --fg-dim:#8b949e; --fg-faint:#6e7681;
+  --green:#3fb950; --green-dim:#238636; --amber:#d29922; --cyan:#58a6ff;
+  --red:#f85149; --purple:#bc8cff; --teal:#39c5cf;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Monaco,"Cascadia Code","Source Code Pro","Fira Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+body{background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14.5px;line-height:1.65;
+  background-image:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(63,185,80,.07),transparent);}
+[data-lang="de"] .en{display:none!important}
+[data-lang="en"] .de{display:none!important}
+a{color:var(--cyan);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+/* ---- top nav ---- */
+nav{position:sticky;top:0;z-index:50;background:rgba(10,14,20,.92);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--border-dim);}
+nav .wrap{display:flex;align-items:center;gap:14px;height:48px;overflow-x:auto;white-space:nowrap}
+nav .brand{color:var(--green);font-weight:700;letter-spacing:.5px}
+nav .brand::before{content:"❯ ";color:var(--fg-dim)}
+nav a.nl{color:var(--fg-dim);font-size:12.5px}
+nav a.nl:hover{color:var(--fg-bright);text-decoration:none}
+.lang-switch{margin-left:auto;display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;flex:none}
+.lang-btn{background:none;border:none;color:var(--fg-dim);font-family:var(--mono);font-size:12px;
+  padding:4px 10px;cursor:pointer}
+.lang-btn.active{background:var(--green-dim);color:#fff}
+/* ---- hero ---- */
+header.hero{padding:72px 0 40px;text-align:center}
+.hero h1{font-size:clamp(34px,6vw,58px);color:var(--fg-bright);letter-spacing:2px}
+.hero h1 .cursor{display:inline-block;width:.55em;height:1em;background:var(--green);
+  vertical-align:-.12em;margin-left:6px;animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.hero .acronym{margin-top:10px;color:var(--green);font-size:15px;letter-spacing:1px}
+.hero .tagline{max-width:760px;margin:18px auto 0;color:var(--fg-dim);font-size:15px}
+.hero .install{display:inline-block;margin-top:28px;background:var(--bg-elev);border:1px solid var(--border);
+  border-radius:8px;padding:10px 18px;color:var(--fg-bright);font-size:13.5px;text-align:left}
+.hero .install .p{color:var(--green)}
+.badges{margin-top:16px;color:var(--fg-faint);font-size:12px}
+/* ---- terminal window sections ---- */
+section{margin:56px 0}
+.term{background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;overflow:hidden;
+  box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.term-bar{display:flex;align-items:center;gap:8px;background:var(--bg-elev);
+  border-bottom:1px solid var(--border-dim);padding:9px 14px}
+.dot{width:12px;height:12px;border-radius:50%}
+.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+.term-title{margin-left:8px;color:var(--fg-faint);font-size:12px}
+.term-body{padding:26px 28px}
+@media(max-width:640px){.term-body{padding:18px 14px}}
+h2{color:var(--fg-bright);font-size:21px;margin-bottom:6px}
+h2::before{content:"❯ ";color:var(--green)}
+h3{color:var(--fg-bright);font-size:16px;margin:26px 0 8px}
+h3::before{content:"## ";color:var(--fg-faint)}
+p{margin:10px 0}
+.dim{color:var(--fg-dim)}
+.small{font-size:12.5px}
+ul,ol{margin:10px 0 10px 22px}
+li{margin:4px 0}
+code,kbd{background:var(--bg-code);border:1px solid var(--border-dim);border-radius:4px;
+  padding:1px 6px;font-family:var(--mono);font-size:.92em;color:var(--fg-bright)}
+pre{background:var(--bg-code);border:1px solid var(--border-dim);border-radius:8px;
+  padding:14px 16px;overflow-x:auto;font-size:13px;line-height:1.55;margin:14px 0}
+pre code{background:none;border:none;padding:0}
+.cmt{color:var(--fg-faint)}
+.grn{color:var(--green)}.amb{color:var(--amber)}.cyn{color:var(--cyan)}
+.rd{color:var(--red)}.ppl{color:var(--purple)}.tl{color:var(--teal)}
+/* ---- tables ---- */
+.tblwrap{overflow-x:auto;margin:14px 0}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{border:1px solid var(--border-dim);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:var(--bg-elev);color:var(--fg-bright);white-space:nowrap}
+tr:nth-child(even) td{background:rgba(255,255,255,.015)}
+td code{white-space:nowrap}
+/* ---- pills & badges ---- */
+.pill{display:inline-block;border:1px solid;border-radius:999px;padding:0 9px;font-size:12px;white-space:nowrap}
+.pill.st{border-color:var(--cyan);color:var(--cyan)}
+.pill.halt{border-color:var(--amber);color:var(--amber)}
+.pill.bad{border-color:var(--red);color:var(--red)}
+.lvl{display:inline-block;border-radius:4px;padding:0 7px;font-size:11.5px;font-weight:700;color:#0a0e14;white-space:nowrap}
+.lvl.l0{background:var(--red)}.lvl.l1{background:var(--amber)}.lvl.l2{background:var(--teal)}.lvl.l3{background:var(--green)}
+/* ---- legend / cards ---- */
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:12.5px;color:var(--fg-dim)}
+.legend .sw{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:16px 0}
+.card{background:var(--bg-elev);border:1px solid var(--border-dim);border-radius:8px;padding:14px 16px}
+.card h4{color:var(--green);font-size:13.5px;margin-bottom:6px}
+.card p{font-size:12.5px;color:var(--fg-dim);margin:0}
+/* ---- svg ---- */
+.figwrap{overflow-x:auto;margin:18px 0;background:var(--bg-code);border:1px solid var(--border-dim);
+  border-radius:8px;padding:14px}
+.figwrap svg{display:block;min-width:640px;width:100%;height:auto;font-family:var(--mono)}
+.figcap{font-size:12px;color:var(--fg-faint);margin-top:8px;text-align:center}
+footer{border-top:1px solid var(--border-dim);margin-top:70px;padding:28px 0 46px;
+  color:var(--fg-faint);font-size:12.5px;text-align:center}
+.toc-cols{columns:2;column-gap:30px;font-size:13px}
+@media(max-width:640px){.toc-cols{columns:1}}
+/* ---- terminal shells keep the dark palette in BOTH themes ---- */
+pre,.figwrap,.hero .install{
+  --fg:#c9d1d9;--fg-bright:#e6edf3;--fg-dim:#8b949e;--fg-faint:#6e7681;
+  --green:#3fb950;--amber:#d29922;--cyan:#58a6ff;--red:#f85149;--purple:#bc8cff;--teal:#39c5cf;
+  --border-dim:#21262d;--bg-code:#11161d;
+  color:var(--fg)}
+/* ---- light theme (follows the OS setting automatically) ---- */
+@media (prefers-color-scheme: light){
+  :root{--bg:#f6f8fa;--bg-panel:#ffffff;--bg-elev:#f2f4f7;--bg-code:#eaeef2;
+    --border:#d0d7de;--border-dim:#d8dee4;
+    --fg:#2f363d;--fg-bright:#1f2328;--fg-dim:#57606a;--fg-faint:#6e7781;
+    --green:#1a7f37;--green-dim:#2da44e;--amber:#9a6700;--cyan:#0969da;
+    --red:#cf222e;--purple:#8250df;--teal:#1b7c83}
+  body{background-image:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(26,127,55,.06),transparent)}
+  nav{background:rgba(246,248,250,.92)}
+  .term{box-shadow:0 8px 30px rgba(140,149,159,.18)}
+  tr:nth-child(even) td{background:rgba(0,0,0,.02)}
+  .lvl{color:#fff}
+  pre,.figwrap,.hero .install{background:#0d1117;border-color:#30363d}
+}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap">
+  <span class="brand">craft</span>
+  <a class="nl" href="#intro"><span class="de">Idee</span><span class="en">Idea</span></a>
+  <a class="nl" href="#loop">Loop</a>
+  <a class="nl" href="#quickstart">Quickstart</a>
+  <a class="nl" href="#turns"><span class="de">Abbiegungen</span><span class="en">Branch-offs</span></a>
+  <a class="nl" href="#autonomy"><span class="de">Autonomie</span><span class="en">Autonomy</span></a>
+  <a class="nl" href="#execution">Execute</a>
+  <a class="nl" href="#config"><span class="de">Konfiguration</span><span class="en">Configuration</span></a>
+  <a class="nl" href="#knowledge"><span class="de">Wissen</span><span class="en">Knowledge</span></a>
+  <a class="nl" href="#commands">Commands</a>
+  <a class="nl" href="#architecture"><span class="de">Architektur</span><span class="en">Architecture</span></a>
+  <a class="nl" href="https://github.com/ChriRas/craft" target="_blank" rel="noopener">GitHub ↗</a>
+  <div class="lang-switch">
+    <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="de" onclick="setLang('de')">DE</button>
+  </div>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <h1>CRAFT<span class="cursor"></span></h1>
+  <div class="acronym">Coding with Rules · Autonomy · Feedback · Tests</div>
+  <p class="tagline de">Ein Claude-Code-Plugin, das einen disziplinierten, sprach&shy;unabhängigen Coding-Workflow
+    in wiederverwendbare Slash-Commands und Skills verpackt: ein 9-Phasen-Loop mit explizitem Wissensmanagement,
+    Autonomie-Stufen, Vertical Slicing und Bug-Verifikation — identisch für Shell-Skripte, Libraries, REST-APIs,
+    Full-Stack-Apps und Infrastruktur-Code.</p>
+  <p class="tagline en">A Claude Code plugin that wraps a disciplined, language-agnostic coding workflow into
+    reusable slash commands and skills: a 9-phase loop with explicit knowledge management, autonomy controls,
+    vertical slicing and bug verification — identical across shell scripts, libraries, REST APIs, full-stack
+    apps and infrastructure code.</p>
+  <div class="install">
+    <span class="cmt"># <span class="de">Installation in Claude Code</span><span class="en">install inside Claude Code</span></span><br>
+    <span class="p">❯</span> /plugin marketplace add https://github.com/ChriRas/craft<br>
+    <span class="p">❯</span> /plugin install craft@craft<br>
+    <span class="p">❯</span> /craft:onboard <span class="cmt"># <span class="de">einmal pro Projekt</span><span class="en">once per project</span></span>
+  </div>
+  <div class="badges">v1.3.0 · MIT · 24 commands · 8 skills · 2 agents · 3 hooks ·
+    <a href="https://github.com/ChriRas/craft">github.com/ChriRas/craft</a></div>
+</div></header>
+
+<main class="wrap">
+
+<!-- ================= INTRO ================= -->
+<section id="intro"><div class="term">
+  <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="term-title">~/craft — <span class="de">warum es CRAFT gibt</span><span class="en">why CRAFT exists</span></span></div>
+  <div class="term-body">
+    <h2><span class="de">Das Problem &amp; die Idee</span><span class="en">The problem &amp; the idea</span></h2>
+
+    <div class="de">
+      <p>Unstrukturiertes Agent-Coding scheitert auf zwei bekannte Arten: Der <strong>frei laufende Agent</strong>
+      verliert nach wenigen Iterationen die Richtung — er refactort funktionierenden Code, das Kontextfenster
+      gerät in die „Dumb Zone", und die Entscheidungen von gestern sind weg. Das <strong>Wasserfall-Gegenteil</strong>
+      überplant ein Feature, das noch niemand verstanden hat. CRAFT setzt dazwischen an:
+      <em>gleicher Workflow, gleiche Kontrolloberfläche — egal welcher Stack.</em></p>
+      <p>Das Kernprinzip: <strong>menschliche Kontrolle konzentriert an den harten Phasen</strong> (Planung, Recap,
+      Review, eskalierte Bugs) — die Ausführung wird an sichere, parallele Agent-Arbeit delegiert.</p>
+    </div>
+    <div class="en">
+      <p>Unstructured agent coding fails in two familiar ways: the <strong>free-running agent</strong> loses
+      direction after a few iterations — it refactors working code, the context window enters its "dumb zone",
+      and yesterday's decisions are gone. The <strong>waterfall opposite</strong> over-plans a feature nobody
+      understands yet. CRAFT sits in between:
+      <em>same workflow, same control surface — regardless of stack.</em></p>
+      <p>The core principle: <strong>human control concentrated at the hard phases</strong> (planning, recap,
+      review, escalated bugs) — execution is delegated to safe, parallel agent work.</p>
+    </div>
+
+    <h3><span class="de">Vier Disziplinen</span><span class="en">Four disciplines</span></h3>
+    <div class="cards">
+      <div class="card"><h4><span class="de">Kontext-Resets</span><span class="en">Context resets</span></h4>
+        <p><span class="de">Jede Phase endet mit einem Markdown-Checkpoint. Chat ist kein Speicher — was zählt,
+        wird noch im selben Zug in eine dauerhafte Datei geschrieben („Durable Capture").</span>
+        <span class="en">Every phase ends with a Markdown checkpoint. Chat is not storage — anything that matters
+        is written to a durable file in the same turn ("Durable Capture").</span></p></div>
+      <div class="card"><h4>Vertical Slicing</h4>
+        <p><span class="de">Jeder Slice ist Ende-zu-Ende testbar und eigenständig erlebbar — kein
+        „Frontend jetzt, Backend später". Slices sind feature-förmig, nicht komponenten-förmig.</span>
+        <span class="en">Every slice is end-to-end testable and standalone-experienceable — no
+        "frontend now, backend later". Slices are feature-shaped, not component-shaped.</span></p></div>
+      <div class="card"><h4><span class="de">Wissens-Schichten</span><span class="en">Knowledge layering</span></h4>
+        <p><span class="de">State (Code) ist abgeleitet; Intent (Warum) und Rules (Wie) sind explizit.
+        Der Agent schlägt Änderungen an dauerhaftem Wissen vor — der Mensch bestätigt.</span>
+        <span class="en">State (code) is derived; Intent (why) and Rules (how) are explicit.
+        The agent proposes changes to durable knowledge — the human confirms.</span></p></div>
+      <div class="card"><h4><span class="de">Explizite Autonomie-Stufen</span><span class="en">Explicit autonomy levels</span></h4>
+        <p><span class="de">Lesen ist still, Edits im Plan-Scope laufen automatisch weiter, Regel-Änderungen
+        brauchen Bestätigung, Push/Deploy fragt immer.</span>
+        <span class="en">Reads are silent, in-scope edits auto-continue, rule mutations need confirmation,
+        pushes and deploys always ask.</span></p></div>
+    </div>
+
+    <div class="de">
+      <p><strong>Zwei-Ebenen-Architektur:</strong> Das Plugin liefert die universelle Hülle (Workflow +
+      Senior-Developer-Baseline, in jeder Session aktiv). Das Projekt behält seine Sprach-/Framework-Spezialisten
+      lokal (<code>.claude/skills/</code>), lazy geladen — plus optionale <strong>Stack-Packs</strong>
+      (z.&nbsp;B. <code>stack-php-laravel</code>), die in den code-nahen Phasen automatisch dazugeladen werden.</p>
+    </div>
+    <div class="en">
+      <p><strong>Two-tier architecture:</strong> the plugin ships the universal shell (workflow +
+      Senior-Developer baseline, active in every session). The project keeps its language/framework specialists
+      locally (<code>.claude/skills/</code>), lazy-loaded — plus optional <strong>stack-packs</strong>
+      (e.g. <code>stack-php-laravel</code>) autoloaded during the code-near phases.</p>
+    </div>
+  </div>
+</div></section>
+
+<!-- ================= LOOP ================= -->
+<section id="loop"><div class="term">
+  <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="term-title">~/craft — <span class="de">der 9-Phasen-Loop</span><span class="en">the 9-phase loop</span></span></div>
+  <div class="term-body">
+    <h2><span class="de">Der 9-Phasen-Loop</span><span class="en">The 9-phase loop</span></h2>
+    <p class="de">Das methodische Rückgrat. Phase 1–2 laufen nur beim Projektstart oder Betreten einer neuen
+    Domäne; Routine-Slices starten in Phase 3. Nach Phase 9 kehrt der Loop zu Phase 3 zurück — der nächste Slice.</p>
+    <p class="en">The methodological backbone. Phases 1–2 run only at project start or when entering a new
+    domain; routine slices start at Phase 3. After Phase 9 the loop returns to Phase 3 — the next slice.</p>
+
+    <div class="figwrap">
+    <svg viewBox="0 0 1000 400" role="img" aria-label="CRAFT 9-phase loop diagram">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#8b949e"/>
+        </marker>
+        <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#3fb950"/>
+        </marker>
+      </defs>
+      <!-- top row arrows -->
+      <line x1="190" y1="73" x2="217" y2="73" stroke="#8b949e" stroke-width="1.6" marker-end="url(#arr)"/>
+      <line x1="386" y1="73" x2="413" y2="73" stroke="#8b949e" stroke-width="1.6" marker-end="url(#arr)"/>
+      <line x1="582" y1="73" x2="609" y2="73" stroke="#8b949e" stroke-width="1.6" marker-end="url(#arr)"/>
+      <line x1="778" y1="73" x2="805" y2="73" stroke="#8b949e" stroke-width="1.6" marker-end="url(#arr)"/>
+      <!-- 5 -> 6 down -->
+      <line x1="891" y1="104" x2="891" y2="246" stroke="#8b949e" stroke-width="1.6" marker-end="url(#arr)"/>
+      <!-- bottom row arrows (right to left) -->
+      <line x1="809" y1="281" x2="782" y2="281" stroke="#8b949e" stroke-width="1.6" marker-end="url(#arr)"/>
+      <line x1="613" y1="281" x2="586" y2="281" stroke="#8b949e" stroke-width="1.6" marker-end="url(#arr)"/>
+      <line x1="417" y1="281" x2="390" y2="281" stroke="#8b949e" stroke-width="1.6" marker-end="url(#arr)"/>
+      <!-- 9 -> 3 loop back -->
+      <path d="M 221 281 L 100 281 Q 80 281 80 261 L 80 93 Q 80 73 100 73 L 411 73" fill="none"
+            stroke="#3fb950" stroke-width="1.8" marker-end="url(#arrg)"/>
+      <text x="88" y="185" fill="#3fb950" font-size="11" transform="rotate(-90 88 185)" text-anchor="middle"><tspan class="de">nächster Slice</tspan><tspan class="en">next slice</tspan></text>
+
+      <!-- P1 -->
+      <g opacity="0.55">
+        <rect x="25" y="42" width="165" height="62" rx="8" fill="#161b22" stroke="#d29922" stroke-dasharray="5 4" stroke-width="1.4"/>
+        <text x="107" y="66" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="bold">1 · Brainstorm</text>
+        <text x="107" y="84" text-anchor="middle" fill="#8b949e" font-size="10.5">L0 · /craft:brainstorm</text>
+        <text x="107" y="96" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">nur Projektstart</tspan><tspan class="en">project start only</tspan></text>
+      </g>
+      <!-- P2 -->
+      <g opacity="0.55">
+        <rect x="221" y="42" width="165" height="62" rx="8" fill="#161b22" stroke="#d29922" stroke-dasharray="5 4" stroke-width="1.4"/>
+        <text x="303" y="66" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="bold">2 · Alignment</text>
+        <text x="303" y="84" text-anchor="middle" fill="#8b949e" font-size="10.5">L0 · /craft:grill-me</text>
+        <text x="303" y="96" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">nur Projektstart</tspan><tspan class="en">project start only</tspan></text>
+      </g>
+      <!-- P3 -->
+      <rect x="417" y="42" width="165" height="62" rx="8" fill="#161b22" stroke="#58a6ff" stroke-width="1.6"/>
+      <text x="499" y="66" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="bold">3 · Planning</text>
+      <text x="499" y="84" text-anchor="middle" fill="#8b949e" font-size="10.5">L1 · /craft:plan</text>
+      <text x="499" y="96" text-anchor="middle" fill="#6e7681" font-size="9.5">vertical slicing</text>
+      <!-- P4 -->
+      <rect x="613" y="42" width="165" height="62" rx="8" fill="#161b22" stroke="#3fb950" stroke-width="1.6"/>
+      <text x="695" y="66" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="bold">4 · Implementation</text>
+      <text x="695" y="84" text-anchor="middle" fill="#8b949e" font-size="10.5">L2 · /craft:build</text>
+      <text x="695" y="96" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">agent-autonom im Scope</tspan><tspan class="en">agent-autonomous in scope</tspan></text>
+      <!-- P5 -->
+      <rect x="809" y="42" width="165" height="62" rx="8" fill="#161b22" stroke="#d29922" stroke-width="2.4"/>
+      <text x="891" y="66" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="bold">5 · Testing / UX</text>
+      <text x="891" y="84" text-anchor="middle" fill="#8b949e" font-size="10.5">Human · /craft:test</text>
+      <text x="891" y="96" text-anchor="middle" fill="#d29922" font-size="9.5"><tspan class="de">nie überspringbar</tspan><tspan class="en">cannot be skipped</tspan></text>
+      <!-- P6 -->
+      <rect x="809" y="250" width="165" height="62" rx="8" fill="#161b22" stroke="#58a6ff" stroke-width="1.6"/>
+      <text x="891" y="274" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="bold">6 · Recap</text>
+      <text x="891" y="292" text-anchor="middle" fill="#8b949e" font-size="10.5">L1 · /craft:recap</text>
+      <text x="891" y="304" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">mentale Ownership</tspan><tspan class="en">mental ownership</tspan></text>
+      <!-- P7 -->
+      <rect x="613" y="250" width="165" height="62" rx="8" fill="#161b22" stroke="#58a6ff" stroke-dasharray="5 4" stroke-width="1.6"/>
+      <text x="695" y="274" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="bold">7 · Refactoring</text>
+      <text x="695" y="292" text-anchor="middle" fill="#8b949e" font-size="10.5">L1 · /craft:refactor</text>
+      <text x="695" y="304" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">pro Projekt abschaltbar</tspan><tspan class="en">droppable per project</tspan></text>
+      <!-- P8 -->
+      <rect x="417" y="250" width="165" height="62" rx="8" fill="#161b22" stroke="#bc8cff" stroke-width="1.6"/>
+      <text x="499" y="274" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="bold">8 · Review</text>
+      <text x="499" y="292" text-anchor="middle" fill="#8b949e" font-size="10.5">subagent · /craft:review</text>
+      <text x="499" y="304" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">Fresh-Context-Reviewer</tspan><tspan class="en">fresh-context reviewer</tspan></text>
+      <!-- P9 -->
+      <rect x="221" y="250" width="165" height="62" rx="8" fill="#161b22" stroke="#58a6ff" stroke-width="1.6"/>
+      <text x="303" y="274" text-anchor="middle" fill="#e6edf3" font-size="13" font-weight="bold">9 · Commit</text>
+      <text x="303" y="292" text-anchor="middle" fill="#8b949e" font-size="10.5">L1 · /craft:commit</text>
+      <text x="303" y="304" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">Archiv + Cleanup</tspan><tspan class="en">archive + cleanup</tspan></text>
+      <!-- skip arrow P6 -> P8 when phase 7 dropped -->
+      <path d="M 891 312 Q 891 360 695 366 Q 520 372 501 316" fill="none" stroke="#6e7681"
+            stroke-width="1.3" stroke-dasharray="4 4" marker-end="url(#arr)"/>
+      <text x="695" y="352" text-anchor="middle" fill="#6e7681" font-size="10"><tspan class="de">Phase 7 entfällt</tspan><tspan class="en">phase 7 dropped</tspan></text>
+    </svg>
+    <div class="figcap de">Der Loop: 1→9, dann zurück zu 3. Rahmenfarbe = Kontrolle. Gestrichelt = optional/konfigurierbar.</div>
+    <div class="figcap en">The loop: 1→9, then back to 3. Border color = control. Dashed = optional/configurable.</div>
+    </div>
+
+    <div class="legend">
+      <span><span class="sw" style="background:#d29922"></span><span class="de">Mensch führt</span><span class="en">human-led</span></span>
+      <span><span class="sw" style="background:#58a6ff"></span><span class="de">dialogisch (Agent schlägt vor, Mensch bestätigt)</span><span class="en">dialogic (agent proposes, human confirms)</span></span>
+      <span><span class="sw" style="background:#3fb950"></span><span class="de">agent-autonom im Scope</span><span class="en">agent-autonomous in scope</span></span>
+      <span><span class="sw" style="background:#bc8cff"></span><span class="de">Fresh-Context-Subagent</span><span class="en">fresh-context subagent</span></span>
+    </div>
+
+    <h3><span class="de">Die Phasen im Detail</span><span class="en">The phases in detail</span></h3>
+    <div class="tblwrap"><table>
+      <tr><th>#</th><th>Phase</th><th>Command</th><th><span class="de">Kontrolle</span><span class="en">Control</span></th>
+          <th><span class="de">Was passiert</span><span class="en">What happens</span></th></tr>
+      <tr><td>1</td><td>Brainstorm</td><td><code>/craft:brainstorm</code></td><td><span class="lvl l0">L0</span></td>
+        <td><span class="de">Problemraum erkunden, bevor Code existiert — divergente Ideation (Question Storming, SCAMPER, First Principles). Endet mit Markdown-Checkpoint + Kontext-Reset.</span>
+            <span class="en">Explore the problem space before code exists — divergent ideation (question storming, SCAMPER, first principles). Ends with a Markdown checkpoint + context reset.</span></td></tr>
+      <tr><td>2</td><td>Alignment</td><td><code>/craft:grill-me</code></td><td><span class="lvl l0">L0</span></td>
+        <td><span class="de">Der Agent interviewt den Menschen und schließt die Lücke „alles Ungesagte wird erfunden". Richtung, Constraints, Akzeptanzkriterien als Checkpoint.</span>
+            <span class="en">The agent interviews the human, closing the "anything not said gets invented" gap. Direction, constraints, acceptance criteria as a checkpoint.</span></td></tr>
+      <tr><td>3</td><td>Planning</td><td><code>/craft:plan</code> / <code>/craft:epic</code></td><td><span class="lvl l1">L1</span></td>
+        <td><span class="de">Kleinsten Ende-zu-Ende-Slice schneiden. Drei nicht überspringbare Fragen: Was ist der <strong>Trigger</strong>? Was ist der <strong>beobachtbare Effekt</strong>? Wie <strong>testen</strong> wir Ende-zu-Ende? Ohne Test-Strategie kein Plan.</span>
+            <span class="en">Cut the smallest end-to-end slice. Three non-skippable questions: what is the <strong>trigger</strong>? What is the <strong>observable effect</strong>? How do we <strong>test</strong> end-to-end? No plan without a test strategy.</span></td></tr>
+      <tr><td>4</td><td>Implementation</td><td><code>/craft:build</code></td><td><span class="lvl l2">L2</span></td>
+        <td><span class="de">Plan in Code umsetzen, Sub-Tasks der Reihe nach, Tests laufen still (nur Rot wird gemeldet). Bündel-Meldung an jeder Sub-Task-Grenze; 30k-Token-Bremse gegen die „Dumb Zone". Edits außerhalb des Scopes fallen auf L1 zurück.</span>
+            <span class="en">Turn the plan into code, sub-tasks in order, tests run silently (only red surfaces). Bundle report at each sub-task boundary; 30k-token brake against the "dumb zone". Out-of-scope edits drop to L1.</span></td></tr>
+      <tr><td>5</td><td>Testing &amp; UX</td><td><code>/craft:test</code></td><td><span class="lvl l0">Human</span></td>
+        <td><span class="de">Die einzige Phase, in der der Mensch das Artefakt selbst ausprobiert — konstitutiv, nie überspringbar, auch bei grünen Tests. 5a Demo-Setup → 5b Nutzer probiert → 5c Feedback: <code>[W]orks / [B]ug / [U]X issue</code>.</span>
+            <span class="en">The only phase where the human exercises the artifact — constitutive, never skippable, even with green tests. 5a demo setup → 5b user exercises → 5c feedback: <code>[W]orks / [B]ug / [U]X issue</code>.</span></td></tr>
+      <tr><td>6</td><td>Recap</td><td><code>/craft:recap</code></td><td><span class="lvl l1">L1</span></td>
+        <td><span class="de">Erzwingt mentale Ownership: „Wie funktioniert es? Führe mich von Trigger zu Effekt." Bei komplexen Slices wird ein Mermaid-Diagramm angeboten. Der Entwurf wird in Phase 9 zum Slice-Archiv.</span>
+            <span class="en">Forces mental ownership: "How does it work? Walk me trigger→effect." A Mermaid diagram is offered for complex slices. The draft becomes the slice archive in Phase 9.</span></td></tr>
+      <tr><td>7</td><td>Refactoring</td><td><code>/craft:refactor</code></td><td><span class="lvl l1">L1</span></td>
+        <td><span class="de">Kleine strukturelle Verbesserungen, max. 2–3 Punkte pro Slice (mehr = eigener Slice). Drei dialogische Prompts. <strong>Pro Projekt abschaltbar</strong> — dann geht es von Phase 6 direkt zu Phase 8.</span>
+            <span class="en">Small structural improvements, max 2–3 items per slice (more = its own slice). Three dialogic prompts. <strong>Droppable per project</strong> — Phase 6 then hands straight to Phase 8.</span></td></tr>
+      <tr><td>8</td><td>Review</td><td><code>/craft:review</code></td><td><span class="lvl l2">L2</span>+<span class="lvl l1">L1</span></td>
+        <td><span class="de">Ein <code>code-reviewer</code>-Subagent mit frischem Kontextfenster klassifiziert Findings auf zwei Achsen: Schwere {Heavy, Light} × Fix-Natur {Local edit, Needs rethinking}. Lokale Edits werden in der Phase gefixt (Soft-Cap 5); Heavy+Rethinking <strong>blockiert den Commit</strong>.</span>
+            <span class="en">A <code>code-reviewer</code> subagent with a clean context window classifies findings on two axes: severity {Heavy, Light} × fix-nature {local edit, needs rethinking}. Local edits are fixed in-phase (soft cap 5); Heavy+rethinking <strong>blocks Commit</strong>.</span></td></tr>
+      <tr><td>9</td><td>Commit &amp; Cleanup</td><td><code>/craft:commit</code></td><td><span class="lvl l1">L1</span></td>
+        <td><span class="de">Atomare Commits (Conventional Commits + <code>Slice:</code>-Footer), Entscheidungs-Promotion (<code>[K]eep/[I]ntent/[R]ules/[D]iscard</code>), Slice-Archiv schreiben, Plan-Datei löschen. Der Slice schließt hier.</span>
+            <span class="en">Atomic commits (Conventional Commits + <code>Slice:</code> footer), decision promotion (<code>[K]eep/[I]ntent/[R]ules/[D]iscard</code>), slice archive written, plan file deleted. The slice closes here.</span></td></tr>
+    </table></div>
+  </div>
+</div></section>
+
+<!-- ================= QUICKSTART ================= -->
+<section id="quickstart"><div class="term">
+  <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="term-title">~/craft — quickstart</span></div>
+  <div class="term-body">
+    <h2>Quickstart</h2>
+    <p class="de">So fühlt sich ein Arbeitstag mit CRAFT an — vom Onboarding bis zum geschlossenen Slice:</p>
+    <p class="en">What a working day with CRAFT feels like — from onboarding to a closed slice:</p>
+
+<pre><code><span class="cmt"># <span class="de">einmalig pro Projekt: Projektwissen aufbauen (oder bestehendes .claude/ migrieren)</span><span class="en">once per project: bootstrap project knowledge (or migrate an existing .claude/)</span></span>
+<span class="grn">❯</span> /craft:onboard
+
+<span class="cmt"># <span class="de">jede Session: Kontext laden — läuft automatisch beim Session-Start</span><span class="en">every session: load context — auto-runs at session start</span></span>
+<span class="grn">❯</span> /craft:prime
+<span class="cmt">  ✓ Project · ✓ Tools · ✓ Rules↔State drift check · Active slices · Recommended next</span>
+
+<span class="cmt"># <span class="de">neuer Slice: die drei Fragen (Trigger? Effekt? Test?) → Plan-Datei</span><span class="en">new slice: the three questions (trigger? effect? test?) → plan file</span></span>
+<span class="grn">❯</span> /craft:plan user-login
+<span class="cmt">  → .claude/plans/slice-001-user-login.md   <span class="amb">Status: planning</span></span>
+
+<span class="grn">❯</span> /craft:build      <span class="cmt"># Phase 4 — <span class="de">implementiert Sub-Tasks, Tests still im Hintergrund</span><span class="en">works sub-tasks, tests silent</span></span>
+<span class="grn">❯</span> /craft:test       <span class="cmt"># Phase 5 — <span class="de">DU probierst es aus:</span><span class="en">YOU exercise it:</span> [W]orks / [B]ug / [U]X</span>
+<span class="grn">❯</span> /craft:recap      <span class="cmt"># Phase 6 — <span class="de">was wurde gebaut &amp; warum</span><span class="en">what was built &amp; why</span></span>
+<span class="grn">❯</span> /craft:refactor   <span class="cmt"># Phase 7 — <span class="de">optional, pro Projekt abschaltbar</span><span class="en">optional, droppable per project</span></span>
+<span class="grn">❯</span> /craft:review     <span class="cmt"># Phase 8 — <span class="de">Fresh-Context-Review, Commit-Gate</span><span class="en">fresh-context review, commit gate</span></span>
+<span class="grn">❯</span> /craft:commit     <span class="cmt"># Phase 9 — <span class="de">atomare Commits, Archiv, Slice zu</span><span class="en">atomic commits, archive, slice closed</span></span>
+
+<span class="cmt"># <span class="de">wieder einsteigen, egal wo man stand:</span><span class="en">resume from wherever you left off:</span></span>
+<span class="grn">❯</span> /craft:continue   <span class="cmt"># <span class="de">liest den Status und empfiehlt das richtige Kommando</span><span class="en">reads Status, recommends the right command</span></span>
+
+<span class="cmt"># <span class="de">groß denken: Epic planen und autonom bauen lassen</span><span class="en">think big: plan an epic and build it autonomously</span></span>
+<span class="grn">❯</span> /craft:epic checkout-flow
+<span class="grn">❯</span> /craft:execute epic-001   <span class="cmt"># <span class="de">parallele Worktrees, ein Agent pro Slice</span><span class="en">parallel worktrees, one agent per slice</span></span></code></pre>
+
+    <h3><span class="de">Kontext-Hygiene — der unterschätzte Effizienz-Hebel</span><span class="en">Context hygiene — the underrated efficiency lever</span></h3>
+    <p class="de">Hat die Session grob <strong>300.000 Tokens</strong> verbraucht, lohnt ein beherzter Schnitt:
+    <code>/clear</code> — und der SessionStart-Hook stößt <code>/craft:prime</code> automatisch wieder an.
+    Weil aller relevanter Zustand in Dateien lebt (Slice-Plan mit Status-Token, Intent, Rules, Profil), landet
+    die frische Session ohne Verlust exakt an der richtigen Stelle — genau dafür ist das Status-Token-Design
+    gebaut. Regelmäßiges Leeren statt endlosem Weiterschleppen hält das Modell aus seiner „Dumb Zone" und
+    bringt spürbar Effizienz.</p>
+    <p class="en">Once a session has burned roughly <strong>300,000 tokens</strong>, a clean cut pays off:
+    <code>/clear</code> — and the SessionStart hook automatically re-triggers <code>/craft:prime</code>.
+    Because all relevant state lives in files (the slice plan with its status token, intent, rules, profile),
+    the fresh session lands exactly where you left off, losing nothing — that is precisely what the status-token
+    design is built for. Clearing regularly instead of dragging context along keeps the model out of its
+    "dumb zone" and is a real efficiency win.</p>
+
+<pre><code><span class="grn">❯</span> /clear          <span class="cmt"># <span class="de">bei ~300k verbrauchten Tokens: Kontext leeren</span><span class="en">at ~300k tokens consumed: clear the context</span></span>
+<span class="grn">❯</span> /craft:prime    <span class="cmt"># <span class="de">läuft automatisch wieder an — lädt Status, empfiehlt den Wiedereinstieg</span><span class="en">auto-runs again — loads state, recommends where to resume</span></span></code></pre>
+
+    <p class="de">Der zweite Hebel ist die harte Abhängigkeit von <strong>context-mode</strong> — sie ist kein
+    Zufall: context-mode führt große Ausgaben (Logs, Diffs, Suchläufe, Doku) in einer Sandbox aus und lässt nur
+    die destillierte Antwort ins Kontextfenster. Das spart aktiv enorme Token-Mengen und erlaubt deutlich
+    größere Sessions — erst dadurch läuft der 9-Phasen-Loop eines Slices in einem Rutsch.</p>
+    <p class="en">The second lever is the hard dependency on <strong>context-mode</strong> — and it is no
+    accident: context-mode runs large outputs (logs, diffs, searches, docs) in a sandbox and lets only the
+    distilled answer into the context window. That actively saves enormous amounts of tokens and allows much
+    larger sessions — it is what lets a slice's 9-phase loop run in one go.</p>
+
+    <p class="small dim de">Voraussetzungen (von <code>/craft:prime</code> hart geprüft): <code>context-mode</code>,
+      <code>agent-browser</code>, <code>git</code>, <code>gh</code>. Fehlt eines, bricht Prime mit konkreten
+      Installationsanweisungen ab.</p>
+    <p class="small dim en">Prerequisites (strictly verified by <code>/craft:prime</code>): <code>context-mode</code>,
+      <code>agent-browser</code>, <code>git</code>, <code>gh</code>. If one is missing, prime aborts with concrete
+      install instructions.</p>
+  </div>
+</div></section>
+
+<!-- ================= BRANCH-OFFS ================= -->
+<section id="turns"><div class="term">
+  <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="term-title">~/craft — <span class="de">status-graph &amp; abbiegungen</span><span class="en">status graph &amp; branch-offs</span></span></div>
+  <div class="term-body">
+    <h2><span class="de">Der Status-Graph — und alle Abbiegemöglichkeiten</span><span class="en">The status graph — and every branch-off</span></h2>
+    <p class="de">Jeder Slice-Plan trägt ein <code>Status:</code>-Feld — das <strong>Execution-Token</strong> des
+    Workflows: Ein Kommando <em>schreibt</em> es, das nächste <em>konsumiert</em> es. <code>/craft:continue</code>
+    liest nur den Status und routet zum richtigen Kommando. Der Graph ist maschinell geprüft
+    (<code>scripts/test-workflow-status-graph.sh</code>) — kein Status ohne Konsumenten.</p>
+    <p class="en">Every slice plan carries a <code>Status:</code> field — the workflow's <strong>execution
+    token</strong>: one command <em>writes</em> it, the next <em>consumes</em> it. <code>/craft:continue</code>
+    just reads the status and routes to the right command. The graph is machine-checked
+    (<code>scripts/test-workflow-status-graph.sh</code>) — no status without a consumer.</p>
+
+    <div class="figwrap">
+    <svg viewBox="0 0 1240 620" role="img" aria-label="CRAFT status graph">
+      <defs>
+        <marker id="sarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#8b949e"/>
+        </marker>
+        <marker id="sarra" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#d29922"/>
+        </marker>
+        <marker id="sarrr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#f85149"/>
+        </marker>
+        <marker id="sarrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#3fb950"/>
+        </marker>
+      </defs>
+
+      <!-- main chain pills, y=290 h=34 -->
+      <g font-size="12.5">
+        <rect x="15"  y="290" width="118" height="34" rx="17" fill="#11161d" stroke="#58a6ff"/>
+        <text x="74"  y="312" text-anchor="middle" fill="#58a6ff">planning</text>
+        <rect x="175" y="290" width="118" height="34" rx="17" fill="#11161d" stroke="#58a6ff"/>
+        <text x="234" y="312" text-anchor="middle" fill="#58a6ff">implementing</text>
+        <rect x="335" y="290" width="118" height="34" rx="17" fill="#11161d" stroke="#58a6ff"/>
+        <text x="394" y="312" text-anchor="middle" fill="#58a6ff">testing</text>
+        <rect x="495" y="290" width="118" height="34" rx="17" fill="#11161d" stroke="#58a6ff"/>
+        <text x="554" y="312" text-anchor="middle" fill="#58a6ff">review</text>
+        <rect x="655" y="290" width="118" height="34" rx="17" fill="#11161d" stroke="#58a6ff" stroke-dasharray="5 4"/>
+        <text x="714" y="312" text-anchor="middle" fill="#58a6ff">refactoring</text>
+        <rect x="815" y="290" width="118" height="34" rx="17" fill="#11161d" stroke="#58a6ff"/>
+        <text x="874" y="312" text-anchor="middle" fill="#58a6ff">reviewing</text>
+        <rect x="975" y="290" width="118" height="34" rx="17" fill="#11161d" stroke="#58a6ff"/>
+        <text x="1034" y="312" text-anchor="middle" fill="#58a6ff">committing</text>
+        <circle cx="1175" cy="307" r="22" fill="#11161d" stroke="#3fb950" stroke-width="1.8"/>
+        <text x="1175" y="313" text-anchor="middle" fill="#3fb950" font-size="16">✓</text>
+      </g>
+
+      <!-- main chain arrows + labels -->
+      <g font-size="9.5" fill="#8b949e">
+        <line x1="133" y1="307" x2="173" y2="307" stroke="#8b949e" stroke-width="1.5" marker-end="url(#sarr)"/>
+        <text x="153" y="284" text-anchor="middle">build</text>
+        <line x1="293" y1="307" x2="333" y2="307" stroke="#8b949e" stroke-width="1.5" marker-end="url(#sarr)"/>
+        <text x="313" y="284" text-anchor="middle">build ✓</text>
+        <line x1="453" y1="307" x2="493" y2="307" stroke="#8b949e" stroke-width="1.5" marker-end="url(#sarr)"/>
+        <text x="473" y="284" text-anchor="middle">test [W]</text>
+        <line x1="613" y1="307" x2="653" y2="307" stroke="#8b949e" stroke-width="1.5" marker-end="url(#sarr)"/>
+        <text x="633" y="284" text-anchor="middle">recap</text>
+        <line x1="773" y1="307" x2="813" y2="307" stroke="#8b949e" stroke-width="1.5" marker-end="url(#sarr)"/>
+        <text x="793" y="284" text-anchor="middle">refactor</text>
+        <line x1="933" y1="307" x2="973" y2="307" stroke="#8b949e" stroke-width="1.5" marker-end="url(#sarr)"/>
+        <text x="953" y="284" text-anchor="middle">review ✓</text>
+        <line x1="1093" y1="307" x2="1151" y2="307" stroke="#8b949e" stroke-width="1.5" marker-end="url(#sarr)"/>
+        <text x="1122" y="284" text-anchor="middle">commit</text>
+      </g>
+
+      <!-- phase-7-dropped shortcut -->
+      <path d="M 554 290 Q 554 235 714 232 Q 874 235 874 288" fill="none" stroke="#6e7681"
+            stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#sarr)"/>
+      <text x="714" y="222" text-anchor="middle" fill="#6e7681" font-size="10">recap · <tspan class="de">Phase 7 entfällt</tspan><tspan class="en">phase 7 dropped</tspan></text>
+
+      <!-- awaiting-release (top left) -->
+      <rect x="175" y="120" width="150" height="34" rx="17" fill="#11161d" stroke="#d29922"/>
+      <text x="250" y="142" text-anchor="middle" fill="#d29922" font-size="12.5">awaiting-release</text>
+      <path d="M 234 288 Q 220 200 240 156" fill="none" stroke="#d29922" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#sarra)"/>
+      <text x="150" y="215" fill="#d29922" font-size="10">execute (in-place)</text>
+      <text x="150" y="228" fill="#6e7681" font-size="9.5"><tspan class="de">Halt vor Phase 5 — IDE-Review</tspan><tspan class="en">halt before phase 5 — IDE review</tspan></text>
+      <path d="M 325 137 Q 400 160 394 288" fill="none" stroke="#d29922" stroke-width="1.4" marker-end="url(#sarra)"/>
+      <text x="420" y="180" fill="#d29922" font-size="10">release</text>
+
+      <!-- awaiting-approval (top right) -->
+      <rect x="960" y="120" width="160" height="34" rx="17" fill="#11161d" stroke="#d29922"/>
+      <text x="1040" y="142" text-anchor="middle" fill="#d29922" font-size="12.5">awaiting-approval</text>
+      <path d="M 1034 288 Q 1020 200 1032 156" fill="none" stroke="#d29922" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#sarra)"/>
+      <text x="905" y="215" fill="#d29922" font-size="10">commit → PR</text>
+      <path d="M 1120 140 Q 1180 170 1176 283" fill="none" stroke="#3fb950" stroke-width="1.4" marker-end="url(#sarrg)"/>
+      <text x="1234" y="200" text-anchor="end" fill="#3fb950" font-size="10">commit</text>
+      <text x="1234" y="213" text-anchor="end" fill="#6e7681" font-size="9.5"><tspan class="de">nach GitHub-</tspan><tspan class="en">after GitHub</tspan></text>
+      <text x="1234" y="225" text-anchor="end" fill="#6e7681" font-size="9.5">approval</text>
+
+      <!-- debug loop under testing -->
+      <path d="M 380 324 Q 340 400 394 400 Q 448 400 408 326" fill="none" stroke="#39c5cf" stroke-width="1.4" marker-end="url(#sarr)"/>
+      <text x="394" y="422" text-anchor="middle" fill="#39c5cf" font-size="10">test [B] → /craft:debug</text>
+      <text x="394" y="435" text-anchor="middle" fill="#6e7681" font-size="9.5">ALIGN → PROTOCOL → LOOP (≤5) → ESCALATION</text>
+
+      <!-- paused (bottom left) -->
+      <rect x="70" y="480" width="110" height="34" rx="17" fill="#11161d" stroke="#8b949e" stroke-dasharray="4 3"/>
+      <text x="125" y="502" text-anchor="middle" fill="#8b949e" font-size="12.5">paused</text>
+      <path d="M 560 324 Q 560 480 182 494" fill="none" stroke="#8b949e" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#sarr)"/>
+      <text x="480" y="470" fill="#8b949e" font-size="10">pause <tspan fill="#6e7681">(<tspan class="de">aus jeder Phase</tspan><tspan class="en">from any phase</tspan>)</tspan></text>
+      <path d="M 125 480 Q 130 380 218 326" fill="none" stroke="#8b949e" stroke-width="1.3" marker-end="url(#sarr)"/>
+      <text x="120" y="392" fill="#8b949e" font-size="10">continue</text>
+
+      <!-- blocked (bottom middle) -->
+      <rect x="620" y="480" width="110" height="34" rx="17" fill="#1a0f10" stroke="#f85149"/>
+      <text x="675" y="502" text-anchor="middle" fill="#f85149" font-size="12.5">blocked</text>
+      <path d="M 800 324 Q 780 440 732 488" fill="none" stroke="#f85149" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#sarrr)"/>
+      <text x="800" y="440" fill="#f85149" font-size="10">block</text>
+      <text x="800" y="453" fill="#6e7681" font-size="9.5"><tspan class="de">aus jedem Execution-Token</tspan><tspan class="en">from any execution token</tspan></text>
+      <path d="M 620 495 Q 480 480 555 328" fill="none" stroke="#f85149" stroke-width="1.3" marker-end="url(#sarrr)"/>
+      <text x="500" y="510" fill="#f85149" font-size="10">unblock [R]</text>
+      <text x="500" y="523" fill="#6e7681" font-size="9.5"><tspan class="de">stellt Blocked-status wieder her</tspan><tspan class="en">restores the recorded Blocked-status</tspan></text>
+
+      <!-- done note -->
+      <text x="1175" y="355" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">Archiv geschrieben,</tspan><tspan class="en">archive written,</tspan></text>
+      <text x="1175" y="368" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">Plan gelöscht</tspan><tspan class="en">plan deleted</tspan></text>
+    </svg>
+    <div class="figcap de">Hauptkette (blau) mit Warte-Status (gelb), Unterbrechungen (grau/rot) und der Debug-Schleife (türkis).
+      Achtung: <code>review</code> = Phase 6 wartet, <code>reviewing</code> = Phase 8 läuft.</div>
+    <div class="figcap en">Main chain (blue) with waiting states (amber), interrupts (gray/red) and the debug loop (teal).
+      Careful: <code>review</code> = phase 6 pending, <code>reviewing</code> = phase 8 running.</div>
+    </div>
+
+    <h3><span class="de">Die Abbiegungen im Detail</span><span class="en">The branch-offs in detail</span></h3>
+    <div class="tblwrap"><table>
+      <tr><th>Command</th><th><span class="de">Wann</span><span class="en">When</span></th>
+          <th><span class="de">Was passiert</span><span class="en">What happens</span></th>
+          <th><span class="de">Rückweg</span><span class="en">Way back</span></th></tr>
+      <tr><td><code>/craft:pause</code></td>
+        <td><span class="de">Kurz weg, Kontextwechsel</span><span class="en">Stepping away, context switch</span></td>
+        <td><span class="de">Pausen-Notiz in den Plan, <span class="pill st">paused</span>; Code und Commits unangetastet.</span>
+            <span class="en">Pause note into the plan, <span class="pill st">paused</span>; code and commits untouched.</span></td>
+        <td><code>/craft:continue</code></td></tr>
+      <tr><td><code>/craft:handoff</code></td>
+        <td><span class="de">Kontext „vergiftet", Session festgefahren</span><span class="en">Context poisoned, session stuck</span></td>
+        <td><span class="de">Komprimierte Übergabe (<code>## Handoff</code>: Wo stehen wir / Versucht / Ausgeschlossen / Beste nächste Idee) in den Plan, <code>Handoff active: yes</code>. Der Status bleibt unverändert!</span>
+            <span class="en">Condensed handoff (<code>## Handoff</code>: where we are / tried / ruled out / best next guess) into the plan, <code>Handoff active: yes</code>. Status stays unchanged!</span></td>
+        <td><span class="de">Neue Session — <code>/craft:prime</code> zeigt den Handoff prominent</span><span class="en">Fresh session — <code>/craft:prime</code> surfaces the handoff prominently</span></td></tr>
+      <tr><td><code>/craft:block</code></td>
+        <td><span class="de">Voraussetzung fehlt (Arbeit, Entscheidung, Zugang, Externes)</span><span class="en">A prerequisite is missing (work, decision, access, external)</span></td>
+        <td><span class="de">Erstklassiger <span class="pill bad">blocked</span>-Zustand: Blocker-Typ klassifizieren (<code>prerequisite-work | external | decision | access</code>), Kontext festhalten, das aktuelle Execution-Token als <code>Blocked-status</code> sichern. Bei fehlender Arbeit: Fork <em>Spawn / Park / Descope</em>.</span>
+            <span class="en">First-class <span class="pill bad">blocked</span> state: classify the blocker (<code>prerequisite-work | external | decision | access</code>), capture context, save the current execution token as <code>Blocked-status</code>. For missing work: the <em>spawn / park / descope</em> fork.</span></td>
+        <td><code>/craft:unblock</code> — <code>[R]esume / [P]lan neu / [A]bort</code><br>
+            <span class="small dim de">Schließt der vorausgesetzte Slice via <code>/craft:commit</code>, wird der Blockierte automatisch wieder aufgetaucht.</span>
+            <span class="small dim en">When the prerequisite closes via <code>/craft:commit</code>, the blocked slice auto-resurfaces.</span></td></tr>
+      <tr><td><code>/craft:abort</code></td>
+        <td><span class="de">Slice aufgeben</span><span class="en">Abandon a slice</span></td>
+        <td><span class="de">Mehrfache Warnungen (frische Arbeit? Teil-Commits? Worktree?), dann <strong>getippte Slice-ID</strong> als Bestätigung; Plan-Datei wird gelöscht (kein Archiv — abgebrochene Slices haben keinen Archivwert).</span>
+            <span class="en">Multiple warnings (recent work? partial commits? worktree?), then a <strong>typed slice ID</strong> to confirm; the plan file is deleted (no archive — aborted slices have no archive value).</span></td>
+        <td><span class="de">keiner — bewusst endgültig</span><span class="en">none — deliberately final</span></td></tr>
+      <tr><td><code>/craft:debug</code></td>
+        <td><span class="de"><code>[B]</code> in Phase 5, manuell, oder auto-angeboten nach 2 Fix-Versuchen am selben Symptom</span>
+            <span class="en"><code>[B]</code> in phase 5, manual, or auto-offered after 2 fix attempts on the same symptom</span></td>
+        <td><span class="de">Vier Schritte: <strong>ALIGN</strong> (Bug gemeinsam präzisieren) → <strong>PROTOCOL</strong> (Verifikations-Kommando <em>vor</em> dem ersten Fix einfrieren) → <strong>AUTONOMOUS LOOP</strong> (bis 5 Versuche, jeder mit Verifikation + Negativ-Check, 15k-Token-Bremse) → <strong>ESCALATION</strong> (Handoff / Recap / Protokoll neu verhandeln / manuell).</span>
+            <span class="en">Four steps: <strong>ALIGN</strong> (pin the bug down together) → <strong>PROTOCOL</strong> (freeze the verification command <em>before</em> any fix) → <strong>AUTONOMOUS LOOP</strong> (up to 5 attempts, each with verification + negative check, 15k token brake) → <strong>ESCALATION</strong> (handoff / recap / renegotiate protocol / take it manually).</span></td>
+        <td><span class="de">Erfolg → Phase 6; der Verifikations-Befehl wird als Regressionstest angeboten</span>
+            <span class="en">Success → phase 6; the verification command is offered as a regression test</span></td></tr>
+      <tr><td><code>/craft:release</code></td>
+        <td><span class="de">In-Place-Build wartet auf IDE-Review (<span class="pill halt">awaiting-release</span>)</span>
+            <span class="en">In-place build awaiting IDE review (<span class="pill halt">awaiting-release</span>)</span></td>
+        <td><span class="de">Die explizite Geste „Ich habe den rohen Diff gesehen — weiter": zeigt <code>git diff --stat</code>, fragt <code>[Y]/[N]</code>, setzt <span class="pill st">testing</span>. Committet, merged und pusht nichts.</span>
+            <span class="en">The explicit "I've seen the raw diff — proceed" gesture: shows <code>git diff --stat</code>, asks <code>[Y]/[N]</code>, sets <span class="pill st">testing</span>. Commits, merges, pushes nothing.</span></td>
+        <td><span class="de">weiter in Phase 5</span><span class="en">on into phase 5</span></td></tr>
+      <tr><td><code>/craft:commit</code> ×2</td>
+        <td><span class="de">Profil: <code>pull-request</code> + <code>Protected-main: yes</code></span>
+            <span class="en">Profile: <code>pull-request</code> + <code>Protected-main: yes</code></span></td>
+        <td><span class="de"><strong>„Freigabe ≠ Merge"</strong>: Erster Aufruf pusht + öffnet den PR (<span class="pill halt">awaiting-approval</span>), merged aber nicht. Der zweite Aufruf merged via <code>gh pr merge</code> — nur bei echtem GitHub-<code>APPROVED</code>, nie <code>--admin</code>. Der Mensch gibt frei, das System merged.</span>
+            <span class="en"><strong>"Approval ≠ merge"</strong>: the first invocation pushes + opens the PR (<span class="pill halt">awaiting-approval</span>) but does not merge. The second invocation merges via <code>gh pr merge</code> — only on a real GitHub <code>APPROVED</code>, never <code>--admin</code>. The human approves, the system merges.</span></td>
+        <td><span class="de">Slice schließt</span><span class="en">slice closes</span></td></tr>
+    </table></div>
+
+    <p class="small dim de">Dazu kommt ein zweiter Marker-Namensraum: In Worktrees schreibt der
+    <code>slice-builder</code>-Agent bei jeder menschenpflichtigen Pause eine <code>.craft/handoff.md</code>
+    (<code>awaiting-test</code>, <code>awaiting-protocol</code>, <code>awaiting-scope-decision</code>,
+    <code>awaiting-refactor-decision</code>, <code>awaiting-rethink-decision</code>, …) — das sind Worktree-Marker,
+    keine Slice-Status.</p>
+    <p class="small dim en">There is a second marker namespace: inside worktrees the <code>slice-builder</code>
+    agent writes a <code>.craft/handoff.md</code> on every human-required pause (<code>awaiting-test</code>,
+    <code>awaiting-protocol</code>, <code>awaiting-scope-decision</code>, <code>awaiting-refactor-decision</code>,
+    <code>awaiting-rethink-decision</code>, …) — worktree markers, not slice statuses.</p>
+  </div>
+</div></section>
+
+<!-- ================= AUTONOMY ================= -->
+<section id="autonomy"><div class="term">
+  <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="term-title">~/craft — <span class="de">autonomie-taxonomie</span><span class="en">autonomy taxonomy</span></span></div>
+  <div class="term-body">
+    <h2><span class="de">Wer entscheidet was — die Autonomie-Taxonomie</span><span class="en">Who decides what — the autonomy taxonomy</span></h2>
+    <p class="de">Vier Stufen regeln, wie selbstständig der Agent handelt. Jede Phase hat eine Default-Stufe
+    (siehe Loop) — aber bestimmte <em>Aktionstypen</em> erzwingen ihre Stufe phasenübergreifend:</p>
+    <p class="en">Four levels govern how independently the agent acts. Each phase has a default level
+    (see the loop) — but certain <em>action types</em> force their level across all phases:</p>
+
+    <div class="cards">
+      <div class="card"><h4><span class="lvl l0">L0</span> Ask-Always</h4>
+        <p><span class="de">Explizit fragen, auf „Ja" warten.</span><span class="en">Ask explicitly, wait for a "yes".</span></p></div>
+      <div class="card"><h4><span class="lvl l1">L1</span> Propose-Confirm</h4>
+        <p><span class="de">Vorschlagen, Bestätigung abwarten.</span><span class="en">Propose, wait for confirmation.</span></p></div>
+      <div class="card"><h4><span class="lvl l2">L2</span> Auto-Notify</h4>
+        <p><span class="de">Handeln, dann kompakt an der Bündel-Grenze melden — Pause/Rollback möglich.</span>
+           <span class="en">Act, then report compactly at the bundle boundary — pause/rollback possible.</span></p></div>
+      <div class="card"><h4><span class="lvl l3">L3</span> Auto-Silent</h4>
+        <p><span class="de">Ohne Unterbrechung handeln (immer im nächsten Bündel zusammengefasst, nie unsichtbar).</span>
+           <span class="en">Act without interrupting (always summarized in the next bundle, never invisible).</span></p></div>
+    </div>
+
+    <div class="tblwrap"><table>
+      <tr><th><span class="de">Aktion</span><span class="en">Action</span></th><th><span class="de">Stufe</span><span class="en">Level</span></th>
+          <th><span class="de">Begründung</span><span class="en">Rationale</span></th></tr>
+      <tr><td><span class="de">Datei lesen, grep, Lint-Check, Testlauf</span><span class="en">File read, grep, lint check, test run</span></td>
+          <td><span class="lvl l3">L3</span></td>
+          <td><span class="de">reine Informationsbeschaffung, read-only</span><span class="en">pure info gathering, read-only</span></td></tr>
+      <tr><td><span class="de">Code-Edit <strong>im</strong> Plan-Scope</span><span class="en">Code edit <strong>inside</strong> plan scope</span></td>
+          <td><span class="lvl l2">L2</span></td>
+          <td><span class="de">der Plan ist der Vertrag</span><span class="en">the plan is the contract</span></td></tr>
+      <tr><td><span class="de">Code-Edit <strong>außerhalb</strong> des Plan-Scopes</span><span class="en">Code edit <strong>outside</strong> plan scope</span></td>
+          <td><span class="lvl l1">L1</span></td>
+          <td><span class="de">Scope-Grenzen bestätigt der Mensch</span><span class="en">scope boundaries are the human's call</span></td></tr>
+      <tr><td>Git-Commit</td><td><span class="lvl l1">L1</span></td>
+          <td><span class="de">nachvollziehbare Historie</span><span class="en">accountable history</span></td></tr>
+      <tr><td><span class="de">Lokale Branch-Operationen (nicht destruktiv)</span><span class="en">Local branch ops (non-destructive)</span></td>
+          <td><span class="lvl l2">L2</span></td>
+          <td><span class="de">wiederherstellbar</span><span class="en">recoverable</span></td></tr>
+      <tr><td><code>rules.md</code> / <code>intent.md</code> <span class="de">ändern</span><span class="en">mutation</span></td>
+          <td><span class="lvl l0">L0</span></td>
+          <td><span class="de">„heilig" — nie still mutiert</span><span class="en">"sacred" — never silently mutated</span></td></tr>
+      <tr><td>Git-Push, PR, Deploy</td><td><span class="lvl l0">L0</span></td>
+          <td><span class="de">extern &amp; irreversibel</span><span class="en">external &amp; irreversible</span></td></tr>
+      <tr><td><span class="de">Branch löschen, Force-Push</span><span class="en">Branch delete, force-push</span></td>
+          <td><span class="lvl l0">L0</span></td>
+          <td><span class="de">destruktiv</span><span class="en">destructive</span></td></tr>
+    </table></div>
+
+    <p class="de"><strong>Strukturell menschlich</strong> — vom Agenten nie fabriziert: UX-Feedback
+    (<code>[W]/[B]/[U]</code>), Refactoring-Auswahl, Eskalations-Routing, Entscheidungs-Promotion
+    (<code>[K]/[I]/[R]/[D]</code>), Scope-Änderungen, Merges. Dazu die <strong>Bündel-Disziplin</strong>:
+    Meldung an jeder Sub-Task-Grenze, 30k-Token-Bremse (15k im Debug-Loop) gegen die „Dumb Zone", und
+    Buchstaben-Menüs zeigen immer die volle Legende.</p>
+    <p class="en"><strong>Structurally human</strong> — never fabricated by the agent: UX feedback
+    (<code>[W]/[B]/[U]</code>), refactor selection, escalation routing, decision promotion
+    (<code>[K]/[I]/[R]/[D]</code>), scope changes, merges. Plus the <strong>bundling discipline</strong>:
+    a report at every sub-task boundary, a 30k token brake (15k inside the debug loop) against the
+    "dumb zone", and lettered menus always render their full legend.</p>
+
+    <h3><span class="de">Regel-Konflikte: Bend / Override / Repeal</span><span class="en">Rule conflicts: bend / override / repeal</span></h3>
+    <p class="de">Will der Mensch eine Regel umgehen, biegt der Agent sie nie still — er bietet drei Stufen an:
+    <strong>Bend</strong> (nur dieser eine Austausch), <strong>Override</strong> (slice-weit, im Plan unter
+    <code>Active Rule Overrides</code> protokolliert, in Phase 9 gelöscht), <strong>Repeal</strong> (dauerhaft —
+    <code>rules.md</code> wird mit Bestätigung geändert). Drift zwischen Rules und State wird von
+    <code>/craft:prime</code> nur <em>gemeldet</em>, nie automatisch korrigiert.</p>
+    <p class="en">When the human wants to bypass a rule, the agent never bends it silently — it offers three
+    stages: <strong>bend</strong> (this one exchange only), <strong>override</strong> (slice-scoped, recorded in
+    the plan under <code>Active Rule Overrides</code>, cleared in phase 9), <strong>repeal</strong> (permanent —
+    <code>rules.md</code> edited with confirmation). Rules↔State drift is only <em>reported</em> by
+    <code>/craft:prime</code>, never auto-corrected.</p>
+  </div>
+</div></section>
+
+<!-- ================= EXECUTION ================= -->
+<section id="execution"><div class="term">
+  <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="term-title">~/craft — /craft:execute</span></div>
+  <div class="term-body">
+    <h2><span class="de">Autonome Ausführung — die drei Modi</span><span class="en">Autonomous execution — the three modes</span></h2>
+    <p class="de"><code>/craft:execute &lt;epic-NNN | slice-NNN&gt;</code> ist der Orchestrator: Er verwandelt einen
+    geplanten Epic oder Slice in gebauten Code, ohne dass der Mensch jede Phase begleitet — gestoppt wird nur an
+    den vereinbarten Review-Punkten. Welcher Modus läuft, entscheidet das <a href="#config">CRAFT-Profil</a>.</p>
+    <p class="en"><code>/craft:execute &lt;epic-NNN | slice-NNN&gt;</code> is the orchestrator: it turns a planned
+    epic or slice into built code without per-phase supervision — stopping only at the agreed review points.
+    Which mode runs is decided by the <a href="#config">CRAFT profile</a>.</p>
+
+    <div class="figwrap">
+    <svg viewBox="0 0 1240 470" role="img" aria-label="The three execution modes">
+      <defs>
+        <marker id="earr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#8b949e"/>
+        </marker>
+      </defs>
+
+      <!-- Panel 1: parallel worktrees -->
+      <rect x="10" y="10" width="395" height="450" rx="10" fill="#0d1117" stroke="#30363d"/>
+      <text x="207" y="38" text-anchor="middle" fill="#3fb950" font-size="14" font-weight="bold">1 · parallel worktrees</text>
+      <text x="207" y="56" text-anchor="middle" fill="#6e7681" font-size="10"><tspan class="de">Default für Epics &amp; Slices</tspan><tspan class="en">default for epics &amp; slices</tspan></text>
+      <rect x="40" y="75" width="335" height="28" rx="6" fill="#161b22" stroke="#8b949e"/>
+      <text x="207" y="94" text-anchor="middle" fill="#c9d1d9" font-size="11.5">main</text>
+      <line x1="207" y1="103" x2="207" y2="127" stroke="#8b949e" stroke-width="1.4" marker-end="url(#earr)"/>
+      <rect x="40" y="130" width="335" height="28" rx="6" fill="#161b22" stroke="#d29922"/>
+      <text x="207" y="149" text-anchor="middle" fill="#d29922" font-size="11.5">epic-branch</text>
+      <line x1="95"  y1="158" x2="95"  y2="187" stroke="#8b949e" stroke-width="1.3" marker-end="url(#earr)"/>
+      <line x1="207" y1="158" x2="207" y2="187" stroke="#8b949e" stroke-width="1.3" marker-end="url(#earr)"/>
+      <line x1="319" y1="158" x2="319" y2="187" stroke="#8b949e" stroke-width="1.3" marker-end="url(#earr)"/>
+      <g font-size="10">
+        <rect x="48"  y="190" width="94" height="92" rx="7" fill="#11161d" stroke="#3fb950"/>
+        <text x="95"  y="208" text-anchor="middle" fill="#3fb950">worktree</text>
+        <text x="95"  y="222" text-anchor="middle" fill="#c9d1d9">slice-001</text>
+        <text x="95"  y="240" text-anchor="middle" fill="#8b949e">slice-builder</text>
+        <text x="95"  y="254" text-anchor="middle" fill="#6e7681">phases 4→8</text>
+        <text x="95"  y="270" text-anchor="middle" fill="#6e7681">auto-commits</text>
+        <rect x="160" y="190" width="94" height="92" rx="7" fill="#11161d" stroke="#3fb950"/>
+        <text x="207" y="208" text-anchor="middle" fill="#3fb950">worktree</text>
+        <text x="207" y="222" text-anchor="middle" fill="#c9d1d9">slice-002</text>
+        <text x="207" y="240" text-anchor="middle" fill="#8b949e">slice-builder</text>
+        <text x="207" y="254" text-anchor="middle" fill="#6e7681">phases 4→8</text>
+        <text x="207" y="270" text-anchor="middle" fill="#6e7681">auto-commits</text>
+        <rect x="272" y="190" width="94" height="92" rx="7" fill="#11161d" stroke="#3fb950"/>
+        <text x="319" y="208" text-anchor="middle" fill="#3fb950">worktree</text>
+        <text x="319" y="222" text-anchor="middle" fill="#c9d1d9">slice-003</text>
+        <text x="319" y="240" text-anchor="middle" fill="#8b949e">slice-builder</text>
+        <text x="319" y="254" text-anchor="middle" fill="#6e7681">phases 4→8</text>
+        <text x="319" y="270" text-anchor="middle" fill="#6e7681">auto-commits</text>
+      </g>
+      <path d="M 95 282 L 95 315 L 200 315" fill="none" stroke="#d29922" stroke-width="1.3" marker-end="url(#earr)"/>
+      <path d="M 207 282 L 207 313" fill="none" stroke="#d29922" stroke-width="1.3" marker-end="url(#earr)"/>
+      <path d="M 319 282 L 319 315 L 214 315" fill="none" stroke="#d29922" stroke-width="1.3" marker-end="url(#earr)"/>
+      <text x="207" y="336" text-anchor="middle" fill="#d29922" font-size="10.5">merge --no-ff → epic-branch</text>
+      <rect x="40" y="355" width="335" height="40" rx="6" fill="#1c1607" stroke="#d29922"/>
+      <text x="207" y="372" text-anchor="middle" fill="#d29922" font-size="10.5">⏸ epic ready for review</text>
+      <text x="207" y="387" text-anchor="middle" fill="#8b949e" font-size="10">/craft:checkout → /craft:commit</text>
+      <text x="207" y="420" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">DAG-aufgelöste Slice-Reihenfolge · Lock-Datei</tspan><tspan class="en">DAG-resolved slice order · lock file</tspan></text>
+      <text x="207" y="434" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">merged nie selbst nach main</tspan><tspan class="en">never merges into main itself</tspan></text>
+
+      <!-- Panel 2: in-place -->
+      <rect x="423" y="10" width="395" height="450" rx="10" fill="#0d1117" stroke="#30363d"/>
+      <text x="620" y="38" text-anchor="middle" fill="#58a6ff" font-size="14" font-weight="bold">2 · in-place</text>
+      <text x="620" y="56" text-anchor="middle" fill="#6e7681" font-size="10"><tspan class="de">Einzel-Slice, maximale Kontrolle</tspan><tspan class="en">single slice, maximum control</tspan></text>
+      <rect x="455" y="75" width="330" height="28" rx="6" fill="#161b22" stroke="#8b949e"/>
+      <text x="620" y="94" text-anchor="middle" fill="#c9d1d9" font-size="11.5">main checkout · git checkout -b slice-004</text>
+      <line x1="620" y1="103" x2="620" y2="130" stroke="#8b949e" stroke-width="1.4" marker-end="url(#earr)"/>
+      <rect x="455" y="133" width="330" height="52" rx="7" fill="#11161d" stroke="#3fb950"/>
+      <text x="620" y="154" text-anchor="middle" fill="#3fb950" font-size="11">/craft:build inline (phase 4)</text>
+      <text x="620" y="172" text-anchor="middle" fill="#6e7681" font-size="10"><tspan class="de">keine Commits — alles bleibt uncommitted</tspan><tspan class="en">no commits — everything stays uncommitted</tspan></text>
+      <line x1="620" y1="185" x2="620" y2="212" stroke="#8b949e" stroke-width="1.4" marker-end="url(#earr)"/>
+      <rect x="455" y="215" width="330" height="56" rx="7" fill="#1c1607" stroke="#d29922" stroke-width="1.6"/>
+      <text x="620" y="236" text-anchor="middle" fill="#d29922" font-size="11">⏸ Status: awaiting-release</text>
+      <text x="620" y="254" text-anchor="middle" fill="#8b949e" font-size="10"><tspan class="de">Mensch reviewt den rohen Diff in der IDE</tspan><tspan class="en">human reviews the raw diff in the IDE</tspan></text>
+      <line x1="620" y1="271" x2="620" y2="298" stroke="#8b949e" stroke-width="1.4" marker-end="url(#earr)"/>
+      <rect x="455" y="301" width="330" height="40" rx="7" fill="#11161d" stroke="#58a6ff"/>
+      <text x="620" y="318" text-anchor="middle" fill="#58a6ff" font-size="11">/craft:release → Status: testing</text>
+      <text x="620" y="334" text-anchor="middle" fill="#6e7681" font-size="10"><tspan class="de">dann Phase 5–9 wie gewohnt</tspan><tspan class="en">then phases 5–9 as usual</tspan></text>
+      <text x="620" y="420" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">Landet später über /craft:commit auf main</tspan><tspan class="en">lands on main later via /craft:commit</tspan></text>
+
+      <!-- Panel 3: sequential epic -->
+      <rect x="836" y="10" width="395" height="450" rx="10" fill="#0d1117" stroke="#30363d"/>
+      <text x="1033" y="38" text-anchor="middle" fill="#bc8cff" font-size="14" font-weight="bold">3 · sequential epic</text>
+      <text x="1033" y="56" text-anchor="middle" fill="#6e7681" font-size="10"><tspan class="de">Slice für Slice, im Haupt-Checkout</tspan><tspan class="en">slice by slice, in the main checkout</tspan></text>
+      <rect x="870" y="75" width="325" height="46" rx="7" fill="#11161d" stroke="#3fb950"/>
+      <text x="1033" y="94" text-anchor="middle" fill="#c9d1d9" font-size="11">slice-001 · phases 4→8</text>
+      <text x="1033" y="110" text-anchor="middle" fill="#6e7681" font-size="10"><tspan class="de">landet: Commit auf main — oder PR</tspan><tspan class="en">lands: commit on main — or PR</tspan></text>
+      <line x1="1033" y1="121" x2="1033" y2="148" stroke="#8b949e" stroke-width="1.4" marker-end="url(#earr)"/>
+      <rect x="870" y="151" width="325" height="42" rx="7" fill="#1c1607" stroke="#d29922"/>
+      <text x="1033" y="168" text-anchor="middle" fill="#d29922" font-size="10.5">⏸ <tspan class="de">Review-Halt zwischen Slices</tspan><tspan class="en">review halt between slices</tspan></text>
+      <text x="1033" y="185" text-anchor="middle" fill="#8b949e" font-size="10"><tspan class="de">weiter mit</tspan><tspan class="en">resume via</tspan> /craft:execute epic-NNN</text>
+      <line x1="1033" y1="193" x2="1033" y2="220" stroke="#8b949e" stroke-width="1.4" marker-end="url(#earr)"/>
+      <rect x="870" y="223" width="325" height="46" rx="7" fill="#11161d" stroke="#3fb950"/>
+      <text x="1033" y="242" text-anchor="middle" fill="#c9d1d9" font-size="11">slice-002 · phases 4→8</text>
+      <text x="1033" y="258" text-anchor="middle" fill="#6e7681" font-size="10">…</text>
+      <line x1="1033" y1="269" x2="1033" y2="296" stroke="#8b949e" stroke-width="1.4" marker-end="url(#earr)"/>
+      <rect x="870" y="299" width="325" height="56" rx="7" fill="#11161d" stroke="#d29922"/>
+      <text x="1033" y="318" text-anchor="middle" fill="#d29922" font-size="10.5"><tspan class="de">PR-Variante: „Freigabe ≠ Merge"</tspan><tspan class="en">PR variant: "approval ≠ merge"</tspan></text>
+      <text x="1033" y="334" text-anchor="middle" fill="#8b949e" font-size="9.5">awaiting-approval → GitHub review →</text>
+      <text x="1033" y="348" text-anchor="middle" fill="#8b949e" font-size="9.5">gh pr merge (<tspan class="de">nie</tspan><tspan class="en">never</tspan> --admin)</text>
+      <text x="1033" y="420" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">kein Worktree, kein Epic-Branch</tspan><tspan class="en">no worktree, no epic branch</tspan></text>
+    </svg>
+    <div class="figcap de">Modus 1 wählt <code>Epic Mode: parallel</code> bzw. <code>Execution → Mode: worktree</code>;
+      Modus 2 <code>Execution → Mode: in-place</code>; Modus 3 <code>Epic Mode: sequential</code>.</div>
+    <div class="figcap en">Mode 1 = <code>Epic Mode: parallel</code> / <code>Execution → Mode: worktree</code>;
+      mode 2 = <code>Execution → Mode: in-place</code>; mode 3 = <code>Epic Mode: sequential</code>.</div>
+    </div>
+
+    <div class="de">
+      <h3>Was der Orchestrator garantiert</h3>
+      <ul>
+        <li><strong>Worktree-Trust:</strong> Worktrees liegen <em>außerhalb</em> des Projektordners
+          (<code>../&lt;repo&gt;-worktrees/&lt;slice-id&gt;-&lt;slug&gt;/</code>). Ihr Basisverzeichnis wird — einmalig,
+          nach Bestätigung — in <code>permissions.additionalDirectories</code> von
+          <code>.claude/settings.local.json</code> eingetragen, damit keine Permission-Prompts den Lauf stoppen.</li>
+        <li><strong>Lock-Datei:</strong> <code>.claude/plans/.execute.lock</code> verhindert parallele Läufe;
+          Post-Assertions prüfen die Freigabe.</li>
+        <li><strong>Abhängigkeiten:</strong> Slices mit <code>Depends-On</code> werden als DAG aufgelöst;
+          nur die freie „Frontier" läuft parallel.</li>
+        <li><strong>Review-Checkpoints:</strong> Im Epic-Plan markierte Slices stoppen den Lauf <em>vor</em> dem Merge.</li>
+        <li><strong>Harte Grenzen:</strong> merged nie nach <code>main</code> (das ist <code>/craft:commit</code>),
+          pusht nie, löst Heavy+Rethinking-Findings nie selbst auf. Ein Handoff eines Slices bricht den Lauf nicht ab —
+          unabhängige Slices laufen weiter.</li>
+      </ul>
+      <p>Rundherum: <code>/craft:worktree-status</code> (Übersicht aller Worktrees inkl. Handoff-Marker),
+      <code>/craft:checkout</code> (in einen Worktree zum Inspizieren wechseln),
+      <code>/craft:worktree-clean</code> (verwaiste Worktrees nach Bestätigung entfernen — nie mit <code>--force</code>).</p>
+    </div>
+    <div class="en">
+      <h3>What the orchestrator guarantees</h3>
+      <ul>
+        <li><strong>Worktree trust:</strong> worktrees live <em>outside</em> the project root
+          (<code>../&lt;repo&gt;-worktrees/&lt;slice-id&gt;-&lt;slug&gt;/</code>). Their base directory is added — once,
+          after confirmation — to <code>permissions.additionalDirectories</code> in
+          <code>.claude/settings.local.json</code> so permission prompts can't stall the run.</li>
+        <li><strong>Lock file:</strong> <code>.claude/plans/.execute.lock</code> prevents concurrent runs;
+          post-assertions verify its release.</li>
+        <li><strong>Dependencies:</strong> slices with <code>Depends-On</code> are resolved as a DAG;
+          only the free "frontier" runs in parallel.</li>
+        <li><strong>Review checkpoints:</strong> slices marked in the epic plan halt the run <em>before</em> merging.</li>
+        <li><strong>Hard limits:</strong> never merges into <code>main</code> (that is <code>/craft:commit</code>),
+          never pushes, never resolves Heavy+rethinking findings itself. One slice's handoff doesn't abort the run —
+          independent slices continue.</li>
+      </ul>
+      <p>Around it: <code>/craft:worktree-status</code> (overview of all worktrees incl. handoff markers),
+      <code>/craft:checkout</code> (switch into a worktree for inspection),
+      <code>/craft:worktree-clean</code> (remove orphaned worktrees after confirmation — never with <code>--force</code>).</p>
+    </div>
+  </div>
+</div></section>
+
+<!-- ================= CONFIGURATION ================= -->
+<section id="config"><div class="term">
+  <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="term-title">~/craft — <span class="de">konfiguration</span><span class="en">configuration</span></span></div>
+  <div class="term-body">
+    <h2><span class="de">Alle Stellschrauben — die Konfigurationsreferenz</span><span class="en">Every knob — the configuration reference</span></h2>
+
+    <h3><span class="de">Das CRAFT-Profil</span><span class="en">The CRAFT profile</span> — <code>.claude/project/craft-profile.md</code></h3>
+    <p class="de">Das portable Betriebsprofil eines Projekts: Autonomie-, Commit-, Merge-, Sprach- und
+    Modell-Einstellungen an einem Ort. Fehlt die Datei, gilt implizit das Preset <code>balanced</code>.
+    Beim Onboarding wählbar: ein Preset übernehmen oder jede Stellschraube einzeln setzen
+    (<code>&gt; Preset: custom</code>). <code>/craft:prime</code> validiert das Profil jede Session —
+    Warnungen, nie Abbruch.</p>
+    <p class="en">A project's portable operating profile: autonomy, commit, merge, language and model settings
+    in one place. If the file is absent, the <code>balanced</code> preset applies implicitly. During onboarding
+    you either adopt a preset or set every knob individually (<code>&gt; Preset: custom</code>).
+    <code>/craft:prime</code> validates the profile every session — warnings, never aborts.</p>
+
+    <div class="tblwrap"><table>
+      <tr><th>Preset</th><th>Execution<br>Mode</th><th>Auto-<br>commit</th><th>Merge</th><th>Epic<br>Mode</th><th>Permission<br>Scope</th>
+          <th><span class="de">Charakter</span><span class="en">Character</span></th></tr>
+      <tr><td><code>careful</code></td><td><code>in-place</code></td><td><code>off</code></td>
+          <td><code>pull-request</code> + <code>protected-main</code> + GitHub-Review</td>
+          <td><code>sequential</code></td><td><code>minimal</code></td>
+          <td><span class="de">Jeder Diff wird vor Phase 5 in der IDE gesichtet; alles landet per freigegebenem PR.</span>
+              <span class="en">Every diff is reviewed in the IDE before phase 5; everything lands via an approved PR.</span></td></tr>
+      <tr><td><code>balanced</code> ★</td><td><code>worktree</code></td><td><code>on</code></td>
+          <td><code>direct</code></td><td><code>parallel</code></td><td><code>standard</code></td>
+          <td><span class="de">Der Default: parallele Worktrees, direkte Merges, Chat-Freigaben.</span>
+              <span class="en">The default: parallel worktrees, direct merges, chat approvals.</span></td></tr>
+      <tr><td><code>autonomous</code></td><td><code>worktree</code></td><td><code>on</code></td>
+          <td><code>direct</code></td><td><code>parallel</code></td><td><code>broad</code></td>
+          <td><span class="de">Wie balanced, aber mit breiterer Read-only-Allowlist — weniger Prompts.</span>
+              <span class="en">Like balanced but with a broader read-only allowlist — fewer prompts.</span></td></tr>
+    </table></div>
+
+    <div class="tblwrap"><table>
+      <tr><th><span class="de">Block → Feld</span><span class="en">Block → field</span></th><th><span class="de">Werte (Default fett)</span><span class="en">Values (default bold)</span></th>
+          <th><span class="de">Wirkung</span><span class="en">Effect</span></th></tr>
+      <tr><td><code>Execution → Mode</code></td><td><strong><code>worktree</code></strong> | <code>in-place</code></td>
+        <td><span class="de">Worktree: Wegwerf-Worktree außerhalb des Repos, parallelsicher. In-place: Branch im Haupt-Checkout, Halt vor Phase 5 (<code>/craft:release</code>).</span>
+            <span class="en">Worktree: throwaway worktree outside the repo, parallel-safe. In-place: branch in the main checkout, halt before phase 5 (<code>/craft:release</code>).</span></td></tr>
+      <tr><td><code>Commit Policy → Auto-commit</code></td><td><strong><code>on</code></strong> | <code>off</code></td>
+        <td><span class="de">on: Commits pro Sub-Task. off: alles bleibt bis Phase 9 uncommitted — <strong>nur mit <code>in-place</code> gültig</strong> (das Worktree-Merge-Modell braucht Sub-Task-Commits).</span>
+            <span class="en">on: per-sub-task commits. off: everything stays uncommitted until phase 9 — <strong>valid only with <code>in-place</code></strong> (the worktree merge model needs per-sub-task commits).</span></td></tr>
+      <tr><td><code>Commit Policy → Co-Authored-By</code></td><td><code>on</code> | <strong><code>off</code></strong></td>
+        <td><span class="de">on: <code>/craft:commit</code> hängt den Claude-Trailer an jede Commit-Message.</span>
+            <span class="en">on: <code>/craft:commit</code> appends the Claude trailer to each commit message.</span></td></tr>
+      <tr><td><code>Merge Workflow → Type</code></td><td><strong><code>direct</code></strong> | <code>pull-request</code></td>
+        <td><span class="de">direct: Merge direkt auf den Trunk. pull-request: es wird ein PR geöffnet.</span>
+            <span class="en">direct: merge straight to trunk. pull-request: a PR is opened.</span></td></tr>
+      <tr><td><code>Merge Workflow → Protected-main</code></td><td><strong><code>no</code></strong> | <code>yes</code></td>
+        <td><span class="de">yes + pull-request = „Freigabe ≠ Merge": Merge nur nach echtem GitHub-Approval, nie <code>--admin</code>.</span>
+            <span class="en">yes + pull-request = "approval ≠ merge": merge only after a real GitHub approval, never <code>--admin</code>.</span></td></tr>
+      <tr><td><code>Merge Workflow → Approval</code></td><td><strong><code>chat</code></strong> | <code>github-pr-review</code></td>
+        <td><span class="de">Wo die menschliche Freigabe stattfindet: im Chat oder als GitHub-PR-Review.</span>
+            <span class="en">Where the human go-ahead happens: in chat or as a GitHub PR review.</span></td></tr>
+      <tr><td><code>Merge Workflow → Approval-granularity</code></td><td><strong><code>auto</code></strong> | <code>per-slice</code> | <code>per-epic</code></td>
+        <td><span class="de">auto: sequenzieller Epic → pro Slice; paralleler Epic/Einzel-Slice → einmal am Ende.</span>
+            <span class="en">auto: sequential epic → per slice; parallel epic / lone slice → once at the end.</span></td></tr>
+      <tr><td><code>Epic Mode → Default</code></td><td><strong><code>parallel</code></strong> | <code>sequential</code></td>
+        <td><span class="de">Siehe <a href="#execution">Ausführungsmodi</a>.</span><span class="en">See <a href="#execution">execution modes</a>.</span></td></tr>
+      <tr><td><code>Permissions → Scope</code></td><td><code>minimal</code> | <strong><code>standard</code></strong> | <code>broad</code></td>
+        <td><span class="de">Welche <em>read-only</em>-Allowlist das Onboarding in <code>.claude/settings.local.json</code> schreibt (git status/diff/log/ls → + cat/grep/git show/gh pr → + wc/head/tail/git blame/gh issue/run). Nie ein mutierendes Kommando; <code>find</code> ist bewusst ausgeschlossen.</span>
+            <span class="en">Which <em>read-only</em> allowlist onboarding writes to <code>.claude/settings.local.json</code> (git status/diff/log/ls → + cat/grep/git show/gh pr → + wc/head/tail/git blame/gh issue/run). Never a mutating command; <code>find</code> is deliberately excluded.</span></td></tr>
+      <tr><td><code>Operational Language</code></td><td>Chat / Commits / Comments</td>
+        <td><span class="de">Drei unabhängige Sprachen: Chat (Default: Systemsprache) für die Session, Commits (Default: Englisch) für <code>/craft:commit</code>, Comments (Default: Englisch) für <code>/craft:build</code>/<code>/craft:review</code>.</span>
+            <span class="en">Three independent languages: chat (default: system language) for the session, commits (default: English) for <code>/craft:commit</code>, comments (default: English) for <code>/craft:build</code>/<code>/craft:review</code>.</span></td></tr>
+      <tr><td><code>Agent Model Overrides</code></td><td><code>&lt;agent&gt;: opus | sonnet | haiku | inherit</code></td>
+        <td><span class="de">Übersteuert das Frontmatter-Default eines Subagenten: <code>slice-builder</code> (Default <code>sonnet</code>, Phase 4 via Execute), <code>code-reviewer</code> (Default <code>opus</code>, Phase 8). Alle dialogischen Phasen laufen auf dem Session-Modell.</span>
+            <span class="en">Overrides a subagent's frontmatter default: <code>slice-builder</code> (default <code>sonnet</code>, phase 4 via execute), <code>code-reviewer</code> (default <code>opus</code>, phase 8). All dialogic phases run on the session model.</span></td></tr>
+    </table></div>
+
+    <h3><span class="de">Optionale Blöcke in</span><span class="en">Optional blocks in</span> <code>.claude/project/rules.md</code></h3>
+    <div class="tblwrap"><table>
+      <tr><th>Block</th><th><span class="de">Felder &amp; Defaults</span><span class="en">Fields &amp; defaults</span></th>
+          <th><span class="de">Wirkung</span><span class="en">Effect</span></th></tr>
+      <tr><td><code>## Personality</code></td>
+        <td><code>Stack-Pack: &lt;name&gt; | none</code></td>
+        <td><span class="de">Deklariert das Stack-Pack für die code-nahen Phasen. Auflösung: <code>skills/&lt;name&gt;/</code> (im Plugin) → <code>~/.claude/craft-personalities/&lt;name&gt;/</code> (eigene Packs). Fehlt das Pack: Warnung, nie Abbruch.</span>
+            <span class="en">Declares the stack-pack for the code-near phases. Resolution: <code>skills/&lt;name&gt;/</code> (plugin-shipped) → <code>~/.claude/craft-personalities/&lt;name&gt;/</code> (your own packs). Missing pack: warning, never fatal.</span></td></tr>
+      <tr><td><code>## Worktree Settings</code></td>
+        <td><span class="de">Pfad-Muster</span><span class="en">path pattern</span> <code>../&lt;repo&gt;-worktrees/&lt;slice-id&gt;-&lt;slug&gt;/</code><br>
+            <span class="de">Branch-Muster</span><span class="en">branch pattern</span> <code>&lt;slice-id&gt;-&lt;slug&gt;</code></td>
+        <td><span class="de">Wo <code>/craft:execute</code> Worktrees anlegt und wie Branches heißen.</span>
+            <span class="en">Where <code>/craft:execute</code> creates worktrees and how branches are named.</span></td></tr>
+      <tr><td><code>## Read-Only Context Sources</code></td>
+        <td><code>- &lt;absolute-path&gt;</code> <span class="de">pro Quelle</span><span class="en">per source</span></td>
+        <td><span class="de">„Connected projects": lesbar, aber schreibgeschützt — ein PreToolUse-Hook verweigert Write/Edit auf diese Pfade. Der Ordner <code>research/</code> im Repo ist immer geschützt.</span>
+            <span class="en">"Connected projects": readable but write-blocked — a PreToolUse hook denies Write/Edit on these paths. The in-repo <code>research/</code> folder is always protected.</span></td></tr>
+      <tr><td><code>## Self-Verification Settings</code></td>
+        <td>Max attempts: <strong>5</strong> · Auto-trigger: <strong>2</strong> · Token brake: <strong>15000</strong> · Stale slice: <strong>7 days</strong> · Review fix cap: <strong>5</strong></td>
+        <td><span class="de">Stellschrauben für den Debug-Loop, das Auto-Angebot von <code>/craft:debug</code>, die Token-Bremse, die Stale-Slice-Warnung von Prime und das In-Phase-Fix-Limit des Reviews.</span>
+            <span class="en">Knobs for the debug loop, the auto-offer of <code>/craft:debug</code>, the token brake, prime's stale-slice warning and review's in-phase fix cap.</span></td></tr>
+      <tr><td><code>## Workflow Rules</code></td>
+        <td><span class="de">u. a. „Phase 7 entfällt"</span><span class="en">e.g. "phase 7 is dropped"</span></td>
+        <td><span class="de">Ein Bullet, das Phase 7 als gestrichen erklärt, schaltet das Routing um: Recap übergibt direkt an Review. Der Status-Graph-Harness prüft beide Konfigurationen.</span>
+            <span class="en">A bullet declaring phase 7 dropped flips the routing: recap hands straight to review. The status-graph harness verifies both configurations.</span></td></tr>
+    </table></div>
+
+    <h3><span class="de">Die drei Persönlichkeits-Ebenen</span><span class="en">The three personality tiers</span></h3>
+    <div class="cards">
+      <div class="card"><h4>Tier 1 · Senior-Developer</h4>
+        <p><span class="de">Stack-agnostische Baseline, von <code>/craft:prime</code> einmal geladen, in jeder Phase aktiv:
+        Qualitäts-Hierarchie (Correctness &gt; Tests &gt; Architektur &gt; Wartbarkeit &gt; Performance &gt; Konsistenz),
+        Workflow-Gates, Test-Disziplin-Matrix, Problem-Playbook.</span>
+        <span class="en">Stack-agnostic baseline, loaded once by <code>/craft:prime</code>, active in every phase:
+        quality hierarchy (correctness &gt; tests &gt; architecture &gt; maintainability &gt; performance &gt; consistency),
+        workflow gates, test-discipline matrix, problem playbook.</span></p></div>
+      <div class="card"><h4>Tier 2 · Stack-Pack</h4>
+        <p><span class="de">Framework-Idiome (z. B. <code>stack-php-laravel</code>: PHP 8.4 + Laravel 12 + Filament + Pest).
+        Nur in den code-nahen Phasen geladen (Build, Test, Refactor, Review). Eigene Packs unter
+        <code>~/.claude/craft-personalities/</code>.</span>
+        <span class="en">Framework idioms (e.g. <code>stack-php-laravel</code>: PHP 8.4 + Laravel 12 + Filament + Pest).
+        Loaded only in the code-near phases (build, test, refactor, review). Your own packs live under
+        <code>~/.claude/craft-personalities/</code>.</span></p></div>
+      <div class="card"><h4>Tier 3 · <span class="de">Projekt-Overlay</span><span class="en">Project overlay</span></h4>
+        <p><span class="de">Die eigenen Konventionen des Projekts: <code>rules.md</code> (Code Conventions, Tabus,
+        exakte Tool-Kommandos) + <code>intent.md</code>. Stack-Packs verweisen bewusst hierher — immer wirksam.</span>
+        <span class="en">The project's own conventions: <code>rules.md</code> (code conventions, taboos, exact tool
+        commands) + <code>intent.md</code>. Stack-packs explicitly defer here — always in effect.</span></p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- ================= KNOWLEDGE ================= -->
+<section id="knowledge"><div class="term">
+  <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="term-title">~/craft — <span class="de">wissensmodell</span><span class="en">knowledge model</span></span></div>
+  <div class="term-body">
+    <h2><span class="de">Das Wissensmodell — „Chat ist kein Speicher"</span><span class="en">The knowledge model — "chat is not storage"</span></h2>
+    <p class="de">CRAFT trennt drei Wissensschichten mit unterschiedlicher Ground Truth. Alles Bleibende wird
+    <em>im selben Zug</em>, in dem es entsteht, in seine dauerhafte Heimat geschrieben — denn Kontext stirbt bei
+    <code>/clear</code>, Compaction und Session-Ende:</p>
+    <p class="en">CRAFT separates three knowledge layers with distinct ground truth. Anything lasting is written
+    to its durable home <em>in the same turn</em> it is produced — because context dies on <code>/clear</code>,
+    compaction and session end:</p>
+
+    <div class="tblwrap"><table>
+      <tr><th><span class="de">Schicht</span><span class="en">Layer</span></th><th><span class="de">Inhalt</span><span class="en">Content</span></th>
+          <th>Ground Truth</th><th><span class="de">Zuhause</span><span class="en">Home</span></th></tr>
+      <tr><td><strong>State</strong></td><td><span class="de">Was heute existiert</span><span class="en">What exists today</span></td>
+          <td><span class="de">Code, Git, Configs</span><span class="en">Code, git, configs</span></td>
+          <td><span class="de">nicht dupliziert — bei Bedarf gelesen</span><span class="en">not duplicated — read on demand</span></td></tr>
+      <tr><td><strong>Intent</strong></td><td><span class="de">Was wir wollen &amp; warum</span><span class="en">What we want &amp; why</span></td>
+          <td><span class="de">vom Menschen verfasst</span><span class="en">human-authored</span></td><td><code>intent.md</code></td></tr>
+      <tr><td><strong>Rules</strong></td><td><span class="de">Wie wir bauen, immer</span><span class="en">How we build, always</span></td>
+          <td><span class="de">gegen State verifizierbar</span><span class="en">verifiable against State</span></td><td><code>rules.md</code></td></tr>
+    </table></div>
+
+    <p class="de">Routing für bleibende Erkenntnisse: Warum → <code>intent.md</code> · Wie → <code>rules.md</code> ·
+    Langfrist-Phasen → <code>roadmap.md</code> · Slice-Entscheidungen → Slice-Archiv · Epic-Entscheidungen →
+    Epic-Plan · Querschnitts-Design (Domänenmodell, Szenario-Kataloge) → <code>design/*.md</code>.
+    Nach Phase 9 lebt das Gedächtnis in drei Orten: Code, Commits (mit <code>Slice:</code>-Footer) und dem
+    Slice-Archiv — dem Decision Log.</p>
+    <p class="en">Routing for lasting insight: why → <code>intent.md</code> · how → <code>rules.md</code> ·
+    long-term phases → <code>roadmap.md</code> · slice decisions → slice archive · epic decisions → epic plan ·
+    cross-cutting design (domain model, scenario catalogs) → <code>design/*.md</code>.
+    After phase 9, memory lives in three places: code, commits (with <code>Slice:</code> footers) and the
+    slice archive — the decision log.</p>
+
+<pre><code>your-project/
+├── CLAUDE.md                          <span class="cmt"># <span class="de">schlanker Index auf alles Untere</span><span class="en">slim index pointing at everything below</span></span>
+├── .claude/
+│   ├── project/                       <span class="cmt"># <span class="de">DAUERHAFT — versioniert</span><span class="en">DURABLE — version-controlled</span></span>
+│   │   ├── intent.md                  <span class="cmt"># <span class="de">Warum: Vision, Ziele, Entscheidungen (≤ ~80 Zeilen)</span><span class="en">why: vision, goals, decisions (≤ ~80 lines)</span></span>
+│   │   ├── rules.md                   <span class="cmt"># <span class="de">Wie: Stack, Konventionen, Tabus (≤ ~80 Zeilen)</span><span class="en">how: stack, conventions, taboos (≤ ~80 lines)</span></span>
+│   │   ├── craft-profile.md           <span class="cmt"># <span class="de">Betriebsprofil (Presets &amp; Stellschrauben)</span><span class="en">operating profile (presets &amp; knobs)</span></span>
+│   │   ├── roadmap.md                 <span class="cmt"># <span class="de">optional: Backlog jenseits des Kerns</span><span class="en">optional: backlog beyond the core</span></span>
+│   │   ├── design/                    <span class="cmt"># <span class="de">Querschnitts-Designwissen, on demand</span><span class="en">cross-cutting design knowledge, on demand</span></span>
+│   │   └── slices/                    <span class="cmt"># <span class="de">Archiv abgeschlossener Slices = Decision Log</span><span class="en">archive of completed slices = decision log</span></span>
+│   ├── plans/                         <span class="cmt"># <span class="de">EPHEMER — lebt nur solange ein Slice offen ist</span><span class="en">EPHEMERAL — lives only while a slice is open</span></span>
+│   │   ├── slice-001-user-login.md    <span class="cmt"># <span class="de">aktiver Plan — trägt das Status-Token</span><span class="en">active plan — carries the status token</span></span>
+│   │   ├── .next-id · .next-epic-id   <span class="cmt"># <span class="de">ID-Zähler (getrennte Räume)</span><span class="en">ID counters (independent spaces)</span></span>
+│   │   └── .execute.lock              <span class="cmt"># <span class="de">nur während eines /craft:execute-Laufs</span><span class="en">only during a /craft:execute run</span></span>
+│   ├── skills/                        <span class="cmt"># <span class="de">projekt-lokale Spezialisten, lazy geladen</span><span class="en">project-local specialists, lazy-loaded</span></span>
+│   └── settings.local.json            <span class="cmt"># <span class="de">Allowlist + Worktree-Trust (gitignored)</span><span class="en">allowlist + worktree trust (gitignored)</span></span>
+└── research/                          <span class="cmt"># <span class="de">immer schreibgeschützt (PreToolUse-Hook)</span><span class="en">always write-protected (PreToolUse hook)</span></span></code></pre>
+  </div>
+</div></section>
+
+<!-- ================= COMMANDS ================= -->
+<section id="commands"><div class="term">
+  <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="term-title">~/craft — <span class="de">command-referenz</span><span class="en">command reference</span></span></div>
+  <div class="term-body">
+    <h2><span class="de">Command-Referenz</span><span class="en">Command reference</span></h2>
+    <p class="de">24 Commands + 4 slash-aufrufbare Skills, alle im <code>/craft:</code>-Namensraum
+    (bewusst — kollidiert nicht mit reservierten Namen wie <code>/plan</code>). Fast alle Commands beginnen mit
+    dem „Ensure-primed"-Gate: Ist die Session nicht geprimed, läuft <code>/craft:prime</code> automatisch vorweg.</p>
+    <p class="en">24 commands + 4 slash-invocable skills, all in the <code>/craft:</code> namespace
+    (deliberate — no collision with reserved names like <code>/plan</code>). Nearly every command starts with
+    the "ensure-primed" gate: if the session isn't primed, <code>/craft:prime</code> runs first automatically.</p>
+
+    <div class="tblwrap"><table>
+      <tr><th colspan="2"><span class="de">Session &amp; Navigation</span><span class="en">Session &amp; navigation</span></th></tr>
+      <tr><td><code>/craft:prime</code></td><td><span class="de">Session-Start: Tool-Check, Kontext laden, Drift-Check, aktive Slices, Empfehlung. Läuft automatisch (SessionStart-Hook).</span><span class="en">Session start: tool check, context load, drift check, active slices, recommendation. Auto-runs (SessionStart hook).</span></td></tr>
+      <tr><td><code>/craft:continue</code></td><td><span class="de">Liest den Status des aktiven Slice und empfiehlt das nächste Kommando — mutiert nie.</span><span class="en">Reads the active slice's status, recommends the next command — never mutates.</span></td></tr>
+      <tr><td><code>/craft:status</code></td><td><span class="de">Leichte Übersicht: Slices, Phasen, Fortschrittsbalken, Blocker, Handoffs. Read-only.</span><span class="en">Lightweight overview: slices, phases, progress bars, blockers, handoffs. Read-only.</span></td></tr>
+      <tr><td><code>/craft:checkout</code></td><td><span class="de">In einen Worktree wechseln (Anleitung) zum Inspizieren während Recap/Review.</span><span class="en">Switch into a worktree (instructions) for inspection during recap/review.</span></td></tr>
+      <tr><th colspan="2"><span class="de">Phasen-Kommandos</span><span class="en">Phase commands</span></th></tr>
+      <tr><td><code>/craft:plan</code></td><td><span class="de">Phase 3 — Slice planen: Trigger / Effekt / Test-Strategie, Sub-Tasks, Plan-Datei.</span><span class="en">Phase 3 — plan a slice: trigger / effect / test strategy, sub-tasks, plan file.</span></td></tr>
+      <tr><td><code>/craft:epic</code></td><td><span class="de">Multi-Slice-Epic planen: Vision + Zerlegung (≥ 2 Slices), eigener ID-Raum.</span><span class="en">Plan a multi-slice epic: vision + decomposition (≥ 2 slices), own ID space.</span></td></tr>
+      <tr><td><code>/craft:build</code></td><td><span class="de">Phase 4 — implementieren, Sub-Tasks in Reihenfolge, Tests still, Bündel-Meldungen.</span><span class="en">Phase 4 — implement, sub-tasks in order, tests silent, bundle reports.</span></td></tr>
+      <tr><td><code>/craft:test</code></td><td><span class="de">Phase 5 — der Mensch testet: Demo-Setup → Ausprobieren → <code>[W]/[B]/[U]</code>.</span><span class="en">Phase 5 — the human tests: demo setup → exercise → <code>[W]/[B]/[U]</code>.</span></td></tr>
+      <tr><td><code>/craft:recap</code></td><td><span class="de">Phase 6 — Was/Warum erklären, Entscheidungen sichern, ggf. Mermaid-Diagramm.</span><span class="en">Phase 6 — explain what/why, capture decisions, Mermaid diagram if complex.</span></td></tr>
+      <tr><td><code>/craft:refactor</code></td><td><span class="de">Phase 7 — max. 2–3 strukturelle Verbesserungen; pro Projekt abschaltbar.</span><span class="en">Phase 7 — max 2–3 structural improvements; droppable per project.</span></td></tr>
+      <tr><td><code>/craft:review</code></td><td><span class="de">Phase 8 — Fresh-Context-Review, Heavy/Light × Local/Rethink, Commit-Gate.</span><span class="en">Phase 8 — fresh-context review, heavy/light × local/rethink, commit gate.</span></td></tr>
+      <tr><td><code>/craft:commit</code></td><td><span class="de">Phase 9 — atomare Commits, Promotion-Dialog, Archiv, Plan löschen, ggf. PR-Flow.</span><span class="en">Phase 9 — atomic commits, promotion dialog, archive, plan deletion, PR flow if configured.</span></td></tr>
+      <tr><th colspan="2"><span class="de">Orchestrierung</span><span class="en">Orchestration</span></th></tr>
+      <tr><td><code>/craft:execute</code></td><td><span class="de">Epic/Slice autonom bauen — parallel (Worktrees), in-place oder sequenziell.</span><span class="en">Build an epic/slice autonomously — parallel (worktrees), in-place or sequential.</span></td></tr>
+      <tr><td><code>/craft:release</code></td><td><span class="de">In-Place-Halt lösen: „Diff gesehen, weiter zu Phase 5".</span><span class="en">Lift the in-place halt: "diff reviewed, on to phase 5".</span></td></tr>
+      <tr><th colspan="2"><span class="de">Unterbrechungen &amp; Zustand</span><span class="en">Interrupts &amp; state</span></th></tr>
+      <tr><td><code>/craft:pause</code></td><td><span class="de">Slice pausieren, Notiz in den Plan.</span><span class="en">Pause the slice, note into the plan.</span></td></tr>
+      <tr><td><code>/craft:handoff</code></td><td><span class="de">Übergabe für frische Session schreiben (Status bleibt).</span><span class="en">Write a handoff for a fresh session (status unchanged).</span></td></tr>
+      <tr><td><code>/craft:block</code> / <code>/craft:unblock</code></td><td><span class="de">Blocker erstklassig erfassen / auflösen (<code>[R]/[P]/[A]</code>), Auto-Resurface via Commit.</span><span class="en">Record / clear a first-class blocker (<code>[R]/[P]/[A]</code>), auto-resurface via commit.</span></td></tr>
+      <tr><td><code>/craft:abort</code></td><td><span class="de">Slice endgültig verwerfen — getippte ID als Bestätigung.</span><span class="en">Discard a slice for good — typed ID to confirm.</span></td></tr>
+      <tr><td><code>/craft:intent-update</code></td><td><span class="de">Einziger Weg, <code>intent.md</code> außerhalb von Phase 9 zu ändern — Diff + Bestätigung.</span><span class="en">The only way to edit <code>intent.md</code> outside phase 9 — diff + confirmation.</span></td></tr>
+      <tr><th colspan="2"><span class="de">Worktrees &amp; Wartung</span><span class="en">Worktrees &amp; maintenance</span></th></tr>
+      <tr><td><code>/craft:worktree-status</code> / <code>-clean</code></td><td><span class="de">Worktrees auflisten / verwaiste nach Bestätigung entfernen.</span><span class="en">List worktrees / remove orphans after confirmation.</span></td></tr>
+      <tr><td><code>/craft:onboard</code></td><td><span class="de">Einmaliges Onboarding — Greenfield oder Migration eines bestehenden <code>.claude/</code>.</span><span class="en">One-time onboarding — greenfield or migration of an existing <code>.claude/</code>.</span></td></tr>
+      <tr><td><code>/craft:upgrade</code></td><td><span class="de">Marketplace-Klon von GitHub synchronisieren; Installation übernimmt Claude Code beim Neustart.</span><span class="en">Sync the marketplace clone from GitHub; Claude Code reinstalls on next start.</span></td></tr>
+      <tr><th colspan="2"><span class="de">Slash-aufrufbare Skills</span><span class="en">Slash-invocable skills</span></th></tr>
+      <tr><td><code>/craft</code></td><td><span class="de">Zustandsbewusster Einstieg: erkennt Onboarding-/Slice-Status, bietet gültige Aktionen an.</span><span class="en">State-aware entry point: detects onboarding/slice state, offers valid actions.</span></td></tr>
+      <tr><td><code>/craft:brainstorm</code> / <code>/craft:grill-me</code></td><td><span class="de">Phase 1 (Ideation) / Phase 2 (Alignment-Interview).</span><span class="en">Phase 1 (ideation) / phase 2 (alignment interview).</span></td></tr>
+      <tr><td><code>/craft:debug</code></td><td><span class="de">Bug-Verifikationsprotokoll ALIGN → PROTOCOL → LOOP → ESCALATION.</span><span class="en">Bug verification protocol ALIGN → PROTOCOL → LOOP → ESCALATION.</span></td></tr>
+    </table></div>
+  </div>
+</div></section>
+
+<!-- ================= ARCHITECTURE ================= -->
+<section id="architecture"><div class="term">
+  <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="term-title">~/craft — <span class="de">architektur &amp; runtime</span><span class="en">architecture &amp; runtime</span></span></div>
+  <div class="term-body">
+    <h2><span class="de">Unter der Haube</span><span class="en">Under the hood</span></h2>
+
+    <div class="cards">
+      <div class="card"><h4><span class="de">Reines Markdown-Plugin</span><span class="en">Pure Markdown plugin</span></h4>
+        <p><span class="de">24 Commands, 8 Skills, 2 Agents, 3 Hooks — Markdown, JSON und Bash. Kein Build,
+        kein MCP-Server. Das Repo ist sein eigener Marketplace (<code>marketplace.json</code> mit
+        <code>source: "./"</code>).</span>
+        <span class="en">24 commands, 8 skills, 2 agents, 3 hooks — Markdown, JSON and Bash. No build,
+        no MCP server. The repo is its own marketplace (<code>marketplace.json</code> with
+        <code>source: "./"</code>).</span></p></div>
+      <div class="card"><h4>Hooks</h4>
+        <p><span class="de"><strong>SessionStart:</strong> <code>session-start.sh</code> stößt das Auto-Prime an
+        (nur in onboardeten Projekten); <code>worktree-handoff-notify.sh</code> zeigt wartende Worktree-Handoffs.
+        <strong>PreToolUse:</strong> <code>readonly-context-guard.sh</code> verweigert Write/Edit auf
+        <code>research/</code> und deklarierte Read-only-Quellen — mit pfad-normalisierender Traversal-Abwehr,
+        fail-open bei fehlendem <code>jq</code>.</span>
+        <span class="en"><strong>SessionStart:</strong> <code>session-start.sh</code> triggers auto-prime
+        (only in onboarded projects); <code>worktree-handoff-notify.sh</code> surfaces pending worktree handoffs.
+        <strong>PreToolUse:</strong> <code>readonly-context-guard.sh</code> denies Write/Edit on
+        <code>research/</code> and declared read-only sources — with path-normalizing traversal defense,
+        fail-open when <code>jq</code> is missing.</span></p></div>
+      <div class="card"><h4>Agents</h4>
+        <p><span class="de"><strong>code-reviewer</strong> (Opus): klassifiziert nur — hat strukturell keine
+        Schreib-Tools. <strong>slice-builder</strong> (Sonnet): führt Phase 4–7 eines Slices im Worktree aus,
+        schreibt bei jeder menschenpflichtigen Pause <code>.craft/handoff.md</code>, committet/merged/pusht nie
+        selbst und erfindet nie eine menschliche Antwort.</span>
+        <span class="en"><strong>code-reviewer</strong> (Opus): classifies only — structurally has no write
+        tools. <strong>slice-builder</strong> (Sonnet): runs a slice's phases 4–7 in its worktree, writes
+        <code>.craft/handoff.md</code> on every human-required pause, never commits/merges/pushes itself and
+        never fabricates a human answer.</span></p></div>
+      <div class="card"><h4><span class="de">Selbst-Tests</span><span class="en">Self-tests</span></h4>
+        <p><span class="de"><code>test-workflow-status-graph.sh</code> beweist, dass der Status-Graph geschlossen
+        ist und die Commands ihm entsprechen — über maschinenlesbare Marker, denn <em>Prosa ist nicht prüfbar</em>
+        (ein Grep unterscheidet Gebot nicht von Verbot). <code>test-readonly-context.sh</code> testet den
+        Schreibschutz-Hook inklusive Traversal-Fällen.</span>
+        <span class="en"><code>test-workflow-status-graph.sh</code> proves the status graph is closed and the
+        commands agree with it — via machine-readable markers, because <em>prose is not checkable</em>
+        (a grep can't tell prescription from prohibition). <code>test-readonly-context.sh</code> tests the
+        write-protection hook including traversal cases.</span></p></div>
+    </div>
+
+    <h3><span class="de">Begleitwerkzeuge (Pflicht)</span><span class="en">Companion tools (required)</span></h3>
+    <div class="tblwrap"><table>
+      <tr><th>Tool</th><th><span class="de">Wofür CRAFT es braucht</span><span class="en">What CRAFT needs it for</span></th></tr>
+      <tr><td><code>context-mode</code></td><td><span class="de">Kontextfenster-Schutz: große Ausgaben laufen in einer Sandbox, nur Ergebnisse gelangen in die Konversation. Spart aktiv große Token-Mengen und macht deutlich längere Sessions möglich — der 9-Phasen-Loop in einem Rutsch lebt davon (siehe <a href="#quickstart">Kontext-Hygiene</a>).</span><span class="en">Context-window protection: large outputs run in a sandbox, only derived answers enter the conversation. Actively saves large amounts of tokens and enables much longer sessions — running the 9-phase loop in one go depends on it (see <a href="#quickstart">context hygiene</a>).</span></td></tr>
+      <tr><td><code>agent-browser</code></td><td><span class="de">Browser-Automatisierung für Hands-on-Verifikation (Phase 5).</span><span class="en">Browser automation for hands-on verification (phase 5).</span></td></tr>
+      <tr><td><code>git</code></td><td><span class="de">Worktrees, Branches, das gesamte Ausführungs- und Commit-Modell.</span><span class="en">Worktrees, branches, the whole execution and commit model.</span></td></tr>
+      <tr><td><code>gh</code></td><td><span class="de">PR-Landing im Protected-main-Profil (öffnen + mergen nur nach Approval).</span><span class="en">PR landing under the protected-main profile (open + merge only after approval).</span></td></tr>
+    </table></div>
+
+    <p class="small dim de">Upgrade-Modell: <code>/craft:upgrade</code> synct nur den Marketplace-Klon
+    (<code>~/.claude/plugins/marketplaces/…</code>) — die Installation in den Plugin-Cache übernimmt Claude Code
+    beim nächsten Start. Wichtig fürs Dogfooding: Die laufende Session führt immer die <em>Cache</em>-Version aus,
+    nicht den Working Tree.</p>
+    <p class="small dim en">Upgrade model: <code>/craft:upgrade</code> only syncs the marketplace clone
+    (<code>~/.claude/plugins/marketplaces/…</code>) — installation into the plugin cache is Claude Code's job on
+    next start. Dogfooding caveat: a running session always executes the <em>cache</em> version, not the working tree.</p>
+  </div>
+</div></section>
+
+</main>
+
+<footer><div class="wrap">
+  <div>CRAFT v1.3.0 · MIT License · Christoph Raschke ·
+    <a href="https://github.com/ChriRas/craft">github.com/ChriRas/craft</a></div>
+  <div class="de">Diese Seite wurde aus einer vollständigen Analyse des Plugin-Quellcodes generiert (Stand: Juli 2026).</div>
+  <div class="en">This page was generated from a complete analysis of the plugin source (as of July 2026).</div>
+</div></footer>
+
+<script>
+function setLang(l){
+  document.documentElement.setAttribute('data-lang',l);
+  document.documentElement.setAttribute('lang',l);
+  try{localStorage.setItem('craft-lang',l)}catch(e){}
+  document.querySelectorAll('.lang-btn').forEach(function(b){
+    b.classList.toggle('active',b.getAttribute('data-lang')===l);
+  });
+}
+setLang((function(){
+  try{var s=localStorage.getItem('craft-lang');if(s)return s}catch(e){}
+  return 'en';
+})());
+</script>
+</body>
+</html>
