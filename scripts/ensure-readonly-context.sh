@@ -80,6 +80,11 @@ ignore_line    = ".claude/settings.local.json"
 # Mirror the guard's parser: strip the bullet marker, backticks, and any trailing
 # "— note" / "# note" / "<placeholder>". The in-repo research/ folder is never
 # listed here (it is convention-protected and already readable).
+#
+# Path normalization (os.path.normpath, below) is kept in lockstep with the guard's
+# normalize_path() in hooks/readonly-context-guard.sh so a declared "../" path is
+# recorded here exactly as the guard blocks it. scripts/test-readonly-context.sh
+# asserts the two agree on a shared fixture set.
 declared = []
 if os.path.exists(rules_path):
     inblock = False
@@ -102,7 +107,12 @@ if os.path.exists(rules_path):
                             val = val[:idx]
                     val = val.strip().strip("`").strip()
                     if val:
-                        val = os.path.expanduser(val)
+                        # Only the "~/" (and bare "~") form is expanded — the guard's
+                        # pure-Bash side cannot resolve "~user", so gating both sides
+                        # identically keeps a "~user" bullet literal in guard and helper
+                        # alike instead of silently diverging.
+                        if val == "~" or val.startswith("~/"):
+                            val = os.path.expanduser(val)
                         if not os.path.isabs(val):
                             val = os.path.join(repo_root, val)
                         declared.append(os.path.normpath(val))

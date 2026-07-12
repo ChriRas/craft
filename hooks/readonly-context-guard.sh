@@ -27,6 +27,57 @@
 
 set -uo pipefail
 
+# normalize_path PATH — pure-lexical path normalization (NO filesystem or symlink
+# access: a Write target legitimately may not exist yet). Resolves "." and ".."
+# segments and collapses redundant "/" purely textually. Kept in lockstep with the
+# sync helper scripts/ensure-readonly-context.sh, which normalizes the same declared
+# bullets with python3 os.path.normpath; this function reproduces normpath semantics
+# over the whole input domain, including the POSIX double-slash rule (exactly two
+# leading slashes are preserved; three or more collapse to one). The guard↔helper
+# agreement is asserted on a shared fixture set by scripts/test-readonly-context.sh.
+normalize_path() {
+  local path="$1" abs=0 root="/" rest comp n=0 i result=""
+  local -a stack=()
+  [[ -n "$path" ]] || { printf '.'; return 0; }   # normpath("") == "."
+  if [[ "$path" == /* ]]; then
+    abs=1
+    [[ "$path" == //* && "$path" != ///* ]] && root="//"
+  fi
+  # Split on "/" by parameter expansion, not `IFS=/ read`: `read` stops at the first
+  # newline, but normpath treats "\n" as an ordinary path character.
+  rest="$path"
+  while [[ -n "$rest" ]]; do
+    comp="${rest%%/*}"
+    if [[ "$comp" == "$rest" ]]; then rest=""; else rest="${rest#*/}"; fi
+    case "$comp" in
+      ''|.) ;;                                  # drop empty (from "//") and "."
+      ..)
+        if (( n > 0 )) && [[ "${stack[n-1]}" != ".." ]]; then
+          (( n-- ))                             # pop a real segment
+        elif (( ! abs )); then
+          stack[n]=".."; (( n++ ))              # relative path: keep a leading ".."
+        fi                                      # absolute "..": drop (cannot pass root)
+        ;;
+      *) stack[n]="$comp"; (( n++ )) ;;
+    esac
+  done
+  for (( i = 0; i < n; i++ )); do result="$result/${stack[i]}"; done
+  if (( abs )); then
+    result="${root}${result#/}"                 # "/", "/.." → "/"; "//a" keeps its root
+  else
+    if [[ -n "$result" ]]; then result="${result#/}"; else result="."; fi  # "a/.." → "."
+  fi
+  printf '%s' "$result"
+}
+
+# Diagnostic mode (never triggered by a PreToolUse event, which passes no argv):
+# emit the lexical normalization of a path and exit. Lets the test harness assert
+# guard↔helper normalizer agreement against this exact function instead of a copy.
+if [[ "${1:-}" == "--normalize" ]]; then
+  normalize_path "${2:-}"; printf '\n'
+  exit 0
+fi
+
 # --- read the event -----------------------------------------------------------
 input="$(cat)"
 
@@ -64,6 +115,11 @@ case "$target" in
   *)  abs_target="$project_dir/$target" ;;
 esac
 
+# Normalize away "." / ".." / redundant "/" so a traversal segment can neither
+# slip past the guard (commands/../research/x) nor false-deny a real write
+# (research/../commands/x). Roots below are normalized the same way.
+abs_target="$(normalize_path "$abs_target")"
+
 # is_under CANDIDATE ROOT — true when CANDIDATE is ROOT itself or sits below it.
 # The `/` boundary check prevents `/a/research` from matching `/a/research-x`.
 is_under() {
@@ -74,7 +130,7 @@ is_under() {
 
 # --- collect read-only roots --------------------------------------------------
 # 1. Convention: the in-repo research/ folder.
-roots=("$project_dir/research")
+roots=("$(normalize_path "$project_dir/research")")
 labels=("research/ (in-repo reference dump)")
 
 # 2. Declared connected projects: bullet paths under the rules.md section.
@@ -82,11 +138,18 @@ rules_file="$project_dir/.claude/project/rules.md"
 if [[ -f "$rules_file" ]]; then
   while IFS= read -r decl; do
     [[ -n "$decl" ]] || continue
-    decl="${decl/#\~/$HOME}"                 # expand a leading ~
+    # Expand only the "~/" (and bare "~") form — never "~user", whose home the
+    # helper resolves via os.path.expanduser and this guard cannot. Both sides are
+    # gated identically so a "~user" bullet stays literal in guard and helper alike;
+    # rules.md declares absolute paths anyway.
+    case "$decl" in
+      '~'|'~/'*) decl="$HOME${decl#\~}" ;;
+    esac
     case "$decl" in
       /*) : ;;                                # already absolute
       *)  decl="$project_dir/$decl" ;;        # resolve relative to the project
     esac
+    decl="$(normalize_path "$decl")"          # match the helper's os.path.normpath
     roots+=("$decl")
     labels+=("declared connected project ($decl)")
   done < <(
