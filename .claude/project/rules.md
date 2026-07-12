@@ -14,7 +14,9 @@
 - **Language:** Markdown (commands in `commands/`, skills in `skills/`) + JSON
   (`.claude-plugin/plugin.json`, `marketplace.json`); Bash for `hooks/`.
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate`.
+  `claude plugin validate`. The read-only context guard + sync helper have a
+  standalone Bash harness: `bash scripts/test-readonly-context.sh` (it also
+  asserts the guard↔helper normalizer agreement — keep it green).
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.

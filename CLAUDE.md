@@ -25,10 +25,16 @@ through the CRAFT workflow.
 ```bash
 # Validate the plugin manifest + asset structure
 claude plugin validate
+
+# Read-only context guard + sync helper — self-contained Bash harness. It also
+# asserts that the guard's normalize_path and the helper's os.path.normpath agree,
+# which is the only thing keeping the two implementations from drifting. Keep green.
+bash scripts/test-readonly-context.sh
 ```
 
-This repo has no build or test tooling — it ships Markdown commands/skills, JSON
-manifests, and Bash hooks.
+This repo has no build tooling and no conventional test framework — it ships Markdown
+commands/skills, JSON manifests, and Bash hooks. The one exception is the harness
+above, which covers the `hooks/` + `scripts/` Bash surface.
 
 ## Workflow
 
