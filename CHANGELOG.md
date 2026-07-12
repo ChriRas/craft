@@ -6,6 +6,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-07-13
+
+Epic-002 (Blocked-Slice Lifecycle), the checkable phase-transition graph, read-only context sources, and the public documentation site.
+
+### Added
+- **Blocked-slice lifecycle** (epic-002, slices 023–026) — `/craft:block` records a first-class `blocked` state with a blocker taxonomy (`prerequisite-work | external | decision | access`), a `Blocked-status` resume token, and a structured `## Blocker` section; `/craft:unblock` clears it via the resume / re-plan / abort fork and back-fills `(pending)` prerequisite IDs; `/craft:commit` auto-resurfaces `prerequisite-work` dependents when their prerequisite lands; `/craft:prime` and `/craft:status` surface blocked slices with blocker and orphan detection; the `slice-builder` agent classifies out-of-scope blockers autonomously and pauses with a `.craft/handoff.md` instead of growing the slice.
+- **Protected-`main` sequential-epic landing** (slice-021) — sequential epics land each slice through the PR + GitHub-approval workflow ("approve ≠ merge") when the profile demands it.
+- **Grouped `/craft:status` overview** (slice-022) — phase names, five-cell progress bars, handoff markers, and a stale-slice partition.
+- **Profile-configurable `Co-Authored-By` trailer** (slice-027) — consumer-project opt-in in `## Commit Policy`, off by default.
+- **Ensure-primed gate** (slice-028) — context-dependent commands auto-run `/craft:prime` when the session marker is missing, instead of operating on unloaded context.
+- **Read-only context sources** (F1, slice-029) — `## Read-Only Context Sources` in `rules.md` declares external "connected projects"; a PreToolUse guard (`hooks/readonly-context-guard.sh`) denies Write/Edit/NotebookEdit on them and on the in-repo `research/` folder; declared paths are trusted read-only via `permissions.additionalDirectories`; ships `scripts/ensure-readonly-context.sh` and the `scripts/test-readonly-context.sh` harness.
+- **Phase-transition graph + marker contract** (slice-031) — the status graph is declared once in `skills/workflow/SKILL.md` (`## Phase Transition Rules`); affirmative status writes/reads/delegations carry machine-readable `craft:writes` / `craft:reads` / `craft:delegates` markers; `scripts/test-workflow-status-graph.sh` asserts graph closure under both Phase-7 configurations, marker↔table agreement in both directions, and `/craft:continue` routing. Prose is deliberately not checked — a grep cannot tell a prescription from a prohibition.
+- **Documentation site** — `docs/` ships a self-contained bilingual (EN default / DE) GitHub-Pages page in terminal aesthetic with automatic light/dark, SVG diagrams of the 9-phase loop, the status graph with every branch-off, and the three execution modes, plus configuration and command references. A project-local regeneration skill (`.claude/skills/docs-site/SKILL.md`) and the `scripts/test-docs-site.sh` harness (badge/version asserted against the plugin surface) keep it reproducible and detect staleness.
+
+### Fixed
+- **Phase 8 unreachable when Phase 7 is dropped** (B1, slice-031) — `/craft:recap` now writes `Status: reviewing` directly under the phase7-dropped configuration, and `/craft:continue` routes `review` forward to `/craft:recap`; previously such slices stalled at `Status: review`, which `/craft:review` reads as advisory mode and Commit was never gated.
+- **Read-only guard path normalization** (slice-030) — the guard decides on lexically normalized paths, closing the `commands/../research/x` traversal bypass and the `research/../commands/x` false-deny; guard↔helper normalizer agreement is asserted against the real function, not a copy.
+
+### Changed
+- `rules.md` / `intent.md` promote the slice-031 lessons: "prose is not checkable — markers are" (headline architectural decision) and "a rule is never described twice" (delegation tokens instead of duplicated rule text).
+
 ## [1.3.0] - 2026-07-07
 
 Epic-001 (Autonomy Profiles) plus the in-place / sequential execution and protected-`main` slices.
