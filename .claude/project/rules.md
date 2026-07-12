@@ -55,6 +55,12 @@
 
 - No short-name command shim files.
 - No silent correction of Rules ↔ State drift — report, let the human decide.
+- **A rule is never described twice.** When a command's interactive and Subagent-Mode paths
+  share a rule, one of them defines it and the other **delegates** to it with a
+  `<!-- craft:delegates -->` token. Two descriptions of one contract, with only one of them
+  maintained, is how the Phase-7 routing bug (B1, slice-031) came about and survived — the
+  subagent path handled the drop, the interactive one did not. Adding checks *on top of* a
+  duplication does not make it safe; the second copy has to go.
 - No skipping git hooks or signing (`--no-verify`, `--no-gpg-sign`).
 
 ## Deployment

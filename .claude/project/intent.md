@@ -46,6 +46,16 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
   kind to its home, with cross-cutting design knowledge (neither *why* nor *how*)
   living in `.claude/project/design/`. *Why a canonical home:* projects were inventing
   ad-hoc concept docs; a named slot closes the gap instead of codifying the workaround.
+- **Prose is not checkable — markers are (slice-031)** — CRAFT's commands are Markdown prompts,
+  so the phase graph they implement cannot be verified by grepping them: a search for a status
+  literal cannot tell the sentence that *prescribes* a write from the one that *forbids* it.
+  Affirmative writes, reads and delegations therefore carry machine-readable markers, the graph is
+  declared once in `skills/workflow/SKILL.md`, and a harness binds the two. *Why not just grep:*
+  five review rounds proved it green while checking nothing — a deleted routing branch stayed
+  green because its literal survived in a "never write this" sentence. **What a marker does not
+  do:** it binds its own *presence*, never the *meaning* of the prose beneath it. Keep the marker
+  and invert the sentence and the check still passes. That residual is deliberate and disclosed;
+  the alternative is a checker that must understand English, which is not a thing we can build.
 - **Approve ≠ merge on protected `main` (epic Decision D)** — in a project whose profile
   sets protected-`main` PR mode, `/craft:commit` runs `gh pr merge` itself, but **only after
   a real human GitHub PR approval** (never `--admin`, so branch protection genuinely gates
