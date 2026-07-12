@@ -9,21 +9,24 @@
 
 | # | ID | Type | Size | Item |
 |---|----|------|------|------|
-| 1 | B1 | Fix | slice | Phase-7-dropped projects can never reach `/craft:review`'s Phase-8 mode — `/craft:recap` only advances to `refactoring`, and only `/craft:refactor` sets `reviewing` |
+| 1 | B2 | Fix | slice | Dogfooding is not self-verification: the runtime loads the plugin **cache**, not the working tree — no slice touching `commands/` can be verified end-to-end in the session that writes it |
 | 2 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
 | 3 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
 
 ## Notes per item
 
-**B1 — Phase-8 unreachable when Phase 7 is dropped.** Found by dogfooding slice-030. A project
-whose `rules.md` drops Phase 7 (as CRAFT's own does) can never reach `/craft:review`'s Phase-8
-mode: `/craft:test` sets `Status: review` on `[W]`, `/craft:recap` only ever advances to
-`refactoring`, and `reviewing` is set *exclusively* by `/craft:refactor`. With no Phase 7,
-nothing performs that promotion, so `/craft:review` sees `review` and falls into **advisory
-mode** — findings only, no in-phase fixes, no `Status:` change, Commit never gated. Worked around
-in slice-030 by setting `Status: reviewing` by hand. Candidate fix: `/craft:recap` advances to
-`reviewing` (not `refactoring`) when Phase 7 is dropped. Check the same gap for other
-project-configurable phase skips.
+**B2 — Dogfooding is not self-verification.** Found in Phase 6 of slice-031, by noticing that the
+`/craft:recap` text driving the session still asked "Ready for Phase 7?" while the working tree
+carried the fixed branch. Claude Code executes the commands installed under
+`~/.claude/plugins/cache/craft/craft/<version>/`, **not** the repo's `commands/`. Consequences:
+(a) no slice touching `commands/` can be verified end-to-end in the session that writes it — the
+fix only goes live after `/craft:upgrade` or a reinstall, so Phase 5 for such a slice can
+demonstrate the *harness* but never the runtime behavior, and must say so; (b) worse, a CRAFT
+session can silently run **older command logic than the repo shows**, which is a trap for any
+dogfooding review — the reviewer reads the fixed file while the runtime obeys the stale one.
+Candidate fix: have `/craft:prime` compare the cache's `plugin.json` version — ideally a content
+hash — against the dev repo when the two are the same project, and warn on divergence; and state
+the constraint in `CLAUDE.md` so the next agent does not re-learn it the hard way.
 
 **F3 — Cleanup skill.** Epic. Novel core = fidelity check: strip/condense comments → fresh-context review must reconstruct the same information breadth (fixed "why does this exist / what decision does this encode" battery, diffed before/after) → write back on loss. Scope param repo/epic/slice; uses archive context; interactive; may drop now-irrelevant historical decisions.
 
