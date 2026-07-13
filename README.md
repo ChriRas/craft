@@ -22,8 +22,8 @@ A Claude Code plugin that wraps a disciplined, language-agnostic coding workflow
 
 A complete coding-loop scaffolding:
 
-- **21 slash entry points** (17 commands + 4 slash-invocable skills) that move you through Brainstorm → Alignment → Planning → Implementation → Testing → Recap → Refactoring → Review → Commit & Cleanup, with explicit navigation cues at every session start.
-- **6 universal skills**: the 9-phase workflow itself, the Senior-Developer baseline (loaded every session), bug-verification protocol (`/craft:debug`), structured brainstorming (`/craft:brainstorm`), interview-style alignment (`/craft:grill-me`), browser automation.
+- **28 slash entry points** (24 commands + 4 slash-invocable skills) that move you through Brainstorm → Alignment → Planning → Implementation → Testing → Recap → Refactoring → Review → Commit & Cleanup, with explicit navigation cues at every session start.
+- **7 universal skills**: the 9-phase workflow itself, the Senior-Developer baseline (loaded every session), the state-aware `/craft` entry point, bug-verification protocol (`/craft:debug`), structured brainstorming (`/craft:brainstorm`), interview-style alignment (`/craft:grill-me`), browser automation.
 - **A two-tier architecture**: the plugin ships the universal shell; your project keeps its own language/framework specialists in `.claude/skills/` and `.claude/agents/`, lazy-loaded at runtime.
 - **Personality autoload**: the Senior-Developer baseline above is the universal Tier 1; on top of it, optional **stack-packs** (e.g. `stack-php-laravel`) — language/framework idiom packs a project declares in `rules.md` — load automatically during the code-near phases.
 - **A SessionStart hook** that auto-runs `/craft:prime` in Craft-onboarded projects so every fresh chat orients itself; stays silent in non-Craft projects.
@@ -37,7 +37,7 @@ A complete coding-loop scaffolding:
 CRAFT is distributed as a Claude Code plugin from a marketplace — and this repository *is* the marketplace (it ships `.claude-plugin/marketplace.json`). Install it from inside Claude Code:
 
 ```
-/plugin marketplace add <repo-url>
+/plugin marketplace add ChriRas/craft
 /plugin install craft@craft
 ```
 

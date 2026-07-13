@@ -5,7 +5,7 @@
     "email": "craschke@chrido.net"
   },
   "metadata": {
-    "description": "Local development marketplace for the CRAFT plugin — wraps the in-tree plugin so it can be installed into a running Claude Code session for dogfooding.",
+    "description": "Plugin marketplace for CRAFT — this repository ships the plugin and the marketplace manifest together. Add it with /plugin marketplace add ChriRas/craft, then install with /plugin install craft@craft.",
     "version": "1.4.0"
   },
   "plugins": [
