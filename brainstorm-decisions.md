@@ -1111,6 +1111,76 @@ contract and the `.craft/handoff.md` schema.
 
 ---
 
+### D32 — Autopilot Mode (Opt-in Inversion of Concentrated Control)
+
+> Decided 2026-09-12 in a design brainstorm. Design record:
+> `.claude/project/design/autopilot-mode.md`. Extends D29–D31; deliberately relaxes D21
+> ("Phase 5 cannot be skipped") and D28's human routing of escalations — **only** inside an
+> explicitly started autopilot run.
+
+Since D29, models have become capable of running a full development cycle unattended. D29
+concentrated human control at the hard phases (Planning, Phase-5 exercise, Recap, escalated
+Review/Bugs); every autonomous run still halts at each of those touchpoints. Autopilot is an
+**opt-in mode** in which the human defines an epic and hands off the rest of the cycle to
+agents. The human talks only to the **master agent** (the main session), which steers all
+subagents.
+
+Decision: autopilot is a **separate, explicitly started mode**, not a new default. Outside it,
+D21/D28/D29 apply unchanged.
+
+- **Human touchpoints in autopilot** — reduced to exactly three: (1) epic definition (Vision +
+  rough decomposition), (2) **one plan gate** after the architect review, (3) **epic-end
+  sign-off** (digest + batched UX check + merge to `main`). Plus escalations the ping-pong breaker
+  or a blocker raises. Planning remains the hard phase in human hands.
+- **Stage A — planning** — `slice-planner` agents (fresh context) turn decomposition entries into
+  full slice plans (the three universal questions answered from Vision + codebase, `Depends-On`,
+  a `Touches:` forecast). One `plan-architect` agent reviews the package from above — overlaps,
+  contradicting contracts, order/dependencies, sizing. Max 2 revision rounds, then the plan gate.
+- **Stage B — sequential slice loop** — slices run one after another in dependency order:
+  budget check → build → agent E2E verification → review ⇄ fix → atomic commits → digest line.
+- **Phase-5 replacement** — the agent executes the slice's committed end-to-end Test Strategy
+  (agent-browser for UI) and logs the evidence. The human product-feel check is **batched** into
+  a demo script at epic end. *Why not per-slice human tests:* it defeats hands-off. *Why not
+  agent-only:* product feel is still the one thing agents cannot judge (D21's core insight).
+- **Landing** — agents commit atomically on `epic-<NNN>-<slug>` (one `--no-ff` merge per slice);
+  `main` stays untouched until the human's epic-end go-ahead. *Why:* a run can be stopped at any
+  point without half-finished epics on `main`; approve ≠ merge stays intact.
+- **Ping-pong breaker** — review findings carry stable IDs; from round 2 on the reviewer must
+  mark each prior finding `resolved | still-open | disputed`. Deterministic trip: a finding
+  still-open in two consecutive rounds, rounds > max (default 3), or the same finding disputed
+  twice. On trip, the finding becomes a verification protocol **frozen jointly by builder and
+  reviewer** (replacing D19's human freeze) and the `/craft:debug` loop runs (max 5 attempts);
+  still red → slice `blocked` (`decision`) → master escalates with a compact package. Counters
+  live in the slice plan, not in prose — per the slice-031 lesson, prose is not checkable.
+- **Human-only decisions survive** — blocker direction calls (spawn/park/descope), `intent.md` /
+  `rules.md` mutations (Level 0), push and merge to `main`. Phase-9 promotions default to `[K]`;
+  `[I]`/`[R]` candidates are collected for the epic-end sign-off.
+- **Master discipline** — the master never writes code and holds only digests; all run state
+  lives on disk (epic plan `## Autopilot Log`). A restart costs a prime plus the log, not the
+  history.
+- **Budget guard** — before each slice the master reads the 5h/7d window usage and a
+  self-calibrating per-slice forecast; it does not start a slice that would cross the soft
+  threshold, stops at a sub-task boundary on the hard threshold, and stops immediately on the
+  overage signal. Thresholds are profile-configurable. Without usable usage data it falls back
+  to conservative mode (halt after every slice).
+- **Cache guard** — before any turn that ends waiting on the human, the master writes the
+  handoff **first** and states the prompt-cache expiry; an answer after expiry is routed to a
+  fresh session instead of an expensive cold re-read. *Why pre-emptive:* a waiting session
+  cannot run a timer.
+- **Engine** — master session + subagents (reusing `slice-builder` / `code-reviewer`, D31's
+  delegation pattern); resumable across sessions via handoff. The Workflow tool is evaluated
+  in a spike, not adopted as the foundation (its resume is same-session only).
+- **Resolution matrix in one place** — phase commands keep their `## Subagent Mode` and keep
+  writing `.craft/handoff.md`; the master applies the touchpoint→resolution matrix. The
+  per-phase logic is never duplicated.
+
+**Consequence:** `intent.md`'s "human control concentrated at the hard phases" gains an explicit
+autopilot exception (via `/craft:intent-update`). Open items (subagent cache TTL, threshold
+defaults, statusline refresh during subagent runs, prompt-blocking hook behavior, model-tier
+aliases / D2) are resolved in the epic's spike slice.
+
+---
+
 ## 7. Carry-Over to Next Clusters
 
 - **Plans are ephemeral**: fully decided (D7 + D8).

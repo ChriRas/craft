@@ -9,23 +9,21 @@ workflow into reusable slash commands and skills. Dropped into any repository �
 script, library, REST API, full-stack app, infrastructure code — it guides the agent
 through the same phased loop with the same controls every time. Core principle:
 universality with **human control concentrated at the hard phases** (planning,
-recap, review, escalated bugs); execution is delegated to safe, parallel agent work.
+recap, review, escalated bugs); execution is delegated to safe, parallel agent work —
+or, in the opt-in **autopilot mode**, narrowed to one plan gate and an epic-end sign-off.
 
 ## Active Goals
 
-All seven original capabilities have shipped: **hierarchical planning (B)** via
-`/craft:epic` (slice-007), **bugfix autonomy (F)** via `skills/debug`, the
-**parallel worktree execution cluster (C+D+E)** via `/craft:execute` + the
-`slice-builder` agent (slice-009), **model switching per phase (G)** via subagent
-delegation with `rules.md` overrides (slice-010), and **onboarding language
-config (A)** — three independent chat/commit/comment settings in the
-`## Operational Language` block (slice-012).
+All seven original capabilities have shipped — hierarchical planning (B, slice-007), bugfix
+autonomy (F, `skills/debug`), parallel worktree execution (C+D+E, slice-009), per-phase model
+switching (G, slice-010), and onboarding language config (A, slice-012).
 
-No capability work remains; further slices are enhancements and maintenance.
+**Next capability: autopilot mode (D32)** — hands-off epic execution behind one plan gate;
+design record in `.claude/project/design/autopilot-mode.md`, to be built as an epic.
 
 ## Architectural Decisions
 
-The full decision log (D1–D28, with reasoning) lives in `brainstorm-decisions.md`;
+The full decision log (D1–D32, with reasoning) lives in `brainstorm-decisions.md`;
 the build blueprint in `plugin-architecture.md`. Headline decisions:
 
 - **Two-tier model** — the plugin ships the universal shell; projects keep
@@ -41,6 +39,10 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
   recap, review, escalated bugs); execution is delegated to parallel agents in
   git worktrees. *Why not constant per-step control:* the per-step model is too
   slow once finely planned work can be parceled out and run in parallel.
+- **Autopilot as opt-in inversion (D32)** — in an explicitly started autopilot run the human
+  touches only the epic definition, one plan gate and the epic-end sign-off (plus escalations);
+  agents plan, build, verify, review and commit on an epic branch. *Why opt-in, not default:*
+  product feel and direction calls still need a human — outside autopilot, D29 applies unchanged.
 - **Durable Capture** — planning/design output is written to a durable artifact in
   the same turn it is produced ("chat is not storage"); a routing table sends each
   kind to its home, with cross-cutting design knowledge (neither *why* nor *how*)

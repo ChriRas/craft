@@ -12,7 +12,7 @@ through the CRAFT workflow.
 
 ## Design Records
 
-- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — the full decision log (D1–D28).
+- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — the full decision log (D1–D32).
 - [`plugin-architecture.md`](./plugin-architecture.md) — the build blueprint.
 - [`README.md`](./README.md) — plugin overview and command reference.
 
