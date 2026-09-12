@@ -232,6 +232,46 @@ Resolve the CRAFT plugin manifest and extract its `version` field so the user al
 
 Parse the JSON; read `.version`. On success, the output block's version line renders as `✓ CRAFT plugin v<version>`. If the manifest is not found or is unreadable / malformed, the version is unresolved: replace that line with the soft warning `⚠ CRAFT plugin version unknown — plugin.json <not found | malformed>` and continue. Never abort.
 
+### 5c. Plugin runtime drift (dev repo only, informational)
+
+Claude Code executes the plugin's **installed copy** (`${CLAUDE_PLUGIN_ROOT}`, a cache directory
+named by version), not the repository a plugin is developed in. When this project *is* the
+plugin's source repo, a session can therefore run older command logic than the working tree
+shows — and the version from step 5b stays the same, so it cannot reveal it. This step compares
+content instead.
+
+Resolve the helper `scripts/check-plugin-cache-drift.sh` in this order, first match wins:
+`${CLAUDE_PLUGIN_ROOT}/scripts/`; else `<project-root>/scripts/`, but **only** when the project
+root holds a `.claude-plugin/plugin.json` whose `name` is `craft` (a helper newer than the installed
+copy only exists in CRAFT's own working tree — never run a same-named script from another project).
+Run it via Bash:
+
+```
+bash "<helper>" --project "<project-root>" --plugin-root "${CLAUDE_PLUGIN_ROOT}"
+```
+
+Keep both paths in double quotes — an unquoted empty value would vanish from the command line.
+Map the result to at most one status line:
+
+- **`STATUS=not-dev-repo`** (exit 0) → emit no line — this project is not the plugin's source.
+- **`STATUS=in-sync`** (exit 0) → `✓ Plugin runtime = working tree` (append `(loaded in place)`
+  when `RUNTIME=working-tree`).
+- **`STATUS=diverged`** (exit 10) → emit exactly this, as one line:
+
+  ```
+  ⚠ Plugin runtime ≠ working tree — <DIFF_COUNT> file(s) differ (<list>); this session runs the plugin at <plugin-root>. To run the working tree: restart with claude --plugin-dir <project-root>, or release (bump version + push), then /craft:upgrade.
+  ```
+
+  `<list>` is the first three `DIFF=` values exactly as the helper prints them (prefix included, e.g.
+  `modified:commands/prime.md`), followed by `, …` only when `DIFF_COUNT` is greater than 3.
+- **Anything else** — `STATUS=unknown` (exit 3), a usage error (exit 2), no output, the helper found
+  in neither location, or `${CLAUDE_PLUGIN_ROOT}` left unresolved → emit
+  `⚠ Plugin runtime drift check incomplete: <REASON or a one-line cause>` **only if** the project
+  root holds a `.claude-plugin/plugin.json` whose `name` is `craft`; otherwise emit no line (a
+  consumer project, or another plugin's source repo, is never nagged about CRAFT's runtime).
+
+Reported, never corrected — the helper is read-only. Never abort prime.
+
 ### 6. Scan active slices
 
 - `Glob` `.claude/plans/*.md`.
@@ -308,6 +348,7 @@ The full status block — emit exactly this shape:
 ```
 ✓ Project: <name> (<stack tags>)
 ✓ CRAFT plugin v<version>   (or ⚠ CRAFT plugin version unknown — see step 5b)
+<plugin-runtime line — only in CRAFT's own source repo; ✓ if runtime = working tree, ⚠ if it diverges, ⚠ drift check incomplete if the check could not run (see step 5c)>
 ✓ Rules ↔ State drift check: <clean | ⚠ N drifts>
   <one line per drift, if any>
 ✓ Tools: context-mode ✓ (<version>), agent-browser ✓, git ✓ (<version>), gh ✓ (<version>)
@@ -353,6 +394,8 @@ After emitting the block, prime silently writes the `.claude/plans/.primed` sess
 | Override line malformed | Emit `⚠ Override line not parseable: '<line>'` and skip that line. Continue. |
 | Override names an unknown agent or uses an invalid model value | Emit the soft warning (step 4b). Do not abort. |
 | `.claude-plugin/plugin.json` missing or malformed | Emit `⚠ CRAFT plugin version unknown — plugin.json <not found\|malformed>` and continue. Not a blocker. |
+| Plugin runtime diverges from the working tree (step 5c, dev repo only) | Emit `⚠ Plugin runtime ≠ working tree — …` with the differing files and continue. Not a blocker. |
+| `check-plugin-cache-drift.sh` reports `STATUS=unknown`, exits 2, prints nothing, cannot be found, or `${CLAUDE_PLUGIN_ROOT}` is unresolved | In the CRAFT source repo (`.claude-plugin/plugin.json` `name` = `craft`) emit `⚠ Plugin runtime drift check incomplete: <reason>`; anywhere else emit nothing. Continue either way. Never abort. |
 | `craft-profile.md` absent | Report `✓ CRAFT profile: none — plugin defaults`. Not an error (step 4d). |
 | `craft-profile.md` malformed (unknown key, out-of-enum value, or `Auto-commit: off`+`Mode: worktree`) | Emit the `⚠ CRAFT profile: …` warning(s) from step 4d and continue. Never a blocker. |
 | Declared connected project not yet in `additionalDirectories` (step 4e) | Emit the `⚠ Read-only context …` line and offer `--apply` (confirmation-gated). Not a blocker. |
