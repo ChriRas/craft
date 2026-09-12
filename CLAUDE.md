@@ -12,7 +12,7 @@ through the CRAFT workflow.
 
 ## Design Records
 
-- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — the full decision log (D1–D32).
+- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — the full decision log (D1–D33).
 - [`plugin-architecture.md`](./plugin-architecture.md) — the build blueprint.
 - [`README.md`](./README.md) — plugin overview and command reference.
 
@@ -47,13 +47,46 @@ bash scripts/test-workflow-status-graph.sh
 # in .claude/skills/docs-site/SKILL.md. Run after touching docs/ or any plugin asset.
 # Keep green.
 bash scripts/test-docs-site.sh
+
+# Plugin cache drift helper — scripts/check-plugin-cache-drift.sh decides whether the
+# running plugin (the installed cache copy) matches this working tree, by content: the
+# version cannot tell, it stays the same while the repo changes. /craft:prime step 5c
+# reports it. Covers in-sync / diverged (modified, added, removed) / not-dev-repo /
+# unknown, and that docs-only or gitignored edits raise no false alarm. Keep green.
+bash scripts/test-plugin-cache-drift.sh
+
+# Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
+# verified with Claude Code 2.1.270):
+claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The three harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The four harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
-graph the command Markdown encodes, and the published docs-site's sync with the
-plugin surface.
+graph the command Markdown encodes, the published docs-site's sync with the
+plugin surface, and the plugin runtime's drift from the working tree.
+
+## Dogfooding Is Not Self-Verification
+
+A normal session executes the **installed** CRAFT (`~/.claude/plugins/cache/craft/craft/<version>/`,
+copied from the GitHub marketplace), **not** the files in this repo. Command prose, hooks, agents
+and plugin-resolved paths (`${CLAUDE_PLUGIN_ROOT}/…`) come from that installed copy, so editing them
+changes nothing about the session that makes the edit — the reviewer reads the new file while the
+runtime obeys the old one. The exception: files a command reads by a **relative** path (e.g.
+`skills/senior-developer/SKILL.md` in `/craft:prime` step 1) resolve against the project root, and in
+this repo that is the working tree. So:
+
+- `/craft:prime` step 5c shows `⚠ Plugin runtime ≠ working tree` with the differing files — from the
+  first release that ships step 5c, or right away in a `--plugin-dir` session.
+- To exercise changed command behavior, start a fresh session with `claude --plugin-dir <repo>`.
+  Push + `/craft:upgrade` alone does **not** refresh the installed copy: `plugin.json` pins
+  `version`, and Claude Code skips an update whose version it already has — only a release
+  (version bump + push) does.
+- Phase 5 here runs on automated evidence (see `rules.md` → Workflow Rules): the running session
+  can show scripts and harnesses only; changed runtime behavior is shown by a headless probe
+  (`claude -p "<command>" --plugin-dir <repo>`, run from a scratch copy) — or stated as unshown.
+- A nested `claude` probe started **inside** this repo runs the SessionStart hook, which deletes
+  `.claude/plans/.primed` and un-primes the running session — start probes from another directory.
 
 ## Workflow
 

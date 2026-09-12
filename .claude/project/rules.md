@@ -14,16 +14,18 @@
 - **Language:** Markdown (commands in `commands/`, skills in `skills/`) + JSON
   (`.claude-plugin/plugin.json`, `marketplace.json`); Bash for `hooks/`.
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate`. Two standalone Bash harnesses cover what is
-  mechanically checkable; keep both green:
+  `claude plugin validate`. Four standalone Bash harnesses cover what is
+  mechanically checkable; keep all green:
   `bash scripts/test-readonly-context.sh` (read-only guard + sync helper, incl.
-  the guard↔helper normalizer agreement) and
+  the guard↔helper normalizer agreement),
   `bash scripts/test-workflow-status-graph.sh` — asserts the phase graph declared in
   `skills/workflow/SKILL.md` is closed under both Phase-7 configurations, that the
   commands' `craft:writes` / `craft:reads` markers and the table agree **in both
-  directions**, and that `/craft:continue` routes each status to the graph's consumer.
-  Markers are the contract: prose is not checked, because a grep cannot tell a
-  prescription from a prohibition.
+  directions**, and that `/craft:continue` routes each status to the graph's consumer
+  (markers are the contract: prose is not checked, because a grep cannot tell a
+  prescription from a prohibition),
+  `bash scripts/test-docs-site.sh` (docs site in sync with the plugin surface) and
+  `bash scripts/test-plugin-cache-drift.sh` (plugin runtime vs. working tree, B2).
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.
@@ -38,6 +40,12 @@
   (`claude plugin validate`, structural checks); there is no behavioral test suite.
 - Phase 7 (Refactor) is dropped from this project's workflow — freshly authored
   Markdown rarely has accumulated structure to improve.
+- Phase 5 runs on automated evidence, not a hands-on sandbox exercise: harnesses,
+  helper runs and (where cheap) headless `claude -p --plugin-dir` probes are presented
+  as an evidence report, and the human answers W/B/U on it. Compensated by a two-pass
+  Phase 8 (rubric review + scenario walk-through of changed command prose). The agent
+  must request a real human test for: fail-open hooks, destructive git/worktree paths,
+  settings/permission writes, interactive-only behavior, and any surprising probe result.
 - Architectural decisions are banked in `brainstorm-decisions.md` as `D<N>` entries
   before they are implemented.
 - Commit messages follow Conventional Commits — `<type>(scope): subject` (D9).

@@ -1181,6 +1181,35 @@ aliases / D2) are resolved in the epic's spike slice.
 
 ---
 
+### D33 — CRAFT Repo Pilots Evidence-Based Phase 5 (Outside Autopilot)
+
+> Decided 2026-09-13 during slice-032 Phase 5. Project-scoped Repeal (rule-override stage 3) for
+> **this repository only**; recorded in `.claude/project/rules.md` → Workflow Rules. Narrows D21
+> (Phase 5 hands-on exercise) and D28 (Phase 8 review) for the plugin's own source repo — an
+> exception to D32's "Outside it, D21/D28/D29 apply unchanged."
+
+In the CRAFT repo a hands-on Phase-5 sandbox rarely adds signal: the artifact is readable command
+prose plus deterministic, harness-covered scripts, and under B2 a running session exercises the
+*installed* plugin, not the change under test — so a mandatory manual exercise gave false comfort.
+
+Decision: Phase 5 here runs on **automated evidence** — harnesses, helper runs, and (where cheap)
+headless `claude -p --plugin-dir` probes from a scratch copy — presented as an evidence report the
+human answers `[W]/[B]/[U]` on. The human still gives the verdict; the agent never fabricates it.
+
+- **Compensation** — Phase 8 runs in two passes: the standard rubric review, then a fresh-context
+  scenario walk-through that executes the changed command prose step by step against concrete edge
+  cases. *Why:* the dominant risk here is how an agent interprets prose, which reading alone misses
+  (slice-032: the session's own prime missed a drift that both probes caught).
+- **Mandatory human test carve-outs** — fail-open hooks, destructive git/worktree paths,
+  settings/permission writes, interactive-only behavior, and any surprising probe result.
+- **Scope** — this repo only. Consumer projects keep D21 unchanged; `/craft:test` and
+  `skills/workflow/SKILL.md` ("Phase 5 cannot be skipped") are deliberately **not** edited — the
+  general mechanism for an evidence-based Phase 5 belongs to the autopilot epic (F6, D32), for which
+  this repo is the pilot. Until then the project rule and the command prose disagree on purpose;
+  the rule, not the prose, governs this repo.
+
+---
+
 ## 7. Carry-Over to Next Clusters
 
 - **Plans are ephemeral**: fully decided (D7 + D8).
