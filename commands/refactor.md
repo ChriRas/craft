@@ -15,7 +15,7 @@ Follow `skills/workflow/SKILL.md` Phase 7 mechanics. **Max 2–3 refactor items 
 
 ## Pre-flight
 
-> **Ensure-primed gate** — before the checks below, if the session marker `.claude/plans/.primed` is absent, emit *"Session not primed — running /craft:prime first"*, run `/craft:prime` (it loads project context, verifies the four required tools, and writes the marker), then resume this command. Silent no-op when the marker is already present. Defined in `skills/workflow/SKILL.md` → **Session Priming Gate**.
+> **Ensure-primed gate** — before the checks below, if the session marker `.claude/plans/.primed` is absent, emit *"Session not primed — running /craft:prime first"*, run `/craft:prime` (it loads project context, verifies the required tools, and writes the marker), then resume this command. Silent no-op when the marker is already present. Defined in `skills/workflow/SKILL.md` → **Session Priming Gate**.
 
 **Phase-7-dropped gate — runs FIRST, before any status write.** Read the `## Workflow Rules`
 section of `.claude/project/rules.md` and apply the **Phase-7-dropped rule** defined in

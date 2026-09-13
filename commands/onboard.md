@@ -20,7 +20,7 @@ This command is a **durable-state mutation** and follows the Pre/Post-Assertion 
 
 ### Step 1 — Tool health (strict)
 
-Same as `/craft:prime` — verify context-mode, agent-browser, git, gh are installed and runnable. Abort with install instructions if any are missing.
+Read `${CLAUDE_PLUGIN_ROOT}/commands/prime.md` → **Pre-flight Step 1** and follow it exactly — probes (a) and (b), the missing-tools table and the helper outcomes (`scripts/check-toolchain.sh`): collect every missing tool first, then abort once with all messages.
 
 ### Step 2 — Detect mode
 

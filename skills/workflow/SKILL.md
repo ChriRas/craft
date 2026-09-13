@@ -612,15 +612,17 @@ The plugin assumes the following tools are installed and current. `/craft:prime`
 | **agent-browser** | Browser automation for Phase 5a demos in web stacks. |
 | **git** | Slice tracking, commit history is the durable archive layer. |
 | **gh** | PR creation in Phase 9 for hosted repos. |
+| **bash ≥ 5.0** | CRAFT's `scripts/` may use current bash features; macOS still ships a frozen `/bin/bash` 3.2. `hooks/` deliberately stay bash-3.2-compatible — they run with whatever bash Claude Code hands them, and the SessionStart hook records that bash so `/craft:prime` can warn when it is older than the Bash tool's. |
+| **python3** | JSON handling in the helper scripts (settings merges, manifest parsing). |
 
-The plugin cannot declare these as installable dependencies in the Claude Code plugin manifest. Detection and abort happen at `/craft:prime` runtime.
+The plugin cannot declare these as installable dependencies in the Claude Code plugin manifest. Detection and abort happen at `/craft:prime` runtime; bash and python3 are checked by `scripts/check-toolchain.sh`, which prints an install command that fits the OS.
 
 ---
 
 ## Session Priming Gate
 
 A CRAFT command is only safe to run once the session is **primed** — project context
-(intent / rules / Senior-Developer baseline) is loaded **and** the four required tools
+(intent / rules / Senior-Developer baseline) is loaded **and** the required tools
 are verified. `/craft:prime` does both. To guarantee that no context-dependent command
 ever runs on unloaded context or an unverified toolchain, those commands self-protect
 with a shared **ensure-primed gate** in their pre-flight.
@@ -659,7 +661,7 @@ Every context-dependent command runs this as the first step of its pre-flight:
 
 1. **Check** — does `.claude/plans/.primed` exist?
 2. **Absent** → emit the notice *"Session not primed — running /craft:prime first"*,
-   run `/craft:prime` (which loads context, verifies the four tools — aborting with the
+   run `/craft:prime` (which loads context, verifies the required tools — aborting with the
    loud ⚠ + repair hint if any is missing — and writes the marker), then continue with
    the original command.
 3. **Present** → silent no-op; continue immediately.

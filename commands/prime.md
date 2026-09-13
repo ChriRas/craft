@@ -19,18 +19,59 @@ Follow the methodology defined in `skills/workflow/SKILL.md` — in particular t
 
 Before doing anything else, this command MUST run two checks in order. **If either fails, abort with install instructions — do not continue to context loading.**
 
-### Step 1 — Tool health (strict)
+### Step 1 — Tool health (strict — collect first, abort once)
 
-Verify each of the four required tools is installed and runnable. Run these in a single batched check:
+**Collect every missing tool before aborting, then abort once with the complete list.** Never stop
+at the first missing tool: a user must not need a second install round because a later check never
+ran. Run both probes below in the same turn (as parallel tool calls), and decide only after both have
+returned:
 
-| Tool | Detection | If missing |
+- **(a) context-mode** — call `mcp__plugin_context-mode_context-mode__ctx_stats`. If it cannot be
+  called, context-mode is missing.
+- **(b) everything else — one Bash command that always exits 0**, so no check is skipped by an `&&`
+  chain and no parallel call is cancelled by a non-zero exit. Resolve the helper
+  `scripts/check-toolchain.sh` like step 5c does: `${CLAUDE_PLUGIN_ROOT}/scripts/`; else
+  `<project-root>/scripts/`, only when the project root holds a `.claude-plugin/plugin.json` whose
+  `name` is `craft`. Put the resolved path in the command as-is — if it does not exist (or
+  `${CLAUDE_PLUGIN_ROOT}` did not resolve), the command reports `HELPER=not-found` rather than
+  failing.
+
+  ```
+  for t in agent-browser git gh bash; do command -v "$t" >/dev/null 2>&1 || echo "MISSING=$t"; done
+  [ -f "<helper>" ] && { bash "<helper>" --project "<project-root>"; echo "HELPER_EXIT=$?"; } || echo "HELPER=not-found"
+  ```
+
+  `bash` here is the bash your shell PATH resolves — the same one CRAFT's scripts run with.
+
+| Tool | Missing when | Add to the missing-tools list |
 |---|---|---|
-| **context-mode** | The MCP namespace `mcp__plugin_context-mode_context-mode__*` is available. If you cannot call `mcp__plugin_context-mode_context-mode__ctx_stats`, treat context-mode as missing. | Tell the user: *"context-mode is required. Install via `claude /plugin install context-mode@claude-plugins-official`. See https://code.claude.com/docs/en/plugins for help."* and abort. |
-| **agent-browser** | Run `command -v agent-browser` via Bash. | *"agent-browser is required. Install per upstream documentation: https://github.com/snadi/agent-browser"* and abort. |
-| **git** | Run `command -v git` via Bash. | *"git is required. macOS: `brew install git`. Linux: use your distro package manager. Windows: https://git-scm.com/downloads"* and abort. |
-| **gh** | Run `command -v gh` via Bash. | *"gh (GitHub CLI) is required. macOS: `brew install gh`. Linux: see https://github.com/cli/cli#installation"* and abort. |
+| **context-mode** | probe (a) fails | *"context-mode is required. Install via `claude /plugin install context-mode@claude-plugins-official`. See https://code.claude.com/docs/en/plugins for help."* |
+| **agent-browser** | `MISSING=agent-browser` | *"agent-browser is required. Install per upstream documentation: https://github.com/snadi/agent-browser"* |
+| **git** | `MISSING=git` | *"git is required. macOS: `brew install git`. Linux: use your distro package manager. Windows: https://git-scm.com/downloads"* |
+| **gh** | `MISSING=gh` | *"gh (GitHub CLI) is required. macOS: `brew install gh`. Linux: see https://github.com/cli/cli#installation"* |
+| **bash** | `MISSING=bash` (no `bash` on PATH at all), or `HELPER_EXIT=20` with `BASH=too-old` | too old → *"bash ≥ `<BASH_MIN>` is required (found `<BASH_VERSION>` at `<BASH_PATH>`). Install: `<INSTALL_BASH>`."* · too old **but `BASH_OFF_PATH` is reported** (a current bash is installed, just not on this session's PATH — typical for a desktop-app or IDE launch) → *"bash ≥ `<BASH_MIN>` is required (found `<BASH_VERSION>` at `<BASH_PATH>`). `<PATH_REMEDY>`."* — never an install command in that case · `MISSING=bash` → *"bash is required — none found on PATH. Install a current bash (see the CRAFT README → Requirements)."* |
+| **python3** | `HELPER_EXIT=20` with `PYTHON3=missing` | *"python3 is required. Install: `<INSTALL_PYTHON3>`."* |
 
-After listing all missing tools, stop and wait for the user to install them. Do not partially proceed.
+When the helper printed `INSTALL_NOTE`, add it **once**, after the last toolchain entry — not to
+each entry. Render `<PATH_REMEDY>`, `<HOOK_REMEDY>` and `<INSTALL_NOTE>` **verbatim**: do not
+shorten them or add your own example configuration (a settings `env.PATH` must hold a literal PATH).
+
+The helper's other outcomes are **not** missing tools:
+
+- `HELPER_EXIT=0` (`STATUS=ok`) — bash and python3 are present; report `BASH_VERSION` and
+  `PYTHON3_VERSION` in the Tools line.
+- `HELPER_EXIT=10` (`STATUS=hook-mismatch`) — **do not abort.** The Bash tool has a current bash, but
+  the SessionStart hook recorded an older one when this session started (Claude Code's own PATH
+  differs from your shell's). Report the versions in the Tools line and add the output-block line
+  `⚠ Hook bash: <HOOK_REMEDY>`.
+- `MISSING=bash` — the helper could not run at all (its `HELPER_EXIT=127` means exactly that);
+  report bash as missing and ignore the helper line.
+- `HELPER=not-found`, `HELPER_EXIT=2`, or no `STATUS=` line — emit
+  `⚠ Toolchain check incomplete: <reason>` and render `bash ?, python3 ?` in the Tools line. It cannot
+  confirm the tools, but it is not proof they are missing.
+
+**Once (a) and (b) have both returned:** if the missing-tools list is non-empty, print every entry
+and abort — stop and wait for the user to install them; do not partially proceed. Otherwise continue.
 
 ### Step 2 — Context-mode activation & currency
 
@@ -221,6 +262,7 @@ After tools are confirmed installed, capture and report versions for the status 
 - `agent-browser`: `agent-browser --version` (if supported; otherwise just confirm `✓`).
 - `git`: `git --version` (first line).
 - `gh`: `gh --version` (first line).
+- `bash`, `python3`: take `BASH_VERSION` and `PYTHON3_VERSION` from the Step 1 helper output (no extra call); render `?` when the toolchain check was incomplete.
 
 ### 5b. Plugin version (informational)
 
@@ -351,7 +393,8 @@ The full status block — emit exactly this shape:
 <plugin-runtime line — only in CRAFT's own source repo; ✓ if runtime = working tree, ⚠ if it diverges, ⚠ drift check incomplete if the check could not run (see step 5c)>
 ✓ Rules ↔ State drift check: <clean | ⚠ N drifts>
   <one line per drift, if any>
-✓ Tools: context-mode ✓ (<version>), agent-browser ✓, git ✓ (<version>), gh ✓ (<version>)
+✓ Tools: context-mode ✓ (<version>), agent-browser ✓, git ✓ (<version>), gh ✓ (<version>), bash ✓ (<version>), python3 ✓ (<version>)   (bash ?, python3 ? when the toolchain check was incomplete)
+  ⚠ <Hook bash: … — only when the helper reports STATUS=hook-mismatch; or ⚠ Toolchain check incomplete: … (see Pre-flight Step 1)>
 ✓ Senior-Developer baseline loaded
 <stack-pack line — only when a pack is declared; ✓ if found, ⚠ if missing (see step 4)>
 ✓ Agent models: <one-line summary if no overrides; one line per overridden agent otherwise (see step 4b)>
@@ -384,6 +427,9 @@ After emitting the block, prime silently writes the `.claude/plans/.primed` sess
 | Situation | Behavior |
 |---|---|
 | One or more tools missing | Abort with concrete install instructions, do not proceed. |
+| bash or python3 missing / too old, or a current bash only off PATH | Part of the one missing-tools abort; the messages are defined in Pre-flight Step 1 (table and helper outcomes). |
+| Hooks ran an older bash than the Bash tool (`check-toolchain.sh` exit 10) | Emit the `⚠ Hook bash: …` line with the remedy and continue. Not a blocker. |
+| `check-toolchain.sh` not found, exits 2, or prints something unexpected | Emit `⚠ Toolchain check incomplete: <reason>` and continue. |
 | `context-mode` outdated | Warn, suggest `/ctx-upgrade`, continue priming. |
 | `.claude/project/intent.md` missing | Emit onboarding nudge, do not proceed. |
 | Declared stack-pack file missing | Emit the `⚠ Stack-pack …` status line; continue priming. Never a blocker. |
