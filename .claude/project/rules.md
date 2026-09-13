@@ -14,14 +14,15 @@
 - **Language:** Markdown (commands in `commands/`, skills in `skills/`) + JSON
   (`.claude-plugin/plugin.json`, `marketplace.json`); Bash for `hooks/` and `scripts/`.
 - **Bash baseline:** `scripts/` may use bash ≥ 5.0 (the minimum is defined once, in
-  `scripts/check-toolchain.sh`); `hooks/` and `scripts/check-toolchain.sh` stay
-  **bash-3.2-compatible** — hooks run with whatever bash Claude Code hands them, and only an
-  old-bash-safe hook and helper can report an old bash. `scripts/test-toolchain-check.sh`
+  `scripts/check-toolchain.sh`); `hooks/`, `scripts/check-toolchain.sh` and
+  `scripts/handoff-marker-state.sh` (called by a hook) stay **bash-3.2-compatible** — hooks run
+  with whatever bash Claude Code hands them, and only an old-bash-safe hook and helper can report
+  an old bash. `scripts/test-toolchain-check.sh`
   asserts it with **two independent detectors**: a bash-4-construct scanner and real
   `/bin/bash` 3.2 runs that fail on shell error text. `bash -n` is no evidence — it accepts
   bash-4 constructs, and a 3.2 run skips a failing command and carries on green.
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate .`. Six standalone Bash harnesses cover what is
+  `claude plugin validate .`. Seven standalone Bash harnesses cover what is
   mechanically checkable; keep all green:
   `bash scripts/test-readonly-context.sh` (read-only guard + sync helper, incl.
   the guard↔helper normalizer agreement),
@@ -33,8 +34,9 @@
   prescription from a prohibition),
   `bash scripts/test-docs-site.sh` (docs site in sync with the plugin surface),
   `bash scripts/test-plugin-cache-drift.sh` (plugin runtime vs. working tree, B2),
-  `bash scripts/test-toolchain-check.sh` (bash/python3 requirement, OS install hints, hook bash), and
-  `bash scripts/test-gitignore-sync.sh` (CRAFT local-state gitignore helper, B4).
+  `bash scripts/test-toolchain-check.sh` (bash/python3 requirement, OS install hints, hook bash),
+  `bash scripts/test-gitignore-sync.sh` (CRAFT local-state gitignore helper, B4), and
+  `bash scripts/test-handoff-marker-state.sh` (handoff-marker liveness helper + hook, B7).
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.

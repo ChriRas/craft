@@ -59,7 +59,8 @@ bash scripts/test-plugin-cache-drift.sh
 # with an OS-aware install command (brew / apt / dnf / yum / pacman / apk / zypper / Windows), and
 # compares the bash the SessionStart hook recorded in .claude/plans/.hook-env. /craft:prime runs
 # it in pre-flight. The harness drives every platform via test-only overrides and runs the hook
-# under /bin/bash (3.2 on macOS) — hooks/ and this helper must stay bash-3.2-compatible. Keep green.
+# under /bin/bash (3.2 on macOS) — hooks/, this helper and the handoff-marker helper the hook calls
+# must stay bash-3.2-compatible. Keep green.
 bash scripts/test-toolchain-check.sh
 
 # Local-state gitignore helper — scripts/ensure-gitignore.sh decides, via git check-ignore, whether
@@ -69,17 +70,25 @@ bash scripts/test-toolchain-check.sh
 # global excludes (never coverage), idempotency, conflict restore, and a /bin/bash 3.2 run. Keep green.
 bash scripts/test-gitignore-sync.sh
 
+# Handoff marker lifecycle — scripts/handoff-marker-state.sh decides whether a worktree's
+# .craft/handoff.md is still live: the slice plan in that worktree is the truth, and each marker status
+# pairs with one plan status (table in skills/workflow/SKILL.md; the harness fails when the two
+# disagree). The SessionStart hook, /craft:worktree-status, /craft:execute and slice-builder count only
+# LIVE markers; slice-builder renames a stale one. Covers the full pairing matrix, doubt-means-live,
+# --resolve/--retry, the hook's fail-open path and a /bin/bash 3.2 run. Keep green.
+bash scripts/test-handoff-marker-state.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The six harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The seven harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-and the CRAFT local-state gitignore.
+the CRAFT local-state gitignore, and the handoff-marker lifecycle.
 
 ## Dogfooding Is Not Self-Verification
 
