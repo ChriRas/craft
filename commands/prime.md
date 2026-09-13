@@ -245,14 +245,53 @@ reports each as present/absent in `additionalDirectories`, plus an aggregate `ST
 - **Some absent** (`STATUS=absent`, exit 10) → status line
   `⚠ Read-only context: M of N connected project(s) not yet readable`, then **offer** to run
   `--apply` (Level 1 — ask before it writes). On a yes, run
-  `scripts/ensure-readonly-context.sh --apply` and report `CHANGED=`. This is the only
-  prime step that may mutate durable state, and only after explicit confirmation — never
-  silently. On a no, leave the `⚠` line and continue.
+  `scripts/ensure-readonly-context.sh --apply` and report `CHANGED=`. This and step 4f are
+  the only prime steps that may mutate durable state, and only after explicit confirmation —
+  never silently. On a no, leave the `⚠` line and continue.
 - **Helper error** (python3 missing, settings unparseable) → emit
   `⚠ Read-only context check incomplete: <ERROR>` and continue. Never abort prime.
 
 Like the drift and stack-pack checks, the drift itself is **reported**; the write to
 `settings.local.json` happens only on the human's yes.
+
+### 4f. Local-state gitignore
+
+CRAFT writes local, per-clone state into the project: `.claude/plans/.primed` (step 9), the
+SessionStart hook's `.claude/plans/.hook-env`, the `/craft:execute` run lock,
+`.claude/settings.local.json`, and the worktree handoff marker `.craft/`. Unignored, these show
+as untracked files, and `/craft:execute` A3 (clean working tree) aborts. `/craft:onboard` adds
+them for new projects; this step reaches projects onboarded before it did.
+
+Which paths count, when a path is covered, and how the `# CRAFT local state` block is written
+are defined once, in the helper `scripts/ensure-gitignore.sh`. Only a rule from one of the
+project's own `.gitignore` files counts; a personal global excludes file does not.
+
+Resolve the helper in this order, first match wins: `${CLAUDE_PLUGIN_ROOT}/scripts/`; else
+`<project-root>/scripts/`, but **only** when the project root holds a
+`.claude-plugin/plugin.json` whose `name` is `craft` (never run a same-named script from another
+project, the same guard as step 5c). Run it via Bash:
+
+```
+CLAUDE_PROJECT_DIR="<project-root>" bash "<helper>" --check
+```
+
+Map the result to one status line:
+
+- **`STATUS=present`** (exit 0) → `✓ Local state gitignored`.
+- **`STATUS=absent`** (exit 10) → `⚠ Local state not gitignored: <paths from the ENTRY=… STATUS=absent lines>`,
+  then **offer** to run `--apply` (Level 1, ask before it writes), naming the file it changes:
+  *"Add them to a `# CRAFT local state` block in `.gitignore`? The change needs a commit before
+  `/craft:execute` sees a clean tree."* On a yes, run the same command with `--apply` and report
+  `✓ .gitignore updated — <MISSING> path(s) added; commit .gitignore`. On a no, leave the `⚠`
+  line and continue.
+- **Any `TRACKED=<path>` line** (with either status) → add
+  `⚠ <path> is tracked by git — ignoring does not untrack it; review, then git rm --cached <path>`.
+  Report only; never run it.
+- **`--apply` exits 6** (`ERROR=post_write_uncovered:<path>`) → `⚠ .gitignore un-ignores <path> —
+  left unchanged, resolve by hand`. The helper has already restored the file.
+- **Helper not found, or any other error** → `⚠ Local-state gitignore check incomplete: <reason>`.
+
+Never abort prime. The `.gitignore` write happens only on the human's yes.
 
 ### 5. Tool versions (informational)
 
@@ -403,6 +442,9 @@ The full status block — emit exactly this shape:
 ✓ CRAFT profile: <preset — effective settings | none — plugin defaults>  (see step 4d)
   ⚠ <profile warning(s), if any>
 <read-only-context line — only when connected projects are declared; ✓ if all trusted, ⚠ if some not readable (see step 4e)>
+✓ Local state gitignored   (or ⚠ Local state not gitignored: <paths> + the --apply offer, or ⚠ … check incomplete — see step 4f)
+  ⚠ <tracked-file warning(s), if any>
+<.gitignore update line — only after a yes to the step-4f offer>
 
 
 Active slices:
@@ -446,6 +488,8 @@ After emitting the block, prime silently writes the `.claude/plans/.primed` sess
 | `craft-profile.md` malformed (unknown key, out-of-enum value, or `Auto-commit: off`+`Mode: worktree`) | Emit the `⚠ CRAFT profile: …` warning(s) from step 4d and continue. Never a blocker. |
 | Declared connected project not yet in `additionalDirectories` (step 4e) | Emit the `⚠ Read-only context …` line and offer `--apply` (confirmation-gated). Not a blocker. |
 | `ensure-readonly-context.sh` errors (python3 missing / settings unparseable) | Emit `⚠ Read-only context check incomplete: <reason>` and continue. Never abort. |
+| CRAFT local state not gitignored (step 4f) | Emit the `⚠ Local state not gitignored …` line and offer `--apply` (confirmation-gated). Not a blocker. |
+| `ensure-gitignore.sh` not found, errors, or `--apply` hits a conflicting rule (exit 6) | Emit the matching `⚠` line from step 4f and continue. Never abort. |
 
 ---
 
