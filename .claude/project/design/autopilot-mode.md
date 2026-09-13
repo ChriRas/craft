@@ -146,5 +146,9 @@ touch `commands/` cannot be verified end-to-end in the session that writes them.
 
 - **Q5** Subagent cache TTL `1h` vs. `5m` — measure in a spike (1h writes cost more, 5m misses on long test runs).
 - **Q6** Threshold defaults (85 / 95 / 90) and whether they live in `craft-profile.md` (new `## Autopilot` block).
+- **Observed 2026-09-13 (slice-033 probes):** two headless Claude Code *sessions* started concurrently
+  left the context-mode MCP server "failed" (cached, ~15 min) for later child sessions. Fan-out across
+  separate sessions can knock out a shared MCP dependency; in-session subagents share the parent's
+  connections — another argument for Q4's master + subagents engine. Verify before any parallel design.
 - **Spike items:** statusline refresh cadence during a foreground subagent; whether a blocked
   `UserPromptSubmit` prompt really makes no API call; `fable` alias vs. `model-defaults.md` enum.
