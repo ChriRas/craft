@@ -61,7 +61,7 @@ Using `templates/slice-archive.md.template`, draft the entry in working memory (
 - Decisions: pull from the slice plan's `## Decisions Made During This Slice` section
 - Diagram (only if produced in step 2)
 
-Store the draft in the slice plan under a new section `## Recap Draft`:
+Store the draft in the slice plan under `## Recap Draft`. If the section already exists — a re-run after a `/craft:review` loop-back, or a revision — **revise it in place**; never add a second `## Recap Draft`. A human revision removes a `> Drafted by subagent` flag the section carries:
 
 ```markdown
 ## Recap Draft
@@ -148,7 +148,7 @@ When invoked by the `slice-builder` subagent during an autonomous run, there is 
 - **Why** — derived from `## Trigger` and any entries in `## Decisions Made During This Slice`.
 - **Walk-through** — derived from the ordered `- [x]` sub-tasks and the actual code diff.
 
-The draft is written to `## Recap Draft` and clearly flagged at the top with `> Drafted by subagent — review at /craft:checkout`. The human reviews and edits the draft when they check out the worktree.
+The draft is written to `## Recap Draft` — revised in place when the section already exists (Step 3) — and clearly flagged at the top with `> Drafted by subagent — review at /craft:checkout`. The human reviews and edits the draft when they check out the worktree.
 
 No diagram is auto-generated in subagent mode (low signal/effort ratio without dialog).
 
