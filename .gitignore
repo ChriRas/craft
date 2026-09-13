@@ -11,6 +11,9 @@
 # CRAFT per-session prime marker (written by /craft:prime, cleared on SessionStart)
 .claude/plans/.primed
 
+# CRAFT record of the bash the hooks ran with (rewritten by the SessionStart hook at every session start)
+.claude/plans/.hook-env
+
 # AI tooling local config
 .ai/
 

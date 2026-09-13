@@ -27,6 +27,16 @@ rm -f ".claude/plans/.primed" 2>/dev/null || true
 INTENT_FILE=".claude/project/intent.md"
 
 if [[ -f "${INTENT_FILE}" ]]; then
+  # Record the bash this hook actually runs with. Hooks get Claude Code's own environment,
+  # not the user's shell profile, so this can differ from the bash the Bash tool sees;
+  # scripts/check-toolchain.sh compares the two during /craft:prime. One record per project
+  # folder, rewritten at every session start (the last session started here wins); gitignored.
+  # (Hooks must stay bash-3.2-compatible — this record is how an old hook bash gets reported.)
+  # The braces silence a failed redirect too: `2>/dev/null` after `>` would apply too late.
+  { mkdir -p ".claude/plans" \
+      && printf 'HOOK_BASH_VERSION=%s\nHOOK_BASH_PATH=%s\n' "${BASH_VERSION:-unknown}" "${BASH:-unknown}" \
+         > ".claude/plans/.hook-env"; } 2>/dev/null || true
+
   cat <<'EOF'
 [craft] Project is onboarded. Auto-priming: please run `/craft:prime` now to load project context for this session.
 EOF
