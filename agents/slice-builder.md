@@ -28,7 +28,38 @@ You do **not** create the worktree, do **not** allocate the slice ID, do **not**
 
 ## Procedure
 
-Run the following in order. After each phase, check the slice plan's `Status:` and the handoff marker. If a handoff marker has been written, stop immediately — do not advance to the next phase.
+Run the following in order. After each phase, check the slice plan's `Status:` and the handoff marker. If a handoff marker has been written, stop immediately — do not advance to the next phase. Step 0 guarantees that any marker you find after it was written in this run.
+
+### 0. Start-of-run marker check
+
+A marker left by an earlier run may already be resolved. Whether it still counts is decided in one place
+(`skills/workflow/SKILL.md` → **Handoff marker lifecycle**), by the helper — never by reading the marker yourself.
+**Decide first, rename last:** a stop must leave the marker exactly where it is, so the next run, the hook and
+`/craft:execute` still see it. Before any phase, from the worktree root:
+
+1. Run the helper **read-only**: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/handoff-marker-state.sh" .` → `STATE`,
+   `REASON`, `MARKER_STATUS`, `MARKER_PHASE`.
+2. Read `Status:` of the slice plan you were given (your input), not the helper's `PLAN_STATUS`.
+3. Take the **first** row that matches. "Stop" always means: change nothing, emit the paused line (§6), return.
+
+| Helper says | Plan `Status:` | Do |
+|---|---|---|
+| cannot run (not found, non-zero exit, no `STATE=`) and `.craft/handoff.md` exists | any | stop — `reason=helper-unavailable`; say *"The slice plan cannot confirm this handoff was resolved. Once it is, rename `.craft/handoff.md` by hand, then re-run."* |
+| `LIVE`, `REASON=paired` | any | stop — the human has not answered yet (no `reason=`) |
+| `LIVE`, `REASON` is a doubt reason (`plan_not_found`, `plan_ambiguous`, `plan_status_missing`, `no_slice_id`, `unknown_marker_status`) | any | stop — `reason=<REASON>`, with the same manual-rename sentence; in a project that gitignores `.claude/plans/` it is the only way out |
+| `LIVE`, `REASON=failure` | `blocked` | stop — `reason=plan-held` |
+| `LIVE`, `REASON=failure` | `paused`, `MARKER_PHASE` missing or not 4–8 | stop — `reason=retry-phase-unknown`; do not guess |
+| `LIVE`, `REASON=failure` | `paused`, `MARKER_PHASE` 4–8 | retry: run the helper with `--resolve --retry`, then restore the failed phase's entry status — `4` → `implementing`, `5` → `testing`, `6` → `review`, `7` → `refactoring`, `8` → `reviewing` — and continue with that phase's step |
+| `LIVE`, `REASON=failure` | any other | retry without restore: run the helper with `--resolve --retry`; the plan already says where to go — continue with the step its `Status:` points to |
+| `STALE` or `NONE` | `paused` or `blocked` | stop — `reason=plan-held`: a human holds the slice (nothing renamed) |
+| `STALE` | any other | run the helper with `--resolve`, then continue with the step the plan's `Status:` points to |
+| `NONE` | any other | continue with the step the plan's `Status:` points to |
+
+"The step the plan's `Status:` points to": `implementing` → step 1, `testing` → step 2, `review` → step 3,
+`refactoring` → step 4, `reviewing` → step 5, `committing` → step 6 (done).
+
+Only the two retry rows and the `STALE`-continue row rename, and only after the decision. A restore writes
+over `paused` alone — never over a status a human or a command set since the failure.
 
 ### 1. Phase 4 — Build
 
@@ -77,8 +108,13 @@ The orchestrator picks this up, merges your slice-branch into the epic-branch (o
 If at any step you wrote `.craft/handoff.md` and stopped (paused, blocked, or — for a review handoff — left at the status `commands/review.md` Subagent Mode defines), emit instead (the `paused` token is the orchestrator's parse key for every handoff):
 
 ```
-slice-builder paused: slice-NNN status=<awaiting-...> phase=<N> handoff=.craft/handoff.md
+slice-builder paused: slice-NNN status=<awaiting-...|plan status> phase=<N> handoff=<.craft/handoff.md|none> [reason=<REASON>]
 ```
+
+`reason=` appears only on a step-0 stop, and says why: a helper doubt reason (`plan_not_found`, `plan_ambiguous`,
+`plan_status_missing`, `no_slice_id`, `unknown_marker_status`), `helper-unavailable`, `plan-held` or
+`retry-phase-unknown`. On such a stop `status=` is the marker's status when a marker exists, else the plan's, and
+`handoff=none` when there is no marker — a step-0 stop never renames, so a named marker is really there.
 
 ---
 
@@ -156,6 +192,7 @@ and orphan detection all work unchanged. In the slice plan:
 
 ### Write the handoff and halt
 
+<!-- craft:handoff status=awaiting-block-decision plan=blocked -->
 Then write `.craft/handoff.md` in the **canonical marker format**
 (`skills/workflow/SKILL.md` → Handoff marker format) — the universal "human needed" signal the
 orchestrator collects and `/craft:checkout` shows:
@@ -205,7 +242,7 @@ not advance to the next phase.
 If a phase delegate (`/craft:build` etc.) returns an unstructured error or crashes:
 
 1. Update slice plan `Status: paused`.
-2. Write `.craft/handoff.md` with `Status: failure`, the error one-liner, and the phase number.
+2. <!-- craft:handoff status=failure plan=- --> Write `.craft/handoff.md` with `Status: failure`, the error one-liner, and the phase number.
 3. Emit the `slice-builder paused: …` summary.
 4. Stop. Do not retry — the human investigates.
 
