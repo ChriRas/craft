@@ -14,10 +14,11 @@
 | 3 | B6 | Fix | slice | Review-round lifecycle: the reviewer never sees earlier rounds (duplicate pending lines), an already-fixed finding has no "resolved" route in Step 7, and the resolution field of a findings line is implied, not named |
 | 4 | B8 | Fix | small | Sequential-epic loop-back: is a review loop-back a mid-slice hard stop in `/craft:execute`'s sequential path? Under protected-main the re-run aborts on "branch already exists" |
 | 5 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
-| 6 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
-| 7 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
-| 8 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
-| 9 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
+| 6 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
+| 7 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
+| 8 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
+| 9 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
+| 10 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
 
 ## Notes per item
 
@@ -41,6 +42,29 @@ slices that change `commands/` / `agents/` are verified via headless `--plugin-d
 not the running session. Starts with a spike slice (statusline refresh during subagent runs, blocked-prompt API behavior, subagent cache
 TTL, `fable` alias vs. `model-defaults.md`). Couples to D2: planner/architect/reviewer vs. builder
 are exactly the capability tiers D2 wants to name.
+
+**F7 — Idle cache guard (braindump, 2026-09-13).** *Problem:* a human who leaves mid-session (lunch,
+a question the agent asked and nobody answers) returns after the prompt-cache TTL has expired; the next
+prompt re-processes the whole conversation as uncached input, however full the window is — pure cost,
+no progress. *Idea:* watch the idle time; shortly before expiry (~55 min on a 1 h TTL) the agent
+notices the human is gone and secures the state, so a fresh session resumes exactly where they left.
+*User decisions:* scope = **active slices only** (reuse `/craft:handoff` → slice plan; sessions
+without a slice stay unguarded); on wake = **write handoff + keep the cache warm (bounded repeats) +
+block a prompt into a cold session** with the restart instruction (`/clear` → `/craft:continue`);
+placed **after F6**, and F6 §7 stays autopilot-specific. *Verified 2026-09-13 (code.claude.com
+hooks + prompt-caching docs):* the main session gets 1 h TTL on a subscription within its included usage, 5 m
+in overage and for subagents; async command hooks have no enforced timeout; an `asyncRewake` hook
+exiting 2 wakes Claude immediately even when idle; `Notification` `idle_prompt` fires ~60 s after a
+turn ends; hooks fire with no dedup across firings. *Mechanism sketch:* a turn-end hook spawns an
+`asyncRewake` sleeper tagged with a generation token; `UserPromptSubmit` bumps the token so a returning
+human silently cancels it; the woken turn reads the still-warm cache (cheap) and writes the handoff;
+each further wake refreshes the TTL (cap N, then stop and let it go cold); the prompt block uses
+`prompt_cache.expires_at` / `recache_tokens_if_cold` (statusline JSON — undocumented, may change).
+*Spike items:* does an open `AskUserQuestion` / permission dialog end the turn (Stop) or not?
+Does a rewake work while a dialog is open? Which hook event carries the sleeper best (Stop vs.
+`idle_prompt`)? Cost of N keep-warm reads vs. one cold re-write (verify current pricing), and
+what to do on a 5 m TTL (overage) — likely skip keep-warm and handoff early. Is the pre-emptive F6 §7
+handoff enough to reuse, or should F6 §7 later adopt F7's sleeper? Opt-in via the CRAFT profile, or on by default?
 
 **F5 — Windows support.** Official docs (2026-09-12): native Windows runs without Git for Windows;
 Git Bash only *enables* the Bash tool, and hook commands run through Git Bash — or PowerShell when
