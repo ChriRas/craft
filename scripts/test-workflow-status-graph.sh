@@ -80,6 +80,20 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# This harness needs a current bash — under macOS's /bin/bash 3.2 its heredocs inside $( … )
+# do not even parse. Bash reads a script command by command, so this guard runs before the
+# first such construct and turns the parse error into an install hint. The minimum itself is
+# defined once, in check-toolchain.sh, which runs here with the very bash executing this file.
+if ! toolchain="$("$BASH" "$SCRIPT_DIR/check-toolchain.sh" 2>&1)"; then
+  case "$toolchain" in
+    *STATUS=missing-tools*)
+      printf 'FATAL: %s needs a newer toolchain than this shell provides:\n%s\n' \
+        "${BASH_SOURCE[0]##*/}" "$toolchain" >&2
+      exit 2 ;;
+  esac
+fi
+
 ROOT="${1:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 
 SKILL="$ROOT/skills/workflow/SKILL.md"
