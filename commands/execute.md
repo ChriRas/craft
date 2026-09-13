@@ -182,11 +182,12 @@ For each runnable slice in the frontier, in parallel:
 
 ### 6. Collect slice outcomes
 
-Each subagent ends in one of three states:
+Each subagent ends in one of four states:
 
 - **Success** — slice plan `Status: committing` (Phase 8 cleared, no Heavy + needs-rethinking findings open).
-- **Handoff** — slice's worktree contains `.craft/handoff.md` with a stop reason. The subagent has stopped and surfaced a marker file. One handoff variant is distinct: `Status: awaiting-block-decision` means the subagent hit an out-of-scope blocker and wrote the first-class `blocked` state — the slice plan is at `Status: blocked` (not `paused`), and its resolution routes to `/craft:unblock`, not a plain `/craft:continue`. A second is `Status: awaiting-rethink-decision`: the review handoff does not pause the plan — its plan status and resolution are defined in `/craft:review` → Subagent Mode.
+- **Handoff** — slice's worktree contains a **live** `.craft/handoff.md` with a stop reason: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/handoff-marker-state.sh" <worktree>` reports `STATE=LIVE` — live vs. stale, and the fallback when the helper cannot run, are defined in `skills/workflow/SKILL.md` → **Handoff marker lifecycle**; this check only reads (renaming a stale marker is `slice-builder`'s step 0). A `STALE` marker is an already-resolved handoff and does not make a slice a Handoff; classify it by its plan status like any other. The subagent has stopped and surfaced a marker file. One handoff variant is distinct: `Status: awaiting-block-decision` means the subagent hit an out-of-scope blocker and wrote the first-class `blocked` state — the slice plan is at `Status: blocked` (not `paused`), and its resolution routes to `/craft:unblock`, not a plain `/craft:continue`. A second is `Status: awaiting-rethink-decision`: the review handoff does not pause the plan — its plan status and resolution are defined in `/craft:review` → Subagent Mode.
 - **Failure** — subagent crashed or returned an unstructured error.
+- **Held at start** — the subagent stopped in its step 0 without a live marker and emitted the paused line with `reason=` (e.g. `plan-held`: a human holds the slice at `paused` / `blocked`). Surface it with the slice-ID, the worktree path and that reason, like a Handoff; the plan says what the human still has to do.
 
 For each success: merge the slice-branch into the epic-branch (epic target) or stash it for the user-approved final merge (lone slice — see step 8). Merge uses `--no-ff`:
 
@@ -198,7 +199,7 @@ After a successful merge, mark the slice's dependents as candidates for the next
 
 ### 7. Surface handoffs and failures
 
-Whenever a slice ends in Handoff or Failure, **the orchestrator does not abort** — it continues spawning any other independent slices in the frontier, then stops once nothing else is runnable. The final output lists every Handoff/Failure with the slice-ID, the worktree path, and a one-line summary from the marker file.
+Whenever a slice ends in Handoff or Failure, **the orchestrator does not abort** — it continues spawning any other independent slices in the frontier, then stops once nothing else is runnable. The final output lists every Handoff/Failure with the slice-ID, the worktree path, and a one-line summary from the (live) marker file.
 
 ### 8. Epic-ready or slice-ready prompt
 

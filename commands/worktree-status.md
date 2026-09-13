@@ -32,7 +32,11 @@ Match branch names against the patterns from `## Worktree Settings` in `rules.md
 
 - The corresponding plan file under `.claude/plans/` (or the archive under `.claude/project/slices/` if the slice has already been committed).
 - Last-modified timestamp of the plan file (or the worktree's HEAD commit, whichever is more recent) — drives the "Last activity" column.
-- Presence of `<worktree-path>/.craft/handoff.md` — drives the handoff flag.
+- A **live** handoff marker — drives the handoff flag. Run
+  `bash "${CLAUDE_PLUGIN_ROOT}/scripts/handoff-marker-state.sh" <worktree-path>`: `STATE=LIVE` sets the flag;
+  `STATE=STALE` (the human already resolved it) and `STATE=NONE` do not. Live vs. stale and the fallback when the
+  helper cannot run are defined in `skills/workflow/SKILL.md` → **Handoff marker lifecycle**. Read-only: this
+  command never renames a marker.
 
 Worktrees whose branches don't match CRAFT patterns are listed too, under a separate "Other worktrees" group — they may be user-created and unrelated.
 
@@ -49,7 +53,7 @@ Worktrees attached to <repo-name>:
                    branch: <branch>
                    path:   <absolute path>
                    last:   <K> minutes/hours/days ago
-                   <⚠ handoff marker present — see <path>/.craft/handoff.md if so>
+                   <⚠ live handoff marker — see <path>/.craft/handoff.md, if the helper reports LIVE>
 
   epic-<NNN>     — <title>
                    branch: <branch>
