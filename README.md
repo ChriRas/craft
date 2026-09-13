@@ -228,6 +228,7 @@ When you run `/craft:onboard`, the plugin creates:
 ```
 <your-repo>/
 ├── CLAUDE.md                       # Slim index pointing to the files below
+├── .gitignore                      # + a "# CRAFT local state" block (see below)
 └── .claude/
     ├── project/
     │   ├── intent.md               # Vision, goals, architectural decisions
@@ -237,6 +238,15 @@ When you run `/craft:onboard`, the plugin creates:
     │   └── slices/                 # Archived completed slices (Decision Log)
     └── plans/                      # Active slice plans
 ```
+
+CRAFT also writes local, per-clone state that must never be committed: the per-session prime
+marker `.claude/plans/.primed`, the hook's `.claude/plans/.hook-env`, the `/craft:execute` run lock
+`.claude/plans/.execute.lock`, `.claude/settings.local.json`, and the worktree handoff marker
+`.craft/`. `/craft:onboard` adds whichever of them your `.gitignore` files do not already cover to one
+`# CRAFT local state` block. In a project onboarded before that, `/craft:prime` reports the uncovered
+paths and offers to add them, and writes only after you say yes. Commit the `.gitignore` change:
+`/craft:execute` needs a clean working tree. Only rules in the project's own `.gitignore` files count;
+a personal global excludes file does not, because teammates and CI don't have it.
 
 ---
 
