@@ -17,7 +17,9 @@
   `scripts/check-toolchain.sh`); `hooks/` and `scripts/check-toolchain.sh` stay
   **bash-3.2-compatible** — hooks run with whatever bash Claude Code hands them, and only an
   old-bash-safe hook and helper can report an old bash. `scripts/test-toolchain-check.sh`
-  asserts it under `/bin/bash`.
+  asserts it with **two independent detectors**: a bash-4-construct scanner and real
+  `/bin/bash` 3.2 runs that fail on shell error text. `bash -n` is no evidence — it accepts
+  bash-4 constructs, and a 3.2 run skips a failing command and carries on green.
 - **Test Framework:** none conventional — plugin integrity is checked with
   `claude plugin validate`. Five standalone Bash harnesses cover what is
   mechanically checkable; keep all green:
