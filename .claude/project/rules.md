@@ -73,6 +73,9 @@
 - Commands live in `commands/<name>.md`; skills in `skills/<name>/SKILL.md`.
 - Commands that mutate durable state outside the session carry Pre/Post-Assertions (D24).
 - All command cross-references use the full `/craft:` namespace.
+- Command prose that follows another command's steps by `Read`ing its file must hand over the
+  resolved plugin root: Claude Code substitutes `${CLAUDE_PLUGIN_ROOT}` only in the loaded command's
+  own content and does not export it to the Bash tool (slice-035, R1).
 
 ## Tabus (Anti-Patterns)
 
