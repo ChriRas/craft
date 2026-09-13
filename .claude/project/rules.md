@@ -54,6 +54,12 @@
   Phase 8 (rubric review + scenario walk-through of changed command prose). The agent
   must request a real human test for: fail-open hooks, destructive git/worktree paths,
   settings/permission writes, interactive-only behavior, and any surprising probe result.
+- Headless probes run from a scratch copy, never inside this repo, **one at a time and one fixture
+  per parent directory** (concurrent sessions knocked out context-mode in slice-033; a probe's
+  reviewer strayed into a sibling fixture in slice-034). A probe that must write `.claude/plans/`
+  needs `--permission-mode bypassPermissions` confined to the scratch fixture — `acceptEdits`
+  refuses those writes. When the prime gate is not under test, the probe's plugin copy omits
+  `hooks/` and the fixture pre-creates `.claude/plans/.primed`.
 - Architectural decisions are banked in `brainstorm-decisions.md` as `D<N>` entries
   before they are implemented.
 - Commit messages follow Conventional Commits — `<type>(scope): subject` (D9).
