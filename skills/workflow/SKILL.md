@@ -384,8 +384,8 @@ Four notes the table cannot carry itself:
   deletes the plan file instead — the archive and the git history are the record. It survives in
   the plan template and in a few abort checks as a legacy value.
 
-**Not in this graph** — three legitimate exclusions, all unmarked and unrowed on purpose. (There
-was briefly a fourth, and it was *not* on purpose: `/craft:refactor`'s Subagent-Mode section
+**Not in this graph** — four legitimate exclusions, all unmarked and unrowed on purpose. (There
+was briefly a fifth, and it was *not* on purpose: `/craft:refactor`'s Subagent-Mode section
 restated the Phase-7-dropped rule and wrote `reviewing` a second time, unmarked and unrowed. It is
 gone — the subagent section now delegates to the one gate via a `craft:delegates` token, and the
 harness asserts the token's presence and that the section carries no status write of its own.)
@@ -395,6 +395,9 @@ harness asserts the token's presence and that the section carries no status writ
   — they live in the worktree handoff file, not in a slice plan, and are a separate namespace;
 - `/craft:unblock`'s restore-write — it writes back the *recorded* `Blocked-status`, a variable, not
   a fixed value, so it has no single edge to declare;
+- `slice-builder`'s failure-retry restore (step 0) — it writes the entry status of the phase recorded
+  in the `failure` marker's `Phase:`, a variable over five values, and only over `paused` (the status
+  its own Failure handling set) — never over a status set since the failure;
 - `/craft:epic`'s `Status: planning` — that is written into an **epic** plan, a different artifact
   with its own lifecycle.
 
@@ -753,7 +756,7 @@ The contract has two rules:
 ```markdown
 ---
 Slice-ID: slice-NNN
-Status: awaiting-test | awaiting-refactor-decision | awaiting-rethink-decision | awaiting-protocol | awaiting-block-decision | failure
+Status: awaiting-test | awaiting-refactor-decision | awaiting-rethink-decision | awaiting-protocol | awaiting-scope-decision | awaiting-block-decision | failure
 Phase: 4 | 5 | 6 | 7 | 8
 Written: <ISO datetime>
 ---
@@ -767,7 +770,38 @@ Written: <ISO datetime>
 <one-line — typically a /craft:command the human should run, with the slice or epic ID>
 ```
 
-The orchestrator's "epic partially complete" output lists every active handoff with the slice-ID, the status, and the one-line title. Most statuses pair with a slice plan at `Status: paused`; two are exceptions. `awaiting-block-decision` pairs with the first-class `Status: blocked` state (frontmatter + `## Blocker`) and resolves via `/craft:unblock` rather than a plain `/craft:continue`. `awaiting-rethink-decision` does not pause the plan; its plan status and resolution are defined once, in `/craft:review` → Subagent Mode.
+The orchestrator's "epic partially complete" output lists every active handoff with the slice-ID, the status, and the one-line title. Most statuses pair with a slice plan at `Status: paused` — every writer of such a status pauses the plan, and each writer carries a `<!-- craft:handoff status=… plan=… -->` marker the harness binds to the lifecycle table below; three are exceptions. `failure` pairs with no plan status (live until a retry). `awaiting-block-decision` pairs with the first-class `Status: blocked` state (frontmatter + `## Blocker`) and resolves via `/craft:unblock` rather than a plain `/craft:continue`. `awaiting-rethink-decision` does not pause the plan; its plan status and resolution are defined once, in `/craft:review` → Subagent Mode.
+
+### Handoff marker lifecycle — live, stale, resolved
+
+No command deletes the marker when the human resolves it. Instead **the slice plan in the worktree is the truth and
+the marker is a projection of it**: a marker is **live** only while that plan is still at the status its own status
+pairs with. Once the human has resolved the handoff — a Phase-5 answer, `/craft:unblock`, a review route — the plan
+has moved on and the marker is **stale**: it no longer means "human needed".
+
+| Marker status | Live while the plan is at |
+|---|---|
+| `awaiting-test` | `paused` |
+| `awaiting-protocol` | `paused` |
+| `awaiting-scope-decision` | `paused` |
+| `awaiting-refactor-decision` | `paused` |
+| `awaiting-block-decision` | `blocked` |
+| `awaiting-rethink-decision` | `reviewing` |
+| `failure` | — (no paired plan status; live until a retry) |
+
+The decision is made in one place, `scripts/handoff-marker-state.sh <worktree>` (`STATE=NONE|LIVE|STALE`); this
+table is its readable copy, and `scripts/test-handoff-marker-state.sh` fails when the two disagree. **Doubt means
+live** — no plan in the worktree (a project may gitignore `.claude/plans/`), several plans for one slice-ID, a
+missing status, an unknown marker status: the marker counts, as it did before the check existed. The same holds
+when **the helper cannot run** (not found, non-zero exit, no `STATE=` line): a present `.craft/handoff.md` counts as
+live. Every reader and `slice-builder` apply this one fallback; none restates it.
+
+- **Readers** — the SessionStart hook, `/craft:worktree-status` and `/craft:execute` (outcome collection) count a
+  marker only when the helper reports `LIVE` (or cannot run, see above). They only read — never rename.
+- **Resolving** — only `slice-builder` renames, and only in its step 0 (`agents/slice-builder.md` → **0.
+  Start-of-run marker check**), which is the one definition of when a run stops and when a marker is renamed —
+  a stale one with `--resolve`, a `failure` one with `--resolve --retry` — to `.craft/handoff-resolved-<Written>.md`,
+  an audit trail that no longer counts. Any marker present after that start check was written in this run.
 
 ---
 
