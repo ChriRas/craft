@@ -78,6 +78,10 @@
 - Command prose that follows another command's steps by `Read`ing its file must hand over the
   resolved plugin root: Claude Code substitutes `${CLAUDE_PLUGIN_ROOT}` only in the loaded command's
   own content and does not export it to the Bash tool (slice-035, R1).
+- Every place that writes `.craft/handoff.md` carries `<!-- craft:handoff status=<s> plan=<p> -->`
+  next to the write (`plan=-` for `failure`); `scripts/test-handoff-marker-state.sh` binds the
+  markers to the helper's pairing and pins the exact writer set — a new writer is added there
+  deliberately (slice-036).
 
 ## Tabus (Anti-Patterns)
 
