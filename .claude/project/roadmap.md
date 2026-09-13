@@ -9,30 +9,31 @@
 
 | # | ID | Type | Size | Item |
 |---|----|------|------|------|
-| 1 | F4 | Feature | slice | Modern-bash baseline: CRAFT scripts target current bash; `/craft:prime` checks the bash version and gives OS-aware install hints (macOS → Homebrew, Linux → detected distro's package manager) |
-| 2 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
-| 3 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
-| 4 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
-| 5 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
+| 1 | B3 | Fix | slice | Review loop-back unmodelled: `/craft:review` recommends returning to Phase 4, but no command writes `reviewing → implementing` and `/craft:build` does not read `reviewing` — the edge is invisible to the status-graph harness |
+| 2 | B4 | Fix | slice | Consumer projects do not gitignore `.claude/plans/.primed` / `.hook-env` — `/craft:onboard` adds no ignore entries, and untracked files break `/craft:execute` A3 (clean tree) |
+| 3 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
+| 4 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
+| 5 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
+| 6 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
+| 7 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
 
 ## Notes per item
 
-**F4 — Modern-bash baseline.** Decided 2026-09-12: CRAFT is a developer tool, so it may require a
-current bash instead of staying compatible with macOS's frozen `/bin/bash` 3.2.57 (GPLv2-era, not
-updated by Apple). Found when `scripts/test-workflow-status-graph.sh` failed to parse under 3.2
-(heredoc inside `$( … )`) and passed 82/82 under Homebrew bash 5.3.15. Scope: pin a minimum major
-version (proposal: 5) and state it in `rules.md` + README; extend the `/craft:prime` pre-flight
-(next to context-mode / agent-browser / git / gh) with a bash-version check whose abort message is
-OS-aware — `uname -s` = Darwin → `brew install bash`; Linux → read `/etc/os-release` `ID` /
-`ID_LIKE` and print the matching `apt` / `dnf` / `pacman` / `apk` / `zypper` command. Also check
-`python3`, which the helper scripts need. **Trap to verify:** hooks run `bash …` through `sh -c`
-with Claude Code's `PATH`; when Claude Code is launched outside a login shell (desktop app, IDE),
-`/opt/homebrew/bin` may be missing and the hooks would silently fall back to `/bin/bash` 3.2 — the
-check must test the bash the hooks actually get, not the one in the user's terminal.
+**Next release (carry-over from slice-033).** Update `docs/index.html` (EN/DE) via the docs-site
+skill — it still lists four required tools and `test-docs-site.sh` does not check the list. Verify a
+real Dock/IDE launch of Claude Code live (the D33 hands-on test waived in slice-033).
+
+**B3 — Review loop-back unmodelled.** Found in slice-033: Phase 8 round 1 exceeded the fix cap, the
+user chose a loop-back to Phase 4, and `Status: reviewing → implementing` had to be set by hand. Add
+the edge to the transition table in `skills/workflow/SKILL.md`, mark the write in `/craft:review`
+and the read in `/craft:build`, and let `scripts/test-workflow-status-graph.sh` see it.
+
+**B4 — Consumer gitignore.** Slice-033 review finding R1 (pre-existing for `.primed`, extended by
+`.hook-env`). This repo ignores both; consumer projects get no entries from `/craft:onboard`.
 
 **F6 — Autopilot mode.** Banked as D32 (2026-09-12); design record with verified facts, touchpoint
-matrix and open spike items in `.claude/project/design/autopilot-mode.md`. Ordered after F4 on
-purpose: its new usage/cache sensor scripts assume the F4 bash baseline. B2 shipped (slice-032):
+matrix and open spike items in `.claude/project/design/autopilot-mode.md`. F4 shipped (slice-033):
+the bash ≥ 5.0 baseline its usage/cache sensor scripts assume is in place. B2 shipped (slice-032):
 slices that change `commands/` / `agents/` are verified via headless `--plugin-dir` probes (D33),
 not the running session. Starts with a spike slice (statusline refresh during subagent runs, blocked-prompt API behavior, subagent cache
 TTL, `fable` alias vs. `model-defaults.md`). Couples to D2: planner/architect/reviewer vs. builder
