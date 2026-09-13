@@ -178,8 +178,8 @@ Recommended next: /craft:build
 
 When invoked by the `slice-builder` subagent during an autonomous `/craft:execute` run, the human cannot perform sub-step 5b in real time. The subagent therefore takes this path instead:
 
-0. Verify the slice plan is at `Status: testing` (set by `/craft:build` on clean Phase-4 completion). If any other status, write `.craft/handoff.md` with `Status: failure` and a one-line note "Out-of-band slice state — expected `testing`, found `<X>`" and stop. This catches a slipped Phase-4 transition before it pollutes Phase 5.
-1. Run 5a (Demo-Setup) and write its block to `.craft/handoff.md` inside the slice worktree with `Status: awaiting-test` and the trigger / try-this / expected-effect block embedded.
+0. Verify the slice plan is at `Status: testing` (set by `/craft:build` on clean Phase-4 completion). If any other status, <!-- craft:handoff status=failure plan=- --> write `.craft/handoff.md` with `Status: failure` and a one-line note "Out-of-band slice state — expected `testing`, found `<X>`" and stop. This catches a slipped Phase-4 transition before it pollutes Phase 5.
+1. <!-- craft:handoff status=awaiting-test plan=paused --> Run 5a (Demo-Setup) and write its block to `.craft/handoff.md` inside the slice worktree with `Status: awaiting-test` and the trigger / try-this / expected-effect block embedded.
 2. <!-- craft:writes status=paused --> Update the slice plan's `Status: paused` and append a Pause Note: *"Awaiting human Phase-5 exercise (subagent-invoked)."*
 3. Return control to the orchestrator. The orchestrator surfaces the handoff in the final "epic partially complete" block; the user resumes the slice via `/craft:checkout <slice-id>` + `/craft:continue` after exercising the artifact.
 
