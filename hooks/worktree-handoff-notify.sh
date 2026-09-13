@@ -6,14 +6,22 @@
 #   - For each git worktree attached to the current project, check for
 #     `<worktree>/.craft/handoff.md` — the universal "human needed" signal
 #     written by phase commands when called by the slice-builder subagent.
-#   - If any are present, emit a single block listing them so the user sees
-#     pending work the moment a new session opens.
+#   - A marker counts only while it is live: scripts/handoff-marker-state.sh compares
+#     it with the slice plan in that worktree, and a marker the human has already
+#     resolved (STALE) is skipped. The hook only reads — it never renames a marker.
+#   - If any live markers are present, emit a single block listing them so the user
+#     sees pending work the moment a new session opens.
 #   - Stays silent otherwise.
+#
+# Fail-open, as skills/workflow/SKILL.md → Handoff marker lifecycle defines: anything but
+# an explicit STATE=STALE (helper missing, failing, silent) lists the marker.
 #
 # Output goes to stdout and is appended to Claude's session context.
 # Never fails the session; on any unexpected error it exits 0 silently.
 
 set -uo pipefail
+
+HELPER="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)/scripts/handoff-marker-state.sh"
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 cd "${PROJECT_DIR}" 2>/dev/null || exit 0
@@ -30,7 +38,11 @@ while IFS= read -r line; do
       wt="${line#worktree }"
       if [[ "$wt" != "$PROJECT_DIR" ]]; then
         marker="$wt/.craft/handoff.md"
-        if [[ -f "$marker" ]]; then
+        state=""
+        if [[ -f "$marker" && -f "$HELPER" ]]; then
+          state=$(bash "$HELPER" "$wt" 2>/dev/null | sed -n 's/^STATE=//p')
+        fi
+        if [[ -f "$marker" && "$state" != "STALE" ]]; then
           slice_id=$(grep -m1 '^Slice-ID:' "$marker" 2>/dev/null | sed 's/^Slice-ID:[[:space:]]*//')
           status=$(grep -m1 '^Status:' "$marker" 2>/dev/null | sed 's/^Status:[[:space:]]*//')
           title=$(grep -m1 '^#[[:space:]]' "$marker" 2>/dev/null | sed 's/^#[[:space:]]*//')
