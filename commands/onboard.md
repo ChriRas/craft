@@ -18,6 +18,15 @@ This command is a **durable-state mutation** and follows the Pre/Post-Assertion 
 
 ## Pre-flight
 
+> **Borrowed steps from `prime.md` and the plugin root.** This command follows steps of
+> `prime.md` (Pre-flight Step 1 here, step 4f in the Local-State Gitignore sub-procedure) by
+> reading that file. Claude Code fills in the plugin-root placeholder (a dollar sign and braces
+> around `CLAUDE_PLUGIN_ROOT`) only in the command it loaded, never in a file read with `Read`, and
+> the Bash tool does not export it as a variable. Wherever the borrowed text shows that
+> placeholder, use the plugin root **`${CLAUDE_PLUGIN_ROOT}`** instead — that path was resolved
+> when this command loaded. Leave a helper lookup to the placeholder unresolved and it reports the
+> helper as not found.
+
 ### Step 1 — Tool health (strict)
 
 Read `${CLAUDE_PLUGIN_ROOT}/commands/prime.md` → **Pre-flight Step 1** and follow it exactly — probes (a) and (b), the missing-tools table and the helper outcomes (`scripts/check-toolchain.sh`): collect every missing tool first, then abort once with all messages.
@@ -129,6 +138,7 @@ Generate using the plugin templates:
 - `.claude/project/craft-profile.md` — rendered from `templates/craft-profile.md.template`: the `> Preset:` line and the Execution / Commit Policy / Merge Workflow / Epic Mode / Permissions placeholders take the **Profile Config sub-procedure's resolved values** (`[D]` fast-defaults → the `balanced` preset's literals from `templates/profiles/balanced.md`; `[G]` guided → the per-knob answers), the `## Operational Language` placeholders (`{{chat_language_or_system}}` etc.) take the Language Config sub-procedure's values, and `## Agent Model Overrides` is left at its default (empty). Immediately after writing the profile, run the Permission Allowlist sub-procedure to write the chosen scope's read-only allowlist into `.claude/settings.local.json`.
 - `.claude/project/roadmap.md` (only if user provided roadmap content)
 - `CLAUDE.md` in repo root — slim index pointing to the above
+- `.gitignore` — last, run the Local-State Gitignore sub-procedure
 
 Do **not** pre-create an empty `.claude/project/design/` — the directory is the
 **Durable Capture** home for cross-cutting design knowledge (domain model, scenario
@@ -245,6 +255,7 @@ Final preview — about to execute:
                            [.claude/project/roadmap.md]
                            [.claude/project/design/<topic>.md  (cross-cutting knowledge, if any)]
                            CLAUDE.md (replaced with index)
+  Append:                  .gitignore — CRAFT local-state paths not yet covered
   Validate:                Rules ↔ State drift check after write
 
 Type `apply` to proceed, or anything else to abort cleanly.
@@ -320,6 +331,8 @@ After writing `intent.md` and `rules.md`, count their lines:
 ### 5. Generate `CLAUDE.md` index
 
 If `CLAUDE.md` did not previously exist, generate one from `templates/claude-md-index.template`. If it did exist and was the knowledge-split source, replace its content with the index template (the prior content has been distributed into `.claude/project/`).
+
+Then run the Local-State Gitignore sub-procedure.
 
 ### 6. Drift validation
 
@@ -518,8 +531,8 @@ the matching allowlist into `.claude/settings.local.json`.
 Onboarding writes a **read-only default permission allowlist** into
 `.claude/settings.local.json` so common non-mutating commands stop prompting — without ever
 auto-granting a mutating one. The Permission Scope chosen in Profile Config (or `standard`
-on the fast-defaults path) selects the tier. The file is gitignored by repo convention; the
-write is an **idempotent merge** — existing `permissions.allow` entries are preserved and
+on the fast-defaults path) selects the tier. The file is local state (the Local-State
+Gitignore sub-procedure keeps it out of version control); the write is an **idempotent merge** — existing `permissions.allow` entries are preserved and
 never duplicated, and nothing is removed.
 
 ### Tiers (all read-only — a mutating command is never added)
@@ -546,11 +559,34 @@ never widened silently. This matches CRAFT's Tabu against silent state changes.
    untouched. Never touch `.permissions.deny`, `.permissions.ask`,
    `.permissions.additionalDirectories`, or any unrelated key.
 4. `Write` the merged JSON back (2-space indent, trailing newline).
-5. Confirm `.claude/settings.local.json` is gitignored; if a project does not ignore it,
-   note that in the output block but still write.
 
 Re-running onboarding is safe: merging the same tier twice yields the identical allowlist
-(the idempotency Post-Assertion P2c verifies this).
+(the idempotency Post-Assertion P2c verifies this). Keeping the file out of version control
+is not this sub-procedure's job — the Local-State Gitignore sub-procedure covers it.
+
+---
+
+## Local-State Gitignore (shared sub-procedure)
+
+CRAFT writes local, per-clone state into the project — the per-session prime marker, the
+hook's bash record, the `/craft:execute` run lock, `.claude/settings.local.json`, and the
+worktree handoff marker `.craft/`. Unignored, a primed session leaves untracked files behind
+and `/craft:execute` A3 (clean working tree) aborts. Onboarding therefore adds them to the
+project's `.gitignore` as the last write of both modes. It is part of the onboarding the user
+already confirmed — no separate prompt.
+
+Which paths count, when a path is already covered, and how the `# CRAFT local state` block
+is written are defined once, in the helper `scripts/ensure-gitignore.sh`. Read
+`${CLAUDE_PLUGIN_ROOT}/commands/prime.md` → **step 4f** (plugin root as the Pre-flight note says)
+and resolve the helper exactly as it does. Run it with `--apply` directly — **without** 4f's
+confirmation offer — and map the outcome for the output block:
+
+- **exit 0, `CHANGED=yes`** → `.gitignore  (CRAFT local-state block — <MISSING> path(s) added; commit it with the onboarding files)`.
+- **exit 0, `CHANGED=no`** → `.gitignore  (CRAFT local state already covered)`.
+- **`TRACKED=` lines, and exit 6** → emit the `⚠` lines step 4f defines for them.
+- **Helper not found, or any other error** → add `⚠ Local-state gitignore not applied: <reason> — run /craft:prime to retry`.
+
+Never a blocker: the other onboarding files stay written whatever the outcome.
 
 ---
 
@@ -590,6 +626,15 @@ Failure → *"⚠ craft-profile.md was not written or is malformed. Inspect `.cl
 
 Failure → *"⚠ Permission allowlist missing, incomplete, or containing a mutating entry in `.claude/settings.local.json`. Inspect it against the chosen scope's tier before running /craft:prime."*
 
+### P2d — CRAFT local state gitignored
+
+- Run the helper from the Local-State Gitignore sub-procedure with `--check`. It must exit 0
+  with `STATUS=present`.
+- Skipped when the sub-procedure already recorded a `⚠` outcome (helper missing, error, or a
+  conflicting rule). That warning stands in for this assertion's result.
+
+Failure → *"⚠ CRAFT local state is not gitignored (`<absent paths>`). Untracked CRAFT files will break /craft:execute's clean-tree check — /craft:prime will offer to add them."*
+
 ### P3 — `CLAUDE.md` index present
 
 - `Read` `CLAUDE.md` in repo root. Must exist and reference at least `.claude/project/intent.md` and `.claude/project/rules.md`.
@@ -624,16 +669,18 @@ Final status block, emitted once everything is written and post-assertions compl
 ```
 ✓ Onboarding complete (<greenfield | migration>)
 ✓ Pre-assertions: in git repo, not previously onboarded, templates available
-✓ Post-assertions: intent.md ✓, rules.md ✓, craft-profile.md ✓, settings.local.json ✓, CLAUDE.md ✓[, migration cleanup ✓]
+✓ Post-assertions: intent.md ✓, rules.md ✓, craft-profile.md ✓, settings.local.json ✓, CLAUDE.md ✓, .gitignore ✓[, migration cleanup ✓]
 
 Created:
   .claude/project/intent.md
   .claude/project/rules.md
   .claude/project/craft-profile.md
-  .claude/settings.local.json  (created or updated — <scope> read-only allowlist merged, gitignored)
+  .claude/settings.local.json  (created or updated — <scope> read-only allowlist merged)
   [.claude/project/roadmap.md]
   [.claude/project/design/<topic>.md …]
   CLAUDE.md
+  .gitignore  (<outcome from the Local-State Gitignore sub-procedure>)
+  [⚠ <gitignore warning(s), if any>]
 
 [Migration only]
 Moved to _legacy/:
@@ -675,6 +722,7 @@ Partial (post-assertion failure):
 | Migration: a target `_legacy/` file already exists with the same name | Append a numeric suffix (`-1`, `-2`) and continue. |
 | Drift on final validation | Reported via P5; user revises `rules.md`. No auto-correction. |
 | P1/P2/P2b/P2c/P3 fail after write | Warn loudly; emit partial-completion block; do not auto-rollback. |
+| Local-State Gitignore helper missing, errors, or hits a conflicting rule; or P2d fails | Emit the `⚠` line from the sub-procedure / P2d and continue. Never a blocker. `/craft:prime` step 4f re-offers the fix every session. |
 | P4 fails (migration cleanup incomplete) | Warn loudly; user reconciles `.claude/` manually. |
 
 ---
