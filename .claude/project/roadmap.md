@@ -9,24 +9,31 @@
 
 | # | ID | Type | Size | Item |
 |---|----|------|------|------|
-| 1 | B4 | Fix | slice | Consumer projects do not gitignore `.claude/plans/.primed` / `.hook-env` — `/craft:onboard` adds no ignore entries, and untracked files break `/craft:execute` A3 (clean tree) |
-| 2 | B7 | Fix | slice | Stale handoff marker: after a review loop-back (or any resolved handoff) `.craft/handoff.md` stays — the SessionStart hook, `/craft:execute` and `slice-builder` keep treating the slice as stopped |
-| 3 | B6 | Fix | slice | Review-round lifecycle: the reviewer never sees earlier rounds (duplicate pending lines), an already-fixed finding has no "resolved" route in Step 7, and the resolution field of a findings line is implied, not named |
-| 4 | B8 | Fix | small | Sequential-epic loop-back: is a review loop-back a mid-slice hard stop in `/craft:execute`'s sequential path? Under protected-main the re-run aborts on "branch already exists" |
-| 5 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
-| 6 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
-| 7 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
-| 8 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
-| 9 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
-| 10 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
+| 1 | B7 | Fix | slice | Stale handoff marker: after a review loop-back (or any resolved handoff) `.craft/handoff.md` stays — the SessionStart hook, `/craft:execute` and `slice-builder` keep treating the slice as stopped |
+| 2 | B6 | Fix | slice | Review-round lifecycle: the reviewer never sees earlier rounds (duplicate pending lines), an already-fixed finding has no "resolved" route in Step 7, and the resolution field of a findings line is implied, not named |
+| 3 | B8 | Fix | small | Sequential-epic loop-back: is a review loop-back a mid-slice hard stop in `/craft:execute`'s sequential path? Under protected-main the re-run aborts on "branch already exists" |
+| 4 | B9 | Fix | small | Gitignore check described three times: `ensure-readonly-context.sh` and `ensure-worktree-trust.sh` grep for `settings.local.json` and disagree with `ensure-gitignore.sh` (worktree-trust can append a duplicate block mid-`/craft:execute`); negation handling depends on position (slice-035 R6, R3) |
+| 5 | B10 | Fix | small | Removal paths lost their handoff warning: `/craft:abort` and `/craft:worktree-clean` (orphan) no longer show an ignored `.craft/handoff.md` before removal; prime 4e lacks the `name == craft` guard; `/craft:plan` P2 checks sections only up to Decisions (slice-035 R9, R10) |
+| 6 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
+| 7 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
+| 8 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
+| 9 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
+| 10 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
+| 11 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
 
 ## Notes per item
 
-**Next release (carry-over from slice-033, extended by slice-034).** Update `docs/index.html` (EN/DE)
+**Next release (carry-over from slice-033, extended by slice-034 and slice-035).** Update `docs/index.html` (EN/DE)
 via the docs-site skill — it still lists four required tools and `test-docs-site.sh` does not check the
 list. Verify a real Dock/IDE launch of Claude Code live (the D33 hands-on test waived in slice-033). B3
 shipped (slice-034): the review loop-back and the per-round findings record reach normal sessions only
-with that release.
+with that release. B4 shipped (slice-035): add its CHANGELOG entry, and update the docs-site project tree
+(`docs/index.html` ~l.1030–1040 — `.primed` / `.hook-env` / `.craft/` and the `.gitignore` block are missing,
+`settings.local.json` still says "gitignored"). After the release `/craft:prime` offers the block in every
+consumer repo — `settings.local.json` included, even where only a personal global excludes file covers it.
+
+**B9, B10 — review follow-ups from slice-035.** Details in
+`.claude/project/slices/slice-035-b4-consumer-gitignore.md` → Follow-ups.
 
 **B6, B7, B8 — review follow-ups from slice-034.** Details in
 `.claude/project/slices/slice-034-b3-review-loop-back.md` → Follow-ups. Ordered before F6 on purpose:
