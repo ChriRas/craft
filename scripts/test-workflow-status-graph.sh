@@ -35,6 +35,13 @@
 #                  must have a matching table row, AND every row must have its
 #                  producer's write-marker and its consumer's read-marker. A status a
 #                  command writes but the table forgets is a failure, not a blind spot.
+#                  (The backwards edge /craft:review → implementing — the review loop-back,
+#                  slice-034 — is bound this way like any other row.)
+#   DELEGATION   — a Subagent-Mode section that hands a rule to its interactive twin
+#                  (refactor.md → the Phase-7 gate, review.md → the Step-8 loop-back) must
+#                  carry the craft:delegates token and no status write of its own, and the
+#                  token's target heading must carry the rule's write marker. The delegation
+#                  table itself is bound to the tokens in commands/ in both directions.
 #   DETECTION    — the Phase-7-dropped rule is itself prose ("a ## Workflow Rules bullet
 #                  declares Phase 7 dropped or skipped"). Assert this project's rules.md
 #                  actually satisfies the canonical form, so the rule that gates the
@@ -67,6 +74,9 @@
 #     not negation: the negation never lived in the phrase's absence, it lives in the prose,
 #     and a token is exactly as blind to prose as a grep was. Same residual as marker drift,
 #     stated here because an earlier version of this file claimed the token had closed it.
+#     Since slice-034 the token's TARGET is resolved (the named heading must carry the rule's
+#     write marker), so a renamed or emptied target goes red — but that binds the marker's
+#     *location*, not that the section's prose still implements the rule.
 # What the harness does guarantee: the declared graph is coherent, and no command silently
 # loses, gains, or duplicates a *marked* status write.
 #
@@ -361,23 +371,51 @@ done <<< "$(awk -F'\t' '!seen[$2 FS $3]++' <<< "$rows")"   # dedup by (status, c
 # *negation* ("the subagent does NOT apply the pre-flight gate…"): green, while re-introducing
 # both the Phase-5-skip regression and the duplicate-contract defect. A grep cannot tell a
 # prescription from a prohibition — the same lesson the markers exist for, applied one level up.
+# The same shape now binds /craft:review (slice-034, roadmap B3): its Subagent Mode must not
+# restate the review loop-back — the one Step-8 definition writes `implementing` — and must
+# point at it with a token.
+# The token's TARGET is resolved too: a token pointing at a heading that no longer carries the
+# rule's write marker is a pointer into nothing (a reviewer renamed Step 8, and separately moved
+# its marker into Step 5 — both stayed green before this check). Each entry:
+#   file | token rule | token target | target heading | marker attrs the target must carry |
+#   what the token hands to | what is lost if the token goes
+DELEGATIONS='refactor.md|phase7-dropped|preflight|Pre-flight|status=reviewing when=phase7-dropped|the Pre-flight Phase-7 gate|strips the Phase-7 drop from /craft:execute'"'"'s chain
+review.md|loop-back|step-8|Step 8|status=implementing|the Step-8 review loop-back|leaves the autonomous handoff with no pointer to the one loop-back definition — behavior is unchanged, but nothing stops the next edit from restating Step 8 there'
 echo "DELEGATION:"
-verdict="$(python3 - "$COMMANDS/refactor.md" <<'PY'
+while IFS='|' read -r dfile drule dto dhead dattrs dgate dloss; do
+[[ -n "$dfile" ]] || continue
+verdict="$(python3 - "$COMMANDS/$dfile" "$drule" "$dto" "$dhead" "$dattrs" <<'PY' 2>&1
 import re, sys
 text = open(sys.argv[1], encoding="utf-8").read()
+rule, target, heading, attrs = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+
+def unfence(s):
+    # ignore fenced examples, as everywhere else
+    lines, fenced = [], False
+    for ln in s.splitlines():
+        if ln.lstrip().startswith("```"):
+            fenced = not fenced; lines.append(""); continue
+        lines.append("" if fenced else ln)
+    return "\n".join(lines)
+
 m = re.search(r"^##\s+Subagent Mode\b.*?$(.*?)(?=^##\s|\Z)", text, re.S | re.M)
 if not m:
     print("NOSECTION"); sys.exit()
-body = m.group(1)
-# ignore fenced examples, as everywhere else
-lines, fenced = [], False
-for ln in body.splitlines():
-    if ln.lstrip().startswith("```"):
-        fenced = not fenced; lines.append(""); continue
-    lines.append("" if fenced else ln)
-body = "\n".join(lines)
+body = unfence(m.group(1))
 
-token = re.search(r"<!--\s*craft:delegates\s+rule=phase7-dropped\s+to=preflight\s*-->", body)
+token = re.search(r"<!--\s*craft:delegates\s+rule=" + re.escape(rule)
+                  + r"\s+to=" + re.escape(target) + r"\s*-->", body)
+
+# Resolve the target: the heading must exist, and its section (up to the next heading of the
+# same or a higher level) must carry the rule's craft:writes marker.
+h = re.search(r"^(#{2,4})\s+" + re.escape(heading) + r"\b.*$", text, re.M)
+target_ok = False
+if h:
+    rest = text[h.end():]
+    nxt = re.search(r"^#{1," + str(len(h.group(1))) + r"}\s", rest, re.M)
+    section = unfence(rest[:nxt.start()] if nxt else rest)
+    want = r"<!--\s*craft:writes\s+" + r"\s+".join(map(re.escape, attrs.split())) + r"\s*-->"
+    target_ok = re.search(want, section) is not None
 
 # A delegating section must not carry its own status write — that would be a restated rule,
 # and two descriptions of one contract is the defect B1 came from. Check BOTH a marker and a
@@ -391,17 +429,63 @@ GRAPH_STATUSES = ("planning", "implementing", "testing", "review", "refactoring"
 prose_write = any(re.search(r"Status:\s*`?" + s + r"`?\b", body) for s in GRAPH_STATUSES)
 marker_write = re.search(r"<!--\s*craft:writes\s", body)
 
-print("OK" if token and not marker_write and not prose_write else
-      "RESTATES" if token else
-      "NOTOKEN")
+print("NOTOKEN" if not token else
+      "RESTATES" if marker_write or prose_write else
+      "NOTARGET" if not target_ok else
+      "OK")
 PY
 )"
 case "$verdict" in
-  OK)        ok "refactor.md's Subagent Mode carries the craft:delegates token and declares no status write of its own" ;;
-  NOSECTION) bad "refactor.md has no '## Subagent Mode' section — the autonomous path is undefined" ;;
-  RESTATES)  bad "refactor.md's Subagent Mode carries the craft:delegates token but ALSO declares a status write of its own (a craft:writes marker, or a 'Status: <x>' literal in its prose) — a restated rule. Two descriptions of one contract is how B1 survived; the subagent section must delegate to the Pre-flight gate, not re-declare it" ;;
-  NOTOKEN)   bad "refactor.md's Subagent Mode carries no <!-- craft:delegates rule=phase7-dropped to=preflight --> token — the delegation was removed, relocated, or the section renamed, which strips the Phase-7 drop from /craft:execute's chain (and no status-write check can see that, because a delegation writes nothing)" ;;
+  OK)        ok "$dfile's Subagent Mode carries the craft:delegates token ($drule → $dto), declares no status write of its own, and its target '$dhead' carries the $dattrs write marker" ;;
+  NOSECTION) bad "$dfile has no '## Subagent Mode' section — the autonomous path is undefined" ;;
+  RESTATES)  bad "$dfile's Subagent Mode carries the craft:delegates token but ALSO declares a status write of its own (a craft:writes marker, or a 'Status: <x>' literal in its prose) — a restated rule. Two descriptions of one contract is how B1 survived; the subagent section must delegate to $dgate, not re-declare it" ;;
+  NOTOKEN)   bad "$dfile's Subagent Mode carries no <!-- craft:delegates rule=$drule to=$dto --> token — the delegation was removed, relocated, or the section renamed, which $dloss (and no status-write check can see that, because a delegation writes nothing)" ;;
+  NOTARGET)  bad "$dfile's craft:delegates token points at '$dhead', but no such heading carries the <!-- craft:writes $dattrs --> marker — the target was renamed, deleted, or the rule moved elsewhere; the token now points into nothing" ;;
+  *)         last="${verdict##*$'\n'}"
+             bad "DELEGATION could not check $dfile — unexpected verdict: ${last:-<empty>}" ;;
 esac
+done <<< "$DELEGATIONS"
+
+# The table above is maintained by hand, so it can silently lose an entry — an emptied table once
+# stayed 84/0 green, and a new craft:delegates token anywhere in commands/ would go unchecked. Bind
+# the table to the tokens actually present, in both directions (fenced examples ignored).
+coverage="$(DELEGATION_TABLE="$DELEGATIONS" python3 - "$COMMANDS" <<'PY' 2>&1
+import os, re, sys, pathlib
+table = set()
+for line in os.environ.get("DELEGATION_TABLE", "").splitlines():
+    cells = line.split("|")
+    if len(cells) >= 3 and cells[0].strip():
+        table.add((cells[0], cells[1], cells[2]))
+found = set()
+for f in sorted(pathlib.Path(sys.argv[1]).glob("*.md")):
+    fenced = False
+    for ln in f.read_text(encoding="utf-8").splitlines():
+        if ln.lstrip().startswith("```"):
+            fenced = not fenced; continue
+        if fenced:
+            continue
+        for m in re.finditer(r"<!--\s*craft:delegates\s+rule=(\S+)\s+to=(\S+)\s*-->", ln):
+            found.add((f.name, m.group(1), m.group(2)))
+if not table:
+    print("EMPTY\t-")
+for e in sorted(found - table):
+    print("UNLISTED\t" + "|".join(e))
+for e in sorted(table - found):
+    print("NOTOKEN\t" + "|".join(e))
+PY
+)"
+if [[ -z "$coverage" ]]; then
+  ok "every craft:delegates token in commands/ has a delegation-table entry, and every entry a token"
+else
+  while IFS=$'\t' read -r kind ref; do
+    case "$kind" in
+      EMPTY)    bad "the delegation table is empty — the DELEGATION checks above checked nothing" ;;
+      UNLISTED) bad "craft:delegates token '$ref' has no delegation-table entry — its target, restatement and loss checks never run" ;;
+      NOTOKEN)  bad "delegation-table entry '$ref' matches no craft:delegates token in commands/" ;;
+      *)        bad "delegation coverage check failed: $kind $ref" ;;
+    esac
+  done <<< "$coverage"
+fi
 
 # --- DETECTION: the Phase-7-dropped rule is a checked contract ----------------
 # The rule is prose four commands must agree on. Assert this project's rules.md
