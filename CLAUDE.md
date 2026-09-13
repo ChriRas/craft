@@ -55,16 +55,23 @@ bash scripts/test-docs-site.sh
 # unknown, and that docs-only or gitignored edits raise no false alarm. Keep green.
 bash scripts/test-plugin-cache-drift.sh
 
+# Toolchain check — scripts/check-toolchain.sh reports bash (>= 5.0, one constant) and python3
+# with an OS-aware install command (brew / apt / dnf / yum / pacman / apk / zypper / Windows), and
+# compares the bash the SessionStart hook recorded in .claude/plans/.hook-env. /craft:prime runs
+# it in pre-flight. The harness drives every platform via test-only overrides and runs the hook
+# under /bin/bash (3.2 on macOS) — hooks/ and this helper must stay bash-3.2-compatible. Keep green.
+bash scripts/test-toolchain-check.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The four harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The five harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
-plugin surface, and the plugin runtime's drift from the working tree.
+plugin surface, the plugin runtime's drift from the working tree, and the required toolchain.
 
 ## Dogfooding Is Not Self-Verification
 

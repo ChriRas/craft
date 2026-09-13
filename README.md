@@ -47,6 +47,22 @@ To move to a later release, run `/craft:upgrade` — it syncs the marketplace cl
 
 After install, open Claude Code in any project and run `/craft:onboard` to set the project up.
 
+#### Requirements
+
+`/craft:prime` checks these on every session start and stops with an install command for your OS
+when one is missing:
+
+| Tool | Notes |
+|---|---|
+| `context-mode`, `agent-browser`, `git`, `gh` | Companion plugin and CLIs the workflow relies on. |
+| **bash ≥ 5.0** | macOS still ships `/bin/bash` 3.2 — `brew install bash`. Linux distributions mostly package 5.x; RHEL/Alma/Rocky 8, openSUSE Leap 15.6 and Amazon Linux 2 ship 4.x and need a newer release or a source build. |
+| `python3` | Used by the helper scripts. |
+
+Windows: use WSL 2 (Git Bash is untested). If Claude Code is started from a desktop app or IDE, it
+may not see your shell's `PATH` and pick up an older bash even though a current one is installed —
+`/craft:prime` detects that and names the fix instead of an install command (start from a terminal,
+or set `env.PATH` in `~/.claude/settings.json`).
+
 All plugin commands are invoked through the `craft:` namespace — `/craft:onboard`, `/craft:plan`, `/craft:commit`, etc. The full namespace form is required: internal cross-references between commands rely on it to avoid collisions with Claude Code reserved names (e.g. `/plan` would otherwise collide with Plan-Mode) and with project-local `commands/<name>.md` overrides.
 
 ---
@@ -68,7 +84,7 @@ In a Craft-onboarded project, the SessionStart hook fires `/craft:prime` automat
 ```
 ✓ Project: <name> (<stack summary>)
 ✓ Rules ↔ State drift check: clean
-✓ Tools: context-mode ✓ (activated), agent-browser ✓, git ✓, gh ✓
+✓ Tools: context-mode ✓ (activated), agent-browser ✓, git ✓, gh ✓, bash ✓ (5.3.15), python3 ✓ (3.12.1)
 
 Active slices:
   → slice-007 "PWA reservation button" — Phase 4, 3/7 sub-tasks done

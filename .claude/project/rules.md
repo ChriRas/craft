@@ -12,9 +12,14 @@
 ## Stack & Tools
 
 - **Language:** Markdown (commands in `commands/`, skills in `skills/`) + JSON
-  (`.claude-plugin/plugin.json`, `marketplace.json`); Bash for `hooks/`.
+  (`.claude-plugin/plugin.json`, `marketplace.json`); Bash for `hooks/` and `scripts/`.
+- **Bash baseline:** `scripts/` may use bash ≥ 5.0 (the minimum is defined once, in
+  `scripts/check-toolchain.sh`); `hooks/` and `scripts/check-toolchain.sh` stay
+  **bash-3.2-compatible** — hooks run with whatever bash Claude Code hands them, and only an
+  old-bash-safe hook and helper can report an old bash. `scripts/test-toolchain-check.sh`
+  asserts it under `/bin/bash`.
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate`. Four standalone Bash harnesses cover what is
+  `claude plugin validate`. Five standalone Bash harnesses cover what is
   mechanically checkable; keep all green:
   `bash scripts/test-readonly-context.sh` (read-only guard + sync helper, incl.
   the guard↔helper normalizer agreement),
@@ -24,13 +29,14 @@
   directions**, and that `/craft:continue` routes each status to the graph's consumer
   (markers are the contract: prose is not checked, because a grep cannot tell a
   prescription from a prohibition),
-  `bash scripts/test-docs-site.sh` (docs site in sync with the plugin surface) and
-  `bash scripts/test-plugin-cache-drift.sh` (plugin runtime vs. working tree, B2).
+  `bash scripts/test-docs-site.sh` (docs site in sync with the plugin surface),
+  `bash scripts/test-plugin-cache-drift.sh` (plugin runtime vs. working tree, B2), and
+  `bash scripts/test-toolchain-check.sh` (bash/python3 requirement, OS install hints, hook bash).
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.
-- **Required companion tools:** context-mode, agent-browser, git, gh (verified by
-  `/craft:prime` pre-flight).
+- **Required companion tools:** context-mode, agent-browser, git, gh, bash ≥ 5.0, python3
+  (verified by `/craft:prime` pre-flight).
 
 ## Workflow Rules
 
