@@ -229,9 +229,9 @@ invisible to it. Mark every new status write, or the graph goes blind on that on
 | **Heavy** | review agent fixes in Phase 8 | escalated — **blocks Commit** |
 | **Light** | review agent fixes in Phase 8 | recorded as a **follow-up**; Commit proceeds |
 
-**Soft volume cap:** once in-phase fixes exceed **N** (default 5; `Review in-phase fix cap` in `rules.md` `## Self-Verification Settings`), the agent stops and **recommends** escalating the whole batch rather than fixing it. Soft = a recommendation, not a hard block.
+**Soft volume cap:** once in-phase fixes reach **N** (default 5; `Review in-phase fix cap` in `rules.md` `## Self-Verification Settings`) while local-edit findings are still open, the agent stops and **recommends** escalating the remaining batch rather than fixing it. Soft = a recommendation, not a hard block.
 
-**Escalation:** a Heavy + needs-rethinking finding is never auto-fixed. The agent **recommends** (Level 1), per finding, one of two routes — loop back to Phase 4 (`/craft:build`) if the fix is in slice scope, or spin off a new slice (`/craft:plan`) if it is separate work. Phase 9 (Commit) is blocked until every Heavy + needs-rethinking finding is resolved.
+**Escalation:** a Heavy + needs-rethinking finding is never auto-fixed. The agent **recommends** (Level 1), per finding, one of two routes — loop back to Phase 4 (`/craft:build`) if the fix is in slice scope, or spin off a new slice (`/craft:plan`) if it is separate work. Phase 9 (Commit) is blocked until every Heavy + needs-rethinking finding is resolved. The routes are carried out by `/craft:review` itself — **Step 7** (gate, and when a spun-off finding counts as resolved) and **Step 8 (Loop back to Phase 4)**; this skill does not restate them.
 
 **Findings record:** all findings are written to the slice plan's `## Review Findings` section — an audit trail, format `Severity · Fix-nature · description · resolution`.
 
@@ -239,7 +239,7 @@ invisible to it. Mark every new status write, or the graph goes blind on that on
 
 **Ad-hoc mode:** `/craft:review` is slash-invocable at any time. Invoked *before* Phase 8 it is **advisory only** — it produces findings, fixes nothing, and changes no phase state; the developer folds the findings into ongoing work.
 
-**Output:** severity-graded findings in `## Review Findings`, bounded in-phase fixes applied, and Phase 9 either gated (a Heavy + needs-rethinking finding is open) or cleared.
+**Output:** severity-graded findings in `## Review Findings`, bounded in-phase fixes applied, and Phase 9 either gated (a Heavy + needs-rethinking finding is open), cleared, or the slice looped back to Phase 4 (`/craft:review` Step 8).
 
 ---
 
@@ -313,9 +313,13 @@ rules exist because each was, at some point, the hole a reviewer walked through:
   row, either can be deleted and the other covers for it, so the row binds neither;
 - a command must not restate another's rule. `/craft:refactor`'s Subagent-Mode section **delegates**
   to the single Phase-7 gate instead of carrying its own copy, and marks that with a
-  `<!-- craft:delegates rule=<r> to=<target> -->` token. The harness asserts the token is present
-  **and** that the delegating section declares no status write of its own — neither a `craft:writes`
-  marker nor a `Status: <x>` literal in its prose. Duplication is how B1 survived, and a duplicated
+  `<!-- craft:delegates rule=<r> to=<target> -->` token. `/craft:review`'s Subagent-Mode section
+  does the same for the review loop-back (`rule=loop-back to=step-8`). The harness asserts the token is present,
+  that the delegating section declares no status write of its own — neither a `craft:writes`
+  marker nor a `Status: <x>` literal in its prose — **and** that the token's target resolves: the named
+  heading exists and carries the rule's write marker. Every token in `commands/` must also have an entry
+  in the harness's delegation table, and every entry a token. (The target check binds the marker's
+  *location*, not that the section's prose still implements the rule.) Duplication is how B1 survived, and a duplicated
   rule writes nothing the status checks would otherwise see. **What the token does not do:** it
   binds its own presence, not the meaning of the prose beneath it. A section that keeps the token
   and negates the rule in words still passes — the same residual as marker drift, and it is stated
@@ -351,6 +355,7 @@ adjacent to the instruction it describes, so the drift is visible to a reader in
 | `/craft:refactor` | `reviewing` | `/craft:review` | phase7-kept |
 | `/craft:refactor` | `reviewing` | `/craft:review` | phase7-dropped |
 | `/craft:review` | `reviewing` | `/craft:review` | any |
+| `/craft:review` | `implementing` | `/craft:build` | any |
 | `/craft:review` | `committing` | `/craft:commit` | any |
 | `/craft:execute` | `awaiting-release` | `/craft:release` | any |
 | `/craft:release` | `testing` | `/craft:test` | any |
@@ -360,7 +365,7 @@ adjacent to the instruction it describes, so the drift is visible to a reader in
 
 <!-- /craft:transitions -->
 
-Three notes the table cannot carry itself:
+Four notes the table cannot carry itself:
 
 - `/craft:refactor` produces `reviewing` under **both** configs, but by **two different routes**,
   so it gets **two rows**: in a Phase-7-keeping project at the end of its refactor items
@@ -371,6 +376,10 @@ Three notes the table cannot carry itself:
 - Some commands **produce the status they also consume** (`/craft:build` → `implementing`,
   `/craft:refactor` → `refactoring`, `/craft:review` → `reviewing`): they normalize a slice that
   arrives one step early. Those are real rows, not artifacts.
+- `/craft:review` → `implementing` is the **review loop-back** (roadmap B3), the one edge that runs
+  *backwards*. It is written only by `/craft:review` **Step 8 (Loop back to Phase 4)**, which defines
+  when it fires and what it records; `/craft:build` consumes it through the `implementing` read it
+  already has.
 - `committed` has **no row**, and that is correct: no command ever writes it. `/craft:commit`
   deletes the plan file instead — the archive and the git history are the record. It survives in
   the plan template and in a few abort checks as a legacy value.
@@ -724,7 +733,7 @@ When `/craft:execute <epic-or-slice>` is used, the 9-phase loop runs across para
 | 5 (Testing) | slice-worktree | Subagent-callable mode of `/craft:test` writes `.craft/handoff.md` and pauses — Phase 5 requires a human and cannot be automated. |
 | 6 (Recap) | slice-worktree | Subagent-callable mode of `/craft:recap` auto-drafts the What/Why/Walk-through. Flagged for human review at checkout. |
 | 7 (Refactor) | slice-worktree | Subagent-callable mode of `/craft:refactor` skips if `rules.md` declares Phase 7 dropped; otherwise writes handoff candidates without applying. |
-| 8 (Review) | slice-worktree | Subagent-callable mode of `/craft:review` applies in-phase fixes automatically; Heavy + needs-rethinking findings and soft-cap breaches write a handoff and pause. |
+| 8 (Review) | slice-worktree | Subagent-callable mode of `/craft:review` applies in-phase fixes automatically; open findings write a handoff and stop — the plan is not paused (`/craft:review` → Subagent Mode defines the outcome). |
 | 8 → epic-merge | epic-worktree | When a slice clears review, the orchestrator merges its branch into `epic-<NNN>-<slug>` with `--no-ff`. For a lone slice, this step is skipped — the slice-branch stays parked until Phase 9. |
 | 9 (Commit) | main | `/craft:commit` runs from main, detects the mode (Standard / Slice-finalize / Epic-finalize), merges with `--no-ff`, walks decisions across every included slice, writes archive entries, deletes plan files, and removes worktrees + branches. |
 
@@ -734,7 +743,7 @@ Phase commands `/craft:build`, `/craft:test`, `/craft:recap`, `/craft:refactor`,
 
 The contract has two rules:
 
-1. **Never fabricate human judgment.** UX feedback (W/B/U), refactor candidate selection, escalation routing, decision promotions, commit-message edits — all stay human-only. Subagent mode either auto-drafts (Recap) and flags it for review, or writes a handoff marker and pauses (Test/Refactor/Review/Heavy findings).
+1. **Never fabricate human judgment.** UX feedback (W/B/U), refactor candidate selection, escalation routing, decision promotions, commit-message edits — all stay human-only. Subagent mode either auto-drafts (Recap) and flags it for review, or writes a handoff marker and stops (Test/Refactor pause the plan; Review leaves it as its Subagent Mode defines).
 2. **Always surface state via `.craft/handoff.md`.** The marker file is the universal "human needed" signal. Hooks watch for it; `/craft:execute` collects it; `/craft:checkout` shows it.
 
 ### Handoff marker format
@@ -758,7 +767,7 @@ Written: <ISO datetime>
 <one-line — typically a /craft:command the human should run, with the slice or epic ID>
 ```
 
-The orchestrator's "epic partially complete" output lists every active handoff with the slice-ID, the status, and the one-line title. Most statuses pair with a slice plan at `Status: paused`; the exception is `awaiting-block-decision`, which the subagent pairs with the first-class `Status: blocked` state (frontmatter + `## Blocker`) and which resolves via `/craft:unblock` rather than a plain `/craft:continue`.
+The orchestrator's "epic partially complete" output lists every active handoff with the slice-ID, the status, and the one-line title. Most statuses pair with a slice plan at `Status: paused`; two are exceptions. `awaiting-block-decision` pairs with the first-class `Status: blocked` state (frontmatter + `## Blocker`) and resolves via `/craft:unblock` rather than a plain `/craft:continue`. `awaiting-rethink-decision` does not pause the plan; its plan status and resolution are defined once, in `/craft:review` → Subagent Mode.
 
 ---
 

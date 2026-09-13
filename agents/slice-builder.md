@@ -62,7 +62,7 @@ If the slice plan is already at `Status: reviewing` on a subsequent run (refacto
 
 ### 5. Phase 8 — Review (subagent mode)
 
-`Read` `commands/review.md` and follow its `## Subagent Mode` section: apply Local-edit fixes (Heavy and Light) up to the soft cap, write findings to `## Review Findings`. If any Heavy + needs-rethinking finding is open, OR the soft cap was breached, write a handoff with `Status: awaiting-rethink-decision` and pause. Otherwise update `Status: committing` — the slice is review-cleared.
+`Read` `commands/review.md` and follow its `## Subagent Mode` section end to end — it is the one definition of the autonomous review outcome: which fixes apply, how findings are recorded, when the review writes a handoff (and what the plan status stays at), and when it clears. Do not decide "open" or the plan status yourself.
 
 ### 6. Return to orchestrator
 
@@ -74,7 +74,7 @@ slice-builder done: slice-NNN status=committing branch=<slice-id>-<slug> finding
 
 The orchestrator picks this up, merges your slice-branch into the epic-branch (or stashes for the final commit in lone-slice mode), and continues.
 
-If at any step you wrote `.craft/handoff.md` and paused, emit instead:
+If at any step you wrote `.craft/handoff.md` and stopped (paused, blocked, or — for a review handoff — left at the status `commands/review.md` Subagent Mode defines), emit instead (the `paused` token is the orchestrator's parse key for every handoff):
 
 ```
 slice-builder paused: slice-NNN status=<awaiting-...> phase=<N> handoff=.craft/handoff.md

@@ -93,42 +93,69 @@ For every **local-edit** finding (Heavy or Light), apply the fix, then run the p
    Tests: <status>
 ```
 
-**Soft volume cap.** The cap is `Review in-phase fix cap` in `rules.md` `## Self-Verification Settings` (default **5**). Once the number of in-phase fixes reaches the cap, **stop** and recommend (Level 1):
+**Soft volume cap.** The cap is `Review in-phase fix cap` in `rules.md` `## Self-Verification Settings` (default **5**). Once the number of in-phase fixes reaches the cap **while local-edit findings are still open** (`<K>` > 0), **stop** and recommend (Level 1) — with nothing left open there is no batch to escalate, and the cap does not fire:
 
 > Review in-phase fix cap (<N>) reached — <K> local-edit findings still open. Many small fixes sum to a large unreviewed delta. Recommend escalating the remaining batch (loop back to Phase 4) rather than fixing it here.
 
-The cap is a recommendation, not a hard block — the user may waive it.
+The cap is a recommendation, not a hard block — the user may waive it. If the user **accepts** the escalation, the remaining local-edit findings are not fixed here: they loop back to Phase 4 through **Step 8**, reached via Step 7.
 
 In **advisory mode**, skip this step: report local-edit findings as suggestions, apply nothing.
 
 ### Step 5 — Handle escalations (Level 1)
 
 - **Heavy + needs-rethinking** — never fixed here. For each, recommend one of two routes and let the user choose:
-  - *loop back to Phase 4* (`/craft:build`) — the fix belongs in this slice's scope;
-  - *spin off a new slice* (`/craft:plan`) — it is genuinely separate work.
-  These findings **block Commit** (Step 7).
+  - *loop back to Phase 4* (`/craft:build`) — the fix belongs in this slice's scope; runs **Step 8**, reached via Step 7;
+  - *spin off a new slice* (`/craft:plan`) — it is genuinely separate work. The finding is **resolved only once that slice exists** and its ID is recorded (Step 6: `escalated → new slice <slice-ID>`); until then it stays open as `escalated → new slice (pending)`.
+  A finding the user has not routed yet is recorded `escalated → route pending`. Open findings **block Commit** (Step 7).
 - **Light + needs-rethinking** — recorded as a **follow-up**. Commit proceeds; the follow-up lands in the slice archive's `## Follow-ups` section at Phase 9.
 
 In advisory mode, present both as recommendations only — no phase routing, no `Status:` change.
 
 ### Step 6 — Write the findings record
 
-Write every finding to the slice plan's `## Review Findings` section — the audit trail. One line per finding:
+Write every finding to the slice plan's `## Review Findings` section — the audit trail, **one round per run, appended**:
+
+1. **Fix the round number first** — `<R>` = 1 + the `### Round` headings already in `## Review Findings` (advisory rounds count too) + 1 more if finding lines sit above the first heading (a **legacy record**, written before round headings existed — it counts as one Phase-8 round, here and in Step 7). Count *before* writing, so this round's own heading is not included.
+2. **Append** a heading `### Round <R> — <ISO date> (<Phase-8 | advisory>)` and one line per finding below it. Never replace or reword an earlier round — the only in-place change to an earlier round is Step 7 recording a slice-ID or a route on one of its **open** lines. Anything else about an earlier line (an ID that did not resolve, a remark) goes under **this** round's heading as a `note ·` line.
 
 ```
 - Heavy · Local   · <description> · fixed in-phase
 - Light · Rethink · <description> · follow-up → slice archive
 - Heavy · Rethink · <description> · escalated → Phase 4 loop-back
+- Heavy · Rethink · <description> · escalated → new slice (pending)
+- Heavy · Rethink · <description> · escalated → new slice <slice-ID>
+- Heavy · Rethink · <description> · escalated → route pending
+- Light · Local   · <description> · escalated → Phase 4 loop-back (fix cap)
+- Heavy · Local   · <description> · open — fix cap, awaiting decision
+- note · fix cap (<N>) waived by the user
 ```
+
+**Open** lines — the ones Step 7 resolves and gates on — are `escalated → new slice (pending)`, `escalated → route pending` and `open — fix cap, awaiting decision`; in a legacy record, `escalated → new slice` without an ID is read as `(pending)`. In advisory mode every line's resolution is `advisory — no route`; advisory rounds are never read as open.
 
 If the slice plan has no `## Review Findings` section yet, append one.
 
-### Step 7 — Gate or clear
+### Step 7 — Gate, loop back, or clear
 
 - **Advisory mode** — stop. Emit the findings report; do not touch `Status:`.
-- **Phase-8 mode** —
-  - If any **Heavy + needs-rethinking** finding is open → Commit is **blocked**. Leave `Status: reviewing`. Emit the blocking finding(s) and the chosen route(s). The slice may not close until they are resolved and re-reviewed.
-  - If none → the review is **clear**. <!-- craft:writes status=committing --> Update `Status: committing` and emit `Recommended next: /craft:commit`.
+- **Phase-8 mode** — first **resolve open lines** (Step 6) of *every* Phase-8 round, this round's and earlier ones, legacy record included:
+  - `new slice (pending)` → ask whether that slice now exists. Record the ID in place (`escalated → new slice <slice-ID>`) **only if** it resolves to `.claude/plans/<slice-ID>-*.md` or `.claude/project/slices/<slice-ID>-*.md`; otherwise say so and keep it pending.
+  - `route pending` or `open — fix cap, awaiting decision` on an **earlier** round's line (this round's were routed in Steps 4–5) → ask for the route and record it in place: *loop back to Phase 4* (`escalated → Phase 4 loop-back`), *spin off a new slice* (`escalated → new slice (pending)`, resolved as above), or *leave it pending*.
+
+  Then decide in this order; the first match wins:
+  1. **A loop-back was chosen** — in this run the user routed at least one finding to Phase 4: a Heavy + needs-rethinking finding (Step 5), an earlier round's open line (above), or the accepted fix-cap batch (Step 4) → run **Step 8** and stop there. Do not write `reviewing` or `committing` over it.
+  2. **An open line remains** in any Phase-8 round. Earlier rounds count: a re-review's fresh reviewer never sees them, so this step reads the record instead of relying on the reviewer re-finding them. → Commit is **blocked**. Leave `Status: reviewing`. Emit the open line(s) with their round and resolution.
+  3. **None** → the review is **clear**. <!-- craft:writes status=committing --> Update `Status: committing` and emit `Recommended next: /craft:commit`.
+
+### Step 8 — Loop back to Phase 4
+
+This is the **only** place the review loop-back is defined. Step 4 (accepted fix-cap escalation) and Step 5 (loop-back route) reach it through Step 7, and the Subagent Mode handoff is resolved by running this command interactively, which ends here too. It runs only on the user's choice — never on the reviewer's — and only when at least one finding loops back.
+
+1. **Round** — use the `<R>` Step 6 fixed for this round.
+2. **Sub-tasks** — append to the plan's `## Sub-Tasks`, below the existing (checked) items, one unchecked item per finding looped back in this run (earlier-round lines routed in Step 7 included): `- [ ] Loop-back R<R> — <finding description>`. A fix-cap batch may be grouped into one item per file or concern; keep every finding traceable to an item. If the plan has no `## Sub-Tasks` section, append one first (as Step 6 does for findings) and say so in the decision entry.
+3. **Findings record** — already written by Step 6 (and Step 7 for earlier-round lines); Step 8 changes no finding line. Lines still open stay open for Step 7 of every later round.
+4. **Decision** — append to `## Decisions Made During This Slice`: `**Review round <R> → loop-back to Phase 4** (<ISO date>) — <reasons, joined with "and": <N> Heavy + needs-rethinking finding(s) routed to Phase 4; fix cap (<cap>) reached with <K> local-edit findings open>; route chosen by the user.`
+5. **Status** — <!-- craft:writes status=implementing --> write `Status: implementing` to the slice plan. In-phase fixes already applied in Step 4 stay in the working tree; Phase 4 builds on top of them.
+6. **Hand off** — emit the looped-back output block and `Recommended next: /craft:build`. From Phase 4 the slice walks the ordinary transition graph forward again — through whichever of Phases 5–7 this project runs, as `/craft:recap`'s Phase-7 routing decides — back to this command for a re-review, because the loop-back changes the artifact those phases signed off.
 
 ---
 
@@ -155,11 +182,27 @@ Phase-8 mode, blocked:
 
 Findings: <H> heavy, <L> light
   In-phase fixes applied: <N>
-  Heavy + needs-rethinking (blocking): <N>
-    - <description> → <loop-back to Phase 4 | new slice>
+  Open lines (blocking): <N>
+    - R<R> · <description> → <new slice (pending) | route pending | open — fix cap, awaiting decision>
 
-Status stays `reviewing` — resolve the blocking finding(s) before Commit.
-Recommended next: /craft:build  (or /craft:plan for a spun-off slice)
+Status stays `reviewing` — resolve the open line(s) before Commit.
+Recommended next: /craft:plan  (spin off the pending work), then /craft:review
+                  — its Step 7 records the slice-ID, or asks for a route on a pending line
+```
+
+Phase-8 mode, looped back (Step 8):
+
+```
+↩ Phase 8 — Review round <R> → loop-back to Phase 4
+
+Findings: <H> heavy, <L> light
+  In-phase fixes applied: <N>
+  Looped back: <N> finding(s) → <N> new sub-task(s)
+    - Loop-back R<R> — <description>
+  Still open lines: <N>   (omit when 0 — each blocks the re-review until Step 7 resolves it)
+
+Status: implementing — Phase 4 resumes on the new sub-tasks; the slice then walks the graph forward to a re-review.
+Recommended next: /craft:build
 ```
 
 Advisory mode:
@@ -184,8 +227,11 @@ No fixes applied, no phase change. Fold these into your ongoing work.
 | `git diff HEAD` is empty (no slice delta) | Tell the user there is nothing to review; recommend confirming Phase 4 actually ran. |
 | The review subagent returns no structured findings | Re-run once with the rubric restated; if still unstructured, present the raw output and ask the user to classify. |
 | A test turns red after an in-phase fix | Treat it like any Phase-4 fix: one fix attempt; if still red, offer `/craft:debug`. Do not leave the tree red. |
-| In-phase fixes reach the soft cap | Stop fixing; recommend escalating the remaining batch (Step 4). Not a hard block. |
-| User waives the soft cap | Continue fixing, but note in `## Review Findings` that the cap was waived. |
+| In-phase fixes reach the soft cap with local-edit findings still open | Stop fixing; recommend escalating the remaining batch (Step 4). Not a hard block. Accepted → Step 7 case 1. |
+| User routes findings both ways (some loop-back, some new slice) | → Step 7 case 1 (Step 8); the spin-offs stay open per Step 7 case 2. |
+| Slice plan has no `## Sub-Tasks` section when Step 8 runs | → Step 8.2 (append the section). |
+| User waives the soft cap | Continue fixing; record a `note ·` line under this round's heading (Step 6). |
+| A recorded slice-ID does not resolve to a plan or archive | → Step 7 (keep the line pending). |
 | `## Review Findings` section missing from the slice plan | Append the section, then write the findings into it. |
 
 ---
@@ -196,10 +242,13 @@ No fixes applied, no phase change. Fold these into your ongoing work.
 
 Behavior in this mode:
 
+This section is the **one** definition of the autonomous review outcome; `agents/slice-builder.md` and `skills/workflow/SKILL.md` point here.
+
 - Steps 1–6 run normally; findings are classified and written to the slice plan's `## Review Findings`.
-- Step 4 (in-phase fix application) runs — fixing local-edit findings is mechanical and safe to automate.
-- Step 5 — **Heavy + needs-rethinking** findings do **not** prompt the user. They are written to `.craft/handoff.md` with `Status: awaiting-rethink-decision` plus the recommended route (loop-back or new slice) for each. The slice is paused for human resolution at `/craft:checkout` time.
-- Soft-cap breach (Step 4) → same handoff path: marker written, slice paused.
+- Step 4 (in-phase fix application) runs — fixing local-edit findings is mechanical and safe to automate. On a soft-cap breach the remaining local-edit findings are recorded `open — fix cap, awaiting decision` (no one accepted a loop-back).
+- Step 5 — **Heavy + needs-rethinking** findings do **not** prompt the user; they are recorded `escalated → route pending`, with the recommended route (loop-back or new slice) for each written to `.craft/handoff.md`.
+- **Gate** — Step 7 runs **without its questions**: if any open line (Step 6) remains in any Phase-8 round — this round's or an earlier one's — write `.craft/handoff.md` with `Status: awaiting-rethink-decision`, name `/craft:review` as the resolution, and stop. The slice plan is **not** paused: it stays at the Phase-8 status Pre-flight step 2 set, which is exactly what the interactive resolution reads. With no open line, Step 7 case 3 applies (the review is clear).
+- **Loop-back** — <!-- craft:delegates rule=loop-back to=step-8 --> this mode never loops a slice back itself and writes no plan status for it. The human resolves the handoff with an interactive `/craft:review` in the slice worktree (reach it with `/craft:checkout`, or `/craft:continue`, which routes the unchanged plan status there); its Step 7 asks for the routes of the open lines, and a chosen loop-back runs **Step 8**, the one definition.
 
 The reviewer subagent itself never makes routing decisions; routing is always human-confirmed.
 
@@ -210,5 +259,6 @@ The reviewer subagent itself never makes routing decisions; routing is always hu
 - It does **not** commit. Phase 9 / `/craft:commit` does that.
 - It does **not** fix needs-rethinking findings — those escalate by design, even when the edit looks tiny.
 - It does **not** close a slice while a Heavy + needs-rethinking finding is open.
+- It does **not** loop a slice back to Phase 4 on its own judgment — Step 8 runs only on the user's route choice.
 - It does **not** promote decisions to `intent.md` / `rules.md`. That dialog is Phase 9.
 - In advisory mode it does **not** change `Status:` or apply any edit.

@@ -185,7 +185,7 @@ For each runnable slice in the frontier, in parallel:
 Each subagent ends in one of three states:
 
 - **Success** — slice plan `Status: committing` (Phase 8 cleared, no Heavy + needs-rethinking findings open).
-- **Handoff** — slice's worktree contains `.craft/handoff.md` with a stop reason. The subagent has stopped and surfaced a marker file. One handoff variant is distinct: `Status: awaiting-block-decision` means the subagent hit an out-of-scope blocker and wrote the first-class `blocked` state — the slice plan is at `Status: blocked` (not `paused`), and its resolution routes to `/craft:unblock`, not a plain `/craft:continue`.
+- **Handoff** — slice's worktree contains `.craft/handoff.md` with a stop reason. The subagent has stopped and surfaced a marker file. One handoff variant is distinct: `Status: awaiting-block-decision` means the subagent hit an out-of-scope blocker and wrote the first-class `blocked` state — the slice plan is at `Status: blocked` (not `paused`), and its resolution routes to `/craft:unblock`, not a plain `/craft:continue`. A second is `Status: awaiting-rethink-decision`: the review handoff does not pause the plan — its plan status and resolution are defined in `/craft:review` → Subagent Mode.
 - **Failure** — subagent crashed or returned an unstructured error.
 
 For each success: merge the slice-branch into the epic-branch (epic target) or stash it for the user-approved final merge (lone slice — see step 8). Merge uses `--no-ff`:
@@ -418,7 +418,7 @@ Failure → *"⚠ Worktree accounting mismatch — expected `<list>`, found `<li
 
 ### P2 — Slice plans have correct Status
 
-Each succeeded slice's plan file has `Status: committing` (cleared review) or `Status: reviewing` (open finding); each stopped slice has `Status: paused` with the Pause Note filled, **or** `Status: blocked` with the `## Blocker` section filled (a slice that escalated on `awaiting-block-decision`). No slice is left with `Status: implementing`. In **in-place** mode the single slice ends at `Status: awaiting-release` (Phase 4 done, halted before Phase 5).
+Each succeeded slice's plan file has `Status: committing` (cleared review); each stopped slice has `Status: paused` with the Pause Note filled, **or** `Status: blocked` with the `## Blocker` section filled (a slice that escalated on `awaiting-block-decision`), **or** — for a slice stopped on `awaiting-rethink-decision` — the plan status `/craft:review` → Subagent Mode leaves it at, with open lines in `## Review Findings`. No slice is left with `Status: implementing`. In **in-place** mode the single slice ends at `Status: awaiting-release` (Phase 4 done, halted before Phase 5).
 
 Failure → *"⚠ Slice `<id>` has Status `<X>` after execute — should be `<expected>`. Inspect `<path>`."*
 
