@@ -60,6 +60,12 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
   do:** it binds its own *presence*, never the *meaning* of the prose beneath it. Keep the marker
   and invert the sentence and the check still passes. That residual is deliberate and disclosed;
   the alternative is a checker that must understand English, which is not a thing we can build.
+- **Derived state over cleanup (slice-036)** — a worktree handoff marker is not deleted by the
+  commands that resolve it; whether it still means "human needed" is derived from the slice plan's
+  status, which is the truth. One helper decides, and doubt means live. *Why not* "every resolver
+  deletes the marker": six resolvers, and one forgotten one brings the stale marker back — a
+  derivation cannot be forgotten. *Why doubt means live:* a wrongly hidden handoff makes a waiting
+  slice invisible; a wrongly shown one only costs noise.
 - **Approve ≠ merge on protected `main` (epic Decision D)** — in a project whose profile
   sets protected-`main` PR mode, `/craft:commit` runs `gh pr merge` itself, but **only after
   a real human GitHub PR approval** (never `--admin`, so branch protection genuinely gates
