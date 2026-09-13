@@ -21,7 +21,7 @@
   `/bin/bash` 3.2 runs that fail on shell error text. `bash -n` is no evidence — it accepts
   bash-4 constructs, and a 3.2 run skips a failing command and carries on green.
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate`. Five standalone Bash harnesses cover what is
+  `claude plugin validate .`. Six standalone Bash harnesses cover what is
   mechanically checkable; keep all green:
   `bash scripts/test-readonly-context.sh` (read-only guard + sync helper, incl.
   the guard↔helper normalizer agreement),
@@ -32,8 +32,9 @@
   (markers are the contract: prose is not checked, because a grep cannot tell a
   prescription from a prohibition),
   `bash scripts/test-docs-site.sh` (docs site in sync with the plugin surface),
-  `bash scripts/test-plugin-cache-drift.sh` (plugin runtime vs. working tree, B2), and
-  `bash scripts/test-toolchain-check.sh` (bash/python3 requirement, OS install hints, hook bash).
+  `bash scripts/test-plugin-cache-drift.sh` (plugin runtime vs. working tree, B2),
+  `bash scripts/test-toolchain-check.sh` (bash/python3 requirement, OS install hints, hook bash), and
+  `bash scripts/test-gitignore-sync.sh` (CRAFT local-state gitignore helper, B4).
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.
@@ -91,7 +92,7 @@
 - **Release tagging:** SemVer; `CHANGELOG.md` follows Keep a Changelog.
 - **Distribution:** a single GitHub repo hosts both the marketplace and the plugin;
   `/craft:upgrade` syncs the marketplace clone.
-- **Pre-release check:** `claude plugin validate`.
+- **Pre-release check:** `claude plugin validate .`.
 
 ## Worktree Settings (optional)
 

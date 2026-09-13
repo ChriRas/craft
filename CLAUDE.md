@@ -24,7 +24,7 @@ through the CRAFT workflow.
 
 ```bash
 # Validate the plugin manifest + asset structure
-claude plugin validate
+claude plugin validate .
 
 # Read-only context guard + sync helper — self-contained Bash harness. It also
 # asserts that the guard's normalize_path and the helper's os.path.normpath agree,
@@ -62,16 +62,24 @@ bash scripts/test-plugin-cache-drift.sh
 # under /bin/bash (3.2 on macOS) — hooks/ and this helper must stay bash-3.2-compatible. Keep green.
 bash scripts/test-toolchain-check.sh
 
+# Local-state gitignore helper — scripts/ensure-gitignore.sh decides, via git check-ignore, whether
+# the project's own .gitignore files cover CRAFT's local state (.primed, .hook-env, .execute.lock,
+# settings.local.json, .craft/) and appends the missing paths to one "# CRAFT local state" block.
+# /craft:onboard applies it, /craft:prime step 4f offers it. Covers broader rules, negations,
+# global excludes (never coverage), idempotency, conflict restore, and a /bin/bash 3.2 run. Keep green.
+bash scripts/test-gitignore-sync.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The five harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The six harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
-plugin surface, the plugin runtime's drift from the working tree, and the required toolchain.
+plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
+and the CRAFT local-state gitignore.
 
 ## Dogfooding Is Not Self-Verification
 
