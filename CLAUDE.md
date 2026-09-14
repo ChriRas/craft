@@ -108,17 +108,28 @@ bash scripts/test-execute-resume-state.sh
 # that commands/commit.md calls both. Keep green.
 bash scripts/test-plan-landing.sh
 
+# Epic entry link — scripts/epic-entry-link.sh defines an epic's decomposition entry format once and links
+# an entry to its slice-ID: /craft:plan offers `candidates` and runs `link` after it allocates the ID, and
+# /craft:execute A6 resolves entries only through `resolve` (plan | landed | missing | ambiguous | unlinked),
+# so an epic re-run still finds a slice whose plan is gone. Covers idempotent links, a live ID never overwritten
+# while a dead one (aborted slice) is relinked, target IDs that do not exist or sit in another epic, ambiguous /
+# missing entries, CRLF / indented and nested fences / ignored list items / the section boundary, byte-exact
+# in-place writes that never report a failed write as success, a landed slice read as archived by
+# execute-resume-state fed from `resolve`, and that plan.md / execute.md (every state) / epic.md / the epic
+# template use it. Keep green.
+bash scripts/test-epic-entry-link.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The ten harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The eleven harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, and the tracked plan's landing under protected main.
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, and the epic entry ↔ slice-ID link.
 
 ## Dogfooding Is Not Self-Verification
 
