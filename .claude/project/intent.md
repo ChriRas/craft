@@ -68,6 +68,9 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
   deletes the marker": six resolvers, and one forgotten one brings the stale marker back — a
   derivation cannot be forgotten. *Why doubt means live:* a wrongly hidden handoff makes a waiting
   slice invisible; a wrongly shown one only costs noise.
+  A `/craft:execute` re-run follows the same rule (slice-038): what an earlier run left behind —
+  worktrees, merges, a stopped slice — is derived by one helper and built on, never re-created, and a
+  state nothing accounts for stops the run instead of being overwritten.
 - **Approve ≠ merge on protected `main` (epic Decision D)** — in a project whose profile
   sets protected-`main` PR mode, `/craft:commit` runs `gh pr merge` itself, but **only after
   a real human GitHub PR approval** (never `--admin`, so branch protection genuinely gates
