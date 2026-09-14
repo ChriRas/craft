@@ -194,17 +194,10 @@ Failure → *"⚠ Plan file missing or malformed at `<path>`. Inspect manually b
 
 ### P2 — Required sections present
 
-The plan file must contain these section headers:
-
-- `## Trigger`
-- `## Effect`
-- `## Test Strategy`
-- `## Sub-Tasks`
-- `## Active Rule Overrides`
-- `## Bugs`
-- `## Verification Protocols`
-- `## Bug Fix Attempts`
-- `## Decisions Made During This Slice`
+The plan file must contain every `## ` section header of `templates/slice-plan.md.template` (the
+template A2 read) — from `## Goal` through `## Pause Note`, including the sections later phases fill
+(`## Recap Draft`, `## Review Findings`, `## Blocker`, `## Handoff`, `## Pause Note`). The template is
+the one list; do not check a copy of it.
 
 Failure → *"⚠ Plan file is missing required sections: `<list>`. The template may be malformed or the substitution failed."*
 

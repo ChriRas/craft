@@ -46,9 +46,10 @@
 #                  declares Phase 7 dropped or skipped"). Assert this project's rules.md
 #                  actually satisfies the canonical form, so the rule that gates the
 #                  whole routing change is a checked contract, not an LLM judgment.
-#   SECTIONS     — the plan sections /craft:plan's P2 asserts on must exist in the
-#                  slice-plan template. (P2 spent its life requiring `## Observable
-#                  Effect`, which the template never emitted.)
+#   SECTIONS     — /craft:plan's P2 must derive its required sections from the slice-plan
+#                  template (every `## ` header), or — if it lists them — each listed one must
+#                  exist there. (P2 spent its life requiring `## Observable Effect`, which the
+#                  template never emitted; a list also fell behind the template's later sections.)
 #
 # LIMITS, stated plainly — an earlier version of this header overstated them, and a
 # reviewer proved it:
@@ -548,7 +549,10 @@ heads = {re.sub(r"\s*\(optional\)\s*$", "", h).strip()
          for h in re.findall(r"^##\s+(.+?)\s*$", tpl, re.M)}
 m = re.search(r"^###\s+P2\b.*?$(.*?)(?=^###\s|\Z)", plan, re.S | re.M)
 asserted = re.findall(r"^-\s+`##\s+(.+?)`\s*$", m.group(1) if m else "", re.M)
-if not asserted:
+derives = bool(m) and "templates/slice-plan.md.template" in m.group(1) and "every `## ` section header" in m.group(1)
+if derives and not asserted:
+    print("!DERIVED")
+elif not asserted:
     print("!NONE")
 for name in asserted:
     if name.strip() not in heads:
@@ -556,7 +560,9 @@ for name in asserted:
 PY
 )"
 
-if [[ "$missing" == "!NONE" ]]; then
+if [[ "$missing" == "!DERIVED" ]]; then
+  ok "/craft:plan P2 derives its required sections from slice-plan.md.template (every ## header)"
+elif [[ "$missing" == "!NONE" ]]; then
   bad "/craft:plan P2 enumerates no plan sections — the section assertion is vacuous"
 elif [[ -z "$missing" ]]; then
   ok "every plan section /craft:plan asserts on exists in slice-plan.md.template"
