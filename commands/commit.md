@@ -252,7 +252,7 @@ For each closing slice, compose the archive entry from `templates/slice-archive.
 - What (from `## Recap Draft`)
 - Why (from `## Recap Draft`)
 - Decisions (only those marked K or I; D is discarded; R lives in `rules.md`)
-- Follow-ups → `## Follow-ups` (the light + needs-rethinking findings from the slice plan's `## Review Findings`, if any)
+- Follow-ups → `## Follow-ups` — the lines `bash "${CLAUDE_PLUGIN_ROOT}/scripts/review-findings-state.sh" <slice plan> --followups` prints (`FOLLOWUP=<ID> <severity> · <fix-nature> · <description>[ — <note>]`, one per `follow-up → slice archive` line of `## Review Findings`); none → omit the section. A `FOLLOWUP_MALFORMED=<ID>` line, or a helper that cannot run, means a follow-up could not be read — surface it and ask the human for the line before writing the archive, never drop it silently
 - Diagram (from `## Recap Draft` if present)
 
 Write each to `.claude/project/slices/slice-<NNN>-<slug>.md`.
