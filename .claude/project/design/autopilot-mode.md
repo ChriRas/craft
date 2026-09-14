@@ -152,3 +152,20 @@ touch `commands/` cannot be verified end-to-end in the session that writes them.
   connections — another argument for Q4's master + subagents engine. Verify before any parallel design.
 - **Spike items:** statusline refresh cadence during a foreground subagent; whether a blocked
   `UserPromptSubmit` prompt really makes no API call; `fable` alias vs. `model-defaults.md` enum.
+
+## 11. Prerequisites before the epic (assessed 2026-09-14, after slice-040)
+
+Open roadmap fixes weighed against §3–§5 and Q3/Q4. Autopilot runs unattended, so a gap that today
+costs a human one manual step stops or misroutes the whole run.
+
+| Item | Why it blocks autopilot | Verdict |
+|---|---|---|
+| **B12** epic decomposition ↔ slice-ID | Every resume re-validates the epic (`/craft:execute` A6); an entry without a slice-ID is rejected once its first slice has landed, so the run halts after slice 1 until a human edits the entry. The `slice-planner` agent (§4 Stage A) also needs the rule for who links an entry to its slice. | **before** |
+| **B11** handoff resolution from `paused` + marker revival (slice-036 R2, R3) | The master consumes every `.craft/handoff.md` (§4). A `paused`-paired marker stays live after its answer (a re-run stops at step 0), and a stale marker revives when the plan re-enters its paired status — exactly what the ping-pong breaker's loop-back to `reviewing` does repeatedly (§5). Result: phantom escalations or a stuck loop. | **before** |
+| **B15** plan round-trip in worktree mode (slice-039 R2-7) | Q3 commits on an epic branch with one merge per slice, built by `slice-builder`, which runs in a slice worktree and writes plan status only into the worktree copy; the master and `/craft:commit` read the main checkout and never see progress. | **before — unless** the epic decides the autopilot builder works in place on the epic branch; decide that first |
+| **Release** (slice-033 … slice-040 unreleased) | Not a fix: the installed 1.4.0 lacks the handoff liveness, findings record, execute re-run, tree hygiene and plan landing that autopilot builds on, plus the docs-site / CHANGELOG carry-over. Dogfooding against the old runtime tests a foundation that does not exist there. | **before** |
+| **B17** subdirectory-project settings helpers | Only a project below its repository root; not this repo. | after |
+| **B5** toolchain polish | Cosmetic. | after |
+
+**Order:** decide the builder location (worktree vs. in place on the epic branch) → B12 → B11 (with B15 if it
+stays; both touch the handoff / plan-status plumbing of worktree mode) → release → F6 spike slice (§10).
