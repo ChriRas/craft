@@ -116,7 +116,9 @@ Use `templates/epic-plan.md.template`. Substitute:
 - `Status: planning`
 - `plugin-version: <from plugin.json>`
 - Vision content under `## Vision`
-- Decomposition entries under `## Slice Decomposition` as `- [ ] <short-name> — <intent>`
+- Decomposition entries under `## Slice Decomposition` as `- [ ] <short-name> — <intent>` — unlinked; the entry
+  format and its linked form are defined in `scripts/epic-entry-link.sh`, and `/craft:plan` links an entry when it plans
+  the slice
 - Leave default placeholders for `## Decisions Made During This Epic`, `## Recap Draft`, `## Handoff`, `## Pause Note` untouched (the template ships them as `- (none yet)` / `(not yet recorded)` / `(none)`)
 
 Write to `.claude/plans/epic-<NNN>-<slug>.md`.
@@ -214,6 +216,7 @@ Success:
 
 Next:
   /craft:plan <name>          refine each decomposition entry into a regular slice
+                              (it offers the entry and writes the slice-ID into it)
   /craft:execute epic-<NNN>   once every decomposition entry is planned, run the
                               epic autonomously through Phase 4–7 in parallel
                               worktrees (slices without dependencies run in
