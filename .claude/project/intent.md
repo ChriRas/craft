@@ -85,6 +85,10 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
   the human decides on review and merge"*: the human **approves**, the system merges.
   *Why:* collapses the flow to "everything in the PR → approve → auto-merge" while the human
   stays the real gate.
+  A tracked plan leaves the trunk the same way (slice-040): its removal is the PR's last commit, and
+  the second pass drops the local copy before it syncs, so the trunk moves in one merge from "plan
+  present" to "plan gone + archive present". *Cost:* until that merge the in-place checkout holds the
+  live plan as an untracked file.
 
 ## Non-Goals
 
