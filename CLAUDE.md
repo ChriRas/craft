@@ -99,17 +99,26 @@ bash scripts/test-review-findings-state.sh
 # commands judge the tree only through it. Keep green.
 bash scripts/test-execute-resume-state.sh
 
+# Tracked plan landing — scripts/plan-landing.sh takes a tracked slice plan off the trunk under
+# pull-request + Protected-main: `close` commits the plan's removal on the PR branch (by pathspec — a
+# `git rm --cached` + pathspec commit would re-track it) and `sync` drops the local plan copy before it
+# checks out and fast-forwards the merged trunk, putting the copy back when that fails. /craft:commit
+# Step 6 (first pass) and Step 7 (second pass) call it. Covers a bare-origin fixture with a simulated
+# merge, R1-2/R2-6 of slice-039, the rollback paths, a fresh clone reading the slice as landed, and
+# that commands/commit.md calls both. Keep green.
+bash scripts/test-plan-landing.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The nine harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The ten harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, and the execute re-run state.
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, and the tracked plan's landing under protected main.
 
 ## Dogfooding Is Not Self-Verification
 
