@@ -10,7 +10,7 @@ allowed-tools: ["Bash", "Read", "Write", "Glob"]
 
 Open Phase 3 of the workflow: break the next chunk of work into a vertical slice that is end-to-end testable, minimal, self-contained, and standalone-experienceable.
 
-This command is a **durable-state mutation** (writes a slice plan file, bumps the slice counter) and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md`. The three universal questions from Phase 3 are non-negotiable — every slice must answer them before any code is written.
+This command is a **durable-state mutation** (writes a slice plan file, bumps the slice counter, and links an epic entry to the new slice-ID when the slice refines one) and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md`. The three universal questions from Phase 3 are non-negotiable — every slice must answer them before any code is written.
 
 ---
 
@@ -60,8 +60,10 @@ Failure → abort: *"Plugin manifest unreadable — version cannot be recorded i
 
   ```
   ⚠ .claude/plans/.next-id contains a non-integer value: "<content>".
-     /craft:plan will not guess. Inspect the file manually or reset it to the
-     next slice number derived from the highest existing slice-NNN-*.md file.
+     /craft:plan will not guess. Inspect the file manually or reset it to one
+     above the highest slice-NNN found anywhere: plan files, slice archives
+     (.claude/project/slices/) and the slice-IDs in epic plans' decomposition
+     entries — an ID handed out twice would revive a dead epic link.
   ```
 
 ---
@@ -132,6 +134,33 @@ Ask:
 
 The answer fills the `Depends-On:` frontmatter field. Default is `[]` (no dependencies — runs in parallel with other independent slices under `/craft:execute`). The list must reference plans that exist in `.claude/plans/` or `.claude/project/slices/`; unresolved references are rejected with a prompt to fix or remove them.
 
+### 5c. Epic entry
+
+Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/epic-entry-link.sh" candidates` from the project root. It lists the entries a
+slice may be linked to, and any epic-plan lines it could not read as entries — the output lines and which entries
+those are, and what an entry is, are defined in that helper's header.
+
+- `IGNORED_COUNT` above 0 → name each `IGNORED` line in one line before anything else (*"`<EPIC_PLAN>` line `<n>` is
+  not read as an entry: `<text>`"*) — `/craft:execute` A6 rejects that epic until it is fixed, and an unclosed fence
+  there can hide every entry.
+- `CANDIDATE_COUNT=0` → no entry to offer: skip the question (after the `IGNORED` lines, if any).
+- The helper cannot run (non-zero exit, no `CANDIDATE_COUNT=`) → say so in one line (*"epic entries could not be read —
+  this slice is planned without an epic link"*) and continue without a link.
+- Otherwise ask, with the candidates as a numbered list plus a *none* choice. An entry with `LINK=<id>` was linked to a
+  slice that no longer exists — show it as such. An entry with `DUP=yes` shares its short-name with another entry, and
+  `link` refuses both until one is renamed — list it as not selectable, with that reason. Say that entries linked to a
+  slice that is still open are not listed:
+
+  > Does this slice refine an entry of an epic's `## Slice Decomposition`? Pick one, or none.
+  > (Entries already linked to an open slice are not listed.)
+  >   [1] epic-<NNN> · `<entry>` — <intent>
+  >   [2] epic-<NNN> · `<entry>` — <intent>   (was <id>, aborted)
+  >   –   epic-<NNN> · `<entry>` — <intent>   (shares its name with another entry — rename one first)
+  >   …
+  >   [N] none — a stand-alone slice
+
+  Hold the chosen `EPIC_PLAN` and `ENTRY` for step 8b. *None* → no link.
+
 ### 6. Allocate slice ID
 
 - Slice ID = value from `.claude/plans/.next-id` (or `001` if the file is missing), zero-padded to 3 digits.
@@ -161,6 +190,42 @@ Write to `.claude/plans/slice-<NNN>-<slug>.md`.
 
 Write the next integer back to `.claude/plans/.next-id`. If the file did not exist before, create it now with the value `2` (since slice `001` was just written).
 
+### 8b. Link the epic entry
+
+Only when step 5c chose an entry. The slice-ID exists now, so write it into the entry — this is what lets
+`/craft:execute` A6 still resolve the entry after the slice has landed and its plan is gone:
+
+```
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/epic-entry-link.sh" link "<EPIC_PLAN>" "<ENTRY>" slice-<NNN>
+```
+
+Run it from the project root (plan paths are relative to it). Whenever a command from this step is shown to the user,
+print it with the plugin root resolved to its absolute path — their shell has no `${CLAUDE_PLUGIN_ROOT}`.
+
+- `RESULT=linked`, `RESULT=relinked` (it replaced the dead ID named in `REPLACED=`) or `RESULT=unchanged` → note the
+  epic plan in the output: it is modified. Nothing commits it — in a project that tracks its plans, the human commits it
+  along with this slice's plan before `/craft:execute`, whose step 1c compares the epic plan with the trunk.
+- `ERROR=` → the slice plan stands; surface the error with the guidance for its reason:
+  - `entry_not_found` — the entry was renamed or removed meanwhile: run `candidates` again and link under its current
+    short-name, or keep the slice stand-alone.
+  - `entry_linked_elsewhere` — another live slice already claims that entry: two slices cannot share one entry. Keep
+    this slice stand-alone, or `/craft:abort` the other one first and link again.
+  - `slice_already_linked` / `slice_linked_in_other_epic` — an entry already carries this brand-new slice-ID, so the ID
+    was handed out twice (a reset `.next-id`) and that entry's link is stale. `/craft:abort` this new slice, set
+    `.next-id` above every slice-ID in plans, archives and epic entries (A4), and plan it again.
+  - `slice_not_found` — this slice's plan is not where the helper looks (renamed, or several plans carry the ID):
+    fix the plan file, then link again.
+  - `entry_ambiguous` — two entries share the short-name; the human renames one in the epic plan, then link again.
+  - `epic_plan_unreadable` — the epic plan was moved or removed meanwhile: run `candidates` again and pick the entry
+    where it now lives, or keep the slice stand-alone.
+  - `epic_plan_unwritable:<epic-plan>:read_only` — the epic plan is not writable: the human fixes its permissions,
+    then link again. Nothing was changed.
+  - `epic_plan_unwritable:<epic-plan>:copy_failed:<file>` — the copy over the epic plan failed part-way, so it may be
+    damaged: `<file>` holds its complete new content — restore the epic plan from it.
+  - any other `epic_plan_unwritable` (or a helper that cannot run) — nothing was changed; re-run the same command.
+
+  Until linked, `/craft:execute` A6 rejects the entry. Do not edit an entry's slice-ID by hand around the helper.
+
 ### 9. Durable Capture — close the loop before finishing
 
 Apply the **Durable Capture** principle (`skills/workflow/SKILL.md` → Knowledge Model →
@@ -183,7 +248,7 @@ explicitly rather than skipping silently.
 
 ## Post-Assertions
 
-Run all five after the procedure completes. Any failure → warn loudly, surface to the user, do **not** pretend success. No auto-rollback.
+Run all six after the procedure completes. Any failure → warn loudly, surface to the user, do **not** pretend success. No auto-rollback.
 
 ### P1 — Plan file exists with valid frontmatter
 
@@ -231,6 +296,16 @@ exist only in chat and will be lost on the next /clear or compaction. Review the
 and write decisions to `## Decisions Made During This Slice` (or cross-cutting knowledge
 to `.claude/project/design/`) in `<path>` before continuing."*
 
+### P6 — Epic entry linked
+
+Only when step 5c chose an entry: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/epic-entry-link.sh" resolve "<EPIC_PLAN>"`, run
+from the project root, must print a line `SLICE=slice-<NNN> STATE=plan PLAN=.claude/plans/slice-<NNN>-<slug>.md
+ENTRY=<ENTRY>`. No entry chosen → passes vacuously.
+
+Failure → *"⚠ Epic entry `<ENTRY>` in `<EPIC_PLAN>` is not linked to slice-<NNN> — `/craft:execute` A6 will reject it."*,
+followed by step 8b's guidance for the `ERROR=` reason `link` reported — or, when `link` succeeded, the entry's actual
+`resolve` line (and any `IGNORED` line), so the human sees what the epic plan holds now.
+
 ---
 
 ## Output Format
@@ -240,8 +315,9 @@ Success:
 ```
 ✓ Plan: .claude/plans/slice-<NNN>-<slug>.md
 ✓ Pre-assertions: onboarded, template ✓, manifest ✓, counter ✓
-✓ Post-assertions: frontmatter ✓, sections ✓, three universal questions answered, counter incremented, durable capture ✓
+✓ Post-assertions: frontmatter ✓, sections ✓, three universal questions answered, counter incremented, durable capture ✓[, epic entry linked]
 
+  [Epic:    epic-<NNN> · entry `<ENTRY>` → slice-<NNN>   (epic plan modified)]
   Trigger: <one line>
   Effect:  <one line>
   Test:    <one line>
@@ -279,6 +355,7 @@ Partial (post-assertion failure):
 | User wants to plan with no clear test strategy | Push back: *"Phase 3 requires a test strategy before Phase 4. If we cannot articulate one, the slice may be too vague — let's break it down further or revisit the goal."* Do not proceed to step 7. |
 | P1/P2/P3 fail after write | Warn loudly; emit partial-completion block; do not auto-rollback. |
 | P4 fails (counter not incremented) | Warn loudly; user fixes `.next-id` manually before the next /craft:plan. |
+| Step 8b `link` fails or P6 fails (epic entry not linked) | Warn loudly; the slice plan stands. Give step 8b's guidance for the helper's `ERROR=` reason; never hand-edit an entry's slice-ID. |
 | P5 fails (Durable Capture skipped) | Warn loudly; the dialog's material insight may live only in chat. Capture it to the Decisions section (or `.claude/project/design/`) before /craft:build. |
 
 ---
