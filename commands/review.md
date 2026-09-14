@@ -54,6 +54,7 @@ Gather everything the fresh review agent needs to judge the slice. Do not summar
 - **all prior slice archives** under `.claude/project/slices/` — the decision history, so the reviewer can catch a *silent revocation* of an earlier decision;
 - the **diff under review** — `git diff HEAD` for the slice's uncommitted Phase-4 / Phase-7 changes (Commit is Phase 9, so the slice delta is still in the working tree);
 - the **Phase-6 Recap** — the slice plan's `## Recap Draft`, the developer's what/why "thinking trace", playing the role of a human PR description;
+- on a **re-review** (the plan's `## Review Findings` already holds a round), the **earlier rounds** — the section as written, plus the finding list read by `bash "${CLAUDE_PLUGIN_ROOT}/scripts/review-findings-state.sh" <slice plan>`: every `FINDING=<id>` with its resolution and whether it is open. The reviewer verifies them before looking for new issues (Step 2). Independence comes from the fresh window, not from hiding the record;
 - the project's **comment language** — the `Comments` key of the `## Operational Language` block in `.claude/project/craft-profile.md` (default English when the profile, the block, or the key is absent). The reviewer flags code comments not written in this language as a Light finding;
 - the **findings rubric** (Step 2).
 
@@ -79,9 +80,11 @@ If a project has overridden `code-reviewer` in `.claude/project/craft-profile.md
 
 Each returned finding carries: `Severity` (Heavy/Light), `Fix-nature` (Local/Rethink), a `description`, and — for local edits — a concrete fix suggestion.
 
+On a re-review the reviewer returns a **prior-round verification** first — one verdict per earlier finding ID — then its new findings. The verdicts, and when a bad verdict also owes a new `reopens <ID>` finding, are defined once, in `agents/code-reviewer.md` → **2. Verify earlier rounds first**; how a verdict feeds the route is Step 7's.
+
 ### Step 3 — Present the findings
 
-Show the user the findings list grouped by the four rubric cells, with a one-line count summary. No fixes yet.
+Show the user the findings list grouped by the four rubric cells, with a one-line count summary. On a re-review, show the prior-round verification first (`<ID>: <verdict>`, the verdicts of `agents/code-reviewer.md` → 2), plus any `reopens <ID>` finding next to its ID, so the human sees which earlier findings the reviewer judges resolved before any new one. No fixes yet.
 
 ### Step 4 — Apply in-phase fixes (Level 2)
 
@@ -113,45 +116,50 @@ In advisory mode, present both as recommendations only — no phase routing, no 
 
 ### Step 6 — Write the findings record
 
-Write every finding to the slice plan's `## Review Findings` section — the audit trail, **one round per run, appended**:
+Write every finding to the slice plan's `## Review Findings` section — the audit trail, **one round per run, appended**. The record is read by one parser, `scripts/review-findings-state.sh` (below, "the helper"): it is the one definition of the round count, the line format, the resolution field and which lines are open; this step and Step 7 only call it. **If the helper cannot run** — not found, a non-zero exit, or no `OPEN_COUNT=` line — nothing about the record is known: never read that as clear. Interactively, stop and say so (Commit stays blocked); in Subagent Mode, go straight to **Subagent Mode → Gate**, which treats a helper that cannot run as open and makes the one marked handoff write. Every use of the helper in this command applies this rule.
 
-1. **Fix the round number first** — `<R>` = 1 + the `### Round` headings already in `## Review Findings` (advisory rounds count too) + 1 more if finding lines sit above the first heading (a **legacy record**, written before round headings existed — it counts as one Phase-8 round, here and in Step 7). Count *before* writing, so this round's own heading is not included.
-2. **Append** a heading `### Round <R> — <ISO date> (<Phase-8 | advisory>)` and one line per finding below it. Never replace or reword an earlier round — the only in-place change to an earlier round is Step 7 recording a slice-ID or a route on one of its **open** lines. Anything else about an earlier line (an ID that did not resolve, a remark) goes under **this** round's heading as a `note ·` line.
+1. **Fix the round number first** — run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/review-findings-state.sh" <slice plan>` *before* writing and take `NEXT_ROUND=` as `<R>` (it counts every `### Round` heading, advisory ones included, and a **legacy record** — finding lines above the first heading, written before round headings existed — as one Phase-8 round).
+2. **Append** a heading `### Round <R> — <ISO date> (<Phase-8 | advisory>)` and one line per finding below it, numbered `R<R>-1`, `R<R>-2`, … in the order written. Never replace or reword an earlier round — the only in-place changes to an earlier round are Step 7's: replacing the **resolution** (the last ` · ` field) of one of its **open** lines, and correcting what the helper reports `MALFORMED` (a finding line, a round heading with its IDs, an unclosed fence). When Step 7 edits a legacy line (one without an ID), it also writes the ID the helper reported (`R<r>-<n> · `) in front of it, so that ID stays stable. Anything else about an earlier line (an ID that did not resolve, a remark, a verification verdict) goes under **this** round's heading as a `note ·` line.
 
 ```
-- Heavy · Local   · <description> · fixed in-phase
-- Light · Rethink · <description> · follow-up → slice archive
-- Heavy · Rethink · <description> · escalated → Phase 4 loop-back
-- Heavy · Rethink · <description> · escalated → new slice (pending)
-- Heavy · Rethink · <description> · escalated → new slice <slice-ID>
-- Heavy · Rethink · <description> · escalated → route pending
-- Light · Local   · <description> · escalated → Phase 4 loop-back (fix cap)
-- Heavy · Local   · <description> · open — fix cap, awaiting decision
+- R<R>-<n> · Heavy · Local   · <description> · fixed in-phase
+- R<R>-<n> · Light · Rethink · <description> · follow-up → slice archive
+- R<R>-<n> · Heavy · Rethink · <description> · escalated → Phase 4 loop-back
+- R<R>-<n> · Heavy · Rethink · <description> · escalated → new slice (pending)
+- R<R>-<n> · Heavy · Rethink · <description> · escalated → new slice <slice-ID>
+- R<R>-<n> · Heavy · Rethink · <description> · escalated → route pending
+- R<R>-<n> · Light · Local   · <description> · escalated → Phase 4 loop-back (fix cap)
+- R<R>-<n> · Heavy · Local   · <description> · open — fix cap, awaiting decision
+- R<R>-<n> · Heavy · Rethink · <description> · resolved in round <R>
+- R<R>-<n> · Heavy · Rethink · <description> · advisory — no route
 - note · fix cap (<N>) waived by the user
 ```
 
-**Open** lines — the ones Step 7 resolves and gates on — are `escalated → new slice (pending)`, `escalated → route pending` and `open — fix cap, awaiting decision`; in a legacy record, `escalated → new slice` without an ID is read as `(pending)`. In advisory mode every line's resolution is `advisory — no route`; advisory rounds are never read as open.
+The **resolution** is the last ` · ` field — a ` · ` or a quoted resolution value inside the description does not change it. It may carry a short note after `: ` or ` (` (`fixed in-phase: renamed the guard`); the note must not contain ` · `, or its tail becomes the last field and the line reads `MALFORMED`. `resolved in round <R>` is written only by Step 7, in place; `advisory — no route` is every line's resolution in advisory mode. Which resolutions keep a line **open** is the helper's table alone — `review-findings-state.sh --print-resolutions`, first column `yes`; advisory rounds are never open. A line the helper cannot read is reported `MALFORMED` and counted open — doubt blocks.
 
 If the slice plan has no `## Review Findings` section yet, append one.
 
 ### Step 7 — Gate, loop back, or clear
 
 - **Advisory mode** — stop. Emit the findings report; do not touch `Status:`.
-- **Phase-8 mode** — first **resolve open lines** (Step 6) of *every* Phase-8 round, this round's and earlier ones, legacy record included:
-  - `new slice (pending)` → ask whether that slice now exists. Record the ID in place (`escalated → new slice <slice-ID>`) **only if** it resolves to `.claude/plans/<slice-ID>-*.md` or `.claude/project/slices/<slice-ID>-*.md`; otherwise say so and keep it pending.
-  - `route pending` or `open — fix cap, awaiting decision` on an **earlier** round's line (this round's were routed in Steps 4–5) → ask for the route and record it in place: *loop back to Phase 4* (`escalated → Phase 4 loop-back`), *spin off a new slice* (`escalated → new slice (pending)`, resolved as above), or *leave it pending*.
+- **Phase-8 mode** — first **resolve open lines**: run the helper and take every `FINDING=… OPEN=yes` of *every* Phase-8 round, this round's and earlier ones, legacy record included, and every `MALFORMED=` line:
+  - `new slice (pending)` — or a legacy `escalated → new slice` without an ID — → ask whether that slice now exists. Record the ID in place (`escalated → new slice <slice-ID>`) **only if** it resolves to `.claude/plans/<slice-ID>-*.md` or `.claude/project/slices/<slice-ID>-*.md`; otherwise say so and keep it pending.
+  - `route pending` or `open — fix cap, awaiting decision` on an **earlier** round's line (this round's were routed in Steps 4–5) → show the reviewer's verification verdict for that ID (Step 2) and ask for the route, recording it in place: *resolved* (`resolved in round <R>`, with `<R>` this round), *loop back to Phase 4* (`escalated → Phase 4 loop-back`), *spin off a new slice* (`escalated → new slice (pending)`, resolved as above), or *leave it pending*. **Pre-select *resolved* only when the verdict is `holds`**; on any other verdict offer it without pre-selection and name what the reviewer reported. The human confirms — a verdict never closes a line by itself.
+  - a `MALFORMED=… MODE=phase8` finding line (advisory ones never block) → show it; the human either corrects it in place so the helper can read it (Step 6 lists this as an allowed in-place change), or routes it as above. It never counts as closed on its own.
+  - `MALFORMED=heading-<n>` — a round heading whose number is not its position `<n>` → not routable; show the heading text. The human renumbers that heading to `<n>` **and** that round's IDs to `R<n>-…`, and writes the old → new IDs as a `note ·` line under this round, so earlier `Loop-back <ID>` sub-tasks and `reopens <ID>` references stay traceable.
+  - `MALFORMED=fence-unclosed` — a code fence opened at that line never closes, so the helper cannot tell what it hides → show the line; the human closes the fence (an allowed in-place correction).
 
-  Then decide in this order; the first match wins:
+  Then run the helper again and decide in this order; the first match wins:
   1. **A loop-back was chosen** — in this run the user routed at least one finding to Phase 4: a Heavy + needs-rethinking finding (Step 5), an earlier round's open line (above), or the accepted fix-cap batch (Step 4) → run **Step 8** and stop there. Do not write `reviewing` or `committing` over it.
-  2. **An open line remains** in any Phase-8 round. Earlier rounds count: a re-review's fresh reviewer never sees them, so this step reads the record instead of relying on the reviewer re-finding them. → Commit is **blocked**. Leave `Status: reviewing`. Emit the open line(s) with their round and resolution.
-  3. **None** → the review is **clear**. <!-- craft:writes status=committing --> Update `Status: committing` and emit `Recommended next: /craft:commit`.
+  2. **`OPEN_COUNT` is not 0** — a line in some Phase-8 round is still open. The gate reads the record through the helper rather than relying on the reviewer to re-find an earlier finding. → Commit is **blocked**. Leave `Status: reviewing`. Emit the open line(s) with their ID and resolution.
+  3. **`OPEN_COUNT=0`** → the review is **clear**. <!-- craft:writes status=committing --> Update `Status: committing` and emit `Recommended next: /craft:commit`.
 
 ### Step 8 — Loop back to Phase 4
 
 This is the **only** place the review loop-back is defined. Step 4 (accepted fix-cap escalation) and Step 5 (loop-back route) reach it through Step 7, and the Subagent Mode handoff is resolved by running this command interactively, which ends here too. It runs only on the user's choice — never on the reviewer's — and only when at least one finding loops back.
 
 1. **Round** — use the `<R>` Step 6 fixed for this round.
-2. **Sub-tasks** — append to the plan's `## Sub-Tasks`, below the existing (checked) items, one unchecked item per finding looped back in this run (earlier-round lines routed in Step 7 included): `- [ ] Loop-back R<R> — <finding description>`. A fix-cap batch may be grouped into one item per file or concern; keep every finding traceable to an item. If the plan has no `## Sub-Tasks` section, append one first (as Step 6 does for findings) and say so in the decision entry.
+2. **Sub-tasks** — append to the plan's `## Sub-Tasks`, below the existing (checked) items, one unchecked item per finding looped back in this run (earlier-round lines routed in Step 7 included): `- [ ] Loop-back <ID> — <finding description>` (the finding's ID from Step 6). A fix-cap batch may be grouped into one item per file or concern; keep every finding traceable to an item. If the plan has no `## Sub-Tasks` section, append one first (as Step 6 does for findings) and say so in the decision entry.
 3. **Findings record** — already written by Step 6 (and Step 7 for earlier-round lines); Step 8 changes no finding line. Lines still open stay open for Step 7 of every later round.
 4. **Decision** — append to `## Decisions Made During This Slice`: `**Review round <R> → loop-back to Phase 4** (<ISO date>) — <reasons, joined with "and": <N> Heavy + needs-rethinking finding(s) routed to Phase 4; fix cap (<cap>) reached with <K> local-edit findings open>; route chosen by the user.`
 5. **Status** — <!-- craft:writes status=implementing --> write `Status: implementing` to the slice plan. In-phase fixes already applied in Step 4 stay in the working tree; Phase 4 builds on top of them.
@@ -183,7 +191,7 @@ Phase-8 mode, blocked:
 Findings: <H> heavy, <L> light
   In-phase fixes applied: <N>
   Open lines (blocking): <N>
-    - R<R> · <description> → <new slice (pending) | route pending | open — fix cap, awaiting decision>
+    - <ID> · <description, or the heading / fence line for a heading-<n> / fence-unclosed entry> → <new slice (pending) | route pending | open — fix cap, awaiting decision | MALFORMED>
 
 Status stays `reviewing` — resolve the open line(s) before Commit.
 Recommended next: /craft:plan  (spin off the pending work), then /craft:review
@@ -198,7 +206,7 @@ Phase-8 mode, looped back (Step 8):
 Findings: <H> heavy, <L> light
   In-phase fixes applied: <N>
   Looped back: <N> finding(s) → <N> new sub-task(s)
-    - Loop-back R<R> — <description>
+    - Loop-back <ID> — <description>
   Still open lines: <N>   (omit when 0 — each blocks the re-review until Step 7 resolves it)
 
 Status: implementing — Phase 4 resumes on the new sub-tasks; the slice then walks the graph forward to a re-review.
@@ -247,7 +255,7 @@ This section is the **one** definition of the autonomous review outcome; `agents
 - Steps 1–6 run normally; findings are classified and written to the slice plan's `## Review Findings`.
 - Step 4 (in-phase fix application) runs — fixing local-edit findings is mechanical and safe to automate. On a soft-cap breach the remaining local-edit findings are recorded `open — fix cap, awaiting decision` (no one accepted a loop-back).
 - Step 5 — **Heavy + needs-rethinking** findings do **not** prompt the user; they are recorded `escalated → route pending`, with the recommended route (loop-back or new slice) for each written to `.craft/handoff.md`.
-- **Gate** — <!-- craft:handoff status=awaiting-rethink-decision plan=reviewing --> Step 7 runs **without its questions**: if any open line (Step 6) remains in any Phase-8 round — this round's or an earlier one's — write `.craft/handoff.md` with `Status: awaiting-rethink-decision`, name `/craft:review` as the resolution, and stop. The slice plan is **not** paused: it stays at the Phase-8 status Pre-flight step 2 set, which is exactly what the interactive resolution reads. With no open line, Step 7 case 3 applies (the review is clear).
+- **Gate** — <!-- craft:handoff status=awaiting-rethink-decision plan=reviewing --> Step 7 runs **without its questions**: if the helper reports `OPEN_COUNT` above 0 (any Phase-8 round, this round's or an earlier one's; `MALFORMED` lines count), **or cannot run** (Step 6) — no line is ever recorded `resolved` here, because that route is human-confirmed — write `.craft/handoff.md` with `Status: awaiting-rethink-decision`, name `/craft:review` as the resolution, and stop. The slice plan is **not** paused: it stays at the Phase-8 status Pre-flight step 2 set, which is exactly what the interactive resolution reads. With no open line, Step 7 case 3 applies (the review is clear).
 - **Loop-back** — <!-- craft:delegates rule=loop-back to=step-8 --> this mode never loops a slice back itself and writes no plan status for it. The human resolves the handoff with an interactive `/craft:review` in the slice worktree (reach it with `/craft:checkout`, or `/craft:continue`, which routes the unchanged plan status there); its Step 7 asks for the routes of the open lines, and a chosen loop-back runs **Step 8**, the one definition.
 
 The reviewer subagent itself never makes routing decisions; routing is always human-confirmed.
