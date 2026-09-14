@@ -12,18 +12,17 @@
 | 1 | B11 | Fix | slice | Handoff resolution from `paused`: `/craft:continue`, build resume, a refactor skip and `/craft:debug` write no status, so `paused`-paired markers (test, protocol, scope, refactor) stay live after the human answered; and a stale marker revives when the plan re-enters its paired status (slice-036 R2, R3) |
 | 2 | B12 | Fix | slice | Epic decomposition ↔ slice-ID: `/craft:epic` writes entries without a slice-ID and nothing adds one, so `/craft:execute` A6 rejects an ordinary epic's re-run once its first slice has landed, until the entry is edited by hand; decide who links an entry to its slice (`/craft:plan` from an epic, `/craft:commit` on archive) or match a landed slice by slug (slice-038 R3-6) |
 | 3 | B15 | Fix | slice | Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
-| 4 | B16 | Fix | slice | → **slice-040 planned**: tracked plan lifecycle under protected main — Step 7 leaves a staged deletion that rides into a later commit, and a plan committed by Step 1 and edited by Step 6 makes the second pass's trunk checkout abort (slice-039 R1-2, R2-6) |
-| 5 | B17 | Fix | small | Settings helpers in a subdirectory project write the repo-root `settings.local.json` but report the project-dir `GITIGNORED` verdict (slice-039 R1-13) |
-| 6 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
-| 7 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
-| 8 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
-| 9 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
-| 10 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
-| 11 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
+| 4 | B17 | Fix | small | Settings helpers in a subdirectory project write the repo-root `settings.local.json` but report the project-dir `GITIGNORED` verdict (slice-039 R1-13) |
+| 5 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
+| 6 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
+| 7 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
+| 8 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
+| 9 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
+| 10 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
 
 ## Notes per item
 
-**Next release (carry-over from slice-033, extended by slice-034 through slice-039).** Update `docs/index.html` (EN/DE)
+**Next release (carry-over from slice-033, extended by slice-034 through slice-040).** Update `docs/index.html` (EN/DE)
 via the docs-site skill — it still lists four required tools and `test-docs-site.sh` does not check the
 list. Verify a real Dock/IDE launch of Claude Code live (the D33 hands-on test waived in slice-033). B3
 shipped (slice-034): the review loop-back and the per-round findings record reach normal sessions only
@@ -42,6 +41,9 @@ B9, B10, B13, B14 shipped (slice-039): add their CHANGELOG entry — CRAFT's pla
 count as uncommitted work (`scripts/tree-dirt-state.sh`), `/craft:commit` commits its own archive and leaves the human's
 changes alone, a worktree is created only for a committed plan (`plan_not_committed`), a project's `.gitignore` negation
 is respected, and abort / worktree-clean show an open handoff before removal; release-gated like the rest.
+B16 shipped (slice-040): add its CHANGELOG entry — under protected main a tracked plan's removal rides in the PR and the
+second pass drops the local copy before it syncs the trunk (`scripts/plan-landing.sh`, harness `test-plan-landing.sh`);
+release-gated like the rest. Still unshown by a real run: push / PR / backfill and the worktree finalize modes.
 
 **B11 — review follow-ups from slice-036.** Details in
 `.claude/project/slices/slice-036-b7-stale-handoff-marker.md` → Follow-ups (R8 folded into B8).
@@ -50,9 +52,9 @@ is respected, and abort / worktree-clean show an open handoff before removal; re
 `.claude/project/slices/slice-038-b8-execute-rerun-semantics.md` → Follow-ups (R3-6). B12 is ordered before F6 on
 purpose: autopilot re-runs a sequential epic unattended, and it stops exactly that loop.
 
-**B15, B16, B17 — follow-ups from slice-039.** Details in
-`.claude/project/slices/slice-039-b9-b10-b13-b14-tree-hygiene.md` → Follow-ups and Known limits. B16 already has its
-plan (slice-040, `Depends-On: [slice-039]`). B15 is what parallel worktree mode needs before anyone relies on it.
+**B15, B17 — follow-ups from slice-039** (B16 shipped with slice-040). Details in
+`.claude/project/slices/slice-039-b9-b10-b13-b14-tree-hygiene.md` → Follow-ups and Known limits. B15 is what parallel
+worktree mode needs before anyone relies on it.
 
 **F6 — Autopilot mode.** Banked as D32 (2026-09-12); design record with verified facts, touchpoint
 matrix and open spike items in `.claude/project/design/autopilot-mode.md`. F4 shipped (slice-033):
