@@ -27,8 +27,9 @@
 > autonomous run. Default: end-of-epic only.
 >
 > Each entry takes the form `- after slice-NNN` and pauses after that slice's
-> Phase-7 self-review completes, before merging into the epic-branch. Use
-> sparingly — per-slice stops produce review fatigue.
+> Phase-7 self-review completes, before merging into the epic-branch. Once shown,
+> `/craft:execute` records it in the epic worktree's `.craft/checkpoints.md`, and the
+> next run merges instead of pausing again. Use sparingly — per-slice stops produce review fatigue.
 
 - (none — review at end-of-epic only)
 
