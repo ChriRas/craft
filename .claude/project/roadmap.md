@@ -10,9 +10,9 @@
 | # | ID | Type | Size | Item |
 |---|----|------|------|------|
 | 1 | B11 | Fix | slice | **F6 prerequisite.** Handoff resolution from `paused`: `/craft:continue`, build resume, a refactor skip and `/craft:debug` write no status, so `paused`-paired markers (test, protocol, scope, refactor) stay live after the human answered; and a stale marker revives when the plan re-enters its paired status (slice-036 R2, R3) |
-| 2 | B15 | Fix | slice | **F6 prerequisite unless the autopilot builder runs in place — decide first.** Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
-| 3 | R1 | Release | small | **F6 prerequisite.** Cut the next release (version bump, CHANGELOG, docs site) so the installed runtime carries slice-033 … slice-041 — see *Next release* below |
-| 4 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
+| 2 | R1 | Release | small | **F6 prerequisite.** Cut the next release (version bump, CHANGELOG, docs site) so the installed runtime carries slice-033 … slice-041 — see *Next release* below |
+| 3 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
+| 4 | B15 | Fix | slice | Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
 | 5 | B17 | Fix | small | Settings helpers in a subdirectory project write the repo-root `settings.local.json` but report the project-dir `GITIGNORED` verdict (slice-039 R1-13) |
 | 6 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
 | 7 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
@@ -59,7 +59,7 @@ Epic-finalize, `/craft:execute` s0, `/craft:continue` — still judge entries th
 
 **B15, B17 — follow-ups from slice-039** (B16 shipped with slice-040). Details in
 `.claude/project/slices/slice-039-b9-b10-b13-b14-tree-hygiene.md` → Follow-ups and Known limits. B15 is what parallel
-worktree mode needs before anyone relies on it.
+worktree mode needs before anyone relies on it — no longer an F6 prerequisite, since the autopilot builder works in place.
 
 **F6 — Autopilot mode.** Banked as D32 (2026-09-12); design record with verified facts, touchpoint
 matrix and open spike items in `.claude/project/design/autopilot-mode.md`. F4 shipped (slice-033):
@@ -67,9 +67,10 @@ the bash ≥ 5.0 baseline its usage/cache sensor scripts assume is in place. B2 
 slices that change `commands/` / `agents/` are verified via headless `--plugin-dir` probes (D33),
 not the running session. Starts with a spike slice (statusline refresh during subagent runs, blocked-prompt API behavior, subagent cache
 TTL, `fable` alias vs. `model-defaults.md`). Couples to D2: planner/architect/reviewer vs. builder
-are exactly the capability tiers D2 wants to name. **Prerequisites** (assessed 2026-09-14, design record §11): B11,
-B15 — unless the epic first decides the autopilot builder works in place on the epic branch — and the R1 release
-(B12 shipped with slice-041).
+are exactly the capability tiers D2 wants to name. **Prerequisites** (assessed 2026-09-14, updated 2026-09-15, design record §11): B11
+and the R1 release (B12 shipped with slice-041). **The autopilot builder works in place** on the epic branch (user,
+2026-09-15, design record §9 Q7) — so B15 is no F6 prerequisite — and the run must show the human how it proceeds
+(in place, branch, occupied checkout, slice order, stops, pause / resume).
 
 **F7 — Idle cache guard (braindump, 2026-09-13).** *Problem:* a human who leaves mid-session (lunch,
 a question the agent asked and nobody answers) returns after the prompt-cache TTL has expired; the next
