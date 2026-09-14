@@ -244,9 +244,11 @@ marker `.claude/plans/.primed`, the hook's `.claude/plans/.hook-env`, the `/craf
 `.claude/plans/.execute.lock`, `.claude/settings.local.json`, and the worktree handoff marker
 `.craft/`. `/craft:onboard` adds whichever of them your `.gitignore` files do not already cover to one
 `# CRAFT local state` block. In a project onboarded before that, `/craft:prime` reports the uncovered
-paths and offers to add them, and writes only after you say yes. Commit the `.gitignore` change:
-`/craft:execute` needs a clean working tree. Only rules in the project's own `.gitignore` files count;
-a personal global excludes file does not, because teammates and CI don't have it.
+paths and offers to add them, and writes only after you say yes. Commit the `.gitignore` change.
+Unignored, these files only clutter `git status` — CRAFT's own clean-tree checks do not count them, nor
+its plans. Only rules in the project's own `.gitignore` files count; a personal global excludes file
+does not, because teammates and CI don't have it. A path your `.gitignore` un-ignores on purpose
+(`!.claude/settings.local.json`) is left as it is.
 
 ---
 
