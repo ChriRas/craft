@@ -25,14 +25,15 @@
 #                         one or more absent (caller should --apply).
 #   --apply               Idempotently merge every declared path into
 #                         additionalDirectories, preserving existing entries;
-#                         create settings.local.json if missing; ensure it is
-#                         gitignored; verify the result is valid JSON.
+#                         create settings.local.json if missing; verify the
+#                         result is valid JSON. Never touches .gitignore.
 #
 # Output is line-oriented key=value so the calling command can parse it:
 #   DECLARED=<n>              number of connected projects declared in rules.md
 #   ROOT=<abs> STATUS=...     one line per declared path (present|absent)
 #   SETTINGS=exists|missing   whether settings.local.json existed beforehand
-#   GITIGNORED=yes|no         whether the settings file is covered by .gitignore
+#   GITIGNORED=yes|negated|no|unknown  the settings file's verdict from ensure-gitignore.sh --verdict
+#                             (unknown: that helper could not answer). Never written here.
 #   STATUS=present|absent     aggregate: absent if any single path is absent
 #   CHANGED=yes|no            (apply only) whether a write happened
 #   ERROR=<reason>            on failure (stderr), with a non-zero exit code
@@ -61,6 +62,14 @@ PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null |
 cd "${PROJECT_DIR}" 2>/dev/null || { echo "ERROR=project_dir_unreachable:${PROJECT_DIR}" >&2; exit 4; }
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
+# Whether settings.local.json is gitignored is decided once, by ensure-gitignore.sh (B9) — this
+# helper only reports it and never writes .gitignore: /craft:onboard and /craft:prime step 4f are
+# its writers, and a write here would dirty the checkout in the middle of a run.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CRAFT_GITIGNORED="$(CLAUDE_PROJECT_DIR="$(pwd)" bash "${SCRIPT_DIR}/ensure-gitignore.sh" --verdict .claude/settings.local.json 2>/dev/null)" \
+  && [[ -n "${CRAFT_GITIGNORED}" ]] || CRAFT_GITIGNORED="unknown"
+export CRAFT_GITIGNORED
+
 export CRAFT_REPO_ROOT="${REPO_ROOT}"
 export CRAFT_MODE="${MODE}"
 
@@ -72,8 +81,6 @@ mode      = os.environ["CRAFT_MODE"]
 
 rules_path     = os.path.join(repo_root, ".claude", "project", "rules.md")
 settings_path  = os.path.join(repo_root, ".claude", "settings.local.json")
-gitignore_path = os.path.join(repo_root, ".gitignore")
-ignore_line    = ".claude/settings.local.json"
 
 # --- parse declared connected-project paths from rules.md --------------------
 # Bullets under the `## Read-Only Context Sources` heading, up to the next `## `.
@@ -138,17 +145,14 @@ except (json.JSONDecodeError, OSError, ValueError) as exc:
 current_dirs = settings.get("permissions", {}).get("additionalDirectories", [])
 missing = [p for p in declared if p not in current_dirs]
 
-ignored = False
-if os.path.exists(gitignore_path):
-    with open(gitignore_path, encoding="utf-8") as fh:
-        ignored = any(line.strip() == ignore_line for line in fh)
+gitignored = os.environ["CRAFT_GITIGNORED"]   # decided by ensure-gitignore.sh, see above
 
 def report(changed=None):
     print("DECLARED=%d" % len(declared))
     for p in declared:
         print("ROOT=%s STATUS=%s" % (p, "absent" if p in missing else "present"))
     print("SETTINGS=%s" % ("exists" if existed else "missing"))
-    print("GITIGNORED=%s" % ("yes" if ignored else "no"))
+    print("GITIGNORED=%s" % gitignored)
     print("STATUS=%s" % ("absent" if missing else "present"))
     if changed is not None:
         print("CHANGED=%s" % ("yes" if changed else "no"))
@@ -179,12 +183,6 @@ if missing or not existed:
         os.replace(tmp, settings_path)
         wrote = True
 
-# keep the personal override file out of version control
-if declared and not ignored:
-    with open(gitignore_path, "a", encoding="utf-8") as fh:
-        fh.write("\n# Claude Code local state (kept out of version control)\n")
-        fh.write(ignore_line + "\n")
-    ignored = True
 
 # --- post-write verification -------------------------------------------------
 if wrote:

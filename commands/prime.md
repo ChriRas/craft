@@ -234,8 +234,10 @@ Declared external "connected projects" (the `## Read-Only Context Sources` block
 the project root and protected by convention.
 
 Resolve the helper `scripts/ensure-readonly-context.sh` in this order, first match wins:
-`${CLAUDE_PLUGIN_ROOT}/scripts/` (installed plugin), else `<project-root>/scripts/`
-(dev-repo dogfood). Run it in `--check` mode via Bash; it parses the declared paths and
+`${CLAUDE_PLUGIN_ROOT}/scripts/` (installed plugin); else `<project-root>/scripts/`, but **only**
+when the project root holds a `.claude-plugin/plugin.json` whose `name` is `craft` (dev-repo
+dogfood — never run a same-named script from another project, the same guard as steps 4f and 5c).
+Run it in `--check` mode via Bash; it parses the declared paths and
 reports each as present/absent in `additionalDirectories`, plus an aggregate `STATUS=` and
 `DECLARED=<n>`.
 
@@ -259,8 +261,9 @@ Like the drift and stack-pack checks, the drift itself is **reported**; the writ
 CRAFT writes local, per-clone state into the project: `.claude/plans/.primed` (step 9), the
 SessionStart hook's `.claude/plans/.hook-env`, the `/craft:execute` run lock,
 `.claude/settings.local.json`, and the worktree handoff marker `.craft/`. Unignored, these show
-as untracked files, and `/craft:execute` A3 (clean working tree) aborts. `/craft:onboard` adds
-them for new projects; this step reaches projects onboarded before it did.
+as untracked files in every `git status` — noise for the human; CRAFT's own clean-tree checks do not
+count them (`scripts/tree-dirt-state.sh`). `/craft:onboard` adds them for new projects; this step
+reaches projects onboarded before it did.
 
 Which paths count, when a path is covered, and how the `# CRAFT local state` block is written
 are defined once, in the helper `scripts/ensure-gitignore.sh`. Only a rule from one of the
@@ -280,10 +283,14 @@ Map the result to one status line:
 - **`STATUS=present`** (exit 0) → `✓ Local state gitignored`.
 - **`STATUS=absent`** (exit 10) → `⚠ Local state not gitignored: <paths from the ENTRY=… STATUS=absent lines>`,
   then **offer** to run `--apply` (Level 1, ask before it writes), naming the file it changes:
-  *"Add them to a `# CRAFT local state` block in `.gitignore`? The change needs a commit before
-  `/craft:execute` sees a clean tree."* On a yes, run the same command with `--apply` and report
+  *"Add them to a `# CRAFT local state` block in `.gitignore`? Paths your `.gitignore` un-ignores
+  on purpose stay untouched. Commit the change afterwards."* On a yes, run the same command with `--apply` and report
   `✓ .gitignore updated — <MISSING> path(s) added; commit .gitignore`. On a no, leave the `⚠`
   line and continue.
+- **Any `ENTRY=<path> STATUS=negated` line** (with either status) → add
+  `· <path> kept visible — your .gitignore un-ignores it (!rule); left as is`. The project decided
+  it; neither the check nor `--apply` counts or appends it, and `/craft:execute` does not count it as
+  uncommitted work.
 - **Any `TRACKED=<path>` line** (with either status) → add
   `⚠ <path> is tracked by git — ignoring does not untrack it; review, then git rm --cached <path>`.
   Report only; never run it.

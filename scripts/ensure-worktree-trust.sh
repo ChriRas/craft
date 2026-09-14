@@ -26,7 +26,7 @@
 #   --apply               Idempotently merge the base dir into
 #                         additionalDirectories, preserving every existing
 #                         allow/deny/array; create settings.local.json if
-#                         missing; ensure it is gitignored; verify the result
+#                         missing; never touches .gitignore; verify the result
 #                         is valid JSON containing the entry.
 #   --pattern <pat>       Worktree path pattern (default below). May be relative
 #                         (`../<repo>-worktrees/<slice-id>-<slug>/`) or absolute.
@@ -34,7 +34,8 @@
 # Output is line-oriented key=value so the calling command can parse it:
 #   BASE_DIR=<abs path>      the resolved worktree base directory
 #   SETTINGS=exists|missing  whether settings.local.json existed beforehand
-#   GITIGNORED=yes|no        whether the settings file is covered by .gitignore
+#   GITIGNORED=yes|negated|no|unknown  the settings file's verdict from ensure-gitignore.sh --verdict
+#                            (unknown: that helper could not answer). Never written here.
 #   STATUS=present|absent    whether BASE_DIR was already trusted
 #   CHANGED=yes|no           (apply only) whether a write happened
 #   ERROR=<reason>           on failure (stderr), with a non-zero exit code
@@ -68,6 +69,14 @@ cd "${PROJECT_DIR}" 2>/dev/null || { echo "ERROR=project_dir_unreachable:${PROJE
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
+# Whether settings.local.json is gitignored is decided once, by ensure-gitignore.sh (B9) — this
+# helper only reports it and never writes .gitignore: /craft:onboard and /craft:prime step 4f are
+# its writers, and a write here would dirty the checkout in the middle of a run.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CRAFT_GITIGNORED="$(CLAUDE_PROJECT_DIR="$(pwd)" bash "${SCRIPT_DIR}/ensure-gitignore.sh" --verdict .claude/settings.local.json 2>/dev/null)" \
+  && [[ -n "${CRAFT_GITIGNORED}" ]] || CRAFT_GITIGNORED="unknown"
+export CRAFT_GITIGNORED
+
 export CRAFT_REPO_ROOT="${REPO_ROOT}"
 export CRAFT_PATTERN="${PATTERN}"
 export CRAFT_MODE="${MODE}"
@@ -90,8 +99,6 @@ leafless    = os.path.dirname(substituted)
 base_abs    = os.path.normpath(os.path.join(repo_root, leafless))
 
 settings_path  = os.path.join(repo_root, ".claude", "settings.local.json")
-gitignore_path = os.path.join(repo_root, ".gitignore")
-ignore_line    = ".claude/settings.local.json"
 
 # --- load current settings (tolerate absence; refuse corruption) -------------
 existed = os.path.exists(settings_path)
@@ -110,16 +117,12 @@ except (json.JSONDecodeError, OSError, ValueError) as exc:
 current_dirs = settings.get("permissions", {}).get("additionalDirectories", [])
 present = base_abs in current_dirs
 
-# --- gitignore coverage (exact-line match; good enough + idempotent) ---------
-ignored = False
-if os.path.exists(gitignore_path):
-    with open(gitignore_path, encoding="utf-8") as fh:
-        ignored = any(line.strip() == ignore_line for line in fh)
+gitignored = os.environ["CRAFT_GITIGNORED"]   # decided by ensure-gitignore.sh, see above
 
 def emit(status, changed=None):
     print("BASE_DIR=%s" % base_abs)
     print("SETTINGS=%s" % ("exists" if existed else "missing"))
-    print("GITIGNORED=%s" % ("yes" if ignored else "no"))
+    print("GITIGNORED=%s" % gitignored)
     print("STATUS=%s" % status)
     if changed is not None:
         print("CHANGED=%s" % ("yes" if changed else "no"))
@@ -150,12 +153,6 @@ if not present or not existed:
     os.replace(tmp, settings_path)
     wrote_settings = True
 
-# ensure the personal override file stays out of version control
-if not ignored:
-    with open(gitignore_path, "a", encoding="utf-8") as fh:
-        fh.write("\n# Claude Code local state (kept out of version control)\n")
-        fh.write(ignore_line + "\n")
-    ignored = True
 
 # --- post-write verification: valid JSON that contains the entry -------------
 try:

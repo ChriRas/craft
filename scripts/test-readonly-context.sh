@@ -139,7 +139,8 @@ out="$(CLAUDE_PROJECT_DIR="$FIX" bash "$HELPER" --check)"; rc=$?
 out="$(CLAUDE_PROJECT_DIR="$FIX" bash "$HELPER" --apply)"; rc=$?
 { [[ $rc -eq 0 ]] && [[ "$out" == *"CHANGED=no"* ]]; } && ok "--apply is idempotent (CHANGED=no on re-run)" || bad "--apply idempotency (out=$out)"
 
-grep -q '^\.claude/settings\.local\.json$' "$FIX/.gitignore" && ok "settings.local.json is gitignored" || bad "gitignore not updated"
+[[ ! -e "$FIX/.gitignore" ]] && ok "--apply never writes .gitignore (its writers are onboard and prime 4f)" || bad "--apply wrote .gitignore"
+[[ "$out" == *"GITIGNORED=unknown"* ]] && ok "outside a git work tree the verdict is unknown, not a guess" || bad "non-git GITIGNORED (out=$out)"
 
 # corrupt settings.local.json → helper must refuse (non-zero) and leave the file untouched.
 printf '{ this is not valid json' > "$FIX/.claude/settings.local.json"
@@ -159,6 +160,61 @@ cat > "$FIX/.claude/project/rules.md" <<'EOF'
 EOF
 out="$(CLAUDE_PROJECT_DIR="$FIX" bash "$HELPER" --check)"; rc=$?
 { [[ $rc -eq 0 ]] && [[ "$out" == *"DECLARED=0"* ]]; } && ok "--check with no declarations is a clean no-op (DECLARED=0, exit 0)" || bad "no-declaration case (rc=$rc, out=$out)"
+
+# --- the settings file's gitignore verdict comes from ensure-gitignore.sh (B9) -------
+echo "GITIGNORE VERDICT:"
+TRUST="$SCRIPT_DIR/ensure-worktree-trust.sh"
+GI="$SCRIPT_DIR/ensure-gitignore.sh"
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 XDG_CONFIG_HOME="$FIX/xdg"
+gi_verdict() { # repo → covered|negated|absent, as ensure-gitignore.sh sees settings.local.json
+  CLAUDE_PROJECT_DIR="$1" bash "$GI" --check 2>/dev/null | sed -n 's/^ENTRY=\.claude\/settings\.local\.json STATUS=//p'
+}
+verdict_case() { # name want-GITIGNORED — the fixture repo is $G
+  local name="$1" want="$2" o1 o2 before after v
+  v="$(gi_verdict "$G")"
+  case "$v" in covered) v=yes ;; absent) v=no ;; esac
+  before="$(cat "$G/.gitignore" "$G/.claude/.gitignore" 2>/dev/null)"
+  o1="$(CLAUDE_PROJECT_DIR="$G" bash "$HELPER" --apply 2>&1)"
+  o2="$(CLAUDE_PROJECT_DIR="$G" bash "$TRUST" --apply 2>&1)"
+  after="$(cat "$G/.gitignore" "$G/.claude/.gitignore" 2>/dev/null)"
+  { [[ "$o1" == *"GITIGNORED=$want"* ]] && [[ "$o2" == *"GITIGNORED=$want"* ]] && [[ "$v" == "$want" ]]; } \
+    && ok "$name → GITIGNORED=$want from both helpers, equal to ensure-gitignore.sh" || bad "$name (want $want, gitignore-helper=$v; readonly: $(printf '%s' "$o1" | grep GITIGNORED); trust: $(printf '%s' "$o2" | grep GITIGNORED))"
+  [[ "$before" == "$after" ]] && ok "  … neither --apply touched a .gitignore" || bad "  … a .gitignore changed: $(printf '%s' "$after" | tr '\n' '|')"
+}
+new_git_fix() {
+  case_n=$((${case_n:-0} + 1)); G="$FIX/g$case_n"
+  mkdir -p "$G/.claude/project" && git -C "$G" init -q
+  printf '# Rules\n## Read-Only Context Sources (optional)\n- %s\n' "$CONNECTED" > "$G/.claude/project/rules.md"
+}
+
+new_git_fix; printf '.claude/\n' > "$G/.gitignore"
+verdict_case "broader rule .claude/" yes
+new_git_fix; printf 'settings.local.json\n' > "$G/.claude/.gitignore"
+verdict_case "nested .claude/.gitignore rule" yes
+new_git_fix; printf '.claude/settings.local.json\n!.claude/settings.local.json\n' > "$G/.gitignore"
+verdict_case "negated exact line" negated
+new_git_fix
+verdict_case "no rule at all" no
+
+# the execute-like sequence: onboard/prime wrote the block, then the worktree trust is applied twice
+new_git_fix
+CLAUDE_PROJECT_DIR="$G" bash "$GI" --apply >/dev/null 2>&1
+CLAUDE_PROJECT_DIR="$G" bash "$TRUST" --apply >/dev/null 2>&1
+CLAUDE_PROJECT_DIR="$G" bash "$TRUST" --apply >/dev/null 2>&1
+CLAUDE_PROJECT_DIR="$G" bash "$HELPER" --apply >/dev/null 2>&1
+[[ "$(grep -c '^# CRAFT local state' "$G/.gitignore")" == 1 && "$(grep -c 'Claude Code local state' "$G/.gitignore")" == 0 ]] \
+  && ok "block, then trust --apply twice and readonly --apply → exactly one CRAFT block, no second one" || bad "duplicate block: $(tr '\n' '|' < "$G/.gitignore")"
+
+# the second copy is gone: neither helper reads or writes a .gitignore itself
+for f in "$HELPER" "$TRUST"; do
+  if grep -nE 'gitignore_path|ignore_line|open\([^)]*\.gitignore|STATUS=covered|STATUS=negated' "$f" >/dev/null; then bad "$(basename "$f") still handles .gitignore or maps its verdict itself"
+  else ok "$(basename "$f") has no .gitignore handling of its own"; fi
+done
+
+# prime 4e runs a project's own copy of this helper only in CRAFT's repo (B10 / slice-035 R10)
+step4e="$(awk '/^### 4e\./{f=1} /^### 4f\./{f=0} f' "$REPO_ROOT/commands/prime.md")"
+{ [[ -n "$step4e" ]] && grep -qF '<project-root>/scripts/' <<<"$step4e" && grep -qF 'whose `name` is `craft`' <<<"$step4e"; } \
+  && ok "prime 4e falls back to <project-root>/scripts/ only behind the name == craft guard" || bad "prime 4e resolves a project script without the craft guard"
 
 echo
 echo "RESULT: $PASS passed, $FAIL failed"

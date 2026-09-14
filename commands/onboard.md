@@ -570,8 +570,8 @@ is not this sub-procedure's job — the Local-State Gitignore sub-procedure cove
 
 CRAFT writes local, per-clone state into the project — the per-session prime marker, the
 hook's bash record, the `/craft:execute` run lock, `.claude/settings.local.json`, and the
-worktree handoff marker `.craft/`. Unignored, a primed session leaves untracked files behind
-and `/craft:execute` A3 (clean working tree) aborts. Onboarding therefore adds them to the
+worktree handoff marker `.craft/`. Unignored, a primed session leaves untracked files behind in
+every `git status` (CRAFT's own clean-tree checks do not count them). Onboarding therefore adds them to the
 project's `.gitignore` as the last write of both modes. It is part of the onboarding the user
 already confirmed — no separate prompt.
 
@@ -583,7 +583,7 @@ confirmation offer — and map the outcome for the output block:
 
 - **exit 0, `CHANGED=yes`** → `.gitignore  (CRAFT local-state block — <MISSING> path(s) added; commit it with the onboarding files)`.
 - **exit 0, `CHANGED=no`** → `.gitignore  (CRAFT local state already covered)`.
-- **`TRACKED=` lines, and exit 6** → emit the `⚠` lines step 4f defines for them.
+- **`STATUS=negated` entries, `TRACKED=` lines, and exit 6** → emit the lines step 4f defines for them — a negated path is the project's decision and is never appended.
 - **Helper not found, or any other error** → add `⚠ Local-state gitignore not applied: <reason> — run /craft:prime to retry`.
 
 Never a blocker: the other onboarding files stay written whatever the outcome.
@@ -633,7 +633,7 @@ Failure → *"⚠ Permission allowlist missing, incomplete, or containing a muta
 - Skipped when the sub-procedure already recorded a `⚠` outcome (helper missing, error, or a
   conflicting rule). That warning stands in for this assertion's result.
 
-Failure → *"⚠ CRAFT local state is not gitignored (`<absent paths>`). Untracked CRAFT files will break /craft:execute's clean-tree check — /craft:prime will offer to add them."*
+Failure → *"⚠ CRAFT local state is not gitignored (`<absent paths>`). Untracked CRAFT files will show in every `git status` — /craft:prime will offer to add them."*
 
 ### P3 — `CLAUDE.md` index present
 

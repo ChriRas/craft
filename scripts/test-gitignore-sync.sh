@@ -159,21 +159,98 @@ lines="$(grep -c '' "$R/.gitignore")"; crlf="$(grep -c $'\r$' "$R/.gitignore")"
 { [[ "$lines" == "$crlf" ]] && all_ignored "$R"; } \
   && ok "CRLF .gitignore: every line, old and appended, keeps CRLF; markers ignored" || bad "CRLF ($crlf of $lines lines CRLF)"
 
-# --- negation ---------------------------------------------------------------------
+# --- negation: the project's own `!path` is its decision, wherever it stands (B9) ---
+ignored() { git -C "$1" check-ignore -q --no-index -- "$2"; }
+others_ignored() { # repo skip-marker — every marker but one ignored
+  local p
+  for p in $MARKERS; do [[ "$p" == "$2" ]] && continue; ignored "$1" "$p" || return 1; done
+}
+
 R="$(new_repo)"
 printf '.claude/plans/*\n!.claude/plans/.primed\n' > "$R/.gitignore"
-out="$(helper "$R" --check)"
-[[ "$out" == *"ENTRY=.claude/plans/.primed STATUS=absent"* ]] && ok "negated path reports absent" || bad "negation --check (out=$out)"
-helper "$R" --apply >/dev/null
-all_ignored "$R" && ok "negated path: --apply appends it below the negation, git ignores it again" || bad "negation --apply: $(tr '\n' '|' < "$R/.gitignore")"
+out="$(helper "$R" --check)"; rc=$?
+{ [[ "$out" == *"ENTRY=.claude/plans/.primed STATUS=negated"* ]] && [[ "$out" == *"MISSING=2"* ]] && [[ $rc -eq 10 ]]; } \
+  && ok "negation above the append point: --check reports negated, not missing" || bad "negation above --check (rc=$rc, out=$out)"
+out="$(helper "$R" --apply)"; rc=$?
+{ [[ $rc -eq 0 ]] && [[ "$out" == *"CHANGED=yes"* ]] && ! ignored "$R" .claude/plans/.primed && others_ignored "$R" .claude/plans/.primed \
+  && [[ "$(count '^\.claude/plans/\.primed$' "$R/.gitignore")" == 0 ]] && [[ "$out" == *"ENTRY=.claude/plans/.primed STATUS=negated"* ]]; } \
+  && ok "  … --apply appends the others, never the negated path; git still un-ignores it" || bad "negation above --apply (rc=$rc): $(tr '\n' '|' < "$R/.gitignore")"
 
-# A negation *below* an existing CRAFT block defeats the extension: refuse, restore.
 R="$(new_repo)"
 printf '# CRAFT local state\n.claude/plans/.primed\n\n!.claude/plans/.hook-env\n' > "$R/.gitignore"
-cp "$R/.gitignore" "$ROOT/snapshot"
 out="$(helper "$R" --apply)"; rc=$?
-{ [[ $rc -eq 6 ]] && [[ "$out" == *"ERROR=post_write_uncovered:.claude/plans/.hook-env"* ]] && cmp -s "$ROOT/snapshot" "$R/.gitignore" && [[ -z "$(find "$R" -maxdepth 1 -name '.gitignore.craft-*')" ]]; } \
-  && ok "negation below the block: --apply exits 6, restores .gitignore byte-identical, no temp files left" || bad "negation conflict (rc=$rc, out=$out)"
+{ [[ $rc -eq 0 ]] && [[ "$out" == *"ENTRY=.claude/plans/.hook-env STATUS=negated"* ]] && [[ "$out" == *"CHANGED=yes"* ]] \
+  && ! ignored "$R" .claude/plans/.hook-env && others_ignored "$R" .claude/plans/.hook-env \
+  && [[ "$(count '^\.claude/plans/\.hook-env$' "$R/.gitignore")" == 0 ]] && no_leftovers "$R"; } \
+  && ok "negation below the block: same answer — negated, not appended, exit 0 (no exit 6)" || bad "negation below (rc=$rc, out=$out)"
+
+R="$(new_repo)"
+printf '# CRAFT local state\n.claude/plans/.primed\n!.claude/plans/.primed\n' > "$R/.gitignore"
+out="$(helper "$R" --check)"
+[[ "$out" == *"ENTRY=.claude/plans/.primed STATUS=negated"* ]] && ok "negation inside the block → negated" || bad "negation inside the block (out=$out)"
+
+R="$(new_repo)"
+mkdir -p "$R/.claude"; printf '!settings.local.json\n' > "$R/.claude/.gitignore"; printf '.claude/settings.local.json\n' > "$R/.gitignore"
+out="$(helper "$R" --check)"
+[[ "$out" == *"ENTRY=.claude/settings.local.json STATUS=negated"* ]] && ok "negation in a nested .claude/.gitignore → negated" || bad "nested negation (out=$out)"
+
+R="$(new_repo)"
+printf '.claude/*\n!.claude/plans/\n' > "$R/.gitignore"
+out="$(helper "$R" --check)"
+[[ "$out" == *"ENTRY=.claude/plans/.primed STATUS=absent"* ]] && ok "broader un-ignore (!.claude/plans/ after .claude/*) decides nothing for the file → absent" || bad "broader negation --check (out=$out)"
+helper "$R" --apply >/dev/null
+all_ignored "$R" && ok "  … --apply covers it; git ignores every marker" || bad "broader negation --apply: $(tr '\n' '|' < "$R/.gitignore")"
+
+R="$(new_repo)"
+printf '# CRAFT local state\n.claude/plans/.hook-env\n.claude/plans/.execute.lock\n.claude/settings.local.json\n.craft/\n.claude/plans/.primed\n!.claude/plans/.primed\n' > "$R/.gitignore"
+cp "$R/.gitignore" "$ROOT/snapshot"
+out="$(helper "$R" --check)"; rc=$?
+{ [[ $rc -eq 0 ]] && [[ "$out" == *"STATUS=present"* ]] && [[ "$out" == *"MISSING=0"* ]]; } \
+  && ok "only covered and negated paths → --check exit 0, STATUS=present" || bad "all decided --check (rc=$rc, out=$out)"
+out="$(helper "$R" --apply)"; rc=$?
+{ [[ $rc -eq 0 ]] && [[ "$out" == *"CHANGED=no"* ]] && cmp -s "$ROOT/snapshot" "$R/.gitignore"; } \
+  && ok "  … --apply changes nothing, .gitignore byte-identical" || bad "all decided --apply (rc=$rc, out=$out)"
+
+# A negated path the project also tracks is kept visible on purpose: no TRACKED advice (R1-9)
+R="$(new_repo)"
+mkdir -p "$R/.claude"; printf '{}\n' > "$R/.claude/settings.local.json"
+printf '.claude/settings.local.json\n!.claude/settings.local.json\n' > "$R/.gitignore"
+git -C "$R" add .claude/settings.local.json
+out="$(helper "$R" --check)"
+{ [[ "$out" == *"ENTRY=.claude/settings.local.json STATUS=negated"* ]] && [[ "$out" != *"TRACKED=.claude/settings.local.json"* ]]; } \
+  && ok "negated and tracked → negated, no TRACKED line (no git rm --cached advice)" || bad "negated+tracked (out=$out)"
+printf '.claude/\n' > "$R/.gitignore"
+out="$(helper "$R" --check)"
+[[ "$out" == *"TRACKED=.claude/settings.local.json"* ]] && ok "  … the same tracked file under a covering rule still gets TRACKED" || bad "covered+tracked lost TRACKED (out=$out)"
+
+# --verdict: the one mapping the settings helpers report (R1-11)
+verdict() { CLAUDE_PROJECT_DIR="$1" bash "$HELPER" --verdict "$2" 2>/dev/null; }
+R="$(new_repo)"; printf '.claude/\n' > "$R/.gitignore"
+[[ "$(verdict "$R" .claude/settings.local.json)" == yes ]] && ok "--verdict: covered → yes" || bad "--verdict covered ($(verdict "$R" .claude/settings.local.json))"
+printf '.claude/settings.local.json\n!.claude/settings.local.json\n' > "$R/.gitignore"
+[[ "$(verdict "$R" .claude/settings.local.json)" == negated ]] && ok "--verdict: negated → negated" || bad "--verdict negated"
+printf 'dist/\n' > "$R/.gitignore"
+[[ "$(verdict "$R" .claude/settings.local.json)" == no ]] && ok "--verdict: absent → no" || bad "--verdict absent"
+cp "$R/.gitignore" "$ROOT/snapshot"; verdict "$R" .claude/settings.local.json >/dev/null
+cmp -s "$ROOT/snapshot" "$R/.gitignore" && ok "--verdict never writes" || bad "--verdict wrote .gitignore"
+mkdir -p "$ROOT/notgit"
+(cd "$ROOT/notgit" && GIT_CEILING_DIRECTORIES="$ROOT" CLAUDE_PROJECT_DIR="$ROOT/notgit" bash "$HELPER" --verdict x >/dev/null 2>&1); rc=$?
+[[ $rc -eq 4 ]] && ok "--verdict outside a git work tree → exit 4, no verdict" || bad "--verdict non-git (rc=$rc)"
+(CLAUDE_PROJECT_DIR="$R" bash "$HELPER" --verdict >/dev/null 2>&1); rc=$?
+[[ $rc -eq 2 ]] && ok "--verdict without a path → exit 2" || bad "--verdict no path (rc=$rc)"
+
+# Known limit, pinned so a git change shows: git names no deciding rule for a negated directory
+# (`.craft/` then `!.craft/`), so the helper cannot tell it from no rule and appends `.craft/`.
+R="$(new_repo)"
+printf '.craft/\n!.craft/\n' > "$R/.gitignore"
+out="$(helper "$R" --check)"
+[[ "$out" == *"ENTRY=.craft/ STATUS=absent"* ]] && ok "known limit: a negated directory entry (!.craft/) reads absent — git reports no rule" || bad "directory negation changed (out=$out) — revisit the known limit in ensure-gitignore.sh"
+
+R="$(new_repo)"
+mkdir -p "$ROOT/home"; printf '.craft/\n' > "$ROOT/home/.gitignore"
+git -C "$R" config core.excludesFile "$ROOT/home/.gitignore"
+out="$(helper "$R" --check)"
+[[ "$out" == *"ENTRY=.craft/ STATUS=absent"* ]] && ok "a global excludes file named ~/.gitignore is not project coverage" || bad "global ~/.gitignore (out=$out)"
 
 # --- rules outside the project's .gitignore files do not count --------------------
 R="$(new_repo)"
