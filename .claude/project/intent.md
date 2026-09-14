@@ -71,6 +71,10 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
   A `/craft:execute` re-run follows the same rule (slice-038): what an earlier run left behind —
   worktrees, merges, a stopped slice — is derived by one helper and built on, never re-created, and a
   state nothing accounts for stops the run instead of being overwritten.
+  So does an epic's link to its slices (slice-041): an entry's slice-ID is live while the slice has a
+  plan or an archive, and dead once it has neither — an aborted slice frees its entry for the next
+  `/craft:plan` without any removal path having to unlink it. It holds only while slice-IDs are never
+  handed out twice.
 - **CRAFT's own files are not the human's work (slice-039)** — which paths count as uncommitted
   work is decided once, by `scripts/tree-dirt-state.sh`: plans, ID counters and local state never
   block `/craft:execute` or `/craft:commit`. The flip side is that a command commits only what it
