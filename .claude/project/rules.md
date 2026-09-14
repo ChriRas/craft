@@ -38,7 +38,7 @@
   `bash scripts/test-gitignore-sync.sh` (CRAFT local-state gitignore helper, B4),
   `bash scripts/test-handoff-marker-state.sh` (handoff-marker liveness helper + hook, B7),
   `bash scripts/test-review-findings-state.sh` (review findings-record parser, B6), and
-  `bash scripts/test-execute-resume-state.sh` (execute re-run state helper, B8).
+  `bash scripts/test-execute-resume-state.sh` (execute re-run state + tree-dirt helpers, B8/B14).
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.
@@ -82,7 +82,7 @@
   own content and does not export it to the Bash tool (slice-035, R1).
 - Every place that writes `.craft/handoff.md` carries `<!-- craft:handoff status=<s> plan=<p> -->`
   next to the write (`plan=-` for `failure`); `scripts/test-handoff-marker-state.sh` binds the
-  markers to the helper's pairing and pins the exact writer set — a new writer is added there
+  markers to the helper's pairing and pins the exact writer and reader sets — a new writer is added there
   deliberately (slice-036).
 
 ## Tabus (Anti-Patterns)
@@ -114,7 +114,7 @@
 > base directory to `permissions.additionalDirectories` in
 > `.claude/settings.local.json` on first run — once, after a confirmation — to
 > avoid per-path permission prompts. Idempotent; existing permissions are merged,
-> never overwritten; the file stays gitignored.
+> never overwritten; `.gitignore` is left to `/craft:onboard` and `/craft:prime` step 4f.
 
 ## Read-Only Context Sources (optional)
 
@@ -122,7 +122,7 @@
 > (`readonly-context-guard.sh`) denies Write/Edit/NotebookEdit targeting any path below.
 > The in-repo `research/` folder is always protected by convention — no entry needed.
 > Declare external "connected projects" as `- <absolute-path>` bullets; each is added
-> read-only to `permissions.additionalDirectories` (idempotent, gitignored) so it stays
+> read-only to `permissions.additionalDirectories` (idempotent; `.gitignore` is left to `/craft:onboard` and `/craft:prime` step 4f) so it stays
 > readable but write-blocked.
 
 (no connected projects declared)
