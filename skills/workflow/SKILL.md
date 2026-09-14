@@ -797,7 +797,8 @@ when **the helper cannot run** (not found, non-zero exit, no `STATE=` line): a p
 live. Every reader and `slice-builder` apply this one fallback; none restates it.
 
 - **Readers** — the SessionStart hook, `/craft:worktree-status` and `/craft:execute` (outcome collection) count a
-  marker only when the helper reports `LIVE` (or cannot run, see above). They only read — never rename.
+  marker only when the helper reports `LIVE` (or cannot run, see above); `/craft:abort` and `/craft:worktree-clean`
+  show a live marker before they offer to remove its worktree. They only read — never rename.
 - **Resolving** — only `slice-builder` renames, and only in its step 0 (`agents/slice-builder.md` → **0.
   Start-of-run marker check**), which is the one definition of when a run stops and when a marker is renamed —
   a stale one with `--resolve`, a `failure` one with `--resolve --retry` — to `.craft/handoff-resolved-<Written>.md`,

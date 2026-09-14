@@ -79,12 +79,21 @@ do that manually (git reset, git revert, branch operations).
 
 - `Bash` `git -C <worktree-path> status --porcelain` to detect uncommitted changes.
 - List the uncommitted files (if any) and the worktree path.
+- `Bash` `bash "${CLAUDE_PLUGIN_ROOT}/scripts/handoff-marker-state.sh" <worktree-path>` — a **live** handoff marker
+  is a question the slice is still waiting on, and `git status` does not list it when the project ignores `.craft/`.
+  On `STATE=LIVE` show its status and phase (`MARKER_STATUS=`, `MARKER_PHASE=`); `STALE` and `NONE` add nothing.
+  When the helper cannot run and a `.craft/handoff.md` is present (the fallback counts it live), there is no status to
+  show: say `state unknown (helper could not run)` in its place.
+  Live vs. stale and the fallback when the helper cannot run are defined in `skills/workflow/SKILL.md` →
+  **Handoff marker lifecycle**. Read-only: abort never renames a marker.
 
 Then ask, with the full lettered legend rendered every time per `skills/workflow/SKILL.md`:
 
 ```
 ⚠ A worktree for this slice exists at <path>.
    <If uncommitted: "<N> uncommitted files would be lost: <list>">
+   <If a live marker: "Open handoff: .craft/handoff.md — Status: <MARKER_STATUS>, Phase <MARKER_PHASE> — removal deletes it">
+   <On the fallback: "Open handoff: .craft/handoff.md — state unknown (helper could not run) — removal deletes it">
 
 Remove the worktree and delete its branch as part of the abort?
   [Y] Yes  — `git worktree remove <path>` + `git branch -d <branch>` (uses `-D` only if branch has unmerged commits AND user re-confirms)

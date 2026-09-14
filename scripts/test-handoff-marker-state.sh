@@ -202,6 +202,28 @@ actual_writers="$(cd "$REPO_ROOT" && grep -roE '<!-- craft:handoff status=[a-z-]
 [[ "$actual_writers" == "$EXPECTED_WRITERS" ]] && ok "the craft:handoff writer markers are exactly the 8 expected (file, status) pairs" \
   || bad "writer marker set changed: got [$(printf '%s' "$actual_writers" | tr '\n' ';')]"
 
+# --- the readers: every command that reads a marker is named where the lifecycle is defined ----
+# A reader that counts or shows markers without the helper brings stale markers back (B7); one that
+# removes a worktree without reading it deletes a live one unseen (B10). Pin the set of commands
+# calling the helper, and bind it to the Readers bullet of skills/workflow/SKILL.md both ways.
+EXPECTED_READERS="abort
+execute
+worktree-clean
+worktree-status"
+actual_readers="$(cd "$REPO_ROOT/commands" && grep -lF 'scripts/handoff-marker-state.sh' *.md | sed 's/\.md$//' | sort)"
+[[ "$actual_readers" == "$EXPECTED_READERS" ]] && ok "the commands reading a handoff marker are exactly abort, execute, worktree-clean, worktree-status" \
+  || bad "reader command set changed: got [$(printf '%s' "$actual_readers" | tr '\n' ';')]"
+readers_bullet="$(awk '/^- \*\*Readers\*\*/{f=1; print; next} f && /^- \*\*/{f=0} f' "$SKILL")"
+skill_readers="$(printf '%s\n' "$readers_bullet" | grep -oE '/craft:[a-z-]+' | sed 's|/craft:||' | sort -u)"
+[[ -n "$readers_bullet" && "$skill_readers" == "$actual_readers" ]] && ok "SKILL.md Readers bullet names exactly the commands that call the helper" \
+  || bad "Readers bullet ↔ commands drift: skill=[$(echo $skill_readers)] commands=[$(echo $actual_readers)]"
+for r in abort worktree-clean; do
+  grep -qF 'MARKER_STATUS' "$REPO_ROOT/commands/$r.md" && ok "commands/$r.md shows the live marker's status before removal" \
+    || bad "commands/$r.md reads the helper but never shows MARKER_STATUS"
+  grep -qF 'state unknown (helper could not run)' "$REPO_ROOT/commands/$r.md" && ok "  … and says what to show on the helper fallback" \
+    || bad "commands/$r.md has no text for the helper fallback (no MARKER_STATUS to show)"
+done
+
 # --- the SessionStart hook ------------------------------------------------------------------
 MAIN="$ROOT/main"
 mkdir -p "$MAIN" && git -C "$MAIN" init -q && git -C "$MAIN" -c user.email=t@x -c user.name=t commit -q --allow-empty -m init

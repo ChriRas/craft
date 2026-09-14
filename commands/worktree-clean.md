@@ -54,6 +54,14 @@ For each worktree, determine its category:
 - **Stale-path** — git metadata lists the worktree but the path is missing on disk. Propose for `git worktree prune` (metadata-only cleanup).
 - **Non-CRAFT** — branch does not match CRAFT patterns. Skip and surface under "Other worktrees".
 
+For every **Archived** and **Orphan** worktree, also read its handoff marker:
+`bash "${CLAUDE_PLUGIN_ROOT}/scripts/handoff-marker-state.sh" <worktree-path>`. `git worktree remove` deletes an
+ignored `.craft/handoff.md` without a word, so a **live** marker (`STATE=LIVE`) is shown before the question — its
+`MARKER_STATUS=` and `MARKER_PHASE=`. `STALE` and `NONE` add nothing. When the helper cannot run and a
+`.craft/handoff.md` is present (the fallback counts it live), show `state unknown (helper could not run)` instead. Live vs. stale and the fallback when the helper
+cannot run are defined in `skills/workflow/SKILL.md` → **Handoff marker lifecycle**. Read-only: this command never
+renames a marker.
+
 ### 2. Present the report
 
 Show the user the four categories explicitly:
@@ -63,9 +71,13 @@ CRAFT worktree cleanup — candidates:
 
 Archived (safe to remove — slice already in archive, branch merged to main):
   - <slice-id> at <path>  (branch: <branch>)
+      <if a live marker: ⚠ open handoff: Status <MARKER_STATUS>, Phase <MARKER_PHASE> — removal deletes it>
+      <on the fallback: ⚠ open handoff: state unknown (helper could not run) — removal deletes it>
 
 Orphan (no plan or archive — review before removing):
   - <slice-id> at <path>  (branch: <branch>)
+      <if a live marker: ⚠ open handoff: Status <MARKER_STATUS>, Phase <MARKER_PHASE> — removal deletes it>
+      <on the fallback: ⚠ open handoff: state unknown (helper could not run) — removal deletes it>
 
 Stale-path (git metadata only — `git worktree prune` reconciles):
   - <path> (branch: <branch>)
