@@ -36,9 +36,12 @@
 #                                                                  conflict  worktree_missing
 #     the pattern path is a worktree on another branch / detached  conflict  worktree_foreign_branch
 #     the pattern path exists                                      conflict  path_taken
+#     the worktree would be created, but its base (the epic branch, else the trunk) does not hold
+#       the plan byte-identical — untracked, ignored, modified, or not yet in the epic branch;
+#       slice-builder would build a stale plan, or none                conflict  plan_not_committed
 #     otherwise                                                    create    fresh
-#   The epic line (--epic) runs the worktree rows above for the epic branch; an existing epic
-#   worktree is not reused while
+#   The epic line (--epic) runs the worktree rows above for the epic branch (its base is the trunk);
+#   an existing epic worktree is not reused while
 #     a merge is unfinished in it (MERGE_HEAD)                     conflict  epic_merge_in_progress
 #     it has uncommitted changes (its step-9 record .craft/checkpoints.md at the worktree root aside)
 #                                                                  conflict  epic_worktree_dirty
@@ -60,7 +63,8 @@
 #     the tree is dirty and no slice is in flight                  run-wide  conflict  dirty_without_open_slice
 #     pull-request, a slice in flight, current branch ≠ its branch; or direct / nothing in
 #       flight, current branch ≠ trunk                             run-wide  conflict  wrong_branch
-#   CRAFT's own session files (.claude/plans/.primed, .hook-env, .execute.lock) never count as dirt.
+#   Dirt is what scripts/tree-dirt-state.sh reports: CRAFT's local state and plans never count
+#   (--scope main), in an epic worktree its local-state files and checkpoint record do not.
 #   Once every slice in flight is itself a conflict (multiple_open, branch_missing), no run-wide
 #   reason is added — the tree's changes may be that slice's, and its line names the fix.
 #
@@ -92,6 +96,8 @@
 
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 ACTIONS="parallel:plan_unreadable=conflict
 parallel:archived=skip
 parallel:awaiting_approval=skip
@@ -101,6 +107,7 @@ parallel:worktree_exists=reuse
 parallel:branch_without_worktree=conflict
 parallel:worktree_foreign_branch=conflict
 parallel:path_taken=conflict
+parallel:plan_not_committed=conflict
 parallel:fresh=create
 parallel:epic_merge_in_progress=conflict
 parallel:epic_worktree_dirty=conflict
@@ -249,13 +256,12 @@ worktree_at_path() { # canonical path → index, or return 1
   return 1
 }
 
-# uncommitted changes anywhere in a checkout, CRAFT's own session files (in the project dir) and any
-# extra pathspec excluded
-is_dirty() { # checkout [extra-exclude-pathspec...]
-  local dir="$1"; shift
-  [[ -n "$(git -C "${dir}" status --porcelain -- ':(top)' \
-    ":(top,exclude)${REL}.claude/plans/.primed" ":(top,exclude)${REL}.claude/plans/.hook-env" \
-    ":(top,exclude)${REL}.claude/plans/.execute.lock" "$@" 2>/dev/null)" ]]
+# uncommitted changes in a checkout — which of CRAFT's own files do not count is decided by
+# scripts/tree-dirt-state.sh; a helper that cannot answer counts as dirt (doubt means conflict)
+is_dirty() { # checkout scope
+  local out
+  out="$(bash "${SCRIPT_DIR}/tree-dirt-state.sh" --checkout "$1" --scope "$2" 2>/dev/null)" || return 0
+  [[ "${out}" != *"DIRTY=no"* ]]
 }
 
 # is <branch> merged into <target>? Only a merge commit whose non-first parent is the branch tip
@@ -298,8 +304,19 @@ worktree_decision() { # branch id slug
 
 yn() { "$@" && printf yes || printf no; }
 
+# does <base-ref> hold <plan> byte-identical to the working file? A fresh worktree is a checkout of
+# that base, so this is the plan slice-builder will read there (B14 excludes plans from dirt, so A3
+# no longer forces them to be committed).
+plan_in_base() { # plan-file base-ref
+  local dir rel blob
+  dir="$(cd "$(dirname "$1")" 2>/dev/null && git rev-parse --show-prefix 2>/dev/null)" || return 1
+  rel="${dir}$(basename "$1")"
+  blob="$(git -C "${ROOT}" rev-parse -q --verify "$2:${rel}" 2>/dev/null)" || return 1
+  [[ "${blob}" == "$(git hash-object -- "$1" 2>/dev/null)" ]]   # from the project dir, where a relative plan path lives
+}
+
 CURRENT_BRANCH="$(git -C "${ROOT}" symbolic-ref --quiet --short HEAD 2>/dev/null || printf detached)"
-DIRTY="$(yn is_dirty "${ROOT}")"
+DIRTY="$(yn is_dirty "${ROOT}" main)"
 
 echo "MODE=${MODE}"
 echo "TRUNK=${TRUNK}"
@@ -317,9 +334,10 @@ if [[ -n "${EPIC_PLAN}" ]]; then
   else
     EPIC_BRANCH="$(substitute "${BRANCH_PATTERN}" "${EPIC_ID}" "${EPIC_SLUG}")"
     read -r a r w <<<"$(worktree_decision "${EPIC_BRANCH}" "${EPIC_ID}" "${EPIC_SLUG}")"
-    if [[ "$a" == "reuse" ]]; then
+    if [[ "$a" == "create" ]] && ! plan_in_base "${EPIC_PLAN}" "refs/heads/${TRUNK}"; then a="conflict"; r="plan_not_committed"
+    elif [[ "$a" == "reuse" ]]; then
       if git -C "$w" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then a="conflict"; r="epic_merge_in_progress"
-      elif is_dirty "$w" ':(top,exclude).craft/checkpoints.md'; then a="conflict"; r="epic_worktree_dirty"
+      elif is_dirty "$w" epic-worktree; then a="conflict"; r="epic_worktree_dirty"
       fi
     fi
     [[ "$a" == "conflict" ]] && CONFLICTS=$((CONFLICTS + 1))
@@ -350,7 +368,11 @@ for entry in "${RESOLVED[@]}"; do
         if is_merged "${branch}" "${MERGE_TARGET}" || merged_by_subject "${branch}" "${MERGE_TARGET}" "${id}" "${EPIC_ID}"; then merged="yes"; fi
         if [[ "${status}" == "awaiting-approval" ]]; then action="skip"; reason="awaiting_approval"
         elif [[ "${merged}" == "yes" ]]; then action="skip"; reason="merged"
-        else read -r action reason wt <<<"$(worktree_decision "${branch}" "${id}" "${slug}")"
+        else
+          read -r action reason wt <<<"$(worktree_decision "${branch}" "${id}" "${slug}")"
+          base="refs/heads/${TRUNK}"
+          [[ -n "${EPIC_BRANCH}" ]] && branch_exists "${EPIC_BRANCH}" && base="refs/heads/${EPIC_BRANCH}"
+          if [[ "${action}" == "create" ]] && ! plan_in_base "${val}" "${base}"; then action="conflict"; reason="plan_not_committed"; fi
         fi
       else
         if [[ "${OPEN_STATUSES}" == *" ${status} "* ]]; then action="resume"; reason="open"

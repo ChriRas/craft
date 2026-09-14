@@ -52,6 +52,9 @@ splan() { # id slug status
   printf '# Slice — fixture\n\n> Status: %s\n> Slice-ID: %s\n> Slice-Slug: %s\n' "$3" "$1" "$2" > "$P/.claude/plans/$1-$2.md"
 }
 eplan() { printf '# Epic — fixture\n\n> Status: active\n> Epic-ID: epic-001\n> Epic-Slug: ep\n' > "$P/.claude/plans/epic-001-ep.md"; }
+commit_plans() { # a new worktree reads the plan from its base, so worktree cases commit theirs (ignored or not)
+  (cd "$P" && git add -f .claude/plans/*.md && git commit -q -m plans)
+}
 run() { (cd "$P" && bash "$HELPER" "$@" 2>&1); }
 EPIC=".claude/plans/epic-001-ep.md"
 S1=".claude/plans/slice-001-a.md"
@@ -84,7 +87,7 @@ merge_into_epic() { # id-slug slice-id
 
 echo "── parallel: what a re-run finds ────────────────────────────────────"
 
-fixture; eplan; splan slice-001 a implementing; splan slice-002 b planning
+fixture; eplan; splan slice-001 a implementing; splan slice-002 b planning; commit_plans
 out="$(run --epic "$EPIC" "$S1" "$S2")"
 expect "fresh epic → epic line create"            "$out" "EPIC=epic-001"  ACTION create
 expect "fresh epic → slice create"                "$out" "SLICE=slice-001" ACTION create
@@ -140,7 +143,32 @@ mkdir -p "$W/slice-001-a"
 out="$(run --epic "$EPIC" "$S1")"
 expect "pattern path is a plain directory → conflict" "$out" "SLICE=slice-001" REASON path_taken
 
+# a new worktree is a checkout of its base: the plan must be there, byte-identical (R1-1)
 fixture; eplan; splan slice-001 a implementing
+out="$(run --epic "$EPIC" "$S1")"
+expect "plans never committed (ignored) → epic line plan_not_committed" "$out" "EPIC=epic-001" REASON plan_not_committed
+expect "  … and the slice too"                    "$out" "SLICE=slice-001" REASON plan_not_committed
+out="$(run "$S1")"
+expect "  … lone slice as well"                   "$out" "SLICE=slice-001" REASON plan_not_committed
+commit_plans
+printf 'edit\n' >> "$P/$S1"
+out="$(run --epic "$EPIC" "$S1")"
+expect "committed plan edited since → slice plan_not_committed" "$out" "SLICE=slice-001" REASON plan_not_committed
+expect "  … the unchanged epic plan still creates" "$out" "EPIC=epic-001" ACTION create
+git -C "$P" add -f "$S1"; git -C "$P" commit -q -m "plan edit"
+out="$(run --epic "$EPIC" "$S1")"
+expect "  … committed → create"                   "$out" "SLICE=slice-001" ACTION create
+epic_worktree
+splan slice-002 b planning; git -C "$P" add -f "$S2"; git -C "$P" commit -q -m "late plan on main"
+out="$(run --epic "$EPIC" "$S1" "$S2")"
+expect "plan committed on main after the epic branch was cut → plan_not_committed" "$out" "SLICE=slice-002" REASON plan_not_committed
+expect "  … a plan the epic branch holds creates"  "$out" "SLICE=slice-001" ACTION create
+slice_worktree slice-001-a epic-001-ep
+printf 'status edit\n' >> "$P/$S1"
+out="$(run --epic "$EPIC" "$S1")"
+expect "an existing worktree is reused whatever the main-checkout plan says" "$out" "SLICE=slice-001" ACTION reuse
+
+fixture; eplan; splan slice-001 a implementing; commit_plans
 printf '# archive\n' > "$P/.claude/project/slices/slice-001-a.md"
 out="$(run --epic "$EPIC" "$S1")"
 expect "plan still present beside its archive → not landed" "$out" "SLICE=slice-001" ACTION create
@@ -352,9 +380,109 @@ expect "  … its lock is not dirt"                 "$out" "" DIRTY no
 expect "  … RESULT ok"                            "$out" "" RESULT ok
 out="$(cd "$TMP" && CLAUDE_PROJECT_DIR="$P" bash "$HELPER" --mode sequential slice-001 .claude/plans/slice-002-b.md 2>&1)"
 expect "  … CLAUDE_PROJECT_DIR wins over the cwd, relative plans resolve in it" "$out" "SLICE=slice-002" ACTION create
+git -C "$R" add -f app/.claude/plans/slice-002-b.md >/dev/null 2>&1; git -C "$R" commit -q -m "plan" >/dev/null 2>&1 || true
+out="$(run "$S2")"
+expect "  … a committed plan passed by relative path reads from the project dir, not the repo root" "$out" "SLICE=slice-002" ACTION create
 printf 'x\n' > "$R/outside.txt"
 out="$(run --mode sequential slice-001 "$S2")"
 expect "  … a change elsewhere in the repository still is dirt" "$out" "" DIRTY yes
+
+echo "── tree dirt: CRAFT's own files are not the human's work (B14) ──────"
+
+DIRT="$SCRIPT_DIR/tree-dirt-state.sh"
+dirt() { (cd "$P" && bash "$DIRT" "$@" 2>&1); }
+
+# a project that neither tracks nor ignores its plans, but tracks the counter (this repo's shape)
+fixture
+git -C "$P" rm -q --cached .gitignore; rm "$P/.gitignore"
+printf '1\n' > "$P/.claude/plans/.next-id"; git -C "$P" add -A; git -C "$P" commit -q -m "track the counter"
+splan slice-001 a planning; printf '2\n' > "$P/.claude/plans/.next-id"
+expect "untracked plan + modified tracked counter → not dirt" "$(dirt)" "" DIRTY no
+out="$(run --mode sequential "$S1")"
+expect "  … sequential re-run: no dirty_without_open_slice" "$out" "" RESULT_REASON -
+expect "  … RESULT ok"                            "$out" "" RESULT ok
+while IFS= read -r p; do
+  case "$p" in */) mkdir -p "$P/$p"; printf 'x\n' > "$P/${p}handoff.md" ;; *) mkdir -p "$(dirname "$P/$p")"; printf 'x\n' > "$P/$p" ;; esac
+done < <(bash "$SCRIPT_DIR/ensure-gitignore.sh" --print-paths)
+expect "every local-state path from ensure-gitignore.sh --print-paths, unignored → not dirt" "$(dirt)" "" DIRTY no
+git -C "$P" add -A; git -C "$P" commit -q -m "track plans too"
+printf 'edit\n' >> "$P/$S1"; git -C "$P" rm -q "$P/.claude/plans/.next-id"
+expect "tracked plan edited, tracked counter deleted → not dirt" "$(dirt)" "" DIRTY no
+printf 'wip\n' > "$P/work.txt"; printf 'y\n' > "$P/.claude/other.md"
+out="$(dirt)"
+expect "unrelated file → dirt"                    "$out" "" DIRTY yes
+printf '%s\n' "$out" | grep -qxF 'DIRT=?? work.txt' && ok "  … named on a DIRT line" || bad "  … named on a DIRT line"
+printf '%s\n' "$out" | grep -qxF 'DIRT=?? .claude/other.md' && ok "  … a non-CRAFT file under .claude/ still is dirt" || bad "  … a non-CRAFT file under .claude/ still is dirt"
+out="$(run --mode sequential "$S1")"
+expect "  … sequential re-run still stops"        "$out" "" RESULT_REASON dirty_without_open_slice
+mkdir -p "$P/docs"; printf 'mine\n' > "$P/docs/notes.md"; printf 'slice\n' > "$P/docs/guide.md"
+out="$(dirt)"
+{ printf '%s\n' "$out" | grep -qxF 'DIRT=?? docs/notes.md' && printf '%s\n' "$out" | grep -qxF 'DIRT=?? docs/guide.md' && ! printf '%s\n' "$out" | grep -qxF 'DIRT=?? docs/'; } \
+  && ok "an untracked directory is listed file by file, never collapsed (P2 compares paths)" || bad "collapsed untracked directory: $(printf '%s' "$out" | tr '\n' '|')"
+
+# the epic worktree keeps plans as dirt: slice branches are merged into it
+fixture
+git -C "$P" rm -q --cached .gitignore; rm "$P/.gitignore"
+eplan; splan slice-001 a planning; git -C "$P" add -A; git -C "$P" commit -q -m plans
+epic_worktree
+printf 'edit\n' >> "$W/epic-001-ep/$S1"
+expect "epic-worktree scope: an edited tracked plan is dirt" "$(dirt --checkout "$W/epic-001-ep" --scope epic-worktree)" "" DIRTY yes
+expect "  … the main scope would not count it"    "$(dirt --checkout "$W/epic-001-ep")" "" DIRTY no
+out="$(run --epic "$EPIC" "$S1")"
+expect "  … execute-resume-state.sh judges the epic worktree in that scope" "$out" "EPIC=epic-001" REASON epic_worktree_dirty
+
+# doubt means dirt: without the list the helper errors, and execute-resume-state.sh counts that as dirt
+fixture; splan slice-001 a planning
+mkdir -p "$TMP/lonely"; cp "$DIRT" "$HELPER" "$TMP/lonely/"
+(cd "$P" && bash "$TMP/lonely/tree-dirt-state.sh" >/dev/null 2>&1); rc=$?
+[[ "$rc" == 5 ]] && ok "tree-dirt-state.sh without ensure-gitignore.sh → exit 5" || bad "tree-dirt-state.sh without ensure-gitignore.sh → exit 5 (got $rc)"
+out="$(cd "$P" && bash "$TMP/lonely/execute-resume-state.sh" --mode sequential "$S1" 2>&1)"
+expect "  … execute-resume-state.sh then reports the tree dirty" "$out" "" DIRTY yes
+(cd "$P" && bash "$DIRT" --scope everything >/dev/null 2>&1); rc=$?
+[[ "$rc" == 2 ]] && ok "tree-dirt-state.sh: invalid scope → exit 2" || bad "tree-dirt-state.sh: invalid scope → exit 2 (got $rc)"
+mkdir -p "$TMP/nogit"
+(cd "$TMP/nogit" && GIT_CEILING_DIRECTORIES="$TMP" bash "$DIRT" >/dev/null 2>&1); rc=$?
+[[ "$rc" == 3 ]] && ok "tree-dirt-state.sh outside a git repository → exit 3" || bad "tree-dirt-state.sh outside a git repository → exit 3 (got $rc)"
+
+# after s0 has landed a slice (B13): what /craft:commit leaves behind decides the next re-run
+fixture                                    # plans gitignored
+splan slice-002 b planning
+printf '# archive\n' > "$P/.claude/project/slices/slice-001-a.md"
+out="$(run --mode sequential slice-001 "$S2")"
+expect "post-s0, archive left uncommitted (the old commit) → still dirt" "$out" "" RESULT_REASON dirty_without_open_slice
+git -C "$P" add .claude/project/slices/slice-001-a.md; git -C "$P" commit -q -m "docs(slices): archive slice-001 (a)"
+out="$(run --mode sequential slice-001 "$S2")"
+expect "post-s0, archive committed by Step 5b → no run-wide conflict" "$out" "" RESULT_REASON -
+expect "  … slice-001 skipped as archived"        "$out" "SLICE=slice-001" REASON archived
+expect "  … slice-002 created"                    "$out" "SLICE=slice-002" ACTION create
+
+fixture                                    # plans tracked, protected main: Step 7 only stages the deletion
+git -C "$P" rm -q --cached .gitignore; rm "$P/.gitignore"
+splan slice-001 a awaiting-approval; splan slice-002 b planning; git -C "$P" add -A; git -C "$P" commit -q -m plans
+printf '# archive\n' > "$P/.claude/project/slices/slice-001-a.md"; git -C "$P" add -A; git -C "$P" commit -q -m "merge PR"
+printf '> PR: #7\n' >> "$P/$S1"                # the plan carries its uncommitted status edits by Step 7
+if git -C "$P" rm -q "$P/$S1" 2>/dev/null; then bad "  (fixture: plain git rm should refuse a modified plan)"; else ok "plain git rm refuses a tracked plan with local edits — Step 7 needs -f"; fi
+git -C "$P" rm -q -f "$P/$S1"
+out="$(run --mode sequential --landing pull-request slice-001 "$S2")"
+expect "post-s0 under protected main, tracked plan deletion staged → no run-wide conflict" "$out" "" RESULT_REASON -
+expect "  … DIRTY no"                             "$out" "" DIRTY no
+
+grep -qF '### Step 5b — Commit the record' "$REPO_ROOT/commands/commit.md" \
+  && awk '/^### Step 5b/{f=1} /^### Step 6/{f=0} f' "$REPO_ROOT/commands/commit.md" | grep -qF 'docs(slices): archive slice-<NNN>' \
+  && ok "commands/commit.md commits the archive in Step 5b, before Step 6 lands" \
+  || bad "commands/commit.md has no Step 5b committing the archive before Step 6"
+step5b="$(awk '/^### Step 5b/{f=1} /^### Step 6/{f=0} f' "$REPO_ROOT/commands/commit.md")"
+grep -qF 'git commit -m "…" -- <files>' <<<"$step5b" && ok "  … with a pathspec, so nothing the human staged goes along" || bad "  … Step 5b commits without a pathspec"
+step7="$(awk '/^### Step 7 /{f=1} /^### Step 7b/{f=0} f' "$REPO_ROOT/commands/commit.md")"
+{ grep -qF 'git rm -f' <<<"$step7" && grep -qF '"chore(plans): close slice-<NNN>" -- <plan paths>' <<<"$step7"; } \
+  && ok "commands/commit.md Step 7 removes a tracked plan with git rm -f and commits it with a pathspec" || bad "commands/commit.md Step 7: tracked plan removal lacks -f or the pathspec commit"
+
+# the commands judge "clean" through the helper, never by a porcelain call of their own
+for cmd in execute commit release; do
+  f="$REPO_ROOT/commands/$cmd.md"
+  grep -qF 'scripts/tree-dirt-state.sh' "$f" && ok "commands/$cmd.md judges the tree through tree-dirt-state.sh" || bad "commands/$cmd.md never calls tree-dirt-state.sh"
+  if grep -qF 'git status --porcelain' "$f"; then bad "commands/$cmd.md still prescribes git status --porcelain"; else ok "  … and no porcelain call of its own"; fi
+done
 
 echo "── arguments and exit codes ─────────────────────────────────────────"
 
