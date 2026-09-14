@@ -85,17 +85,25 @@ bash scripts/test-handoff-marker-state.sh
 # malformed-means-open, advisory rounds, --followups, the Step-6 agreement and bash 3.2. Keep green.
 bash scripts/test-review-findings-state.sh
 
+# Execute re-run state — scripts/execute-resume-state.sh decides what a /craft:execute re-run finds per
+# slice: create, reuse (an existing worktree), skip (merged by a merge commit, or archived), resume (the
+# sequential slice an earlier run left open), held (paused/blocked) or conflict (a leftover branch,
+# worktree or path, a dirty tree or wrong branch nothing accounts for). /craft:execute step 1c calls it
+# before anything is created. Covers real git fixtures, the ancestor trap, both landings and that
+# commands/execute.md handles every ACTION value. Keep green.
+bash scripts/test-execute-resume-state.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The eight harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The nine harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, and the review findings record.
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, and the execute re-run state.
 
 ## Dogfooding Is Not Self-Verification
 
