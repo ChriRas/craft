@@ -34,7 +34,9 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
 - **Personality Autoload (D27)** — 3 tiers: Senior-Developer baseline, monolithic
   stack-packs, project overlay in `rules.md`.
 - **Review as its own phase (D28)** — code review precedes Commit, with a
-  severity × fix-nature findings rubric.
+  severity × fix-nature findings rubric. A re-review sees every earlier round and verifies it
+  first (slice-037): independence comes from the fresh context window, not from blinding — a
+  blind reviewer cannot check the previous round's fixes on purpose.
 - **Concentrated-control execution (D29)** — human owns hard phases (planning,
   recap, review, escalated bugs); execution is delegated to parallel agents in
   git worktrees. *Why not constant per-step control:* the per-step model is too
