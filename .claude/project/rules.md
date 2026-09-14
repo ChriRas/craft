@@ -22,7 +22,7 @@
   `/bin/bash` 3.2 runs that fail on shell error text. `bash -n` is no evidence — it accepts
   bash-4 constructs, and a 3.2 run skips a failing command and carries on green.
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate .`. Seven standalone Bash harnesses cover what is
+  `claude plugin validate .`. Eight standalone Bash harnesses cover what is
   mechanically checkable; keep all green:
   `bash scripts/test-readonly-context.sh` (read-only guard + sync helper, incl.
   the guard↔helper normalizer agreement),
@@ -35,8 +35,9 @@
   `bash scripts/test-docs-site.sh` (docs site in sync with the plugin surface),
   `bash scripts/test-plugin-cache-drift.sh` (plugin runtime vs. working tree, B2),
   `bash scripts/test-toolchain-check.sh` (bash/python3 requirement, OS install hints, hook bash),
-  `bash scripts/test-gitignore-sync.sh` (CRAFT local-state gitignore helper, B4), and
-  `bash scripts/test-handoff-marker-state.sh` (handoff-marker liveness helper + hook, B7).
+  `bash scripts/test-gitignore-sync.sh` (CRAFT local-state gitignore helper, B4),
+  `bash scripts/test-handoff-marker-state.sh` (handoff-marker liveness helper + hook, B7), and
+  `bash scripts/test-review-findings-state.sh` (review findings-record parser, B6).
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.

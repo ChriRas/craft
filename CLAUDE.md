@@ -78,17 +78,24 @@ bash scripts/test-gitignore-sync.sh
 # --resolve/--retry, the hook's fail-open path and a /bin/bash 3.2 run. Keep green.
 bash scripts/test-handoff-marker-state.sh
 
+# Review findings record — scripts/review-findings-state.sh is the one parser of a slice plan's
+# ## Review Findings: rounds, finding IDs (R<round>-<n>), the resolution (the last ' · ' field) and
+# which lines are open. /craft:review Steps 6/7 and its Subagent-Mode gate, and /craft:commit Step 5
+# (follow-ups) call it. Covers legacy records, every resolution value, the quoted-value false positive,
+# malformed-means-open, advisory rounds, --followups, the Step-6 agreement and bash 3.2. Keep green.
+bash scripts/test-review-findings-state.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The seven harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The eight harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, and the handoff-marker lifecycle.
+the CRAFT local-state gitignore, the handoff-marker lifecycle, and the review findings record.
 
 ## Dogfooding Is Not Self-Verification
 
