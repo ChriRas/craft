@@ -28,6 +28,8 @@ You do **not** create the worktree, do **not** allocate the slice ID, do **not**
 
 ## Procedure
 
+**Phase commands you `Read`** (`commands/build.md`, `test.md`, `recap.md`, `refactor.md`, `review.md`) are files, so Claude Code does not fill in their plugin-root placeholder (a dollar sign and braces around `CLAUDE_PLUGIN_ROOT`) and the Bash tool does not export it. Wherever their text shows it — e.g. the review's `review-findings-state.sh` call — use the plugin root **`${CLAUDE_PLUGIN_ROOT}`** from this agent's own text instead.
+
 Run the following in order. After each phase, check the slice plan's `Status:` and the handoff marker. If a handoff marker has been written, stop immediately — do not advance to the next phase. Step 0 guarantees that any marker you find after it was written in this run.
 
 ### 0. Start-of-run marker check
