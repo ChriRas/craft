@@ -28,7 +28,9 @@ claude plugin validate .
 
 # Read-only context guard + sync helper — self-contained Bash harness. It also
 # asserts that the guard's normalize_path and the helper's os.path.normpath agree,
-# which is the only thing keeping the two implementations from drifting. Keep green.
+# which is the only thing keeping the two implementations from drifting. It also asserts that this
+# helper and scripts/ensure-worktree-trust.sh take the settings file's GITIGNORED= verdict from
+# scripts/ensure-gitignore.sh and never write .gitignore themselves. Keep green.
 bash scripts/test-readonly-context.sh
 
 # Workflow phase-transition graph — the Status graph declared in skills/workflow/SKILL.md
@@ -66,8 +68,9 @@ bash scripts/test-toolchain-check.sh
 # Local-state gitignore helper — scripts/ensure-gitignore.sh decides, via git check-ignore, whether
 # the project's own .gitignore files cover CRAFT's local state (.primed, .hook-env, .execute.lock,
 # settings.local.json, .craft/) and appends the missing paths to one "# CRAFT local state" block.
-# /craft:onboard applies it, /craft:prime step 4f offers it. Covers broader rules, negations,
-# global excludes (never coverage), idempotency, conflict restore, and a /bin/bash 3.2 run. Keep green.
+# /craft:onboard applies it, /craft:prime step 4f offers it. Covers broader rules, a project negation
+# (reads negated, never appended — a negated directory is the pinned known limit), global excludes
+# (never coverage), idempotency, conflict restore, and a /bin/bash 3.2 run. Keep green.
 bash scripts/test-gitignore-sync.sh
 
 # Handoff marker lifecycle — scripts/handoff-marker-state.sh decides whether a worktree's
@@ -75,7 +78,8 @@ bash scripts/test-gitignore-sync.sh
 # pairs with one plan status (table in skills/workflow/SKILL.md; the harness fails when the two
 # disagree). The SessionStart hook, /craft:worktree-status, /craft:execute and slice-builder count only
 # LIVE markers; slice-builder renames a stale one. Covers the full pairing matrix, doubt-means-live,
-# --resolve/--retry, the hook's fail-open path and a /bin/bash 3.2 run. Keep green.
+# --resolve/--retry, the hook's fail-open path, the pinned writer and reader sets (/craft:abort and
+# /craft:worktree-clean show a live marker before removal) and a /bin/bash 3.2 run. Keep green.
 bash scripts/test-handoff-marker-state.sh
 
 # Review findings record — scripts/review-findings-state.sh is the one parser of a slice plan's
@@ -90,7 +94,9 @@ bash scripts/test-review-findings-state.sh
 # sequential slice an earlier run left open), held (paused/blocked) or conflict (a leftover branch,
 # worktree or path, a dirty tree or wrong branch nothing accounts for). /craft:execute step 1c calls it
 # before anything is created. Covers real git fixtures, the ancestor trap, both landings and that
-# commands/execute.md handles every ACTION value. Keep green.
+# commands/execute.md handles every ACTION value. Also covers scripts/tree-dirt-state.sh: CRAFT's plans,
+# counters and local state are no dirt for /craft:execute A3, /craft:commit and the re-run, and those
+# commands judge the tree only through it. Keep green.
 bash scripts/test-execute-resume-state.sh
 
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
