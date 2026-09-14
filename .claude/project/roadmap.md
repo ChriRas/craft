@@ -9,16 +9,18 @@
 
 | # | ID | Type | Size | Item |
 |---|----|------|------|------|
-| 1 | B11 | Fix | slice | Handoff resolution from `paused`: `/craft:continue`, build resume, a refactor skip and `/craft:debug` write no status, so `paused`-paired markers (test, protocol, scope, refactor) stay live after the human answered; and a stale marker revives when the plan re-enters its paired status (slice-036 R2, R3) |
-| 2 | B12 | Fix | slice | Epic decomposition ↔ slice-ID: `/craft:epic` writes entries without a slice-ID and nothing adds one, so `/craft:execute` A6 rejects an ordinary epic's re-run once its first slice has landed, until the entry is edited by hand; decide who links an entry to its slice (`/craft:plan` from an epic, `/craft:commit` on archive) or match a landed slice by slug (slice-038 R3-6) |
-| 3 | B15 | Fix | slice | Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
-| 4 | B17 | Fix | small | Settings helpers in a subdirectory project write the repo-root `settings.local.json` but report the project-dir `GITIGNORED` verdict (slice-039 R1-13) |
+| 1 | B12 | Fix | slice | **F6 prerequisite.** Epic decomposition ↔ slice-ID: `/craft:epic` writes entries without a slice-ID and nothing adds one, so `/craft:execute` A6 rejects an ordinary epic's re-run once its first slice has landed, until the entry is edited by hand; decide who links an entry to its slice (`/craft:plan` from an epic, `/craft:commit` on archive) or match a landed slice by slug (slice-038 R3-6) |
+| 2 | B11 | Fix | slice | **F6 prerequisite.** Handoff resolution from `paused`: `/craft:continue`, build resume, a refactor skip and `/craft:debug` write no status, so `paused`-paired markers (test, protocol, scope, refactor) stay live after the human answered; and a stale marker revives when the plan re-enters its paired status (slice-036 R2, R3) |
+| 3 | B15 | Fix | slice | **F6 prerequisite unless the autopilot builder runs in place — decide first.** Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
+| 4 | R1 | Release | small | **F6 prerequisite.** Cut the next release (version bump, CHANGELOG, docs site) so the installed runtime carries slice-033 … slice-040 — see *Next release* below |
 | 5 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
-| 6 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
-| 7 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
-| 8 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
-| 9 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
-| 10 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
+| 6 | B17 | Fix | small | Settings helpers in a subdirectory project write the repo-root `settings.local.json` but report the project-dir `GITIGNORED` verdict (slice-039 R1-13) |
+| 7 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
+| 8 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
+| 9 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
+| 10 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
+| 11 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
+| 12 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
 
 ## Notes per item
 
@@ -62,7 +64,8 @@ the bash ≥ 5.0 baseline its usage/cache sensor scripts assume is in place. B2 
 slices that change `commands/` / `agents/` are verified via headless `--plugin-dir` probes (D33),
 not the running session. Starts with a spike slice (statusline refresh during subagent runs, blocked-prompt API behavior, subagent cache
 TTL, `fable` alias vs. `model-defaults.md`). Couples to D2: planner/architect/reviewer vs. builder
-are exactly the capability tiers D2 wants to name.
+are exactly the capability tiers D2 wants to name. **Prerequisites** (assessed 2026-09-14, design record §11): B12, B11,
+B15 — unless the epic first decides the autopilot builder works in place on the epic branch — and the R1 release.
 
 **F7 — Idle cache guard (braindump, 2026-09-13).** *Problem:* a human who leaves mid-session (lunch,
 a question the agent asked and nobody answers) returns after the prompt-cache TTL has expired; the next
@@ -99,4 +102,17 @@ machine to test — until then, WSL 2 is the only setup that can be recommended 
 
 **F3 — Cleanup skill.** Epic. Novel core = fidelity check: strip/condense comments → fresh-context review must reconstruct the same information breadth (fixed "why does this exist / what decision does this encode" battery, diffed before/after) → write back on loss. Scope param repo/epic/slice; uses archive context; interactive; may drop now-irrelevant historical decisions.
 
-**D2 — Model tiers.** Bind roles to capability tiers, not model names; project maps tiers → models (Fable 5 becomes config, not code). Serves token-efficiency (expensive reasoning only at hard phases). Couples to D1's spawn-threshold (make it tier-configurable). Caveats: verify Fable 5's real behavior before rewriting policy; "open to other coding tools" (Cursor etc.) is a separate, larger track — likely non-goal for now.
+**D2 — Model tiers.** Bind roles to capability tiers, not model names; project maps tiers → models (Fable 5 becomes config, not code). Serves token-efficiency (expensive reasoning only at hard phases). Couples to D1's spawn-threshold (make it tier-configurable). Caveats: verify Fable 5's real behavior before rewriting policy; "open to other coding tools" is the separate, larger track F8.
+
+**F8 — Other AI coding agents (braindump, 2026-09-14).** *Goal (user):* CRAFT's workflow and harness usable from AI
+coding agents other than Claude Code — named: OpenAI Codex CLI, OpenCode — placed at the very end of the chain, after
+F6 and everything before it. *Nothing about those tools is verified yet* — their extension points (instruction files,
+custom commands, sub-agents, hooks, MCP, plugin packaging, headless mode) change fast; research each one before any
+design. *What is Claude-Code-bound today (from the repo):* the plugin manifest + marketplace, `commands/` as slash
+commands, `skills/`, `agents/` spawned via the Task tool, the three `hooks/` (SessionStart prime trigger, the read-only
+guard, the hook-env record), `${CLAUDE_PLUGIN_ROOT}` path resolution, `AskUserQuestion`-style dialogs, `CLAUDE.md`,
+headless `claude -p --plugin-dir` probes (D33), and for F6 the statusline JSON. *Already portable:* the Markdown
+methodology, `scripts/` helpers and harnesses, git / gh. *Open questions:* one neutral core with generated per-tool
+adapters vs. hand-written ports — the tabu "a rule is never described twice" rules out parallel copies; which
+guarantees survive where a tool has no hooks (the read-only guard fails open) or no sub-agents (fresh-context review,
+D28); how model tiers (D2) map onto non-Anthropic models; whether context-mode / agent-browser stay required.
