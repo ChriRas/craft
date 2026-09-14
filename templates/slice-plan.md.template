@@ -73,7 +73,8 @@
 
 ## Review Findings
 
-> Filled by `/craft:review` (Phase 8). Audit trail — one line per finding: `Severity · Fix-nature · description · resolution`.
+> Filled by `/craft:review` (Phase 8). Audit trail of rounds (`### Round <R> — <date> (<Phase-8 | advisory>)`), one line per
+> finding with an ID and a resolution — the format is `/craft:review` → Step 6, read by `scripts/review-findings-state.sh`.
 
 (none yet)
 

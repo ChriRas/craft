@@ -233,7 +233,7 @@ invisible to it. Mark every new status write, or the graph goes blind on that on
 
 **Escalation:** a Heavy + needs-rethinking finding is never auto-fixed. The agent **recommends** (Level 1), per finding, one of two routes — loop back to Phase 4 (`/craft:build`) if the fix is in slice scope, or spin off a new slice (`/craft:plan`) if it is separate work. Phase 9 (Commit) is blocked until every Heavy + needs-rethinking finding is resolved. The routes are carried out by `/craft:review` itself — **Step 7** (gate, and when a spun-off finding counts as resolved) and **Step 8 (Loop back to Phase 4)**; this skill does not restate them.
 
-**Findings record:** all findings are written to the slice plan's `## Review Findings` section — an audit trail, format `Severity · Fix-nature · description · resolution`.
+**Findings record:** all findings are written to the slice plan's `## Review Findings` section — an audit trail of rounds, one line per finding with an ID and a resolution. The format, the round count and which lines are open are defined once, by `scripts/review-findings-state.sh`, and shown in `/craft:review` → Step 6; a re-review's reviewer receives the earlier rounds and verifies them first (Step 2).
 
 **Autonomy profile:** classifying findings — Level 3 (silent analysis, surfaced in the findings bundle); in-phase fixes — Level 2 (act, then bundle); escalation decisions and soft-cap breach — Level 1 (recommend, human decides).
 
