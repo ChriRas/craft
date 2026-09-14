@@ -74,7 +74,21 @@ Failure → abort: *"Plugin manifest unreadable — version cannot be recorded i
 
 ### A6 — DAG resolvable
 
-For an epic target: read every slice plan referenced in `## Slice Decomposition`. For each, read the `Depends-On:` frontmatter. Build the dependency graph. Reject if a cycle is detected, or if a referenced slice has neither a plan nor an archive — a slice whose plan `/craft:commit` removed and whose archive exists under `.claude/project/slices/` has landed, and resolves to its slice-ID. An entry is matched by the slice-ID written in it (`- [ ] slice-NNN — …`); an entry that names no slice-ID resolves only while a plan matches it, so once its plan is gone it is rejected here as neither — add the slice-ID to the entry.
+For an epic target: resolve every entry of `## Slice Decomposition` through the helper that defines the entry format —
+
+```
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/epic-entry-link.sh" resolve "<epic-plan>"
+```
+
+— run from the project root. Its output lines (per entry, per ignored line, the counts and `RESULT=`) and what each state means are defined in the helper's header. Here: `STATE=plan` resolves the entry to its `PLAN=` path, `STATE=landed` to its slice-ID. Anything else rejects the epic, naming the entry and its fix; print every command with the plugin root resolved to its absolute path and quoted arguments, to run from the project root:
+
+- `ENTRY_COUNT=0` → *"no decomposition entries found in `<epic-plan>` — check its `## Slice Decomposition` heading"*.
+- an `IGNORED LINE=<n> TEXT=<text>` line → *"line `<n>` of `<epic-plan>` is not read as an entry (`<text>`) — write it in the entry format, or close the fence"*; every such line is named.
+- `unlinked` → *"entry `<ENTRY>` names no slice-ID — plan it with `/craft:plan` (which links it), or link the slice that already exists or has landed: `bash "<plugin-root>/scripts/epic-entry-link.sh" link "<epic-plan>" "<ENTRY>" <slice-id>`"*.
+- `missing` → *"`<SLICE>` on entry `<ENTRY>` has neither a plan nor an archive — the slice was aborted; plan the entry again with `/craft:plan`, which offers it and replaces the dead ID — or, when a slice that refines it already exists (a re-plan), link that one: `bash "<plugin-root>/scripts/epic-entry-link.sh" link "<epic-plan>" "<ENTRY>" <slice-id>`"*.
+- `ambiguous` → *"several plans carry `<SLICE>` — remove the stray plan"*.
+
+A helper that cannot run rejects too. Then read each resolved plan's `Depends-On:` frontmatter, build the dependency graph and reject a cycle.
 
 For a single slice target: trivially one-node graph. If the slice has `Depends-On: [...]` entries that are not yet committed (not present in `.claude/project/slices/`), abort: *"`slice-NNN` depends on slices that have not yet been committed: `<list>`. Either commit them, run them as an epic, or remove the dependency."* Note: lone-slice mode performs only a depth-1 dependency check; transitive cycles via already-archived slices are not re-validated because archived slices were cycle-checked at their own execute time.
 
@@ -367,7 +381,7 @@ and:
 
 ### s1 — Resolve the order and the next runnable slice
 
-Read the epic's `## Slice Decomposition` and each slice plan's `Depends-On:` (A6 validated the
+Take the slices A6 resolved the epic's `## Slice Decomposition` to and each slice plan's `Depends-On:` (A6 validated the
 DAG is acyclic). Topologically sort. Then take the step-1c lines — after s0 has landed a slice, run
 the helper once more with the same arguments (that slice's plan is gone and its archive makes it
 `ACTION=skip`; the tree is back on the trunk), and act on it exactly as step 1c does — a conflict or a
