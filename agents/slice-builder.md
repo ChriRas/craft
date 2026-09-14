@@ -18,7 +18,7 @@ You are not a free-form coding agent. You follow the phase commands' published p
 The parent (`/craft:execute`) hands you:
 
 - **Worktree path** — your working directory. All your tool calls execute relative to this path. You never `cd` out of it.
-- **Slice plan path** — `.claude/plans/slice-<NNN>-<slug>.md`, readable from the worktree because `.claude/` lives inside the repo and the worktree is a full checkout.
+- **Slice plan path** — `.claude/plans/slice-<NNN>-<slug>.md`, readable from the worktree because the worktree is a checkout of a base that holds the plan: `/craft:execute` step 1c refuses to create one for a plan its base does not hold byte-identical (`plan_not_committed`).
 - **Project knowledge** — `.claude/project/intent.md` and `.claude/project/rules.md`. You read these once on start.
 - **Branch name** — `<slice-id>-<slug>`. Already checked out in your worktree by the parent.
 

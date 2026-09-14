@@ -116,8 +116,9 @@ frontmatter."*
 
 ### P2 — Changes intact, nothing committed
 
-`git branch --show-current` still equals the slice branch, and `git status --porcelain` still
-shows the slice's uncommitted changes (release never commits).
+`git branch --show-current` still equals the slice branch, and
+`bash "${CLAUDE_PLUGIN_ROOT}/scripts/tree-dirt-state.sh"` still reports `DIRTY=yes` — the slice's
+uncommitted changes (release never commits).
 
 Failure → *"⚠ Working state changed unexpectedly during release — expected the uncommitted
 in-place changes to remain on `<branch>`. Inspect with `git status`."*

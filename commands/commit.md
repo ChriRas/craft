@@ -60,11 +60,13 @@ Parse the frontmatter of `<slice-plan>`. Required fields: `Slice-ID:`, `Status:`
 ### A3 — Working state matches the detected mode
 
 ```
-git status --porcelain
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/tree-dirt-state.sh"
 ```
 
-- **Standard mode**: output must be NON-empty (there are uncommitted changes to commit). If empty → abort: *"Nothing to commit. Did Phase 4 / Phase 7 / Phase 8 actually run?"*
-- **Slice-finalize / Epic-finalize mode**: output must be empty AND the corresponding worktree+branch from Mode Detection must exist. If `main` has uncommitted work AND a finalize mode was detected → abort: *"Working tree on `main` has uncommitted changes while a finalize-mode worktree is also present. Commit or stash the main-side changes before finalizing."*
+Which of CRAFT's own files — plans, ID counters, local state — do not count as uncommitted work is defined once, in that helper (`DIRTY=yes|no`, one `DIRT=` line per counted change). A helper that cannot run (non-zero exit) fails A3.
+
+- **Standard mode**: it must report `DIRTY=yes` (there are uncommitted changes to commit). Hold its `DIRT=` lines — P2 needs them to tell a change the human keeps out of Step 1's split from one Phase 9 left behind. If `DIRTY=no` → abort: *"Nothing to commit. Did Phase 4 / Phase 7 / Phase 8 actually run?"*
+- **Slice-finalize / Epic-finalize mode**: it must report `DIRTY=no` AND the corresponding worktree+branch from Mode Detection must exist. If `main` has uncommitted work AND a finalize mode was detected → abort: *"Working tree on `main` has uncommitted changes while a finalize-mode worktree is also present. Commit or stash the main-side changes before finalizing."*
 - **Protected-main PR completion** (any mode; **takes precedence** whenever `Status: awaiting-approval` — Step 6, second invocation): the commits + archive already landed on the first invocation, so the tree is expected **clean**. Skip the non-empty check; this invocation only detects the PR approval and merges via `gh`.
 
 ### A4 — Tests green
@@ -108,8 +110,8 @@ that then cannot be pushed.
 `/craft:commit` runs in one of three modes. Run this detection **before Step 1** and pick the matching procedure path. Run it from the **main checkout**, not from inside a worktree.
 
 - **Standard mode** — changes are uncommitted on the **current branch**: usually `main` with no `/craft:execute` run, but also a `<slice-id>-<slug>` branch when a slice was built in-place on a branch in the main checkout (an in-place single slice, or a sequential-epic slice under `pull-request` + `Protected-main: yes` — A6 needs that branch to open the PR from). Follow Steps 1–7 exactly as written below.
-- **Slice-finalize mode** — `/craft:execute <slice-NNN>` has completed; a worktree at `../<repo>-worktrees/<slice-id>-<slug>/` holds the slice-branch with `Status: committing` (first pass) or `awaiting-approval` (protected-main PR completion, second pass) and a clean tree. Follow Steps 1a, 5, 6, 7 (with the merge in Step 1a replacing Step 1's atomic split — the orchestrator already committed the sub-task work inside the worktree).
-- **Epic-finalize mode** — `/craft:execute <epic-NNN>` has completed; an `epic-<NNN>-<slug>` worktree exists with every contained slice already merged in. Follow Steps 1b, 5, 6, 7. The decisions walk in Step 4 runs once per included slice.
+- **Slice-finalize mode** — `/craft:execute <slice-NNN>` has completed; a worktree at `../<repo>-worktrees/<slice-id>-<slug>/` holds the slice-branch with `Status: committing` (first pass) or `awaiting-approval` (protected-main PR completion, second pass) and a clean tree. Follow Steps 1a, 2, 4, 5, 5b, 6, 7 (with the merge in Step 1a replacing Step 1's atomic split — the orchestrator already committed the sub-task work inside the worktree).
+- **Epic-finalize mode** — `/craft:execute <epic-NNN>` has completed; an `epic-<NNN>-<slug>` worktree exists with every contained slice already merged in. Follow Steps 1b, 2, 4, 5, 5b, 6, 7. The decisions walk in Step 4 runs once per included slice.
 
 Detection logic:
 
@@ -134,9 +136,9 @@ If the user invokes `/craft:commit` from inside a worktree, refuse: *"Run `/craf
 **If the finalize target's plan (the slice plan, or the epic plan in Epic-finalize) has
 `Status: awaiting-approval`**, this invocation is the **second pass** of the protected-main
 PR gate (Step 6): the commits, the decisions promotion, and the archive already landed on the
-first pass. **Skip Steps 1–5 entirely** and go straight to Step 6's
+first pass. **Skip Steps 1–5b entirely** and go straight to Step 6's
 *Second invocation* branch, then Step 7. Do **not** re-propose a commit split, re-walk the
-`[K]/[I]/[R]/[D]` dialog, or re-write the archive.
+`[K]/[I]/[R]/[D]` dialog, or re-write and re-commit the archive.
 
 Otherwise (`Status: committing`) run Steps 1–7 normally.
 
@@ -171,7 +173,7 @@ If user wants a different split, iterate. Abort → clean exit, no mutation.
 
 The slice-branch already contains all sub-task commits authored inside the worktree by `/craft:execute`. There is nothing to split.
 
-**Protected-main gate:** if the profile's `Merge → Type` is `pull-request` with `Protected-main: yes`, do **not** run the direct merge below — leave the slice-branch unmerged and land it via the Step 6 PR gate instead (skip to Step 2, then Step 6). Otherwise (`Type: direct`, the default) merge the branch into `main`:
+**Protected-main gate:** if the profile's `Merge → Type` is `pull-request` with `Protected-main: yes`, do **not** run the direct merge below — leave the slice-branch unmerged and land it via the Step 6 PR gate instead (continue with Step 2, Steps 4–5b, then Step 6). Otherwise (`Type: direct`, the default) merge the branch into `main`:
 
 ```
 git checkout main
@@ -186,7 +188,7 @@ After a clean merge, skip directly to Step 2 with the merge commit as the single
 
 The epic-branch already contains the per-slice merge commits authored by `/craft:execute` (slice-branches merged with `--no-ff` into the epic-branch inside its worktree).
 
-**Protected-main gate:** if the profile's `Merge → Type` is `pull-request` with `Protected-main: yes`, do **not** run the direct merge below — leave the epic-branch unmerged and land it via the Step 6 PR gate instead (one PR for the whole epic-branch → `main`, per `Approval-granularity: auto`). Otherwise merge the epic-branch into `main`:
+**Protected-main gate:** if the profile's `Merge → Type` is `pull-request` with `Protected-main: yes`, do **not** run the direct merge below — leave the epic-branch unmerged and land it via the Step 6 PR gate instead (one PR for the whole epic-branch → `main`, per `Approval-granularity: auto`; continue with Step 2, Steps 4–5b, then Step 6). Otherwise merge the epic-branch into `main`:
 
 ```
 git checkout main
@@ -220,8 +222,8 @@ The agent proposes each message; user can edit before staging.
 
 For each proposed commit in order:
 
-1. `git add` the listed files.
-2. `git commit -m "$(cat <<'EOF' ... EOF)"` with the composed message (HEREDOC to preserve formatting).
+1. `git add -- <listed files>`.
+2. `git commit -m "$(cat <<'EOF' ... EOF)" -- <listed files>` with the composed message (HEREDOC to preserve formatting) — a pathspec commit, like Step 5b's, so anything else already staged (a human's change, a leftover staged deletion) stays out of the slice's commits.
 3. Capture the resulting commit hash. Record in the commit-log buffer.
 
 If any `git commit` fails (e.g., pre-commit hook), stop immediately. The commits made so far stand; record the failure and emit a partial-completion block in Output Format.
@@ -242,6 +244,16 @@ Decision: "<text of the decision>"
 
 Skipped entries default to K. Record the chosen disposition for each decision; Post-Assertion P4 verifies the writes that should have happened.
 
+**A promotion target the human is already editing.** Before writing an `[I]` / `[R]` diff, check A3's held `DIRT=`
+lines: when `intent.md` / `rules.md` already carries an uncommitted change of the human's, Step 5b would commit that
+change together with the promotion under a `docs(...)` subject the human never saw. Say so and let the human commit or
+stash their edit first, or keep the decision as `[K]`.
+
+**Where Steps 4 and 5 write.** Into the checkout of the branch that lands, so Step 5b can commit
+there: the main checkout, except in a **finalize mode under `Type: pull-request` + `Protected-main:
+yes`**, where the slice/epic worktree holds the branch the PR carries — write the `intent.md` /
+`rules.md` promotions and the archive entry in that worktree instead.
+
 ### Step 5 — Write the slice (and, in Epic-finalize mode, epic) archive entry
 
 For each closing slice, compose the archive entry from `templates/slice-archive.md.template`. Fill:
@@ -258,6 +270,28 @@ For each closing slice, compose the archive entry from `templates/slice-archive.
 Write each to `.claude/project/slices/slice-<NNN>-<slug>.md`.
 
 In **Epic-finalize mode**, also write an epic-level archive entry at `.claude/project/slices/epic-<NNN>-<slug>.md` summarizing the epic's Vision, the list of included slices (linked by ID), and any epic-level decisions promoted in Step 4. The per-slice archive entries link back to the epic archive.
+
+### Step 5b — Commit the record
+
+`/craft:commit` leaves no file of its own uncommitted — Post-Assertion P2 requires a clean tree,
+and a `/craft:execute` re-run after `s0` must not find this slice's record as dirt (B13). Commit
+what Steps 4 and 5 wrote, in the checkout they wrote it in, as separate `docs` commits composed
+and confirmed like Step 2's:
+
+1. Each promoted file — `docs(intent): <subject>` for `.claude/project/intent.md`,
+   `docs(rules): <subject>` for `.claude/project/rules.md` (only when Step 4 wrote it).
+2. The archive — `docs(slices): archive slice-<NNN> (<short title>)` with every archive entry
+   Step 5 wrote (in Epic-finalize mode, the epic archive in the same commit).
+
+Commit each with a pathspec — `git add -- <files>` then `git commit -m "…" -- <files>` — never
+`-A` and never a bare `git commit`: a human's unrelated change, staged or not, stays theirs. Capture each hash
+into the commit-log buffer (the archive's `Commits:` range keeps naming the work commits from
+Steps 1–3, not these). A failing `git commit` stops like Step 3 does.
+
+Under `Type: direct` the commits land on the trunk (Standard mode, and a finalize mode after its
+Step 1a/1b merge) or on the in-place branch that Step 7 merges. Under `pull-request` +
+`Protected-main: yes` they land on the PR branch **before** Step 6 pushes it, so the record reaches
+the trunk with the approved merge and not as a direct commit.
 
 ### Step 6 — Land the branch (Merge Workflow — direct vs. protected-main PR)
 
@@ -285,7 +319,7 @@ this step only decides the *landing*.
 
   **First invocation** (slice `Status: committing`):
   1. `git push -u origin <branch>` (Level 0 — external).
-  2. `gh pr create --base <trunk> --title "<slice/epic title>" --body "<What / Why / Commits summary>"`. Capture the PR number `#N` and URL. On the PR path there is no merge commit, so the slice archive's `## Commits` records the branch's own commit range (`<first>..<last>` on the branch) plus the PR `#N` — backfill `#N` into that line.
+  2. `gh pr create --base <trunk> --title "<slice/epic title>" --body "<What / Why / Commits summary>"`. Capture the PR number `#N` and URL. On the PR path there is no merge commit, so the slice archive's `## Commits` records the branch's own commit range (`<first>..<last>` on the branch) plus the PR `#N` — backfill `#N` into that line, then commit and push the backfill on the PR branch, in the checkout Steps 4–5 wrote in: `git commit -m "docs(slices): record PR #N for slice-<NNN>" -- <archive path>` and `git push`. It lands before any approval, so it dismisses no review, and the archive is not left modified for Step 7's checkout or worktree removal. A failing commit or push is handled like a failing `gh pr create` below.
   3. <!-- craft:writes status=awaiting-approval --> Set the slice plan `Status: awaiting-approval` and record `> PR: #N <url>` in the plan frontmatter — a fresh-context second invocation reads `#N` from there (failing that, derives it via `gh pr list --head <branch> --json number -q '.[0].number'`). Do **not** merge and do **not** run Step 7 — the plan file stays.
   4. Emit the awaiting-approval block (Output Format): the PR URL, that `main` is not merged, and the resume gesture — approve the PR on GitHub, then re-run `/craft:commit`.
 
@@ -312,6 +346,16 @@ this step only decides the *landing*.
 
 In **Standard mode**: `rm .claude/plans/slice-<NNN>-<slug>.md`. The slice archive + commits are now the durable record. No worktree to remove (none was created).
 
+> **A tracked plan** (`git ls-files --error-unmatch <plan>` succeeds — the project versions its
+> plans): delete it with `git rm -f` instead of `rm`, in every mode (Standard included) — `-f`
+> because the plan always carries uncommitted status edits by now, and its content lives on in the
+> archive — and commit the deletions of this run with a pathspec,
+> `git commit -m "chore(plans): close slice-<NNN>" -- <plan paths>` (Epic-finalize: `close epic-<NNN>`),
+> on the trunk, after any merge this step performs — under `Type: direct` only. Under `pull-request` +
+> `Protected-main: yes` the trunk takes no direct commit: leave the staged deletion and name it in
+> the output; `scripts/tree-dirt-state.sh` does not count a plan as dirt, so it blocks neither P2 nor
+> a re-run. An untracked or ignored plan is simply removed.
+
 > **In-place-finalize (a slice built in-place on a non-trunk branch):** when the landed slice
 > was built in-place on a `<slice-id>-<slug>` branch in the main checkout (slice-018 in-place,
 > or a `sequential`-epic slice under a `pull-request` workflow) — i.e. only the primary
@@ -328,6 +372,12 @@ In **Standard mode**: `rm .claude/plans/slice-<NNN>-<slug>.md`. The slice archiv
 > — should not happen post-land), surface it and skip the delete. Never `-D` (force).
 > (A `direct` **sequential**-epic slice builds directly on the trunk with no branch, so it
 > skips this entirely — it is already on `main`.)
+
+> **Finalize modes under `pull-request` + `Protected-main: yes`** (second pass): the approved merge
+> landed on the remote only. Before removing any worktree, bring the local trunk up to date in the
+> main checkout the way *In-place-finalize* above does (fetch, `--ff-only`) — that is how the archive
+> and promotions Steps 4–5 wrote in the worktree reach the main checkout, where P3/P4 read them and
+> a later `/craft:execute` A6 finds the archive.
 
 In **Slice-finalize mode**: `rm` the slice plan. Then remove the worktree and delete the slice-branch:
 
@@ -393,7 +443,7 @@ Run all of the following. Any failure → warn loudly, surface to the user, do *
 
 ### P1 — All proposed commits landed
 
-For each commit proposed in Step 1 and confirmed by the user, verify the commit hash exists:
+For each commit proposed in Step 1 and confirmed by the user — and each record commit (Step 5b) and plan-closing commit (Step 7) — verify the commit hash exists:
 
 ```
 git cat-file -e <hash>
@@ -404,20 +454,20 @@ Failure → *"⚠ Commit `<hash>` (`<subject>`) is not present in git history. T
 ### P2 — Working tree clean
 
 ```
-git status --porcelain
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/tree-dirt-state.sh"
 ```
 
-Output must be empty. Anything else → *"⚠ Working tree is not clean after Phase 9: `<porcelain output>`. Uncommitted changes remain — Phase 9 expected all sub-task changes to be staged. Inspect manually."*
+It must report `DIRTY=no` — the work commits (Step 3), the record commits (Step 5b) and the plan-closing commit (Step 7) leave nothing of this slice behind. A remaining `DIRT=` line whose path A3 already listed and that no commit of this run touched is the human's own change, kept out of the split on purpose: report it as `ℹ Left uncommitted (yours): <paths>` — not a failure. Any other `DIRT=` line → *"⚠ Working tree is not clean after Phase 9: `<DIRT= lines>`. Uncommitted changes remain — Phase 9 commits the sub-task changes, the archive and the promotions. Inspect manually."*
 
 ### P3 — Slice archive entry exists
 
-- `Read` `.claude/project/slices/slice-<NNN>-<slug>.md`. Must exist and contain the headers `## What`, `## Why`, `## Commits`, `## Decisions`.
+- `Read` `.claude/project/slices/slice-<NNN>-<slug>.md` in the checkout Steps 4–5 wrote in (**Where Steps 4 and 5 write**, Step 4): the main checkout, or — on the first pass of a protected-main finalize — the slice/epic worktree; on that mode's second pass, the main checkout after Step 7's trunk sync. Must exist and contain the headers `## What`, `## Why`, `## Commits`, `## Decisions`.
 
 Failure → *"⚠ Slice archive entry missing or malformed at `<path>`. The plan file has not been deleted yet — recover the recap manually."*
 
 ### P4 — Decisions promotions executed as recorded
 
-For each decision promoted to `[I]` or `[R]` in Step 4:
+For each decision promoted to `[I]` or `[R]` in Step 4, in the same checkout P3 reads:
 
 - `[I]` → confirm `.claude/project/intent.md` now contains the promoted text (or the user explicitly rejected the diff at Level 0, which down-grades to `[K]`).
 - `[R]` → confirm `.claude/project/rules.md` now contains the promoted text (same caveat).
@@ -466,8 +516,9 @@ Commits:
   <hash>  <subject>
   ...
 
-Archive: .claude/project/slices/slice-<NNN>-<slug>.md
+Archive: .claude/project/slices/slice-<NNN>-<slug>.md   (committed in <hash>)
 [PR: <url>]
+[Plan deletion staged, not committed — protected main takes no direct commit; it is not dirt]
 
 Recommended next: /craft:plan to start the next slice, or /craft:prime to refresh status.
 ```

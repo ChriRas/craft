@@ -51,7 +51,7 @@ Failure → abort: *"No plan found for `<target>`. Run `/craft:plan` or `/craft:
 
 ### A3 — Working tree clean on `main`
 
-`Bash` `git status --porcelain` must be empty, and the current branch must be `main` (or the project's configured trunk — read from `rules.md` `## Deployment` if specified).
+`Bash` `bash "${CLAUDE_PLUGIN_ROOT}/scripts/tree-dirt-state.sh"` must report `DIRTY=no`, and the current branch must be `main` (or the project's configured trunk — read from `rules.md` `## Deployment` if specified). Which of CRAFT's own files — plans, ID counters, local state — do not count as uncommitted work is defined once, in that helper; its `DIRT=` lines name what does. A helper that cannot run (non-zero exit) fails A3.
 
 Failure → abort: *"Working tree is not clean / not on main. Commit, stash, or move to main before `/craft:execute` — worktrees require a clean starting point."*
 
@@ -138,7 +138,10 @@ the result:
   repair the plan's `Slice-ID:` / `Slice-Slug:` (`Epic-ID:` / `Epic-Slug:`); `multiple_open` /
   `unknown_status` / `branch_missing` / `branch_exists` → resolve the named slices;
   `epic_merge_in_progress` → finish or abort the merge in the epic worktree; `epic_worktree_dirty` →
-  commit or discard what sits uncommitted in the epic worktree; `dirty_without_open_slice` → the
+  commit or discard what sits uncommitted in the epic worktree; `plan_not_committed` → commit the
+  plan on the trunk (and, when the epic branch already exists, bring it into that branch) — a new
+  worktree is a checkout of its base, so an uncommitted, ignored or edited plan would reach
+  `slice-builder` stale or not at all; `dirty_without_open_slice` → the
   changes belong to no slice in flight (a paused or blocked slice counts as in flight) — commit or
   stash them; `wrong_branch` → check out the in-flight slice's `BRANCH=` (`pull-request`) or the trunk.
   Then re-run `/craft:execute <target>`.
@@ -174,11 +177,11 @@ This is a **durable-state mutation on user settings** — never silent. Follow t
 
      + <BASE_DIR>   →  .claude/settings.local.json
 
-   This is a personal, gitignored override. Existing permissions are preserved.
+   This is a personal, local override. Existing permissions are preserved.
    Proceed? [Y] add it (recommended)   [N] skip (expect per-path prompts)
    ```
 
-   On `[Y]` (default), `Bash` the same script with `--apply`. It idempotently merges the entry (never overwriting existing `allow`/`deny`/`additionalDirectories`), creates `settings.local.json` if missing, ensures it is gitignored, and re-reads the file to verify it is valid JSON containing `BASE_DIR`. Confirm `STATUS=present` in the output before continuing. On `[N]`, continue but warn that per-worktree prompts are expected this run.
+   On `[Y]` (default), `Bash` the same script with `--apply`. It idempotently merges the entry (never overwriting existing `allow`/`deny`/`additionalDirectories`), creates `settings.local.json` if missing, and re-reads the file to verify it is valid JSON containing `BASE_DIR`. Confirm `STATUS=present` in the output before continuing. It never writes `.gitignore` — a write here would dirty the main checkout mid-run, and `/craft:commit` A3 would later refuse to finalize on it. Its `GITIGNORED=` line reports `scripts/ensure-gitignore.sh`'s verdict for the settings file: on `no`, add one line `⚠ .claude/settings.local.json is not gitignored — /craft:prime offers the CRAFT local-state block (step 4f)` and continue; `yes`, `negated` (the project keeps it visible on purpose) and `unknown` add nothing. On `[N]`, continue but warn that per-worktree prompts are expected this run.
 
 ### 3. Create the epic-worktree (epic target only)
 
@@ -425,10 +428,10 @@ Land via `/craft:commit` — its A1 targets the single plan at `Status: committi
 coexisting epic + sibling plans do not trip it. There is **no** epic-branch merge; each slice
 lands on its own. The landing follows the Merge Workflow:
 
-- **`direct`** — `/craft:commit` commits the per-slice work on `main` and archives the plan; the
-  slice is now **landed**. Continue to s4. This is the "commit per slice" of sequential mode.
+- **`direct`** — `/craft:commit` commits the per-slice work and its archive on `main` and closes the
+  plan, leaving a clean tree (its Step 5b / Step 7); the slice is now **landed**. Continue to s4. This is the "commit per slice" of sequential mode.
 - **`pull-request` + `Protected-main: yes`** — this is `/craft:commit`'s **first invocation**: it
-  commits the sub-task work on the slice branch, opens the PR, sets the slice
+  commits the sub-task work and the archive on the slice branch, opens the PR, sets the slice
   `Status: awaiting-approval`, and does **not** merge (the "Freigabe ≠ Merge" gate). The slice is
   **not yet landed** — it awaits the human's GitHub approval. Release the lock (`rm
   .claude/plans/.execute.lock`) and emit the awaiting-approval halt (see Output Format): the PR
@@ -493,7 +496,7 @@ Failure → *"⚠ Execute lock not released. Remove `.claude/plans/.execute.lock
 ### P5 — In-place slice halted correctly (in-place mode only)
 
 For an in-place run: `Bash` `git branch --show-current` is the slice branch,
-`git status --porcelain` is non-empty (the slice's uncommitted changes), the slice plan
+`bash "${CLAUDE_PLUGIN_ROOT}/scripts/tree-dirt-state.sh"` reports `DIRTY=yes` (the slice's uncommitted changes), the slice plan
 `Status:` is `awaiting-release`, and no worktree exists for this slice
 (`git worktree list --porcelain` shows only the main worktree).
 
@@ -627,7 +630,7 @@ Execute aborted — <reason>. No worktrees created.
 Aborted — step 1c found a state it will not build on:
 
 ```
-Execute aborted — an earlier run left a state this run will not overwrite. Nothing else was changed.
+Execute aborted — step 1c found a state this run will not create over or overwrite. Nothing else was changed.
    slice-<id> — <REASON>   (<BRANCH> · <WORKTREE>)
    [run: <RESULT_REASON>]
    [helper: could not read the run state — <exit code / missing RESULT=>]
