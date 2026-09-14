@@ -146,6 +146,9 @@ Otherwise (`Status: committing`) run Steps 1–7 normally.
 
 - `git diff --stat` to see scope.
 - Map changes to the slice's sub-tasks. Propose one commit per logical change. Order: foundation first, leaves last.
+- The plan(s) this run closes are never part of the split, tracked or not: their status edits are CRAFT's bookkeeping,
+  and a tracked plan leaves the trunk in exactly one commit, its removal (Step 7, or Step 6 under protected main). Any
+  other plan under `.claude/plans/` — a sibling slice planned meanwhile — is the human's to include or leave out.
 
 Present the proposal as a list:
 
@@ -318,6 +321,15 @@ this step only decides the *landing*.
   approval exists **is** the gate, not a bypass):
 
   **First invocation** (slice `Status: committing`):
+  0. **A tracked plan's removal rides in the PR** — the trunk takes no direct commit, so the plan
+     leaves it with the approved merge. In the checkout Steps 4–5 wrote in, with every plan Step 7
+     would delete (Epic-finalize: every included slice plan and the epic plan), run
+     `bash "${CLAUDE_PLUGIN_ROOT}/scripts/plan-landing.sh" close --message "chore(plans): close slice-<NNN>" [--keep-copy] <plan>...`
+     (Epic-finalize: `close epic-<NNN>`). Pass `--keep-copy` when that checkout is the main
+     checkout (in-place) — the live plan stays there for this pass and the second one; omit it in a
+     finalize worktree, which Step 7 removes. What "tracked" means and how the deletion is committed
+     is the helper's (its header): a `COMMIT=<hash>` goes into the commit-log buffer, `COMMIT=-`
+     means no plan was tracked, `ERROR=` stops like a failing `git commit` in Step 3.
   1. `git push -u origin <branch>` (Level 0 — external).
   2. `gh pr create --base <trunk> --title "<slice/epic title>" --body "<What / Why / Commits summary>"`. Capture the PR number `#N` and URL. On the PR path there is no merge commit, so the slice archive's `## Commits` records the branch's own commit range (`<first>..<last>` on the branch) plus the PR `#N` — backfill `#N` into that line, then commit and push the backfill on the PR branch, in the checkout Steps 4–5 wrote in: `git commit -m "docs(slices): record PR #N for slice-<NNN>" -- <archive path>` and `git push`. It lands before any approval, so it dismisses no review, and the archive is not left modified for Step 7's checkout or worktree removal. A failing commit or push is handled like a failing `gh pr create` below.
   3. <!-- craft:writes status=awaiting-approval --> Set the slice plan `Status: awaiting-approval` and record `> PR: #N <url>` in the plan frontmatter — a fresh-context second invocation reads `#N` from there (failing that, derives it via `gh pr list --head <branch> --json number -q '.[0].number'`). Do **not** merge and do **not** run Step 7 — the plan file stays.
@@ -338,23 +350,45 @@ this step only decides the *landing*.
   **sequential epic opens one PR per slice** — `s3` in `/craft:execute`'s Sequential epic path
   opens it (first invocation, from the slice's `<slice-id>-<slug>` branch), and the next
   `/craft:execute <epic>` invocation's `s0` completes it (second invocation → `gh pr merge` +
-  the Step 7 In-place-finalize local↔remote sync). Each slice lands on its own approved PR.
+  Step 7's *Plans and the trunk under protected main*). Each slice lands on its own approved PR.
 
 ### Step 7 — Delete the active plan files and clean up worktrees
 
 > **Protected-main PR gate:** Step 7 runs only on the **second** invocation, after `gh pr merge` succeeds (Step 6). On the first invocation the slice is left at `Status: awaiting-approval` with its plan intact — do not reach Step 7.
 
-In **Standard mode**: `rm .claude/plans/slice-<NNN>-<slug>.md`. The slice archive + commits are now the durable record. No worktree to remove (none was created).
+In **Standard mode**: `rm .claude/plans/slice-<NNN>-<slug>.md` — under `pull-request` + `Protected-main: yes` never: *Plans and the trunk under protected main* below replaces this `rm`, for tracked and untracked plans alike, and must find the plan still on disk. The slice archive + commits are now the durable record. No worktree to remove (none was created).
 
 > **A tracked plan** (`git ls-files --error-unmatch <plan>` succeeds — the project versions its
 > plans): delete it with `git rm -f` instead of `rm`, in every mode (Standard included) — `-f`
 > because the plan always carries uncommitted status edits by now, and its content lives on in the
 > archive — and commit the deletions of this run with a pathspec,
 > `git commit -m "chore(plans): close slice-<NNN>" -- <plan paths>` (Epic-finalize: `close epic-<NNN>`),
-> on the trunk, after any merge this step performs — under `Type: direct` only. Under `pull-request` +
-> `Protected-main: yes` the trunk takes no direct commit: leave the staged deletion and name it in
-> the output; `scripts/tree-dirt-state.sh` does not count a plan as dirt, so it blocks neither P2 nor
-> a re-run. An untracked or ignored plan is simply removed.
+> on the trunk, after any merge this step performs — under `Type: direct` only, where an untracked or
+> ignored plan is simply removed. Under `pull-request` + `Protected-main: yes` see *Plans and the
+> trunk under protected main* below instead.
+
+> **Plans and the trunk under protected main** (second pass, after `gh pr merge` succeeded): the
+> approved merge landed on the remote only, and it already carries every tracked plan's removal
+> (Step 6, first invocation, item 0). Bring the main checkout to the merged trunk and drop the local
+> plan copies in one call, from the main checkout, with every plan Step 7 deletes in this mode:
+>
+> ```
+> bash "${CLAUDE_PLUGIN_ROOT}/scripts/plan-landing.sh" sync --trunk <trunk> <plan>...
+> ```
+>
+> How it moves the checkout and what it does with each plan copy is defined in the helper's header.
+> This call **is** the plan deletion in this mode and the trunk sync of *In-place-finalize* and the
+> finalize modes below; do not `rm` or `git rm` a plan before or after it.
+> - `RESULT=ok` with `ON_TRUNK=no` for every plan → the plan is gone locally and on the remote trunk,
+>   nothing is staged. Continue.
+> - `ON_TRUNK=yes` → the merged PR did not carry that plan's removal (a PR opened before this rule):
+>   the trunk still tracks it, and the helper left its local removal as an unstaged deletion — so this
+>   checkout already reads the slice as landed. Name it in the output: the removal needs a PR of its
+>   own, and that deletion is what the PR carries. Do not stage or commit it here.
+> - `ERROR=` (git's reason printed above it) → surface both and stop before any branch or worktree
+>   removal. The helper left every plan copy as it was, on the branch it started from, so the slice
+>   stays `awaiting-approval` and a re-run of `/craft:commit` retries once the cause is cleared (Step 6
+>   finds the PR `MERGED` and comes straight back here).
 
 > **In-place-finalize (a slice built in-place on a non-trunk branch):** when the landed slice
 > was built in-place on a `<slice-id>-<slug>` branch in the main checkout (slice-018 in-place,
@@ -365,28 +399,29 @@ In **Standard mode**: `rm .claude/plans/slice-<NNN>-<slug>.md`. The slice archiv
 >   `git checkout <trunk>` then `git merge --no-ff <slice-id>-<slug>`, then
 >   `git branch -d <slice-id>-<slug>`.
 > - `pull-request` + protected-main → the Step 6 `gh pr merge` landed the merge on the
->   **remote**, so sync local first: `git checkout <trunk>`, then `git fetch origin <trunk>`
->   and `git merge --ff-only origin/<trunk>` (so local `<trunk>` contains the merged work),
->   then `git branch -d <slice-id>-<slug>`.
-> Then continue the Standard-mode cleanup (`rm` the plan). If `git branch -d` fails (unmerged
+>   **remote**; *Plans and the trunk under protected main* above has already checked out and
+>   fast-forwarded the trunk (so local `<trunk>` contains the merged work) and dropped the plan.
+>   Only `git branch -d <slice-id>-<slug>` is left.
+> Under `direct`, then continue the Standard-mode cleanup (`rm` the plan). If `git branch -d` fails (unmerged
 > — should not happen post-land), surface it and skip the delete. Never `-D` (force).
 > (A `direct` **sequential**-epic slice builds directly on the trunk with no branch, so it
 > skips this entirely — it is already on `main`.)
 
 > **Finalize modes under `pull-request` + `Protected-main: yes`** (second pass): the approved merge
 > landed on the remote only. Before removing any worktree, bring the local trunk up to date in the
-> main checkout the way *In-place-finalize* above does (fetch, `--ff-only`) — that is how the archive
+> main checkout through *Plans and the trunk under protected main* above — that is how the archive
 > and promotions Steps 4–5 wrote in the worktree reach the main checkout, where P3/P4 read them and
-> a later `/craft:execute` A6 finds the archive.
+> a later `/craft:execute` A6 finds the archive — and the plan removal it performs replaces the `rm`
+> below.
 
-In **Slice-finalize mode**: `rm` the slice plan. Then remove the worktree and delete the slice-branch:
+In **Slice-finalize mode**: `rm` the slice plan (under protected main never — the sync above replaces this `rm`, also when it reports `ON_TRUNK=yes`). Then remove the worktree and delete the slice-branch:
 
 ```
 git worktree remove ../<repo>-worktrees/<slice-id>-<slug>
 git branch -d <slice-id>-<slug>
 ```
 
-In **Epic-finalize mode**: `rm` every included slice's plan AND the epic plan. Then remove the slice-worktrees, the epic-worktree, and delete all the branches:
+In **Epic-finalize mode**: `rm` every included slice's plan AND the epic plan (under protected main never — the sync above replaces this `rm`, also when it reports `ON_TRUNK=yes`). Then remove the slice-worktrees, the epic-worktree, and delete all the branches:
 
 ```
 for each <slice-id>-<slug>: git worktree remove ../<repo>-worktrees/<slice-id>-<slug>
@@ -443,7 +478,7 @@ Run all of the following. Any failure → warn loudly, surface to the user, do *
 
 ### P1 — All proposed commits landed
 
-For each commit proposed in Step 1 and confirmed by the user — and each record commit (Step 5b) and plan-closing commit (Step 7) — verify the commit hash exists:
+For each commit proposed in Step 1 and confirmed by the user — and each record commit (Step 5b) and plan-closing commit (Step 7, or under protected main Step 6's `plan-landing.sh close`) — verify the commit hash exists:
 
 ```
 git cat-file -e <hash>
@@ -457,7 +492,7 @@ Failure → *"⚠ Commit `<hash>` (`<subject>`) is not present in git history. T
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/tree-dirt-state.sh"
 ```
 
-It must report `DIRTY=no` — the work commits (Step 3), the record commits (Step 5b) and the plan-closing commit (Step 7) leave nothing of this slice behind. A remaining `DIRT=` line whose path A3 already listed and that no commit of this run touched is the human's own change, kept out of the split on purpose: report it as `ℹ Left uncommitted (yours): <paths>` — not a failure. Any other `DIRT=` line → *"⚠ Working tree is not clean after Phase 9: `<DIRT= lines>`. Uncommitted changes remain — Phase 9 commits the sub-task changes, the archive and the promotions. Inspect manually."*
+It must report `DIRTY=no` — the work commits (Step 3), the record commits (Step 5b) and the plan-closing commit (Step 7, or under protected main Step 6's `plan-landing.sh close`) leave nothing of this slice behind. A remaining `DIRT=` line whose path A3 already listed and that no commit of this run touched is the human's own change, kept out of the split on purpose: report it as `ℹ Left uncommitted (yours): <paths>` — not a failure. Any other `DIRT=` line → *"⚠ Working tree is not clean after Phase 9: `<DIRT= lines>`. Uncommitted changes remain — Phase 9 commits the sub-task changes, the archive and the promotions. Inspect manually."*
 
 ### P3 — Slice archive entry exists
 
@@ -518,7 +553,7 @@ Commits:
 
 Archive: .claude/project/slices/slice-<NNN>-<slug>.md   (committed in <hash>)
 [PR: <url>]
-[Plan deletion staged, not committed — protected main takes no direct commit; it is not dirt]
+[Plan <path> still tracked on <trunk> — the merged PR did not carry its removal; the unstaged deletion here is what its own PR needs]
 
 Recommended next: /craft:plan to start the next slice, or /craft:prime to refresh status.
 ```
@@ -530,6 +565,9 @@ Protected-main PR opened (awaiting approval — first invocation):
    PR:     <url>   (#N)
    Branch: <branch> → <trunk>   (main NOT merged yet)
    The commits are in the PR. Approve it on GitHub (a real review), then:
+   [In-place with a tracked plan: stay on <branch> in this checkout until then — the plan is an
+    untracked file here, so `git checkout <trunk>` refuses; `stash -u`, `clean` or `checkout -f`
+    would destroy the live plan.]
 
    Complete: /craft:commit    (detects the approval and merges via gh)
 ```
@@ -570,6 +608,7 @@ Inspect and reconcile manually before starting the next slice.
 | Decisions promotion: user picks `[I]` or `[R]` but rejects the proposed diff | Down-grade that decision to `[K]`; do not write `intent.md` / `rules.md`. P4 treats this as expected, not a failure. |
 | Push fails (network, auth) | Stop after Step 6; archive written, plan kept, user told how to push manually. Do not proceed to Step 7. |
 | PR creation fails | Same as push fail: archive written, plan kept, recovery instructions emitted. |
+| `plan-landing.sh sync` fails after the merge (fetch, diverged trunk, checkout, fast-forward) | Surface git's reason and its `ERROR=`; no branch or worktree is removed. The plan copy is as it was (`awaiting-approval`) on the branch sync started from, so a re-run retries the sync once the cause is cleared. |
 | P1–P5 fail after the procedure | Warn loudly; emit partial-completion block; do not auto-rollback. |
 
 ---

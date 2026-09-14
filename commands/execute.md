@@ -350,10 +350,14 @@ slice** — complete its landing before starting any new slice by delegating to 
 (its **second invocation**, since the slice is `awaiting-approval`). `/craft:commit` reads the PR
 and:
 
-- **Approved → merged** — it runs `gh pr merge`, then its Step 7 *In-place-finalize* syncs the
-  local trunk with the remote (`git checkout <trunk>`, `git fetch origin <trunk>`,
-  `git merge --ff-only origin/<trunk>`), deletes the slice branch, and archives the plan. The
+- **Approved → merged** — it runs `gh pr merge`, then its Step 7 syncs the local trunk with the
+  remote and drops the local plan copy (*Plans and the trunk under protected main* — the merged PR
+  already removed a tracked plan from the trunk), and deletes the slice branch. The
   slice is now **landed** and the working tree is back on the synced trunk. Continue to s1.
+- **Merged, but Step 7 stopped** (`/craft:commit` surfaced a `plan-landing.sh` `ERROR=`) — the slice
+  is not landed locally: it stays `awaiting-approval` on its branch. Surface the error, release the
+  lock (`rm .claude/plans/.execute.lock`) and stop; once the cause is cleared, a re-run of
+  `/craft:execute <epic-NNN>` retries through `s0`. Do **not** continue to s1.
 - **Not yet approved** (`reviewDecision` not `APPROVED`, PR still `OPEN`) — `/craft:commit`
   changes nothing and reports it. Release the lock (`rm .claude/plans/.execute.lock`) and
   re-emit the awaiting-approval halt (see Output Format): the human approves on GitHub, then
