@@ -71,6 +71,13 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
   A `/craft:execute` re-run follows the same rule (slice-038): what an earlier run left behind —
   worktrees, merges, a stopped slice — is derived by one helper and built on, never re-created, and a
   state nothing accounts for stops the run instead of being overwritten.
+- **CRAFT's own files are not the human's work (slice-039)** — which paths count as uncommitted
+  work is decided once, by `scripts/tree-dirt-state.sh`: plans, ID counters and local state never
+  block `/craft:execute` or `/craft:commit`. The flip side is that a command commits only what it
+  wrote (pathspec commits; the human's changes stay theirs), and a worktree is created only from a
+  base that holds its plan byte-identical. *Why not* let the clean-tree check count everything: it
+  made plan files the human's problem and was, by accident, the only guard keeping worktrees off
+  stale plans. Removing it without moving that guard (round-1 review) proved the guard was real.
 - **Approve ≠ merge on protected `main` (epic Decision D)** — in a project whose profile
   sets protected-`main` PR mode, `/craft:commit` runs `gh pr merge` itself, but **only after
   a real human GitHub PR approval** (never `--admin`, so branch protection genuinely gates
