@@ -141,6 +141,20 @@ touch `commands/` cannot be verified end-to-end in the session that writes them.
 - **Q4 → Master session + subagents.** Builds on `slice-builder` / `code-reviewer`, resumable across
   sessions via handoff; ping-pong counters live in the slice plan and are harness-checked. The
   Workflow tool is evaluated later in a spike, not the foundation.
+- **Q7 → The autopilot builder works in place** (user, 2026-09-15). Slices are built in the main checkout on the
+  epic branch — no slice worktrees. The plan status then lives in the one checkout the master and `/craft:commit` read,
+  so the worktree plan round-trip (roadmap B15) is not needed for autopilot; parallel worktree mode keeps B15 for
+  itself. *Cost:* the main checkout is occupied for the whole run — the human must not edit files or switch branches
+  there while it runs.
+  - **Requirement — the run is made visible** (user). The human is shown how the process runs: at the plan gate
+    (before approving) and at the start of the run — that it builds in place, on which branch, that the checkout is
+    occupied and what not to do meanwhile, the slice order, where it will stop for the human (escalations, budget stop,
+    epic-end sign-off), and how to pause, resume and stop it; while it runs, a progress line per slice (which slice,
+    which phase, what landed on the epic branch). Wording and exact place are for the epic's planning slice.
+  - **Open for epic planning:** each slice committed directly on the epic branch, or on a short-lived
+    `<slice-id>-<slug>` branch in the same checkout merged `--no-ff` into the epic branch (Q3's "one merge per slice");
+    how this relates to the existing sequential epic mode (in place, landing per slice on the trunk) — likely autopilot
+    reuses that path with the epic branch as the landing target.
 
 ## 10. Still open
 
@@ -153,19 +167,18 @@ touch `commands/` cannot be verified end-to-end in the session that writes them.
 - **Spike items:** statusline refresh cadence during a foreground subagent; whether a blocked
   `UserPromptSubmit` prompt really makes no API call; `fable` alias vs. `model-defaults.md` enum.
 
-## 11. Prerequisites before the epic (assessed 2026-09-14, after slice-040)
+## 11. Prerequisites before the epic (assessed 2026-09-14, after slice-040; updated 2026-09-15, after slice-041)
 
 Open roadmap fixes weighed against §3–§5 and Q3/Q4. Autopilot runs unattended, so a gap that today
 costs a human one manual step stops or misroutes the whole run.
 
 | Item | Why it blocks autopilot | Verdict |
 |---|---|---|
-| **B12** epic decomposition ↔ slice-ID | Every resume re-validates the epic (`/craft:execute` A6); an entry without a slice-ID is rejected once its first slice has landed, so the run halts after slice 1 until a human edits the entry. The `slice-planner` agent (§4 Stage A) also needs the rule for who links an entry to its slice. | **before** |
+| **B12** epic decomposition ↔ slice-ID | Every resume re-validates the epic (`/craft:execute` A6); an entry without a slice-ID is rejected once its first slice has landed, so the run halts after slice 1 until a human edits the entry. The `slice-planner` agent (§4 Stage A) also needs the rule for who links an entry to its slice. | **done — slice-041**: `/craft:plan` links, A6 resolves through `scripts/epic-entry-link.sh`; the planner agent should link through the same helper. Follow-up R1-9 (commit / s0 / continue still read entries themselves) is worth folding into the orchestrator work |
 | **B11** handoff resolution from `paused` + marker revival (slice-036 R2, R3) | The master consumes every `.craft/handoff.md` (§4). A `paused`-paired marker stays live after its answer (a re-run stops at step 0), and a stale marker revives when the plan re-enters its paired status — exactly what the ping-pong breaker's loop-back to `reviewing` does repeatedly (§5). Result: phantom escalations or a stuck loop. | **before** |
-| **B15** plan round-trip in worktree mode (slice-039 R2-7) | Q3 commits on an epic branch with one merge per slice, built by `slice-builder`, which runs in a slice worktree and writes plan status only into the worktree copy; the master and `/craft:commit` read the main checkout and never see progress. | **before — unless** the epic decides the autopilot builder works in place on the epic branch; decide that first |
-| **Release** (slice-033 … slice-040 unreleased) | Not a fix: the installed 1.4.0 lacks the handoff liveness, findings record, execute re-run, tree hygiene and plan landing that autopilot builds on, plus the docs-site / CHANGELOG carry-over. Dogfooding against the old runtime tests a foundation that does not exist there. | **before** |
+| **B15** plan round-trip in worktree mode (slice-039 R2-7) | Would block only a builder in a slice worktree, which writes plan status into the worktree copy while the master reads the main checkout. | **not needed** — Q7: the autopilot builder works in place. Stays a fix for parallel worktree mode |
+| **Release** (slice-033 … slice-041 unreleased) | Not a fix: the installed 1.4.0 lacks the handoff liveness, findings record, execute re-run, tree hygiene and plan landing that autopilot builds on, plus the docs-site / CHANGELOG carry-over. Dogfooding against the old runtime tests a foundation that does not exist there. | **before** |
 | **B17** subdirectory-project settings helpers | Only a project below its repository root; not this repo. | after |
 | **B5** toolchain polish | Cosmetic. | after |
 
-**Order:** decide the builder location (worktree vs. in place on the epic branch) → B12 → B11 (with B15 if it
-stays; both touch the handoff / plan-status plumbing of worktree mode) → release → F6 spike slice (§10).
+**Order:** ~~builder location~~ (Q7: in place) → ~~B12~~ (slice-041) → B11 → release → F6 spike slice (§10).
