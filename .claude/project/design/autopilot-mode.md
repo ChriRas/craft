@@ -167,7 +167,7 @@ touch `commands/` cannot be verified end-to-end in the session that writes them.
 - **Spike items:** statusline refresh cadence during a foreground subagent; whether a blocked
   `UserPromptSubmit` prompt really makes no API call; `fable` alias vs. `model-defaults.md` enum.
 
-## 11. Prerequisites before the epic (assessed 2026-09-14, after slice-040; updated 2026-09-15, after slice-041)
+## 11. Prerequisites before the epic (assessed 2026-09-14, after slice-040; updated 2026-09-15, after slice-043)
 
 Open roadmap fixes weighed against §3–§5 and Q3/Q4. Autopilot runs unattended, so a gap that today
 costs a human one manual step stops or misroutes the whole run.
@@ -177,11 +177,11 @@ costs a human one manual step stops or misroutes the whole run.
 | **B12** epic decomposition ↔ slice-ID | Every resume re-validates the epic (`/craft:execute` A6); an entry without a slice-ID is rejected once its first slice has landed, so the run halts after slice 1 until a human edits the entry. The `slice-planner` agent (§4 Stage A) also needs the rule for who links an entry to its slice. | **done — slice-041**: `/craft:plan` links, A6 resolves through `scripts/epic-entry-link.sh`; the planner agent should link through the same helper. Follow-up R1-9 (commit / s0 / continue still read entries themselves) is worth folding into the orchestrator work |
 | **B11** handoff resolution from `paused` + marker revival (slice-036 R2, R3) | The master consumes every `.craft/handoff.md` (§4). A `paused`-paired marker stays live after its answer (a re-run stops at step 0), and a stale marker revives when the plan re-enters its paired status — exactly what the ping-pong breaker's loop-back to `reviewing` does repeatedly (§5). Result: phantom escalations or a stuck loop. | **done — slice-042**: pauses record `Paused-status` / `Paused-since`, `/craft:continue` 4a is the one resume, and markers carry `Episode:` (stamp or review round), so a loop-back into `reviewing` gives `episode_mismatch`. Follow-up R1-15 (a resume records no answer, so a re-run meets the question again) belongs to the orchestrator work |
 | **B15** plan round-trip in worktree mode (slice-039 R2-7) | Would block only a builder in a slice worktree, which writes plan status into the worktree copy while the master reads the main checkout. | **not needed** — Q7: the autopilot builder works in place. Stays a fix for parallel worktree mode |
-| **Release** (slice-033 … slice-041 unreleased) | Not a fix: the installed 1.4.0 lacks the handoff liveness, findings record, execute re-run, tree hygiene and plan landing that autopilot builds on, plus the docs-site / CHANGELOG carry-over. Dogfooding against the old runtime tests a foundation that does not exist there. | **before** |
+| **Release** (slice-033 … slice-042 unreleased) | Not a fix: the installed 1.4.0 lacks the handoff liveness, findings record, execute re-run, tree hygiene and plan landing that autopilot builds on, plus the docs-site / CHANGELOG carry-over. Dogfooding against the old runtime tests a foundation that does not exist there. | **done — slice-043**: CRAFT v1.5.0 released and installed; a fresh session's `/craft:prime` reports v1.5.0 without drift |
 | **B17** subdirectory-project settings helpers | Only a project below its repository root; not this repo. | after |
 | **B5** toolchain polish | Cosmetic. | after |
 
-**Order:** ~~builder location~~ (Q7: in place) → ~~B12~~ (slice-041) → ~~B11~~ (slice-042) → release → F6 spike slice (§10).
+**Order:** ~~builder location~~ (Q7: in place) → ~~B12~~ (slice-041) → ~~B11~~ (slice-042) → ~~release~~ (slice-043, v1.5.0) → F6 spike slice (§10).
 
 **Versioning** (user, 2026-09-15): the prerequisite release is **1.5.0**, an interim release that only lays the
 foundation; **autopilot mode ships as 2.0.0** — the big new feature carries the major bump.
