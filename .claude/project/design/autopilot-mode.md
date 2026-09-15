@@ -182,3 +182,6 @@ costs a human one manual step stops or misroutes the whole run.
 | **B5** toolchain polish | Cosmetic. | after |
 
 **Order:** ~~builder location~~ (Q7: in place) → ~~B12~~ (slice-041) → ~~B11~~ (slice-042) → release → F6 spike slice (§10).
+
+**Versioning** (user, 2026-09-15): the prerequisite release is **1.5.0**, an interim release that only lays the
+foundation; **autopilot mode ships as 2.0.0** — the big new feature carries the major bump.
