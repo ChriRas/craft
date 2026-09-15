@@ -105,7 +105,7 @@ status tokens, precision over brevity, working tree only):
    constraints, rules.md optional blocks, agent model defaults/overrides, language
    settings, personality tiers, `.claude/project/` + `.claude/plans/` inventory.
 4. **Architecture & runtime** — manifests, hook wiring + guard logic, both agents
-   (role, model, must/must-nots), both test harnesses (what they assert and why
+   (role, model, must/must-nots), the self-test harnesses (what each asserts and why
    markers-not-prose), worktree mechanics, companion tools, install/upgrade flow.
 
 ### 3. Writing
