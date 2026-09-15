@@ -20,7 +20,7 @@ Follow `skills/workflow/SKILL.md` Phase 5 mechanics (the three sub-steps 5a / 5b
 ### 1. Locate active slice
 
 <!-- craft:reads status=testing -->
-- `Glob` `.claude/plans/*.md`. Expect exactly one in `Status: testing` or `implementing`. If multiple, ask the user which slice. If none, stop with `No slice ready for testing. Run /craft:build first or /craft:plan to start a new slice.`
+- `Glob` `.claude/plans/*.md`. Expect exactly one in `Status: testing` or `implementing`. If multiple, ask the user which slice. If none, stop with `No slice ready for testing. Run /craft:build first or /craft:plan to start a new slice.` — when the slice is `paused`, instead `Slice is paused. Resume it with /craft:continue first.`
 
 ### 2. Load slice plan
 
@@ -167,7 +167,7 @@ Recommended next: /craft:build
 
 | Situation | Behavior |
 |---|---|
-| No `Status: implementing` or `testing` slice found | Stop, recommend `/craft:build` or `/craft:plan`. |
+| No `Status: implementing` or `testing` slice found | Stop, recommend `/craft:build` or `/craft:plan` — for a `paused` slice `/craft:continue` (Pre-flight step 1). |
 | User reports "kind of works, but…" without picking W/B/U | Re-ask, force the single-letter choice. Do not interpret vague answers. |
 | Demo-setup cannot be derived (trigger field empty in plan) | Tell user the slice plan is missing the Trigger answer; recommend re-running `/craft:plan` to repair, or ask the user inline. |
 | User wants to skip Phase 5 because "tests are green" | Refuse politely: *"Phase 5 cannot be skipped — automated tests don't capture product feel. Take 60 seconds to run the demo."* |
@@ -179,9 +179,10 @@ Recommended next: /craft:build
 When invoked by the `slice-builder` subagent during an autonomous `/craft:execute` run, the human cannot perform sub-step 5b in real time. The subagent therefore takes this path instead:
 
 0. Verify the slice plan is at `Status: testing` (set by `/craft:build` on clean Phase-4 completion). If any other status, <!-- craft:handoff status=failure plan=- --> write `.craft/handoff.md` with `Status: failure` and a one-line note "Out-of-band slice state — expected `testing`, found `<X>`" and stop. This catches a slipped Phase-4 transition before it pollutes Phase 5.
-1. <!-- craft:handoff status=awaiting-test plan=paused --> Run 5a (Demo-Setup) and write its block to `.craft/handoff.md` inside the slice worktree with `Status: awaiting-test` and the trigger / try-this / expected-effect block embedded.
-2. <!-- craft:writes status=paused --> Update the slice plan's `Status: paused` and append a Pause Note: *"Awaiting human Phase-5 exercise (subagent-invoked)."*
-3. Return control to the orchestrator. The orchestrator surfaces the handoff in the final "epic partially complete" block; the user resumes the slice via `/craft:checkout <slice-id>` + `/craft:continue` after exercising the artifact.
+1. Prepare 5a (Demo-Setup) — derive the trigger / try-this / expected-effect block, write nothing yet. If it cannot be prepared, take the blocker path below instead, with no pause.
+2. <!-- craft:writes status=paused --> Update the slice plan's `Status: paused` with the pause record (`skills/workflow/SKILL.md` → **Pause record**) and append a Pause Note: *"Awaiting human Phase-5 exercise (subagent-invoked)."*
+3. <!-- craft:handoff status=awaiting-test plan=paused --> Write the 5a block to `.craft/handoff.md` inside the slice worktree with `Status: awaiting-test` and the record's `Paused-since` as its `Episode:`.
+4. Return control to the orchestrator. The orchestrator surfaces the handoff in the final "epic partially complete" block; the user resumes the slice via `/craft:checkout <slice-id>` + `/craft:continue` after exercising the artifact.
 
 The subagent does **not** fabricate the W/B/U answer — sub-step 5c always requires a human.
 

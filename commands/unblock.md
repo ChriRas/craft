@@ -9,7 +9,7 @@ allowed-tools: ["Read", "Edit", "Glob"]
 
 The mutating counterpart to `/craft:block`. Where `/craft:block` records a `blocked` state,
 `/craft:unblock` clears it — or links a still-pending prerequisite so it *can* be cleared later.
-`/craft:continue` is a read-only router and delegates a `blocked` slice here.
+`/craft:continue` never mutates a `blocked` slice (its one write is resuming a `paused` one) and delegates a `blocked` slice here.
 
 Two functions, in one flow:
 

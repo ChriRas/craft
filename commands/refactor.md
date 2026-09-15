@@ -38,8 +38,10 @@ has no seat — but it still may not move a slice that has not reached the hand-
 
 - **any other status** (`planning`, `implementing`, `testing`, `committing`, `awaiting-*`), a
   `blocked` / `paused` slice, or no active slice at all → **do not touch the status.** Stop with
-  `No slice ready for refactor. Run /craft:recap first.` The allow-list above is closed: anything
-  not on it lands here. A slice at `implementing` or `testing` has not passed the Phase-5 human
+  `No slice ready for refactor. Run /craft:recap first.` — for a `paused` slice instead
+  `Slice is paused. Resume it with /craft:continue first.`, for a `blocked` one
+  `Slice is blocked. Resolve it with /craft:unblock first.` The allow-list above is closed: anything not on it lands
+  here. A slice at `implementing` or `testing` has not passed the Phase-5 human
   demo, and Phase 5 cannot be skipped (`skills/workflow/SKILL.md` → *Phase 5 cannot be skipped*).
   Yanking it to `reviewing` would jump that gate.
 
@@ -56,7 +58,8 @@ Otherwise (Phase 7 kept):
 
 <!-- craft:reads status=refactoring -->
 - `Glob` `.claude/plans/*.md`. Expect a slice in `Status: refactoring`, or `review` if jumping here directly after Phase 6. **Not `reviewing`** — in a Phase-7-keeping project that can only mean Phase 8 has already started, and pulling such a slice back to `refactoring` would yank it out of a running review.
-- If none → stop with `No slice ready for refactor. Run /craft:recap first.`
+- If none → stop with `No slice ready for refactor. Run /craft:recap first.` — for a `paused` or `blocked` slice, with the
+  two messages of the gate above.
 
 <!-- craft:writes status=refactoring when=phase7-kept -->
 - Update `Status: refactoring` if not already.
@@ -172,7 +175,7 @@ When invoked by the `slice-builder` subagent during an autonomous run:
   descriptions of one contract, with only one of them maintained, is exactly the defect this slice
   exists to fix (it is how B1 survived — the subagent path handled the drop while the interactive
   path did not). One route, one marker, one row.
-- Otherwise, the subagent surveys the slice's code change for the three Thorstensen prompts on its own (no user dialog), proposes up to 2 candidates, and **does not apply them**. <!-- craft:handoff status=awaiting-refactor-decision plan=paused --> It writes the candidate list to `.craft/handoff.md` with `Status: awaiting-refactor-decision` and pauses the slice. The human picks at `/craft:checkout` time, then runs `/craft:refactor` interactively (or skips with a Decision-log note).
+- Otherwise, the subagent surveys the slice's code change for the three Thorstensen prompts on its own (no user dialog), proposes up to 2 candidates, and **does not apply them**. <!-- craft:handoff status=awaiting-refactor-decision plan=paused --> It pauses the slice, pause record included (`skills/workflow/SKILL.md` → **Pause record**), and writes the candidate list to `.craft/handoff.md` with `Status: awaiting-refactor-decision` and the record's `Paused-since` as its `Episode:`. The human picks at `/craft:checkout` time: resume with `/craft:continue` (the plan is paused), then run `/craft:refactor` interactively (or skip with a Decision-log note).
 
 Refactor must never be silently applied without human judgment — it changes structure, and unsupervised structural change is a known failure mode of agent-driven development.
 

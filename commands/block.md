@@ -62,7 +62,7 @@ The slice `Status` must be an in-flight execution state — one of `implementing
   re-word) rather than stacking a second one. Step 4 **preserves** the existing
   `Blocked-status` on this path.
 - `Status: paused` → allowed; blocking supersedes the pause (note it in the confirmation).
-  Step 4 asks for the resume execution status, since pause did not structure it.
+  Step 4 takes the resume execution status from the pause record, and step 5 removes the record.
 - Any other `Status` (e.g. `awaiting-release`, `awaiting-approval`, or an unrecognized value)
   → surface it and ask the user how to proceed rather than mutating blindly, as
   `/craft:continue` does for unrecognized statuses.
@@ -129,10 +129,12 @@ must **always** hold an execution `Status` token — one of `implementing`, `tes
 `Status:` field, **not** from `Phase:` (a plan-time stamp that can read stale), per three cases:
 
 - **Live status is an execution token** → `Blocked-status` = that token.
-- **Live status is `paused`** (A1 allows blocking a paused slice) → the pre-pause phase is not
-  structured anywhere (pause records it only in prose), so **ask** the user which execution
-  token to resume into — offer the six execution tokens as a pick-list and propose a default
-  read from the slice's `## Pause Note`. Record their answer; never store `paused`.
+- **Live status is `paused`** (A1 allows blocking a paused slice) → `Blocked-status` = the pause
+  record's `Paused-status` (`skills/workflow/SKILL.md` → **Pause record**) when it is an
+  execution token. When the plan has no record (paused before B11) or the recorded value is not an
+  execution token, **ask** the user which execution token to resume into — offer the six execution
+  tokens as a pick-list and propose a default read from the slice's `## Pause Note`. Record their
+  answer; never store `paused`.
 - **Live status is `blocked`** (A1 re-block / update path) → **preserve** the slice's existing
   `Blocked-status`; do not recompute it from the live `blocked` token. Only the blocker
   classification and `## Blocker` prose are updated.
@@ -149,15 +151,23 @@ mutates (rules.md). On confirmation, edit the active slice plan:
 - Add the **on-demand** blocker frontmatter fields directly below the `Status:` line (they are
   absent on a normal slice; write them only now). On a **re-block** (A1 update path), update the
   existing fields in place — do **not** append a second set: preserve `Blocked-status` (per
-  step 4), refresh `Blocked-since` to the re-block date, and overwrite `Blocker-type` /
-  `Blocked-on` with the new classification.
+  step 4), **keep `Blocked-since`** (a re-block stays in the block's episode — see the note below),
+  and overwrite `Blocker-type` / `Blocked-on` with the new classification. When blocking a `paused`
+  slice, remove the pause record (`Paused-status`, `Paused-since`) — the block supersedes it — and prepend
+  `> Superseded by block: <ISO datetime>` to its `## Pause Note`, so the note no longer reads as a pause to resume.
 
   ```
   > Blocker-type: <prerequisite-work | external | decision | access>
   > Blocked-on: <slice-NNN | epic-NNN | (pending — create via /craft:plan) | free text>
-  > Blocked-since: <ISO date>
+  > Blocked-since: <ISO datetime, UTC — YYYY-MM-DDTHH:MM:SSZ>
   > Blocked-status: <prior execution Status token to restore on unblock, e.g. testing>
   ```
+
+  `Blocked-since` is a datetime, not a date: it is the block's **episode**, and a handoff marker
+  written for this block carries the same value as its `Episode:` (`skills/workflow/SKILL.md` →
+  **Handoff marker lifecycle**). A block on the same day as an earlier one must still be told apart. Only a block
+  from another status starts an episode; re-classifying a blocked slice keeps it, so a handoff whose block decision
+  is still unanswered stays live.
 
 - Add (or, when re-blocking, overwrite) the `## Blocker` section:
 
@@ -205,7 +215,8 @@ pretend success. No auto-rollback.
 `Read` the slice plan. Frontmatter must now show `Status: blocked` plus all four fields
 `Blocker-type`, `Blocked-on`, `Blocked-since`, `Blocked-status` populated with non-empty
 values. The sanctioned `Blocked-on: (pending — create via /craft:plan)` marker counts as
-populated — its resolvability is P3's concern, not P1's.
+populated — its resolvability is P3's concern, not P1's. When the slice was `paused` before, no pause-record field
+(`Paused-status`, `Paused-since`) may remain.
 
 Failure → *"⚠ Blocked frontmatter incomplete in `<path>`. Inspect before relying on the
 blocked state."*

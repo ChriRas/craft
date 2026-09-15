@@ -48,10 +48,11 @@ A marker left by an earlier run may already be resolved. Whether it still counts
 |---|---|---|
 | cannot run (not found, non-zero exit, no `STATE=`) and `.craft/handoff.md` exists | any | stop — `reason=helper-unavailable`; say *"The slice plan cannot confirm this handoff was resolved. Once it is, rename `.craft/handoff.md` by hand, then re-run."* |
 | `LIVE`, `REASON=paired` | any | stop — the human has not answered yet (no `reason=`) |
-| `LIVE`, `REASON` is a doubt reason (`plan_not_found`, `plan_ambiguous`, `plan_status_missing`, `no_slice_id`, `unknown_marker_status`) | any | stop — `reason=<REASON>`, with the same manual-rename sentence; in a project that gitignores `.claude/plans/` it is the only way out |
+| `LIVE`, `REASON` is a doubt reason (`plan_not_found`, `plan_ambiguous`, `plan_status_missing`, `no_slice_id`, `unknown_marker_status`, `episode_unknown`) | any | stop — `reason=<REASON>`, with the same manual-rename sentence; in a project that gitignores `.claude/plans/` it is the only way out |
 | `LIVE`, `REASON=failure` | `blocked` | stop — `reason=plan-held` |
-| `LIVE`, `REASON=failure` | `paused`, `MARKER_PHASE` missing or not 4–8 | stop — `reason=retry-phase-unknown`; do not guess |
-| `LIVE`, `REASON=failure` | `paused`, `MARKER_PHASE` 4–8 | retry: run the helper with `--resolve --retry`, then restore the failed phase's entry status — `4` → `implementing`, `5` → `testing`, `6` → `review`, `7` → `refactoring`, `8` → `reviewing` — and continue with that phase's step |
+| `LIVE`, `REASON=failure` | `paused`, pause record's `Paused-status` is one of the statuses in the step mapping below the table | retry: run the helper with `--resolve --retry`, then restore it as `/craft:continue` → **4a. Resume a paused slice** writes it (set `Status:`, remove the record — without its question: the re-run is the human's resume) and continue with that step |
+| `LIVE`, `REASON=failure` | `paused`, no usable record (none, or its `Paused-status` is not in that mapping), `MARKER_PHASE` missing or not 4–8 | stop — `reason=retry-phase-unknown`; do not guess |
+| `LIVE`, `REASON=failure` | `paused`, no usable record (as above), `MARKER_PHASE` 4–8 | retry: run the helper with `--resolve --retry`, then restore the failed phase's entry status — `4` → `implementing`, `5` → `testing`, `6` → `review`, `7` → `refactoring`, `8` → `reviewing` — and continue with that phase's step |
 | `LIVE`, `REASON=failure` | any other | retry without restore: run the helper with `--resolve --retry`; the plan already says where to go — continue with the step its `Status:` points to |
 | `STALE` or `NONE` | `paused` or `blocked` | stop — `reason=plan-held`: a human holds the slice (nothing renamed) |
 | `STALE` | any other | run the helper with `--resolve`, then continue with the step the plan's `Status:` points to |
@@ -60,7 +61,7 @@ A marker left by an earlier run may already be resolved. Whether it still counts
 "The step the plan's `Status:` points to": `implementing` → step 1, `testing` → step 2, `review` → step 3,
 `refactoring` → step 4, `reviewing` → step 5, `committing` → step 6 (done).
 
-Only the two retry rows and the `STALE`-continue row rename, and only after the decision. A restore writes
+Only the retry rows and the `STALE`-continue row rename, and only after the decision. A restore writes
 over `paused` alone — never over a status a human or a command set since the failure.
 
 ### 1. Phase 4 — Build
@@ -71,13 +72,13 @@ When all sub-tasks are checked, `/craft:build` updates the slice plan `Status: t
 
 ### 2. Phase 5 — Test (subagent mode)
 
-`Read` `commands/test.md` and follow its `## Subagent Mode` section: run 5a (Demo-Setup) — derive the demo invocation from the slice's recorded trigger — and write the resulting block into `.craft/handoff.md` with `Status: awaiting-test`. Update the slice plan `Status: paused` with a Pause Note: *"Awaiting human Phase-5 exercise (subagent-invoked)."*
+`Read` `commands/test.md` and follow its `## Subagent Mode` section: prepare 5a (Demo-Setup) — derive the demo invocation from the slice's recorded trigger — then pause the slice plan with the pause record (`skills/workflow/SKILL.md` → **Pause record**), then write the prepared block into `.craft/handoff.md` with `Status: awaiting-test` and the record's `Paused-since` as its `Episode:` — in that order, as the section defines it.
 
 **Stop here.** Return control to the orchestrator. You do not attempt 5b or 5c — both require a human.
 
 If 5a itself cannot be prepared because a prerequisite is missing — the classic case, an artifact that cannot be exercised because deployment infrastructure does not exist yet — that is a blocker, not an awaiting-test pause: escalate via **Blocker detection & escalation** below (classify, write the `blocked` state with `Blocked-status: testing`, halt) instead of writing the `awaiting-test` handoff.
 
-The orchestrator surfaces your handoff in its final block. The human exercises the artifact via `/craft:checkout <slice-id>`, then either resumes the slice manually or runs `/craft:execute <epic-NNN>` again (which re-spawns you to continue from Phase 6 if the human chose `[W]` and updated the slice status).
+The orchestrator surfaces your handoff in its final block. The human exercises the artifact via `/craft:checkout <slice-id>`, resumes it with `/craft:continue` (step 4a — never by editing `Status:` by hand, which would leave the pause record behind), answers Phase 5 in `/craft:test`, then continues interactively or runs `/craft:execute <epic-NNN>` again (which re-spawns you to continue from Phase 6 once `[W]` set the slice to `review`).
 
 If, on a subsequent execute-run, you find the slice plan already at `Status: review` (Phase 5 cleared by the human), skip step 2 and continue at step 3.
 
@@ -89,7 +90,7 @@ If, on a subsequent execute-run, you find the slice plan already at `Status: rev
 
 Read `.claude/project/rules.md`. If a line in `## Workflow Rules` declares Phase 7 dropped, append `Phase 7 skipped (project rule)` to `## Decisions Made During This Slice` and advance `Status: reviewing`. Done with step 4.
 
-Otherwise `Read` `commands/refactor.md` and follow its `## Subagent Mode` section: survey for up to 2 Thorstensen-aligned candidates, **do not apply**, write the candidate list to `.craft/handoff.md` with `Status: awaiting-refactor-decision`, pause the slice (`Status: paused`). Stop, return to orchestrator.
+Otherwise `Read` `commands/refactor.md` and follow its `## Subagent Mode` section: survey for up to 2 Thorstensen-aligned candidates, **do not apply**, pause the slice (`Status: paused` with the pause record), write the candidate list to `.craft/handoff.md` with `Status: awaiting-refactor-decision` and the record's `Paused-since` as its `Episode:`. Stop, return to orchestrator.
 
 If the slice plan is already at `Status: reviewing` on a subsequent run (refactor decision made by human), skip step 4.
 
@@ -114,7 +115,7 @@ slice-builder paused: slice-NNN status=<awaiting-...|plan status> phase=<N> hand
 ```
 
 `reason=` appears only on a step-0 stop, and says why: a helper doubt reason (`plan_not_found`, `plan_ambiguous`,
-`plan_status_missing`, `no_slice_id`, `unknown_marker_status`), `helper-unavailable`, `plan-held` or
+`plan_status_missing`, `no_slice_id`, `unknown_marker_status`, `episode_unknown`), `helper-unavailable`, `plan-held` or
 `retry-phase-unknown`. On such a stop `status=` is the marker's status when a marker exists, else the plan's, and
 `handoff=none` when there is no marker — a step-0 stop never renames, so a named marker is really there.
 
@@ -160,13 +161,15 @@ Write the **same schema** `/craft:block` writes — `commands/block.md` is the s
 it field-for-field so unblock wiring (`/craft:commit`), surfacing (`/craft:prime`, `/craft:status`),
 and orphan detection all work unchanged. In the slice plan:
 
-- Set `Status: blocked`. **Leave `Phase:` untouched** (a plan-time stamp).
+- Set `Status: blocked`. **Leave `Phase:` untouched** (a plan-time stamp). If the plan nevertheless carries a pause record
+  (a safety net — Phase 5 prepares 5a before it pauses), take `Blocked-status` from its `Paused-status`, remove the
+  record and mark the Pause Note superseded — as `/craft:block` does for a paused slice.
 - Add the on-demand blocker frontmatter fields directly below `Status:` (absent on a normal slice):
 
   ```
   > Blocker-type: <prerequisite-work | external | decision | access>
   > Blocked-on: <slice-NNN | epic-NNN | (pending — create via /craft:plan) | free text>
-  > Blocked-since: <ISO date>
+  > Blocked-since: <ISO datetime, UTC — YYYY-MM-DDTHH:MM:SSZ>
   > Blocked-status: <execution token to restore on unblock — implementing in Phase 4, testing in Phase 5>
   ```
 
@@ -205,6 +208,7 @@ Slice-ID: slice-NNN
 Status: awaiting-block-decision
 Phase: 4 | 5
 Written: <ISO datetime>
+Episode: <the plan's Blocked-since value, character for character>
 ---
 
 # Handoff: blocker (<blocker-type>) — <one-line title of what is missing>
@@ -235,7 +239,7 @@ not advance to the next phase.
 - **Never** delete or move the slice plan file. Status updates are in-place edits only.
 - **Never** fabricate a human answer to a `[W]/[B]/[U]`, `[K]/[I]/[R]/[D]`, or any lettered-choice prompt. Write a handoff instead.
 - **Never** choose a blocker's **spawn / park / descope** resolution (nor create the prerequisite slice/epic). You classify the blocker *type* — an observable property — and write the `blocked` state; the resolution fork is a human direction decision, recorded in the `awaiting-block-decision` handoff for the human to act on via `/craft:unblock`.
-- **Always** keep handoff markers atomic and complete — `Status:`, `Phase:`, `Written:` timestamp, a one-line title, a short body, and a suggested next action.
+- **Always** keep handoff markers atomic and complete — `Status:`, `Phase:`, `Written:` timestamp, `Episode:` (every status but `failure` — `skills/workflow/SKILL.md` → **Handoff marker lifecycle**), a one-line title, a short body, and a suggested next action.
 
 ---
 
@@ -243,8 +247,10 @@ not advance to the next phase.
 
 If a phase delegate (`/craft:build` etc.) returns an unstructured error or crashes:
 
-1. Update slice plan `Status: paused`.
-2. <!-- craft:handoff status=failure plan=- --> Write `.craft/handoff.md` with `Status: failure`, the error one-liner, and the phase number.
+1. Update slice plan `Status: paused` with the pause record (`skills/workflow/SKILL.md` → **Pause record**) — unless the
+   plan is already `blocked`: leave it as it is (a pause never goes over a block; step 0 stops such a slice as
+   `plan-held`).
+2. <!-- craft:handoff status=failure plan=- --> Write `.craft/handoff.md` with `Status: failure`, the error one-liner, and the phase number (no `Episode:` — `failure` pairs with no plan status). If the plan is `blocked` and `.craft/handoff.md` already exists, write nothing: that marker holds the block decision the human needs.
 3. Emit the `slice-builder paused: …` summary.
 4. Stop. Do not retry — the human investigates.
 

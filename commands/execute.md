@@ -684,7 +684,7 @@ Review checkpoint reached:
 | `git worktree add` fails despite step 1c (the state changed since, e.g. a concurrent manual `git worktree add`) | Abort the affected slice cleanly; other slices may still proceed. List the collision in the final output. |
 | Subagent crashes mid-Phase | Treat as Failure (step 7). Continue with other independent slices. |
 | Slice's `/craft:review` blocks with Heavy + needs-rethinking | Treat as Handoff. The slice's worktree is intact for `/craft:checkout`. |
-| User interrupts (signal, `/craft:pause`) | Drop into pause: write Pause Note to every in-flight slice, release the lock, stop. |
+| User interrupts (signal, `/craft:pause`) | Drop into pause: <!-- craft:writes status=paused --> pause every slice whose `slice-builder` is still running (not yet collected as Success, Handoff, Held or Failure) and that is not `blocked` — `Status: paused` with the pause record (`skills/workflow/SKILL.md` → **Pause record**) and a Pause Note — in the plan copy that slice is built from: the slice worktree's in parallel mode, the main checkout's in in-place and sequential mode. Slices already stopped keep their plan and marker untouched. Release the lock, stop. |
 | P1–P4 fail | Warn loudly. The user reconciles manually. Do not retry automatically. |
 
 ---
