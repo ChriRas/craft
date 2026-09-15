@@ -106,6 +106,12 @@
 
 - **Branch model:** trunk-based — commits land directly on `main`.
 - **Release tagging:** SemVer; `CHANGELOG.md` follows Keep a Changelog.
+- **Versioning:** a major bump is reserved for a headline feature (autopilot ships as 2.0.0); an interim release
+  bumps the minor even with breaking behavior changes, and then opens its CHANGELOG section with an upgrade note.
+- **Release mechanics:** the `version` is Claude Code's update key — bump it for every release; the marketplace
+  installs `main`'s HEAD, so the push is the release; tag the pushed commit (`git tag -a vX.Y.Z origin/main`);
+  write each CHANGELOG item on one line (a GitHub release body turns single newlines into hard breaks) and
+  generate the release notes from that section.
 - **Distribution:** a single GitHub repo hosts both the marketplace and the plugin;
   `/craft:upgrade` syncs the marketplace clone.
 - **Pre-release check:** `claude plugin validate .`.
