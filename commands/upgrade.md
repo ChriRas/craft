@@ -1,5 +1,5 @@
 ---
-description: Update the CRAFT plugin marketplace clone from GitHub. Syncs the marketplace, shows incoming commits, requires explicit confirmation, then asks Claude Code to install the new version on next start. Pre/Post-Assertions, no silent mutations.
+description: Update the CRAFT plugin marketplace clone from GitHub. Syncs the marketplace, shows incoming commits, requires explicit confirmation, then names how Claude Code installs the new version (auto-update or `/plugin update`) and that a new session loads it. Pre/Post-Assertions, no silent mutations.
 allowed-tools: ["Bash", "Read"]
 ---
 
@@ -7,11 +7,11 @@ allowed-tools: ["Bash", "Read"]
 
 ## Purpose
 
-Bring the locally cached CRAFT marketplace clone up to date with `origin/main` on GitHub, so Claude Code can install the new plugin version on the next session start.
+Bring the locally cached CRAFT marketplace clone up to date with `origin/main` on GitHub, so Claude Code can install the new plugin version from it — by auto-update, or by `/plugin update craft@<marketplace-name>` — and a new session loads it.
 
 `/craft:upgrade` updates the **marketplace clone** (`~/.claude/plugins/marketplaces/<marketplace-name>/`). It does **not** touch the plugin cache (`~/.claude/plugins/cache/...`) or rewrite `installed_plugins.json` — those are Claude Code's responsibility. Releasing CRAFT itself (version bump, tag, push) is a manual maintainer step and is **not** automated by this command.
 
-This command is intentionally minimal: CRAFT is pure Markdown, so there is no build, no native addons, and no MCP server to restart in-process. A session restart is sufficient for Claude Code to detect the new version and re-install from the synced marketplace.
+This command is intentionally minimal: CRAFT is pure Markdown, so there is no build, no native addons, and no MCP server to restart in-process. Installing into the plugin cache is Claude Code's job: with auto-update enabled for the marketplace it updates installed plugins in the background after a session starts; otherwise `/plugin update craft@<marketplace-name>` (CLI: `claude plugin update craft@<marketplace-name>`) installs it. Either way the version must differ from the installed one — the `version` is the update key, so in practice a release bumps it — and the running session keeps the version it loaded: the new commands and agents arrive in a new session. (Claude Code docs, plugins-reference → Version management, discover-plugins → Configure auto-updates; verified 2026-09-15.)
 
 ---
 
@@ -210,9 +210,12 @@ Successful upgrade:
 ✓ Pulled N commits (<oldSHA> → <newSHA>), version <X> → <Y>
 ✓ Post-assertions: HEAD=origin/main, plugin.json=<Y>
 
-⟳ Restart your Claude Code session to install the new version.
-   If Claude Code does not auto-reinstall on restart, run
-   `/plugin update craft@<marketplaceName>` from inside the new session.
+⟳ Install and load the new version:
+   - now → /plugin update craft@<marketplaceName>
+   - or wait for auto-update (if on for this marketplace): it installs in the background up to
+     ~10 minutes after a session start
+   Once ~/.claude/plugins/installed_plugins.json shows <Y> for craft@<marketplaceName>, start a
+   new session — a session keeps the version it loaded.
 ```
 
 Already up to date:
@@ -252,7 +255,7 @@ Upgrade aborted — <reason>. No changes made.
 
 ## What This Command Does NOT Do
 
-- It does **not** modify the plugin cache (`~/.claude/plugins/cache/...`). Claude Code re-installs from the marketplace on session start; we do not duplicate that logic here.
+- It does **not** modify the plugin cache (`~/.claude/plugins/cache/...`). Claude Code installs from the marketplace — by auto-update or `/plugin update` — and we do not duplicate that logic here.
 - It does **not** edit `~/.claude/plugins/installed_plugins.json`. That file is Claude Code's source of truth and must stay under its control.
 - It does **not** bump the plugin version, create a git tag, or push anything. Releasing CRAFT is a manual maintainer workflow.
 - It does **not** rebase, force-push, reset --hard, or auto-resolve diverged histories. Recovery is always a human-initiated step.
