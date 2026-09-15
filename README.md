@@ -43,7 +43,7 @@ CRAFT is distributed as a Claude Code plugin from a marketplace — and this rep
 
 The first command registers this repository as a plugin marketplace; the second installs the `craft` plugin from it (`craft@craft` — the `craft` plugin from the `craft` marketplace). Restart the session to activate the commands and skills.
 
-To move to a later release, run `/craft:upgrade` — it syncs the marketplace clone and Claude Code re-installs the new version on the next session start.
+To move to a later release, run `/craft:upgrade` — it syncs the marketplace clone. Claude Code installs the new version by auto-update (if enabled for the marketplace) or on `/plugin update craft@craft`; a new session loads it.
 
 After install, open Claude Code in any project and run `/craft:onboard` to set the project up.
 
@@ -152,7 +152,7 @@ When you have an epic with multiple slices that can run in parallel, hand the bu
 /craft:worktree-clean             # remove orphaned worktrees after manual aborts
 ```
 
-Phase 5 (UX feedback), refactor decisions, and Heavy + needs-rethinking review findings always pause autonomous runs via a `.craft/handoff.md` marker — agents never fabricate human judgment.
+Phase 5 (UX feedback), refactor decisions, and Heavy + needs-rethinking review findings always pause autonomous runs via a `.craft/handoff.md` marker — agents never fabricate human judgment. To answer one, run `/craft:checkout <slice-id>`, open a session in the worktree it names, and run `/craft:continue`: a paused slice is resumed there (the only time it writes the plan) and routed to the command that takes your answer; a review handoff stays at `reviewing` and is routed to `/craft:review`; a blocked slice goes to `/craft:unblock`. An answered marker stops counting on its own — nothing needs deleting — except a `failure` marker, which counts until the retry.
 
 #### Stuck on a bug
 
