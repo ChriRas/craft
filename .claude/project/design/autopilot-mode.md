@@ -1,9 +1,10 @@
 # Autopilot Mode — Design Draft
 
-> Status: banked as **D32** in `brainstorm-decisions.md` (2026-09-12). `intent.md` update pending
-> (`/craft:intent-update`). The spike slice-044 (2026-09-15) resolved Q5 and §10's spike items for background
-> subagents — verdicts in §2 / §4 / §6 / §7, probe recipes in §12; what stays open (foreground builders among it) is
-> listed in §10.
+> Status: banked as **D32** in `brainstorm-decisions.md` (2026-09-12) and carried into `intent.md` (Architectural
+> Decisions → Autopilot as opt-in inversion). Being built as **epic-003** (`.claude/plans/epic-003-autopilot-mode.md`).
+> The spike slice-044 (2026-09-15) resolved Q5 and §10's spike items for background subagents; the spike slice-045
+> (2026-09-15) probed foreground builders and the builder's return path — verdicts in §2 / §4 / §6 / §7, probe recipes in
+> §12; what stays open is listed in §10.
 > Cross-cutting design knowledge for a future epic; on-demand reference, not loaded on prime.
 
 ## 1. Goal
@@ -14,15 +15,15 @@ sequential slice implementation (build → verify → review → fix → commit)
 The human talks **only to the master agent** (the main session). Target: maximum code yield
 per token, controlled and resumable, never spilling into paid extra usage.
 
-## 2. Verified facts (2026-09-12; re-verified 2026-09-15 by the spike slice-044, Claude Code 2.1.272)
+## 2. Verified facts (2026-09-12; re-verified 2026-09-15 by the spikes slice-044 and slice-045, Claude Code 2.1.272)
 
-Probe recipes: §12; raw numbers: the slice-044 archive. "docs" = code.claude.com, fetched 2026-09-15.
+Probe recipes: §12; raw numbers: the slice-044 and slice-045 archives. "docs" = code.claude.com, fetched 2026-09-15.
 
 | Fact | Source | Confidence |
 |---|---|---|
 | Statusline input JSON carries `rate_limits.{five_hour, seven_day, spend_limit}.{used_percentage, resets_at}` (Pro/Max; docs: after the first API response — observed already at session start in probes 6 / 6b), `prompt_cache.{warm, ttl, expires_at, requests, recache_tokens_if_cold, …}` (**main conversation only** — subagent requests not counted), `context_window.*`, `cost.total_cost_usd` | statusline.md (v2.1.251+) + live JSON 2.1.271 / 2.1.272 | **documented + primary evidence** — the earlier "not in the official docs" no longer holds; still degrade gracefully |
 | Official docs claim no in-session access to the 5h/7d window | monitoring-usage.md (2026-09-12) | **refuted** — statusline.md documents `rate_limits` |
-| Statusline runs on events and "can go quiet while the main session is idle, e.g. waiting on background subagents"; `refreshInterval` (≥ 1 s) adds a timer | statusline.md + probe 6 (37 calls in 180 s at 5.0 s during a background subagent, all on the timer grid) | `refreshInterval` cadence **confirmed**; going quiet without it — docs, not probed (no run without `refreshInterval`) |
+| Statusline runs on events and "can go quiet while the main session is idle, e.g. waiting on background subagents"; `refreshInterval` (≥ 1 s) adds a timer | statusline.md + probe 6 (37 calls in 180 s at 5.0 s during a background subagent, all on the timer grid) + slice-045 runs 2, 3 (5.0 s grid also while the master was blocked on a foreground subagent; `cost` rose, `prompt_cache.requests` stayed) | `refreshInterval` cadence **confirmed** for background and foreground; going quiet without it — docs, not probed (no run without `refreshInterval`) |
 | `cost.total_cost_usd` includes a running subagent's spend, live | probe 6 (rose in steps while `prompt_cache.requests` stayed) | **primary evidence** |
 | Whether subagent requests move `rate_limits` | probe 6 (no change in ~5 min; ≈ $0.095 spent in the subagent window, $0.27 in the session) | **inconclusive** — whole-percent steps too coarse for a small run |
 | Main-conversation TTL = 1 h on a subscription within plan (interactive turns **and `-p` runs**); 5 m on usage credits / API key | prompt-caching.md + probe 4 (a `-p` request wrote 21 860 tokens `ephemeral_1h`) | **documented + primary evidence** |
@@ -33,10 +34,18 @@ Probe recipes: §12; raw numbers: the slice-044 archive. "docs" = code.claude.co
 | `fable` (Fable 5.1) can, depending on plan and seat tier, bill to usage credits instead of plan limits (on this account: beyond its own Fable allotment, per the user); `-p` and the Agent SDK bill it **without asking**; a background session holds the consent prompt for `dialogExpiry` (5 min), then ends the turn | model-config.md | docs — not probed (cost) |
 | Per-run token and cache counts: the subagent transcript's per-request `usage` (`cache_creation.{ephemeral_5m, ephemeral_1h}_input_tokens`, `cache_read_input_tokens`, `model`) | probes 3, 5, 6b | **primary evidence** (the task notification's `subagent_tokens` stays a second source). Internal helper agents leave **no** transcript (their `agent_transcript_path` does not exist) — about a third of the subagent-window spend in probe 6 (26.7 k master context), each helper costing about one cache read of the master prefix, so likely proportional to the master context — so a transcript sum undercounts; only `cost.total_cost_usd` holds all of it |
 | A `UserPromptSubmit` block (`decision: "block"`) sends **no main-conversation request**; in `-p` the session-title helper (Haiku 4.5, ~900 tokens) still runs | hooks.md + probe 4 (headless) + probes 6 / 6b (interactive: `requests`, `cost` unchanged) | **confirmed** |
-| `UserPromptSubmit` also fires for an async subagent's hand-back and its task notification; no payload field tells them from a human prompt — only the prompt text starts with `<agent-message from="…"> [Subagent hand-back]` / `<task-notification>` | probes 6, 6b | **primary evidence** — markup undocumented, may change |
-| `SubagentStart` / `SubagentStop` fire for plugin agents from plugin hooks; matcher = scoped `plugin:agent` (anchor `^…$` — filtering probed, exactness documented only); Stop carries `agent_id`, `agent_type`, `agent_transcript_path`, `last_assistant_message`, `background_tasks`, `effort` — no token counts. Internal helper agents (≈ every 30 s while a background agent runs) also fire `SubagentStop`, with `agent_type: ""` | hooks.md + probes 3, 6b | **confirmed** |
-| In an interactive session the Agent tool ran the subagent **asynchronously** (no `run_in_background`, no `background:` frontmatter): the main turn ends, the result returns as a hand-back message **and** a task notification — two main requests for one result | probes 6, 6b | **primary evidence** — for the default only |
-| Why: fork mode is on by default in interactive sessions, and then every Agent-tool subagent runs in the background ("Claude can't ask for the foreground"); it is off in `-p` / the SDK. `CLAUDE_CODE_FORK_SUBAGENT=0` turns it off (Claude then picks foreground when it needs the result), `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` forces foreground everywhere (and also removes Bash `run_in_background`) | sub-agents.md | docs — **not probed** |
+| `UserPromptSubmit` also fires for a subagent's hand-back and an async subagent's task notification; no payload field tells them from a human prompt — only the prompt text starts with `<agent-message from="…"> [Subagent hand-back]` / `<task-notification>`. The hand-back arrives **in every mode, foreground included** | probes 6, 6b + slice-045 runs 1–3 | **primary evidence** — markup undocumented, may change |
+| In an interactive session a subagent delivers its report through a **`SubagentHandback` tool** (a start reminder: "Only a SubagentHandback call reaches your caller"); a subagent that ends a turn its caller started without calling it gets `[handback-send-enforce] Your report has not been delivered…` — so **a subagent must report before it can end such a turn**. After its report a **background** subagent can end its turn and be woken by its own background command (run 1: no enforcement on that wake) — an idle wait that costs an early report the master takes as the result, plus one delivery per wake. Not seen in `-p` | slice-045 runs 1–3 (tool, reminder, hand-back message in every interactive subagent transcript); enforcement **only in run 2** (3×: the first foreground turn, two `SendMessage` resumes); run 1 (the wake); smoke 3 | **primary evidence** — undocumented; enforcement in the default / background-tasks-off modes inferred, not observed (no hit in sub-agents / hooks / env-vars / statusline / tools-reference / interactive-mode) |
+| `PostToolUse` on the Agent tool: `tool_response.status` = `completed` (foreground) / `async_launched` (background) — the documented, markup-free way to tell the modes apart | hooks.md → Agent + slice-045 smokes 1–3, runs 1–3 | **documented + primary evidence** |
+| **`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`** → foreground in an interactive session: master blocked until the return (`completed` after 1 m 54 s), **one** delivery (the hand-back; the Agent result's `content` only points to it), no task notification, 2 main requests for the run ($0.29 — not like-for-like: this worker skipped the background path); Bash `run_in_background` gone (env-vars.md; the worker reported no such parameter — its own report, not checked against the tool schema); no helper agent during the 1 m 54 s spawn | slice-045 run 3 | **primary evidence** (one run) |
+| **`CLAUDE_CODE_FORK_SUBAGENT=0`** → Claude chose foreground when the prompt needed the result (blocked, `completed`); but once the worker returned unfinished, the master resumed it with `SendMessage` — each resume ran in the **background** with hand-back + task notification again (4 hand-backs, 3 notifications, 12 main requests; $0.72, not like-for-like) | slice-045 run 2 | **primary evidence** (one run) — the choice is Claude's, not deterministic |
+| **Default (fork mode on)** → `async_launched`, master turn ends at once; one worker produced **three** deliveries (hand-back, task notification, and a second task notification after its own background command woke it) — not a ceiling: each further wake or resume adds one | slice-045 run 1 | **primary evidence** (one run) |
+| A background command outlives its subagent's final response only for a **background** subagent — it completed and **re-started the worker** (same `agent_id`); a **foreground** subagent's background command was killed (`[killed]`) | tools-reference.md → Background commands + slice-045 runs 1, 2 | **documented + primary evidence** |
+| A background subagent keeps a narrower built-in tool set than a foreground one (both keep Bash, Monitor, TaskStop); `Monitor` reaches subagents as a **deferred** tool (ToolSearch first) — a subagent's own "no Monitor" report is unreliable | sub-agents.md → Available tools + slice-045 transcripts (`deferred_tools_delta`), smoke 2, run 2 | docs + primary evidence |
+| Bash timeout ceiling `BASH_MAX_TIMEOUT_MS` (default 10 min); subagent stall abort `CLAUDE_ASYNC_AGENT_STALL_TIMEOUT_MS` (default 10 min without "progress") | env-vars.md | docs — **not probed** (a > 10 min wait) |
+| `SubagentStart` / `SubagentStop` fire for plugin agents from plugin hooks; matcher = scoped `plugin:agent` (anchor `^…$` — filtering probed, exactness documented only); Stop carries `agent_id`, `agent_type`, `agent_transcript_path`, `last_assistant_message`, `background_tasks`, `effort` — no token counts. Internal helper agents (≈ every 30 s while a background agent runs) also fire `SubagentStop`, with `agent_type: ""`; **none fired during the 1 m 54 s foreground spawns** of slice-045 runs 2 and 3 (first helper after the return; longer spawns not probed) | hooks.md + probes 3, 6b + slice-045 runs 1 (9 helpers), 2, 3 | **confirmed** |
+| In an interactive session the Agent tool ran the subagent **asynchronously** (no `run_in_background`, no `background:` frontmatter): the main turn ends, the result returns as a hand-back message **and** a task notification — two or more deliveries for one result (three in slice-045 run 1, default row above); **also for a direct delegation to CRAFT's own `craft:code-reviewer`** | probes 6, 6b + slice-045 run 1 (P2) | **primary evidence** — for the default |
+| Why: fork mode is on by default in interactive sessions, and then every Agent-tool subagent runs in the background ("Claude can't ask for the foreground"); it is off in `-p` / the SDK. `CLAUDE_CODE_FORK_SUBAGENT=0` turns it off (Claude then picks foreground when it needs the result), `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` forces foreground everywhere (and also removes Bash `run_in_background`) | sub-agents.md + slice-045 runs 2, 3 | **documented + primary evidence** (rows above; `FORK_SUBAGENT=0`'s choice was not deterministic — resumes went to the background) |
 | Claude Code blocks a standalone `sleep` and `sleep N; …` in subagent Bash calls (the message points to Monitor / `run_in_background` and says not to chain shorter sleeps); other loop forms failed the headless permission check; `for n in $(seq 1 70); do sleep 5; done` passed — a workaround the block message discourages, which an update may close | probe 5 (runs a, a2, b, a3) | **primary evidence** |
 | Workflow tool exists; plugins may ship `workflows/`; resume only same-session | workflows.md + tool description | docs (not re-checked) |
 
@@ -114,19 +123,35 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
   files (`model-defaults.md` twice, `commands/prime.md` step 4b, `templates/craft-profile.md.template`, three profile
   templates, `docs/index.html`) — define it once and add `fable` / full model IDs for a human-chosen override (a D2
   item, §8).
-- **The builder loop is asynchronous by default** (slice-044, probes 6 / 6b): in an interactive session fork mode is on,
-  so the Agent tool runs the subagent in the background, the master's turn ends, and the result comes back twice
-  (hand-back message + task notification). The master must then treat the second as a duplicate (one wasted main
-  request otherwise) and key its digest on the `agent_id` from `SubagentStart`. Foreground is documented but not probed —
-  forced by `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` (which also removes Bash `run_in_background`, the builder's wait
-  path in §6), or chosen by Claude after `CLAUDE_CODE_FORK_SUBAGENT=0` only when it needs the result (the default there is
-  still background) — **whether the master runs builders in the foreground is an epic-planning choice**, and with it
-  whether the duplicate handling and the §7 pass-through are needed at all, and which wait path a builder keeps.
-- **This likely reaches today's CRAFT, not only autopilot** (slice-044 review): by default (fork mode on) an interactive
-  `/craft:review` / `/craft:execute` delegation is expected to receive its result twice — seen with a probe agent in
-  probes 6 / 6b, not yet checked with CRAFT's own agents — and `model-defaults.md` is stale in two statements — "Subagents
-  block their parent on a single return" (async by default now) and "exact model IDs … not officially documented"
-  (sub-agents.md documents them).
+- **How a builder returns — three modes, probed** (slice-044 probes 6 / 6b; slice-045 runs 1–3, §2):
+  - *Default (fork mode on):* background. The master's turn ends, and one builder reached it **three times** in run 1
+    (hand-back, task notification, and another notification when a background command the builder left running woke it
+    after its report) — not a ceiling: each further wake or resume adds one. The master must de-duplicate on `agent_id` and pays one main request per duplicate. The builder
+    keeps `run_in_background` + Monitor; it can wait idle only after its report (below), and a command it leaves running
+    re-starts it.
+  - *`CLAUDE_CODE_FORK_SUBAGENT=0`:* Claude picks. Foreground when it needs the result, but a builder that returns
+    unfinished is resumed with `SendMessage` in the background, and the duplicates come back. Not deterministic — the
+    most main requests of the three (12).
+  - *`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`:* foreground. The master blocks until the builder's report, which arrives
+    **once**; no task notification, no helper agent during the 1 m 54 s spawn, the fewest main requests (2, vs. 5 for the
+    default's worker part). The builder's only wait path is a blocking foreground command (≤ `BASH_MAX_TIMEOUT_MS`,
+    default 10 min), and the switch is session-wide — it also takes `run_in_background`, auto-backgrounding and Ctrl+B
+    from the master (env-vars.md; the run-3 worker reported no such parameter — not checked against the tool schema).
+  - *Numbers* are one run per mode, and the workers took different paths (run 3's skipped the background command, run 1
+    also carried the P2 delegation), so compare main requests and deliveries — the dollar figures are not like-for-like.
+  - *Every mode:* the report goes through the undocumented `SubagentHandback` tool and reaches the master as a
+    `UserPromptSubmit` hand-back message; ending a turn its caller started without it triggers `[handback-send-enforce]` (seen in
+    run 2), so **a builder must report before it can wait idle**. Only a background builder can wait idle after its report
+    (run 1), and then its report is early and each wake adds a delivery — useless for a builder whose report *is* the
+    result. A builder that must wait for its result waits inside a tool call. `PostToolUse` on the Agent tool
+    (`status: completed | async_launched`) tells the master which mode a spawn actually ran in.
+  - **Decided — Q8 (§9): foreground via `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`.**
+- **This reaches today's CRAFT, not only autopilot** (slice-044 review; **confirmed for the agent by slice-045**): by
+  default (fork mode on) a direct delegation to `craft:code-reviewer` — the agent `/craft:review` spawns; a trivial brief
+  from a plain prompt, not a `/craft:review` run — received its result twice (hand-back + task notification, one extra main
+  request). `/craft:review` and `/craft:execute`'s `slice-builder` are expected to behave alike (not run).
+  `model-defaults.md` is stale in two statements — "Subagents block their parent on a single return" (async by default
+  now) and "exact model IDs … not officially documented" (sub-agents.md documents them).
 
 ## 5. Ping-pong breaker
 
@@ -151,7 +176,8 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
 - **Rules (defaults, profile-configurable):**
   - before a slice: `used% + forecast > 85%` → do not start; write handoff; report `resets_at`.
   - during a slice (usage-watch band event): `≥ 95%` → stop at the next sub-task boundary
-    (per-sub-task commits make this safe); handoff.
+    (per-sub-task commits make this safe); handoff. *Under Q8 (§9) the master is blocked during a spawn, so this rule
+    and the overage stop need a home inside the builder or a D32 amendment — `budget-and-cache-guard` decides.*
   - `seven_day ≥ 90%` → stop after the current slice.
   - overage heuristic: window ≥ 99% **and** `prompt_cache.ttl == 5m` → immediate stop + loud warning.
 - Strongest protection is outside CRAFT: disable extra usage in the account settings (human action).
@@ -162,12 +188,18 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
   (`agent_transcript_path` in `SubagentStop`) — but internal helper agents (about every 30 s while a background agent
   works) leave no transcript: about a third of the subagent-window spend in probe 6 (26.7 k master context), visible only
   in `cost.total_cost_usd`, so calibration uses `cost` and treats a transcript sum as a lower bound.
+  **Foreground builders (slice-045 runs 2, 3):** the `refreshInterval` timer keeps ticking while the master is blocked,
+  and `cost` rises live while `prompt_cache.requests` stays flat — the sensor works unchanged. No helper agent fired during
+  a 1 m 54 s foreground run, so their spend (and whatever cache refresh they give, next bullet) is absent there.
 - **The master's cache on long builds — unverified:** the statusline's `expires_at` counts main requests only and goes
   stale while the master idles (it held for 175 s of helper activity in probe 6). Whether the server-side cache also
   expires is open: each helper in probe 6 cost ≈ one read of the main prefix (≈ $0.0056 vs. 26.7 k × $0.20/MTok ≈
   $0.0053), and forks read the parent's cache (prompt-caching.md), so the helpers likely read — and refresh — the master's
   cache about every 30 s. Then a long build does not cost a master re-write, but the helpers' spend scales with the master
-  context (≈ $2.4/h for a 100 k Sonnet master while a builder runs) — another reason for a lean master.
+  context (≈ $2.4/h for a 100 k Sonnet master while a builder runs) — another reason for a lean master. With a
+  **foreground** builder no helper read was seen during a 1 m 54 s spawn (slice-045 runs 2, 3); if that holds for long
+  spawns, the master's cache rests on its 1 h TTL alone, so a single builder spawn longer than 1 h likely meets a cold
+  master — unverified, not probed.
 - **Overage beyond Fable stays open:** whether usage-credit spend shows in `rate_limits` at all is unverified. Never
   selecting `fable` (§4) closes the Fable path only; the general overage path (Opus / Sonnet past the plan limit with
   extra usage enabled) still rests on the thresholds above, the 5 m-TTL heuristic — whose reliability this gap leaves
@@ -182,6 +214,17 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
   `1h` is ignored on usage credits (the `subagentPromptCacheTtl` setting is not), so the choice must degrade to a
   re-write, not an error. A builder that must wait needs an explicit wait path — a plain `sleep` is blocked in subagent
   Bash calls, and `run_in_background` + Monitor is the path the block message names.
+- **The builder's wait path (slice-045):** a builder **cannot wait idle before its report** — in an interactive session the
+  `SubagentHandback` enforcement forces a report first (seen in run 2, §2, §4), and idling after the report (possible only
+  in the background, run 1) hands the master an unfinished result. It waits inside a tool call: a blocking foreground Bash command
+  worked in every mode (45 s — a script wrapping `sleep`; a direct `sleep` stays blocked, §2; ceiling
+  `BASH_MAX_TIMEOUT_MS`, default 10 min, not probed beyond). `run_in_background` +
+  Monitor only helps a builder that keeps working meanwhile — Monitor returns at once, and its events arrive as queued
+  notifications at the builder's next tool boundary (smoke 2); with `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`
+  `run_in_background` is gone. A command a foreground builder leaves running is killed at its report; one a background
+  builder leaves running outlives the report and re-starts the builder when it ends. Rule for builder prompts: **never
+  leave a background command running at the report, and wait by blocking.** Whether a blocking command near the 10 min
+  stall window (`CLAUDE_ASYNC_AGENT_STALL_TIMEOUT_MS`) aborts the builder is open (§10).
 
 ## 7. Cache guard (idle human answer)
 
@@ -192,8 +235,9 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
   `now > expires_at` **and** `recache_tokens_if_cold > threshold` → block the prompt (no API call)
   with the restart instruction. A lean master makes the threshold rarely hit.
 - **Buildable, with two constraints (slice-044):** a blocked prompt sends no main request — confirmed headless and
-  interactive; the cost is at most a session-title helper call. But `UserPromptSubmit` also fires for an async builder's
-  hand-back and task notification, and the payload has no source field. The hook must let through every prompt starting
+  interactive; the cost is at most a session-title helper call. But `UserPromptSubmit` also fires for a builder's
+  hand-back (in every mode, foreground included — slice-045 run 3) and an async builder's task notification, and the
+  payload has no source field. The hook must let through every prompt starting
   with `<agent-message from=` or `<task-notification>` — otherwise it blocks the very result the master waits for — and,
   since that markup is undocumented, **fail open**: anything it cannot classify as a plain human prompt passes.
 - **Arming rule (slice-044 review):** the marker is armed only by a turn that ends waiting on the **human**, and disarmed
@@ -201,9 +245,13 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
   stale statusline `expires_at` as cold at its hand-back, in the normal loop (possibly while helper reads keep the server
   cache warm, §6). The markup pass-through is the second line of defence. *Residual:* a
   hand-back format that drops the leading markup would be blocked while the marker is armed; §12 recipe 6 re-checks the
-  format on each Claude Code update. With foreground builders (§4) the pass-through may not be needed at all.
+  format on each Claude Code update. With foreground builders (§4) the pass-through **is still needed** — the hand-back
+  arrives as a `UserPromptSubmit` there too (slice-045 run 3), though no task notification does.
 
 ## 8. Candidate epic decomposition (rough)
+
+> Superseded by epic-003's seven entries (2026-09-15): item 1 was already done, 2a became `model-tiers`, item 8 is kept in
+> sync per slice and the 2.0.0 release follows the epic; a `builder-return-probe` spike (slice-045) leads. Kept for history.
 
 1. D32 + intent update (autopilot as opt-in inversion of concentrated control)
 2. Usage & cache sensor (tap reader script + harness) — with `refreshInterval`; live spend from `cost.total_cost_usd`,
@@ -249,6 +297,27 @@ touch `commands/` cannot be verified end-to-end in the session that writes them.
     `<slice-id>-<slug>` branch in the same checkout merged `--no-ff` into the epic branch (Q3's "one merge per slice");
     how this relates to the existing sequential epic mode (in place, landing per slice on the trunk) — likely autopilot
     reuses that path with the epic branch as the landing target.
+- **Q8 → Builders run in the foreground** (user, 2026-09-15, on slice-045's evidence and recommendation). The autopilot
+  session runs with `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` (set at launch or through a settings `env` entry — §10), and
+  `/craft:autopilot` checks it before the run and confirms each spawn ran in the foreground (how — §10). *Why:* one
+  delivery per builder, deterministic, the fewest main requests (slice-045, one run per mode: 1 delivery / 2 requests vs.
+  3 / 5 in the default's worker part and 7 / 12 with fork mode off), no helper agent during the 1 m 54 s foreground spawns.
+  The background mode buys a builder no usable idle wait either: it must report before ending a turn its caller started,
+  so waiting idle in the background means an early report the master takes as the result (§4).
+  *Why not* the default with de-duplication: three deliveries per builder in run 1 and no ceiling, a master request each,
+  and a builder's leftover background command re-starts it; *why not* `CLAUDE_CODE_FORK_SUBAGENT=0`: Claude's choice,
+  resumes fall back to the background (run 2, the most requests). *Consequences:* builders wait by blocking commands only (no
+  `run_in_background`, no auto-backgrounding; tests beyond `BASH_MAX_TIMEOUT_MS` need the setting raised); the master is
+  unresponsive during a spawn, so pause / stop mid-spawn is Esc — its resulting state is for `autopilot-loop`; the §7
+  hand-back pass-through stays; duplicate handling and a builder's Monitor path are not needed. Open risks in §10 (stall
+  timeout, spawns longer than the master's 1 h TTL, the undocumented `SubagentHandback`).
+  - **Consequence for D32's budget guard and Q7's progress line** (slice-045 review R1-1; the user kept Q8, 2026-09-15): a
+    master blocked inside the Agent call cannot watch usage or stop a builder mid-slice, so §6's in-slice rules (`≥ 95%`
+    → stop at the next sub-task boundary; overage → immediate stop) and Q7's progress line (which slice, which phase) cannot live in the
+    master during a spawn. Where they live instead is open — a check inside the builder at its sub-task boundaries (e.g.
+    reading a usage tap file), a hook firing inside the builder, or amending D32 to stops between spawns only — and is
+    decided by epic-003's `budget-and-cache-guard` (the in-slice stop) and `autopilot-loop` (the progress line). The
+    before-a-slice and after-a-slice rules are unaffected: they run between spawns.
 
 ## 10. Still open
 
@@ -257,11 +326,11 @@ touch `commands/` cannot be verified end-to-end in the session that writes them.
 - **Master / judgment line** (from §4): which decisions the Sonnet master may take from helper output alone, and which go
   to the human or a short-lived Opus agent — epic planning.
 - **Open after slice-044:**
-  - foreground builders: whether `CLAUDE_CODE_FORK_SUBAGENT=0` / `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` give the master
+  - ~~foreground builders: whether `CLAUDE_CODE_FORK_SUBAGENT=0` / `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` give the master
     a foreground return, the statusline cadence, hook events and duplicate hand-back in that case, and which wait path a
-    builder keeps under each (§4, §6) — probe before epic planning decides the loop;
+    builder keeps under each~~ — **resolved by slice-045** (§2, §4, §6); the mode is decided — Q8 (§9): foreground;
   - whether the internal helper agents read and keep warm the master's cache (§6), and whether they run for foreground
-    builders;
+    builders (slice-045: none during 1 m 54 s foreground spawns; longer spawns not probed);
   - whether subagent requests move `rate_limits` at all (needs a larger run than a probe);
   - whether usage-credit spend shows in `rate_limits` (§6 overage);
   - what a `model: fable` subagent spawned by the master does (consent prompt, 5-min `dialogExpiry`, silent credit
@@ -269,9 +338,30 @@ touch `commands/` cannot be verified end-to-end in the session that writes them.
   - the hand-back / task-notification markup is undocumented and must be re-checked on Claude Code updates (§12 recipe 6);
   - what the runtime does with an invalid frontmatter `model`;
   - the Workflow tool evaluation (D32 engine, §9 Q4) — deliberately not part of slice-044.
+- **Open after slice-045:**
+  - `SubagentHandback` and its `[handback-send-enforce]` are undocumented and appeared only in interactive sessions —
+    re-check on Claude Code updates (§12 recipe 7), and whether `-p` gains them;
+  - Q8's mechanics (`autopilot-loop`): whether the switch is set at launch or through a settings `env` entry, and how the
+    master confirms a spawn ran in the foreground — the synchronous Agent result, or a `PostToolUse` hook, which as a
+    plugin hook would fire in every CRAFT session;
+  - how a builder waits on a service under `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` if an update closes the script
+    workaround: a direct `sleep` is blocked, and the block message's alternative (`run_in_background` + Monitor, §12
+    recipe 5) does not exist in that mode — not probed;
+  - whether a blocking builder command near 10 min trips `CLAUDE_ASYNC_AGENT_STALL_TIMEOUT_MS`, and what a test suite
+    longer than `BASH_MAX_TIMEOUT_MS` needs (raise the setting, split the suite);
+  - whether a foreground spawn longer than the master's 1 h TTL leaves the master cold (§6);
+  - where D32's in-slice budget stop and Q7's progress line (which slice, which phase) live while the master is blocked on a foreground
+    builder (§9 Q8 consequence) — `budget-and-cache-guard` / `autopilot-loop`;
+  - how the human pauses or stops a master blocked on a foreground builder (Esc / Ctrl+C mid-spawn) and what state that
+    leaves — `autopilot-loop`;
+  - an unexplained 51 s delay on one builder `echo` in run 3 (auto-mode classifier latency suspected, unverified), and
+    which permission mode an autopilot session runs in;
+  - `/craft:execute`'s `slice-builder` under fork mode (expected to deliver twice like `craft:code-reviewer`; not run).
 - **Outside autopilot** (slice-044 review, §4): `model-defaults.md` is stale on subagents blocking their parent and on
-  full model IDs, and interactive `/craft:review` / `/craft:execute` delegations are expected to receive each result
-  twice (not yet checked with CRAFT's own agents) — a fix for the shipped surface (roadmap D2 / epic item 2a), not only F6.
+  full model IDs, and interactive delegations receive each result twice (**confirmed for a direct `craft:code-reviewer`
+  delegation, slice-045**; `/craft:review` and `/craft:execute` expected alike, not run) — fixes for the shipped surface,
+  not only F6: the stale statements belong to epic-003 `model-tiers` / roadmap D2, the duplicate delivery is recorded as
+  an epic-003 deferred decision (not in `model-tiers`' scope).
   The intent Non-Goal "no per-command model frontmatter — Claude Code does not support it" rests on a premise the docs now
   contradict (a command's `model` switches one turn, prompt-caching.md) — its conclusion for autopilot stands (§4).
 - **Observed 2026-09-13 (slice-033 probes):** two headless Claude Code *sessions* started concurrently
@@ -279,10 +369,10 @@ touch `commands/` cannot be verified end-to-end in the session that writes them.
   separate sessions can knock out a shared MCP dependency; in-session subagents share the parent's
   connections — another argument for Q4's master + subagents engine. Verify before any parallel design.
 - **Spike items** — resolved by slice-044 (§2, §4, §6, §7): ~~statusline refresh cadence during a subagent~~ (for a
-  **background** subagent with `refreshInterval`; foreground still open, above), ~~whether a blocked `UserPromptSubmit`
+  **background** subagent with `refreshInterval`; foreground resolved by slice-045), ~~whether a blocked `UserPromptSubmit`
   prompt really makes no API call~~, ~~`fable` alias vs. `model-defaults.md` enum~~.
 
-## 11. Prerequisites before the epic (assessed 2026-09-14, after slice-040; updated 2026-09-15, after slice-043)
+## 11. Prerequisites before the epic (assessed 2026-09-14, after slice-040; updated 2026-09-15, after slice-045)
 
 Open roadmap fixes weighed against §3–§5 and Q3/Q4. Autopilot runs unattended, so a gap that today
 costs a human one manual step stops or misroutes the whole run.
@@ -296,12 +386,12 @@ costs a human one manual step stops or misroutes the whole run.
 | **B17** subdirectory-project settings helpers | Only a project below its repository root; not this repo. | after |
 | **B5** toolchain polish | Cosmetic. | after |
 
-**Order:** ~~builder location~~ (Q7: in place) → ~~B12~~ (slice-041) → ~~B11~~ (slice-042) → ~~release~~ (slice-043, v1.5.0) → ~~F6 spike slice~~ (slice-044) → epic planning.
+**Order:** ~~builder location~~ (Q7: in place) → ~~B12~~ (slice-041) → ~~B11~~ (slice-042) → ~~release~~ (slice-043, v1.5.0) → ~~F6 spike slice~~ (slice-044) → ~~epic planning~~ (epic-003, 2026-09-15). Further order: epic-003's decomposition (first entry: the builder-return probe, slice-045 → Q8).
 
 **Versioning** (user, 2026-09-15): the prerequisite release is **1.5.0**, an interim release that only lays the
 foundation; **autopilot mode ships as 2.0.0** — the big new feature carries the major bump.
 
-## 12. Probe recipes (slice-044, re-run after Claude Code updates)
+## 12. Probe recipes (slice-044, slice-045; re-run after Claude Code updates)
 
 All probes run from scratch fixtures outside the repo, one at a time, one fixture per parent directory, on `--model
 sonnet` (never `fable`: `-p` bills credits without asking). A throwaway plugin (`.claude-plugin/plugin.json`, `agents/`,
@@ -324,13 +414,27 @@ session / subagent transcripts under `~/.claude/projects/<fixture>/<session>[/su
    runs: default, `experimental: {cacheTtl: 1h}`, `--settings '{"subagentPromptCacheTtl":"1h"}'`. Expect, on the request
    after the gap: default re-writes the agent prefix at 5 m; 1 h reads it. A plain `sleep` is blocked, and the loop form
    works around a block whose message says not to chain sleeps — if an update blocks it too, wait via
-   `run_in_background` + Monitor. Earlier 1 h runs can leave a shared base prefix warm; read the agent-specific part.
+   `run_in_background` + Monitor (not available under Q8's `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`, §10). Earlier 1 h runs can leave a shared base prefix warm; read the agent-specific part.
 6. **Statusline + async subagent, interactive (human-run)** — `claude --settings <file> --plugin-dir <plugin> --model
    sonnet` with a statusline command logging every call (`refreshInterval: 5`), a settings file that also allows
    `Bash(sleep:*)`, `Bash(echo:*)`, `Bash(for:*)`, `Bash(seq:*)`, and hooks logging `UserPromptSubmit` /
    `SubagentStart` / `SubagentStop` **with full payloads** (6b); sequence: delegate a ~2–3 min worker → wait → a blocked
    prompt → `/exit`. Expect: calls every 5 s during the worker, `cost` rising with it, `prompt_cache.requests` flat;
    hand-back and task notification arriving as `UserPromptSubmit` prompts with their leading markup; helper
-   `SubagentStop`s with `agent_type: ""`; no change after the blocked prompt. For foreground builders (open, §10) repeat
-   with `CLAUDE_CODE_FORK_SUBAGENT=0` and with `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in the environment; record whether
-   the Agent tool result comes back synchronously, and whether the worker can still wait.
+   `SubagentStop`s with `agent_type: ""`; no change after the blocked prompt.
+7. **Builder return per mode, interactive (human-run, slice-045)** — three fixtures in separate parent directories, one per
+   environment: none (fork mode on), `CLAUDE_CODE_FORK_SUBAGENT=0`, `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`; launch
+   `claude --plugin-dir ./plugin --model sonnet` (the slice-045 runs used the user's auto permission mode — record the mode) and accept the trust dialog (headless `-p` ignores an untrusted project's
+   `permissions.allow`). Project settings allow `Bash`, `Monitor`, `Read`, `TaskStop` and set the statusline logger
+   (`refreshInterval: 5`); plugin hooks log the full payload **plus both env vars** for `UserPromptSubmit`,
+   `SubagentStart`, `SubagentStop`, `PreToolUse`, `PostToolUse`, `Stop`, `Notification`. Worker (`model: sonnet`): a 45 s
+   blocking Bash command, a Bash `echo PARTIAL …` line (evidence that survives a lost report), then a 45 s
+   `run_in_background` command + Monitor and **end the turn** with a marker text, continuing only after the notification.
+   Prompt: delegate to the worker, reply with its result line only; in the default run add a delegation to
+   `craft:code-reviewer` (`model` sonnet, trivial brief). Read: `PostToolUse` Agent `tool_response.status`; count
+   `UserPromptSubmit` prompts starting with `<agent-message from=` / `<task-notification>` per `agent_id`;
+   `prompt_cache.requests` and `cost` per run; `SubagentHandback` and `[handback-send-enforce]` in the subagent transcript;
+   whether the background command's marker file exists (killed vs. completed) and whether a second `SubagentStart` for the
+   same `agent_id` follows it. Expect (2.1.272): default `async_launched` + two or more deliveries (3 in slice-045 run 1); fork off: foreground, then
+   background resumes with duplicates; background tasks off: `completed`, one hand-back, no `run_in_background`. Do not
+   trust the worker's own report on tools or waits — check the transcript.
