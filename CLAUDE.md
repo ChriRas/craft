@@ -61,8 +61,8 @@ bash scripts/test-plugin-cache-drift.sh
 # with an OS-aware install command (brew / apt / dnf / yum / pacman / apk / zypper / Windows), and
 # compares the bash the SessionStart hook recorded in .claude/plans/.hook-env. /craft:prime runs
 # it in pre-flight. The harness drives every platform via test-only overrides and runs the hook
-# under /bin/bash (3.2 on macOS) — hooks/, this helper and the handoff-marker helper the hook calls
-# must stay bash-3.2-compatible. Keep green.
+# under /bin/bash (3.2 on macOS) — hooks/, this helper, the handoff-marker helper the hook calls and the
+# review-findings parser that helper calls must stay bash-3.2-compatible. Keep green.
 bash scripts/test-toolchain-check.sh
 
 # Local-state gitignore helper — scripts/ensure-gitignore.sh decides, via git check-ignore, whether
@@ -75,17 +75,21 @@ bash scripts/test-gitignore-sync.sh
 
 # Handoff marker lifecycle — scripts/handoff-marker-state.sh decides whether a worktree's
 # .craft/handoff.md is still live: the slice plan in that worktree is the truth, and each marker status
-# pairs with one plan status (table in skills/workflow/SKILL.md; the harness fails when the two
-# disagree). The SessionStart hook, /craft:worktree-status, /craft:execute and slice-builder count only
-# LIVE markers; slice-builder renames a stale one. Covers the full pairing matrix, doubt-means-live,
-# --resolve/--retry, the hook's fail-open path, the pinned writer and reader sets (/craft:abort and
-# /craft:worktree-clean show a live marker before removal) and a /bin/bash 3.2 run. Keep green.
+# pairs with one plan status and, through the marker's Episode:, with one episode of it — the plan's
+# Paused-since / Blocked-since stamp or its review round (tables in skills/workflow/SKILL.md; the harness
+# fails when they disagree), so a re-entered status never revives an old marker. The SessionStart hook,
+# /craft:worktree-status, /craft:execute and slice-builder count only LIVE markers; slice-builder renames a
+# stale one; /craft:continue's resume moves a plan off paused. Covers the full pairing matrix, the episode
+# matrix (resume, a later pause, a later block, a new review round, malformed episodes, legacy markers), doubt-means-live, --resolve/--retry,
+# the hook's fail-open path, the pinned writer and reader sets (every writer names Episode: and the pause
+# record; /craft:abort and /craft:worktree-clean show a live marker before removal) and /bin/bash 3.2 runs.
+# Keep green.
 bash scripts/test-handoff-marker-state.sh
 
 # Review findings record — scripts/review-findings-state.sh is the one parser of a slice plan's
 # ## Review Findings: rounds, finding IDs (R<round>-<n>), the resolution (the last ' · ' field) and
-# which lines are open. /craft:review Steps 6/7 and its Subagent-Mode gate, and /craft:commit Step 5
-# (follow-ups) call it. Covers legacy records, every resolution value, the quoted-value false positive,
+# which lines are open. /craft:review Steps 6/7 and its Subagent-Mode gate, /craft:commit Step 5
+# (follow-ups) and scripts/handoff-marker-state.sh (a review episode, B11) call it. Covers legacy records, every resolution value, the quoted-value false positive,
 # malformed-means-open, advisory rounds, --followups, the Step-6 agreement and bash 3.2. Keep green.
 bash scripts/test-review-findings-state.sh
 
