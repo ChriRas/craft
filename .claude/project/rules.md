@@ -69,7 +69,8 @@
   refuses those writes. When the prime gate is not under test, the probe's plugin copy omits
   `hooks/` and the fixture pre-creates `.claude/plans/.primed`. A probe never selects `fable`
   (or any model that may bill usage credits): `-p` bills credits without asking — probes run
-  on a model the plan includes (slice-044).
+  on a model the plan includes (slice-044). A probe verdict never rests on the probed agent's own
+  report — hook logs, marker files and transcripts decide (slice-045: a worker misreported its wait).
 - Architectural decisions are banked in `brainstorm-decisions.md` as `D<N>` entries
   before they are implemented.
 - Commit messages follow Conventional Commits — `<type>(scope): subject` (D9).
