@@ -9,49 +9,23 @@
 
 | # | ID | Type | Size | Item |
 |---|----|------|------|------|
-| 1 | R1 | Release | small | **F6 prerequisite.** Cut the next release (version bump, CHANGELOG, docs site) so the installed runtime carries slice-033 … slice-042 — see *Next release* below |
-| 2 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
-| 3 | B15 | Fix | slice | Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
-| 4 | B17 | Fix | small | Settings helpers in a subdirectory project write the repo-root `settings.local.json` but report the project-dir `GITIGNORED` verdict (slice-039 R1-13) |
-| 5 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
-| 6 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
-| 7 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
-| 8 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
-| 9 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
-| 10 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
+| 1 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
+| 2 | B15 | Fix | slice | Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
+| 3 | B17 | Fix | small | Settings helpers in a subdirectory project write the repo-root `settings.local.json` but report the project-dir `GITIGNORED` verdict (slice-039 R1-13) |
+| 4 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
+| 5 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
+| 6 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
+| 7 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
+| 8 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
+| 9 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
 
 ## Notes per item
 
-**Next release (carry-over from slice-033, extended by slice-034 through slice-042).** Update `docs/index.html` (EN/DE)
-via the docs-site skill — it still lists four required tools and `test-docs-site.sh` does not check the
-list. Verify a real Dock/IDE launch of Claude Code live (the D33 hands-on test waived in slice-033). B3
-shipped (slice-034): the review loop-back and the per-round findings record reach normal sessions only
-with that release. B4 shipped (slice-035): add its CHANGELOG entry, and update the docs-site project tree
-(`docs/index.html` ~l.1030–1040 — `.primed` / `.hook-env` / `.craft/` and the `.gitignore` block are missing,
-`settings.local.json` still says "gitignored"). After the release `/craft:prime` offers the block in every
-consumer repo — `settings.local.json` included, even where only a personal global excludes file covers it.
-B7 shipped (slice-036): add its CHANGELOG entry — handoff markers count only while the slice plan waits;
-this too reaches normal sessions only with the release.
-B6 shipped (slice-037): add its CHANGELOG entry — a re-review verifies earlier rounds first, and which
-findings are open is read by `scripts/review-findings-state.sh`; also release-gated.
-B8 shipped (slice-038): add its CHANGELOG entry — a `/craft:execute` re-run reuses worktrees, skips merged
-slices, resumes a stopped sequential slice and records a shown review checkpoint in the epic worktree, decided by
-`scripts/execute-resume-state.sh`; release-gated like the rest.
-B9, B10, B13, B14 shipped (slice-039): add their CHANGELOG entry — CRAFT's plans, counters and local state no longer
-count as uncommitted work (`scripts/tree-dirt-state.sh`), `/craft:commit` commits its own archive and leaves the human's
-changes alone, a worktree is created only for a committed plan (`plan_not_committed`), a project's `.gitignore` negation
-is respected, and abort / worktree-clean show an open handoff before removal; release-gated like the rest.
-B16 shipped (slice-040): add its CHANGELOG entry — under protected main a tracked plan's removal rides in the PR and the
-second pass drops the local copy before it syncs the trunk (`scripts/plan-landing.sh`, harness `test-plan-landing.sh`);
-release-gated like the rest. Still unshown by a real run: push / PR / backfill and the worktree finalize modes.
-B12 shipped (slice-041): add its CHANGELOG entry — `/craft:plan` links an epic entry to its slice-ID, `/craft:execute` A6
-resolves entries only through `scripts/epic-entry-link.sh` (an aborted slice's dead link is relinked, unlinked or misread
-entries are rejected with a runnable fix); behavior change for existing epics: an unlinked entry is rejected even while
-its plan exists. Release-gated like the rest; A6 in a real `/craft:execute` run is still unshown.
-B11 shipped (slice-042): add its CHANGELOG entry — a pause records `Paused-status` / `Paused-since`, `/craft:continue`
-(step 4a) is the one resume, and a handoff marker is bound to its episode (`Episode:`), so an answered or re-entered
-status no longer keeps or revives it; behavior change: `/craft:continue` writes on a confirmed resume, `/craft:pause`
-refuses a blocked slice, `Blocked-since` is a datetime. Release-gated like the rest; the 4a dialog is still unshown.
+**R1 shipped with slice-043 — CRAFT v1.5.0 (2026-09-15).** The installed runtime carries slice-032 … slice-042; a fresh
+session's `/craft:prime` reports v1.5.0 without drift, and the D33 Dock launch showed the hook receiving the Homebrew bash
+(details in `.claude/project/slices/slice-043-r1-release.md`). Still unshown by a real run: push / PR / backfill and the
+worktree finalize modes under protected main (slice-040), `/craft:execute` A6 against a real epic (slice-041), the
+interactive `/craft:continue` 4a dialog (slice-042). `test-docs-site.sh` does not check the required-tools list.
 
 **B11 shipped with slice-042.** Its follow-up R1-15 (a resume records no answer to the handoff's question, so a
 subagent re-run meets it again) is in `.claude/project/slices/slice-042-b11-handoff-resolution-from-paused.md` →
@@ -71,8 +45,8 @@ the bash ≥ 5.0 baseline its usage/cache sensor scripts assume is in place. B2 
 slices that change `commands/` / `agents/` are verified via headless `--plugin-dir` probes (D33),
 not the running session. Starts with a spike slice (statusline refresh during subagent runs, blocked-prompt API behavior, subagent cache
 TTL, `fable` alias vs. `model-defaults.md`). Couples to D2: planner/architect/reviewer vs. builder
-are exactly the capability tiers D2 wants to name. **Prerequisites** (assessed 2026-09-14, updated 2026-09-15, design record §11): the R1
-release (B12 shipped with slice-041, B11 with slice-042). **The autopilot builder works in place** on the epic branch (user,
+are exactly the capability tiers D2 wants to name. **Prerequisites** (assessed 2026-09-14, updated 2026-09-15, design record §11): all done —
+B12 (slice-041), B11 (slice-042), the R1 release (slice-043, v1.5.0); next is the F6 spike slice. **The autopilot builder works in place** on the epic branch (user,
 2026-09-15, design record §9 Q7) — so B15 is no F6 prerequisite — and the run must show the human how it proceeds
 (in place, branch, occupied checkout, slice order, stops, pause / resume).
 
