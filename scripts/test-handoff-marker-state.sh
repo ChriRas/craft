@@ -108,6 +108,96 @@ marker awaiting-test '../../etc'; plan testing
 marker awaiting-test; printf '# Slice 007\r\n\r\n> Status: testing\r\n' > "$WT/.claude/plans/slice-007-fixture.md"
 [[ "$(state)" == "STALE" ]] && ok "CRLF plan is read correctly (STALE)" || bad "CRLF plan (state=$(state))"
 
+# --- episodes (B11): a marker counts only while the plan is still in the marker's episode ---------
+# plan_ep <status> <header lines, printf %b> [body, printf %b] — header fields sit above the first `## `
+plan_ep() {
+  rm -f "$WT/.claude/plans/"*.md
+  printf '# Slice 007 — fixture\n\n> Status: %s\n> Slice-ID: slice-007\n%b\n## Goal\n\nfixture\n%b' "$1" "$2" "${3:-}" \
+    > "$WT/.claude/plans/slice-007-fixture.md"
+}
+marker_ep() { # status episode
+  printf -- '---\nSlice-ID: slice-007\nStatus: %s\nPhase: 5\nWritten: 2026-09-15T10:00:00Z\nEpisode: %s\n---\n\n# Handoff: fixture\n' \
+    "$1" "$2" > "$WT/.craft/handoff.md"
+}
+expect() { # label want-state want-reason
+  local st rs
+  st="$(state)"; rs="$(reason)"
+  { [[ "$st" == "$2" ]] && [[ "$rs" == "$3" ]]; } && ok "$1 → $2 ($3)" || bad "$1 (state=$st, reason=$rs; want $2/$3)"
+}
+T1='2026-09-15T10:00:00Z'; T2='2026-09-15T14:30:00Z'
+
+marker_ep awaiting-test "$T1"
+plan_ep paused "> Paused-status: testing\n> Paused-since: $T1\n";   expect "pause(T1) + marker(T1)" LIVE paired
+plan_ep testing "";                                                expect "  … resumed (plan back at Paused-status, record removed)" STALE unpaired
+plan_ep paused "> Paused-status: review\n> Paused-since: $T2\n";   expect "  … then re-paused (T2) for another reason" STALE episode_mismatch
+plan_ep paused "> Paused-status: testing\n";                       expect "marker with episode, plan paused without Paused-since" LIVE episode_unknown
+plan_ep paused "" "\n> Paused-since: $T1\n";                        expect "  … a Paused-since line in the plan body is not the header stamp" LIVE episode_unknown
+printf '# Slice 007\r\n\r\n> Status: paused\r\n> Paused-since: %s\r\n\r\n## Goal\r\n' "$T1" > "$WT/.claude/plans/slice-007-fixture.md"
+expect "CRLF plan header stamp matches" LIVE paired
+for s in awaiting-protocol awaiting-scope-decision awaiting-refactor-decision; do
+  marker_ep "$s" "$T1"; plan_ep paused "> Paused-since: $T2\n"
+  [[ "$(reason)" == "episode_mismatch" ]] && ok "$s follows the Paused-since episode" || bad "$s episode (reason=$(reason))"
+done
+
+marker_ep awaiting-block-decision "$T1"
+plan_ep blocked "> Blocker-type: decision\n> Blocked-since: $T1\n> Blocked-status: implementing\n"; expect "block(T1) + marker(T1)" LIVE paired
+plan_ep implementing "";                                                                           expect "  … unblocked" STALE unpaired
+plan_ep blocked "> Blocker-type: external\n> Blocked-since: $T2\n> Blocked-status: implementing\n"; expect "  … blocked again after the unblock (T2)" STALE episode_mismatch
+
+marker awaiting-test; plan_ep paused "> Paused-since: $T2\n"
+expect "legacy marker without Episode: judged by status alone" LIVE paired
+printf -- '---\nSlice-ID: slice-007\nStatus: awaiting-test\nWritten: %s\n---\n\nEpisode: %s\n' "$T1" "$T1" > "$WT/.craft/handoff.md"
+expect "  … an Episode: line in the marker body is not its episode (still status alone)" LIVE paired
+# A frontmatter that never closes has no fields — and the answer must not depend on the marker's size
+plan_ep paused "> Paused-since: $T2\n"
+printf -- '---\nSlice-ID: slice-007\nStatus: awaiting-test\nEpisode: %s\n\n# Handoff: no closing fence\n' "$T1" > "$WT/.craft/handoff.md"
+expect "unclosed marker frontmatter: no episode, status alone" LIVE paired
+for i in $(seq 1 4000); do echo "body line $i"; done >> "$WT/.craft/handoff.md"
+expect "  … the same marker with a 4000-line body gives the same answer" LIVE paired
+
+# A malformed or unconfirmable episode is doubt, never a mismatch: it must not hide a waiting slice (R1-1).
+plan_ep paused "> Paused-since: $T1\n"
+for bad_ep in "\"$T1\"" "\`$T1\`" "2026-09-15 10:00:00" "2026-09-15T10:00:00.000Z" "2026-09-15T12:00:00+02:00" "n/a"; do
+  marker_ep awaiting-test "$bad_ep"
+  { [[ "$(state)" == "LIVE" ]] && [[ "$(reason)" == "episode_unknown" ]]; } && ok "marker Episode: $bad_ep → LIVE (episode_unknown)" \
+    || bad "malformed marker episode '$bad_ep' (state=$(state), reason=$(reason))"
+done
+marker_ep awaiting-test "$T1"; plan_ep paused "> Paused-since: \`$T1\`\n"; expect "plan stamp in backticks" LIVE episode_unknown
+marker_ep awaiting-test "$T2"; plan_ep paused "> Paused-since: $T1\n";     expect "marker episode later than the plan's (a miscopy, e.g. Written:)" LIVE episode_unknown
+
+ROUND1_OPEN='\n## Review Findings\n\n### Round 1 — 2026-09-15 (Phase-8)\n\n- R1-1 · Heavy · Rethink · redesign · escalated → route pending\n'
+ROUND1_ROUTED='\n## Review Findings\n\n### Round 1 — 2026-09-15 (Phase-8)\n\n- R1-1 · Heavy · Rethink · redesign · escalated → Phase 4 loop-back\n'
+ROUND2_OPEN="$ROUND1_ROUTED"'\n### Round 2 — 2026-09-16 (Phase-8)\n\n- R2-1 · Heavy · Rethink · again · escalated → route pending\n'
+marker_ep awaiting-rethink-decision 1
+plan_ep reviewing "" "$ROUND1_OPEN";   expect "rethink marker (round 1), round 1 still open" LIVE paired
+# No writer produces this record — an interactive review appends round 2 before it routes — but a
+# hand-routed round must not keep the marker live: the findings_closed guard.
+plan_ep reviewing "" "$ROUND1_ROUTED"; expect "  … round 1 routed by hand, no round 2 yet (guard)" STALE findings_closed
+plan_ep reviewing "" "$ROUND2_OPEN";   expect "  … round 2 recorded with its own open line" STALE episode_mismatch
+marker_ep awaiting-rethink-decision 2; expect "a round-2 rethink marker in round 2" LIVE paired
+marker_ep awaiting-rethink-decision R2; expect "rethink Episode: R2 (not a round number)" LIVE episode_unknown
+marker_ep awaiting-rethink-decision 3; expect "rethink marker round later than the record's" LIVE episode_unknown
+marker_ep awaiting-rethink-decision 0; expect "rethink Episode: 0 (no round a writer copies)" LIVE episode_unknown
+
+# The helper runs the findings parser with its own interpreter (${BASH}), not whatever `bash` PATH
+# finds: a PATH whose `bash` always fails must not change the answer.
+mkdir -p "$ROOT/failbash" && printf '#!/bin/sh\nexit 97\n' > "$ROOT/failbash/bash" && chmod +x "$ROOT/failbash/bash"
+marker_ep awaiting-rethink-decision 1; plan_ep reviewing "" "$ROUND1_ROUTED"
+out="$(PATH="$ROOT/failbash:$PATH" "$BASH" "$HELPER" "$WT" 2>&1)"
+[[ "$out" == *"REASON=findings_closed"* ]] && ok "the findings parser runs with the helper's own bash, not PATH's" || bad "parser interpreter (out=$out)"
+
+mkdir -p "$ROOT/nofindings" && cp "$HELPER" "$ROOT/nofindings/"
+marker_ep awaiting-rethink-decision 1; plan_ep reviewing "" "$ROUND1_OPEN"
+out="$(bash "$ROOT/nofindings/handoff-marker-state.sh" "$WT" 2>&1)"
+{ [[ "$out" == *"STATE=LIVE"* ]] && [[ "$out" == *"REASON=episode_unknown"* ]]; } \
+  && ok "findings parser missing next to the helper → LIVE (episode_unknown)" || bad "no findings parser (out=$out)"
+
+marker_ep awaiting-test "$T1"; plan_ep paused "> Paused-since: $T2\n"
+out="$(bash "$HELPER" "$WT" --resolve)"
+{ [[ "$out" == *"RESOLVED=$WT/.craft/handoff-resolved-"* ]] && [[ ! -e "$WT/.craft/handoff.md" ]]; } \
+  && ok "--resolve renames an episode-mismatched marker like any STALE one" || bad "resolve episode_mismatch (out=$out)"
+rm -f "$WT/.craft/"handoff-resolved-*.md "$WT/.claude/plans/"*.md
+
 # --- --resolve ---------------------------------------------------------------------------
 rm -f "$WT/.craft/"handoff-resolved-*.md
 marker awaiting-test; plan paused
@@ -161,6 +251,23 @@ helper_pairs="$(bash "$HELPER" --print-pairing | sort)"
 { [[ -n "$skill_pairs" ]] && [[ "$skill_pairs" == "$helper_pairs" ]]; } \
   && ok "skills/workflow/SKILL.md pairing table matches the helper's" || bad "SKILL↔helper pairing drift: skill=[$(echo $skill_pairs)] helper=[$(echo $helper_pairs)]"
 
+# The episode sources are described twice as well: EPISODES in the helper, the episode table in SKILL.md.
+# Rows look like: | `paused` | the plan header's `Paused-since:` … |  or  | `reviewing` | the review round count …
+skill_eps="$(awk '/^\| Plan at \| The episode is/{f=1; next} f && !/^\|/{f=0} f' "$SKILL" | grep -E '^\| `[a-z]+` \|' \
+  | sed -E 's/^\| `([a-z]+)` \| ([^|]*)\|.*$/\1 \2/' \
+  | sed -E 's/^([a-z]+) .*`([A-Z][A-Za-z-]+):`.*$/\1=\2/; s/^([a-z]+) .*round count.*$/\1=round/' | sort)"
+helper_eps="$(bash "$HELPER" --print-episodes | sort)"
+{ [[ -n "$skill_eps" ]] && [[ "$skill_eps" == "$helper_eps" ]]; } \
+  && ok "skills/workflow/SKILL.md episode table matches the helper's EPISODES" || bad "SKILL↔helper episode drift: skill=[$(echo $skill_eps)] helper=[$(echo $helper_eps)]"
+missing_ep=""
+while IFS= read -r p; do
+  [[ -z "${p#*=}" ]] && continue
+  printf '%s\n' "$helper_eps" | grep -q "^${p#*=}=" || missing_ep="$missing_ep ${p#*=}"
+done <<EOF
+$helper_pairs
+EOF
+[[ -z "$missing_ep" ]] && ok "every paired plan status has an episode source" || bad "paired plan status without an episode:$missing_ep"
+
 # --- the writers agree with the pairing --------------------------------------------------
 # Liveness is only right if each writer really leaves the plan at the paired status. Every
 # place that writes a handoff marker carries `<!-- craft:handoff status=<s> plan=<p> -->`
@@ -201,6 +308,40 @@ actual_writers="$(cd "$REPO_ROOT" && grep -roE '<!-- craft:handoff status=[a-z-]
   | sed -E 's/^([^:]+):<!-- craft:handoff status=([a-z-]+) plan=.*$/\1 \2/' | sort)"
 [[ "$actual_writers" == "$EXPECTED_WRITERS" ]] && ok "the craft:handoff writer markers are exactly the 8 expected (file, status) pairs" \
   || bad "writer marker set changed: got [$(printf '%s' "$actual_writers" | tr '\n' ';')]"
+
+# Episodes (B11) are only as good as their writers, too. Every non-failure writer marker must name
+# `Episode:` nearby (the build overrides share the paragraph just above their bullets; slice-builder's
+# block marker precedes its template), and every `craft:writes status=paused` the pause record. Like
+# the markers themselves, this binds the declaration's presence, not the prose's meaning (slice-031).
+near() { # file line pattern radius → 0 when the pattern occurs within ±radius lines
+  awk -v l="$2" -v r="$4" 'NR >= l - r && NR <= l + r' "$REPO_ROOT/$1" | grep -qF -- "$3"
+}
+no_episode=""
+while IFS=: read -r f l rest; do
+  [[ -z "$f" ]] && continue
+  [[ "$rest" == *"status=failure "* ]] && continue
+  near "$f" "$l" 'Episode:' 15 || no_episode="$no_episode $f:$l"
+done <<EOF
+$(cd "$REPO_ROOT" && grep -rnoE '<!-- craft:handoff status=[a-z-]+ plan=[a-z-]+ -->' commands agents skills)
+EOF
+[[ -z "$no_episode" ]] && ok "every non-failure craft:handoff writer names the marker's Episode: next to its write" \
+  || bad "handoff writer without an Episode: nearby:$no_episode"
+no_record=""
+while IFS=: read -r f l rest; do
+  [[ -z "$f" ]] && continue
+  near "$f" "$l" 'ause record' 3 || no_record="$no_record $f:$l"
+done <<EOF
+$(cd "$REPO_ROOT" && grep -rnoE '<!-- craft:writes status=paused -->' commands agents skills)
+EOF
+[[ -z "$no_record" ]] && ok "every craft:writes status=paused writer names the pause record next to its write" \
+  || bad "paused writer without the pause record nearby:$no_record"
+# Writers without a status marker (refactor's Subagent Mode may not declare a write; slice-builder's
+# restatements and failure path) are pinned by name: each file must point at the pause record.
+for f in commands/refactor.md agents/slice-builder.md commands/execute.md; do
+  grep -qF 'Pause record' "$REPO_ROOT/$f" && ok "$f points its pauses at the Pause record" || bad "$f pauses without the Pause record"
+done
+grep -qF '4a. Resume a paused slice' "$REPO_ROOT/commands/continue.md" && grep -qF 'Paused-status' "$REPO_ROOT/commands/continue.md" \
+  && ok "commands/continue.md defines the resume (4a) that restores Paused-status" || bad "commands/continue.md lost its resume step"
 
 # --- the readers: every command that reads a marker is named where the lifecycle is defined ----
 # A reader that counts or shows markers without the helper brings stale markers back (B7); one that
@@ -277,6 +418,15 @@ if [[ -x /bin/bash ]] && [[ "$(/bin/bash -c 'echo ${BASH_VERSINFO[0]}')" -lt 4 ]
   out="$(/bin/bash "$HELPER" "$WT" --resolve --retry 2>&1)"
   { [[ "$out" == *"RESOLVED=$WT/.craft/handoff-resolved-"* ]] && [[ "$out" != *"line "*": "* ]]; } \
     && ok "under /bin/bash 3.2: --resolve --retry renames without shell errors" || bad "bash 3.2 resolve (out=$out)"
+  marker_ep awaiting-test "$T1"; plan_ep paused "> Paused-since: $T2\n"
+  out="$(/bin/bash "$HELPER" "$WT" 2>&1)"
+  { [[ "$out" == *"REASON=episode_mismatch"* ]] && [[ "$out" != *"line "*": "* ]]; } \
+    && ok "under /bin/bash 3.2: a header-stamp episode mismatch, no shell errors" || bad "bash 3.2 episode (out=$out)"
+  marker_ep awaiting-rethink-decision 1; plan_ep reviewing "" "$ROUND1_ROUTED"
+  out="$(PATH="$ROOT/failbash:$PATH" /bin/bash "$HELPER" "$WT" 2>&1)"
+  { [[ "$out" == *"REASON=findings_closed"* ]] && [[ "$out" != *"line "*": "* ]]; } \
+    && ok "under /bin/bash 3.2: the findings parser runs with the helper's bash (findings_closed), no shell errors" || bad "bash 3.2 findings episode (out=$out)"
+  rm -f "$WT/.claude/plans/"*.md
 else
   echo "  SKIP  no bash < 4 at /bin/bash — old-bash runs not exercised"
 fi

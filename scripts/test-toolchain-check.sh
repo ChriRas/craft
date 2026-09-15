@@ -309,10 +309,10 @@ BOUT="$(CLAUDE_PROJECT_DIR="$FIX/blocked" "$HOOK_BASH" "$HOOK" 2>/dev/null)"
 # the machine offers (3.2 on macOS). Skipped where no older system bash exists.
 if [[ "$HOOK_BASH" == "/bin/bash" ]] && [[ "${hook_version%%.*}" -lt 5 ]]; then
   parse_fail=""
-  for s in "$REPO_ROOT"/hooks/*.sh "$HELPER" "$SCRIPT_DIR/handoff-marker-state.sh"; do
+  for s in "$REPO_ROOT"/hooks/*.sh "$HELPER" "$SCRIPT_DIR/handoff-marker-state.sh" "$SCRIPT_DIR/review-findings-state.sh"; do
     /bin/bash -n "$s" 2>/dev/null || parse_fail="$parse_fail ${s#$REPO_ROOT/}"
   done
-  [[ -z "$parse_fail" ]] && ok "hooks/*.sh, check-toolchain.sh and handoff-marker-state.sh parse under /bin/bash $hook_version" || bad "3.2 parse failure:$parse_fail"
+  [[ -z "$parse_fail" ]] && ok "hooks/*.sh, check-toolchain.sh, handoff-marker-state.sh and review-findings-state.sh parse under /bin/bash $hook_version" || bad "3.2 parse failure:$parse_fail"
   OUT="$(/bin/bash "$HELPER" --project "$FIX/empty-project" 2>&1)"; RC=$?
   { [[ $RC -eq 20 ]] && has "BASH=too-old" && has "BASH_PATH=/bin/bash"; } \
     && ok "helper run BY /bin/bash $hook_version reports itself too old, with its real path" || bad "helper under old bash (rc=$RC, out=$OUT)"
@@ -347,13 +347,13 @@ fi
 # header names the forbidden constructs.
 echo "NO BASH-4 CONSTRUCTS IN 3.2-BOUND FILES:"
 bash4_hits=""
-for s in "$REPO_ROOT"/hooks/*.sh "$HELPER" "$SCRIPT_DIR/handoff-marker-state.sh"; do
+for s in "$REPO_ROOT"/hooks/*.sh "$HELPER" "$SCRIPT_DIR/handoff-marker-state.sh" "$SCRIPT_DIR/review-findings-state.sh"; do
   hits="$(grep -nE "$BASH4_PATTERN" "$s" \
     | grep -vE '^[0-9]+:[[:space:]]*#')"
   [[ -n "$hits" ]] && bash4_hits="$bash4_hits
   ${s#$REPO_ROOT/}: $hits"
 done
-[[ -z "$bash4_hits" ]] && ok "hooks/*.sh, check-toolchain.sh and handoff-marker-state.sh contain no construct newer than bash 3.2" \
+[[ -z "$bash4_hits" ]] && ok "hooks/*.sh, check-toolchain.sh, handoff-marker-state.sh and review-findings-state.sh contain no construct newer than bash 3.2" \
   || bad "bash-4+ constructs in 3.2-bound files:$bash4_hits"
 
 # The helper must itself run on the old bash it reports — every branch, not just the Darwin one.

@@ -5,8 +5,9 @@
 #
 # WHY ------------------------------------------------------------------------
 # `/craft:review` gates Commit on the findings record: which lines are still open, which
-# round comes next, which lines are follow-ups for the archive. Four consumers read that
-# record (review Step 6, Step 7, the Subagent-Mode gate, `/craft:commit` Step 5), and a
+# round comes next, which lines are follow-ups for the archive. Five consumers read that
+# record (review Step 6, Step 7, the Subagent-Mode gate, `/craft:commit` Step 5, and
+# handoff-marker-state.sh for a review episode), and a
 # grep cannot tell a resolution from a description that merely quotes one (slice-034). So
 # the record is parsed here, once.
 #
@@ -49,6 +50,8 @@
 #   ERROR=<reason>               on failure (stderr), with a non-zero exit code
 #
 # Exit codes: 0 success · 2 bad arguments · 4 plan unreadable.
+# Bash-3.2-compatible on purpose — handoff-marker-state.sh, which a SessionStart hook runs, calls it
+# for a review episode (B11); scripts/test-toolchain-check.sh parses and scans it as 3.2-bound.
 
 set -uo pipefail
 

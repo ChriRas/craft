@@ -16,14 +16,28 @@
 # nothing: live until a retry); skills/workflow/SKILL.md → Handoff marker lifecycle carries
 # its readable copy, and scripts/test-handoff-marker-state.sh fails when the two disagree.
 #
+# A status can be re-entered for an unrelated reason — a pause after a resume, a block after an
+# unblock, a new review round — so the status alone would revive an old marker (B11). A marker
+# therefore also carries its episode, `Episode:`, the value the plan held when the marker was
+# written, and counts only while the plan is still in that episode. What the episode is per plan
+# state is defined once, in EPISODES below: the plan header's `Paused-since:` / `Blocked-since:`
+# stamp, which every entry into that status from another status stamps anew, or the review round
+# count, read by scripts/review-findings-state.sh. A review episode also ends once no finding line
+# is open — a guard for a round routed by hand with no new round; a real review appends its round
+# before it routes.
+#
 # Doubt means LIVE: no Slice-ID, no plan (a project may gitignore .claude/plans/), more
-# than one plan, no or a malformed plan status, an unknown marker status. A false STALE
-# would hide a slice waiting on the human; a false LIVE only keeps the old behaviour.
+# than one plan, no or a malformed plan status, an unknown marker status, an episode the plan
+# cannot confirm (no stamp, the findings parser failed, a value that is not a UTC stamp or a round
+# number, a marker episode later than the plan's). A marker without `Episode:` in its frontmatter
+# (written before B11) is judged by its status alone. A false STALE would hide a slice waiting on the
+# human; a false LIVE only keeps the old behaviour.
 #
 #   <worktree>                    Report the marker's state. Never writes.
 #   <worktree> --resolve          Rename a STALE marker to .craft/handoff-resolved-<Written>.md.
 #   <worktree> --resolve --retry  Also rename a `failure` marker (a new run is the retry).
 #   --print-pairing               Print the pairing table as `<marker-status>=<plan-state>`.
+#   --print-episodes              Print the episode table as `<plan-state>=<source>`.
 #
 # A LIVE marker other than a retried `failure` is never renamed. An existing resolved
 # file is never overwritten (a -2, -3 … suffix is added).
@@ -34,14 +48,16 @@
 #   MARKER_PHASE=<n>           the marker's Phase: value (empty when NONE or absent)
 #   PLAN_STATUS=<status>       the plan's Status value, or `unknown`
 #   SLICE_ID=<id>              the marker's Slice-ID: value
-#   REASON=<why>               paired | unpaired | failure | no_slice_id | plan_not_found |
-#                              plan_ambiguous | plan_status_missing | unknown_marker_status
+#   REASON=<why>               paired | unpaired | episode_mismatch | findings_closed | failure |
+#                              episode_unknown | no_slice_id | plan_not_found | plan_ambiguous |
+#                              plan_status_missing | unknown_marker_status
 #   RESOLVED=<path>|no         (--resolve only) the renamed file, or `no`
 #   ERROR=<reason>             on failure (stderr), with a non-zero exit code
 #
 # Exit codes: 0 success (any STATE) · 2 bad arguments · 4 worktree unreachable ·
 # 5 rename failed (marker left in place).
-# Bash-3.2-compatible on purpose — the SessionStart hook runs it.
+# Bash-3.2-compatible on purpose — the SessionStart hook runs it, and it runs
+# review-findings-state.sh with the same bash, so that parser is bash-3.2-bound too.
 
 set -uo pipefail
 
@@ -53,18 +69,24 @@ awaiting-block-decision=blocked
 awaiting-rethink-decision=reviewing
 failure="
 
-paired_state() { # marker-status → plan state; returns 1 for an unknown status
+# plan state → its episode: `> <Key>:` in the plan header, or `round` (the review round count)
+EPISODES="paused=Paused-since
+blocked=Blocked-since
+reviewing=round"
+
+lookup() { # table key → value; returns 1 for an unknown key
   local line
   while IFS= read -r line; do
-    if [[ "${line%%=*}" == "$1" ]]; then
+    if [[ "${line%%=*}" == "$2" ]]; then
       printf '%s' "${line#*=}"
       return 0
     fi
   done <<EOF
-${PAIRING}
+$1
 EOF
   return 1
 }
+paired_state() { lookup "${PAIRING}" "$1"; } # marker-status → plan state
 
 WORKTREE=""
 RESOLVE=0
@@ -72,6 +94,7 @@ RETRY=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --print-pairing) printf '%s\n' "${PAIRING}"; exit 0 ;;
+    --print-episodes) printf '%s\n' "${EPISODES}"; exit 0 ;;
     --resolve) RESOLVE=1; shift ;;
     --retry) RETRY=1; shift ;;
     --*) echo "ERROR=unknown_argument:$1" >&2; exit 2 ;;
@@ -95,6 +118,58 @@ field() { # file key
   printf '%s' "$v"
 }
 
+# `<key>:` inside the marker's leading `---` frontmatter only, value trimmed — an optional field
+# must not be picked up from the body. A frontmatter that never closes has no fields: without the
+# closing `---` nothing tells frontmatter from body. One awk pass, no pipe (a reader that stops early
+# would make the answer depend on the file's size under pipefail).
+frontmatter_field() { # file key
+  local v
+  v="$(awk -v key="$2:" '
+    NR == 1 { if ($0 !~ /^---[[:space:]]*$/) exit; next }
+    /^---[[:space:]]*$/ { if (found != "") print found; closed = 1; exit }
+    found == "" && index($0, key) == 1 { found = $0 }
+  ' "$1" 2>/dev/null)"
+  [[ -n "$v" ]] || return 1
+  v="${v#*:}"
+  printf '%s' "$v" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
+}
+
+STAMP_RE='^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z$'
+ROUND_RE='^[0-9]+$'
+
+# Is the plan still in the marker's episode? → match | mismatch | closed | unknown
+# Only a well-formed pair can be told apart: a value in another shape (quotes, a local time, `R1`)
+# is `unknown`, never a mismatch. So is a marker episode later than the plan's — no writer produces
+# one (a re-entry always leaves the later value on the plan side), so it is a miscopy, not an answer.
+episode_verdict() { # plan plan-state marker-episode
+  local source v out rounds open
+  source="$(lookup "${EPISODES}" "$2")" || { printf 'unknown'; return; }
+  if [[ "${source}" == "round" ]]; then
+    # a round count starts at 1: `0` is no round a writer copies
+    { [[ "$3" =~ ${ROUND_RE} ]] && (( 10#$3 > 0 )); } || { printf 'unknown'; return; }
+    out="$("${BASH}" "$(dirname "${BASH_SOURCE[0]}")/review-findings-state.sh" "$1" 2>/dev/null)" \
+      || { printf 'unknown'; return; }
+    rounds="$(printf '%s\n' "$out" | sed -n 's/^ROUNDS=//p')"
+    open="$(printf '%s\n' "$out" | sed -n 's/^OPEN_COUNT=//p')"
+    [[ "${rounds}" =~ ${ROUND_RE} && "${open}" =~ ${ROUND_RE} ]] || { printf 'unknown'; return; }
+    if (( 10#$3 > 10#${rounds} )); then printf 'unknown'
+    elif (( 10#$3 != 10#${rounds} )); then printf 'mismatch'
+    elif (( open == 0 )); then printf 'closed'
+    else printf 'match'
+    fi
+    return
+  fi
+  [[ "$3" =~ ${STAMP_RE} ]] || { printf 'unknown'; return; }
+  # `> <Key>:` in the plan header — above the first `## ` heading, so body prose never counts
+  v="$(sed -n '/^## /q; p' "$1" | grep -m1 "^> ${source}:")" || { printf 'unknown'; return; }
+  v="$(printf '%s' "${v#*:}" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  if ! [[ "$v" =~ ${STAMP_RE} ]]; then printf 'unknown'
+  elif [[ "$v" == "$3" ]]; then printf 'match'
+  elif [[ "$3" > "$v" ]]; then printf 'unknown'
+  else printf 'mismatch'
+  fi
+}
+
 if [[ ! -f "${MARKER}" ]]; then
   echo "STATE=NONE"
   echo "MARKER_STATUS="
@@ -110,6 +185,7 @@ MARKER_STATUS="$(field "${MARKER}" Status)"
 SLICE_ID="$(field "${MARKER}" Slice-ID)"
 WRITTEN="$(field "${MARKER}" Written)"
 MARKER_PHASE="$(field "${MARKER}" Phase)"
+MARKER_EPISODE="$(frontmatter_field "${MARKER}" Episode)"
 PLAN_STATUS="unknown"
 STATE="LIVE"
 REASON=""
@@ -137,8 +213,15 @@ else
       REASON="plan_status_missing"
     else
       PLAN_STATUS="$v"
-      if [[ "${PLAN_STATUS}" == "${PAIRED}" ]]; then
+      if [[ "${PLAN_STATUS}" == "${PAIRED}" && -z "${MARKER_EPISODE}" ]]; then
         REASON="paired"
+      elif [[ "${PLAN_STATUS}" == "${PAIRED}" ]]; then
+        case "$(episode_verdict "${PLANS[0]}" "${PAIRED}" "${MARKER_EPISODE}")" in
+          match)    REASON="paired" ;;
+          mismatch) STATE="STALE"; REASON="episode_mismatch" ;;
+          closed)   STATE="STALE"; REASON="findings_closed" ;;
+          *)        REASON="episode_unknown" ;;
+        esac
       else
         STATE="STALE"; REASON="unpaired"
       fi
