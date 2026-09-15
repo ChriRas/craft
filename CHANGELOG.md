@@ -6,6 +6,39 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-09-15
+
+> **Upgrade note — read before updating.**
+> - **CRAFT now requires bash ≥ 5.0 and python3.** `/craft:prime` — and every command that runs it first — aborts without them and lists every missing tool with an install command for your OS. A stock macOS ships bash 3.2: install a current bash first (`brew install bash`). If Claude Code is launched from the Dock or an IDE and does not see that bash on its `PATH`, prime says so and names the `PATH` fix instead of an install command.
+> - **Local state and `.gitignore`:** `/craft:prime` offers to gitignore CRAFT's local state (step 4f) and writes the `# CRAFT local state` block only on your yes; the settings helpers (`ensure-worktree-trust.sh`, `ensure-readonly-context.sh`) no longer write `.gitignore` themselves.
+> - **Behavior changes:** `/craft:execute` rejects an epic decomposition entry without a slice-ID even while its plan exists — link it with the `scripts/epic-entry-link.sh link …` command the rejection prints (`/craft:plan` links only the slices it newly plans); `/craft:continue` writes the slice plan when you confirm the resume of a paused slice; `/craft:pause` refuses a blocked slice; `Blocked-since` is now an ISO datetime, and a re-block keeps it.
+
+An interim release that lays the foundation for autopilot mode (planned as 2.0.0): the review loop is closed, handoffs are derived from the slice plan instead of cleaned up, `/craft:execute` re-runs build on what an earlier run left, and CRAFT's own files no longer count as the human's work. Slices 032–042.
+
+### Added
+- **Plugin runtime drift check** (B2, slice-032) — in CRAFT's own source repo `/craft:prime` step 5c reports whether the session runs the working tree or a diverged installed copy — compared by content, not version — and names the differing files (`scripts/check-plugin-cache-drift.sh`, harness `test-plugin-cache-drift.sh`).
+- **Toolchain pre-flight** (F4, slice-033) — `scripts/check-toolchain.sh` defines the bash ≥ 5.0 / python3 minimum once and reports OS-aware remedies (brew, apt / dnf / yum / pacman / apk / zypper, WSL 2); a current bash that is installed but off `PATH` gets the `PATH` fix; the SessionStart hook records the bash it runs with in `.claude/plans/.hook-env`, so prime can warn when hooks run an older bash than the session (harness `test-toolchain-check.sh`, including real hook runs under `/bin/bash` 3.2).
+- **Review loop-back and round lifecycle** (B3, B6 — slices 034, 037) — a finding routed to Phase 4 really loops back (sub-tasks, decision, `Status: implementing`); findings are recorded per round with IDs; a re-review verifies every earlier finding first (`holds` / `partial` / `broken`), raises `reopens <ID>` when a fix did not hold, and Commit is gated on one parser, `scripts/review-findings-state.sh` (harness `test-review-findings-state.sh`).
+- **CRAFT local-state gitignore** (B4, slice-035) — `scripts/ensure-gitignore.sh` decides via `git check-ignore` whether `.primed`, `.hook-env`, `.execute.lock`, `settings.local.json` and `.craft/` are covered and appends one `# CRAFT local state` block; `/craft:onboard` applies it, `/craft:prime` offers it (harness `test-gitignore-sync.sh`).
+- **Handoff marker lifecycle** (B7, slice-036) — a worktree `.craft/handoff.md` counts as "human needed" only while the slice plan still waits for it; one helper (`scripts/handoff-marker-state.sh`) decides for the SessionStart hook, `/craft:worktree-status`, `/craft:execute` and `slice-builder`, which renames a stale marker to `handoff-resolved-<Written>.md` (harness `test-handoff-marker-state.sh`).
+- **`/craft:execute` re-run semantics** (B8, slice-038) — a second run reuses worktrees, skips merged slices, resumes a stopped sequential slice and records a shown review checkpoint; a state nothing accounts for aborts before any write (`scripts/execute-resume-state.sh`, harness `test-execute-resume-state.sh`).
+- **Epic entry ↔ slice-ID link** (B12, slice-041) — `/craft:plan` links a refined epic entry to its slice-ID; `/craft:execute` A6 resolves entries only through `scripts/epic-entry-link.sh` (`plan` / `landed` / `missing` / `ambiguous` / `unlinked`), so an epic re-run still finds a landed slice; an aborted slice's dead link is relinked (harness `test-epic-entry-link.sh`).
+- **Pause record and one resume** (B11, slice-042) — every pause writes `Paused-status` / `Paused-since`; `/craft:continue` step 4a is the one resume that restores the status; a handoff marker carries its `Episode:` (the pause or block stamp, or the review round), so an answered handoff stops counting and a re-entered status never revives an old marker.
+
+### Changed
+- **Tree hygiene** (B9, B10, B13, B14 — slice-039) — CRAFT's plans, ID counters and local state no longer count as uncommitted work (`scripts/tree-dirt-state.sh`); `/craft:commit` commits its own archive and promotions, commits only what it wrote and lists the human's changes as theirs; a worktree is created only from a base that holds its plan byte-identical (`plan_not_committed`); a project's `.gitignore` negation is respected; `ensure-worktree-trust.sh` and `ensure-readonly-context.sh` only report the gitignore verdict and no longer write `.gitignore`.
+- **Tracked plans under protected main** (B16, slice-040) — a tracked plan's removal rides in the approved PR and the second pass drops the local copy before it syncs the trunk (`scripts/plan-landing.sh`, harness `test-plan-landing.sh`).
+- **`/craft:continue` has one write** (slice-042) — the confirmed resume of a paused slice; it still never mutates a blocked slice (`/craft:unblock` does) and warns when the resume records no answer to a handoff's question.
+
+### Fixed
+- **Scope decisions paused nothing** (slice-036) — `awaiting-scope-decision` left the plan at `implementing`, so its marker was stale from birth; every handoff that pairs with a pause (test, protocol, scope, refactor) now pauses the plan.
+- **Open review findings could be lost** (B3, slice-034) — earlier rounds' open lines are offered again in every round; an autonomous review with open lines writes a handoff and never `committing`.
+- **`/craft:abort` and `/craft:worktree-clean` removed worktrees with an open handoff unseen** (B10, slice-039).
+- **A re-run after a landed slice looped on "commit or stash"** (B13, slice-039).
+- **`slice-builder` lost the plugin root when it read a phase command** (slice-037; found in slice-035) — the resolved root is handed over.
+- **`/craft:upgrade` claimed a session restart installs the new version** (slice-043) — it now names `/plugin update craft@<marketplace>` or auto-update, and that a new session loads the version once it is installed.
+- **`/craft:recap` duplicated an existing recap draft** (slice-034) and **`/craft:plan` hard-coded its required sections** (slice-039) — both now revise in place / derive from the template.
+
 ## [1.4.0] - 2026-07-13
 
 Epic-002 (Blocked-Slice Lifecycle), the checkable phase-transition graph, read-only context sources, and the public documentation site.

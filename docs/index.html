@@ -165,7 +165,7 @@ pre,.figwrap,.hero .install{
     <span class="p">❯</span> /plugin install craft@craft<br>
     <span class="p">❯</span> /craft:onboard <span class="cmt"># <span class="de">einmal pro Projekt</span><span class="en">once per project</span></span>
   </div>
-  <div class="badges">v1.4.0 · MIT · 24 commands · 8 skills · 2 agents · 3 hooks ·
+  <div class="badges">v1.5.0 · MIT · 24 commands · 8 skills · 2 agents · 3 hooks ·
     <a href="https://github.com/ChriRas/craft">github.com/ChriRas/craft</a></div>
 </div></header>
 
@@ -364,8 +364,8 @@ pre,.figwrap,.hero .install{
         <td><span class="de">Kleine strukturelle Verbesserungen, max. 2–3 Punkte pro Slice (mehr = eigener Slice). Drei dialogische Prompts. <strong>Pro Projekt abschaltbar</strong> — dann geht es von Phase 6 direkt zu Phase 8.</span>
             <span class="en">Small structural improvements, max 2–3 items per slice (more = its own slice). Three dialogic prompts. <strong>Droppable per project</strong> — Phase 6 then hands straight to Phase 8.</span></td></tr>
       <tr><td>8</td><td>Review</td><td><code>/craft:review</code></td><td><span class="lvl l2">L2</span>+<span class="lvl l1">L1</span></td>
-        <td><span class="de">Ein <code>code-reviewer</code>-Subagent mit frischem Kontextfenster klassifiziert Findings auf zwei Achsen: Schwere {Heavy, Light} × Fix-Natur {Local edit, Needs rethinking}. Lokale Edits werden in der Phase gefixt (Soft-Cap 5); Heavy+Rethinking <strong>blockiert den Commit</strong>.</span>
-            <span class="en">A <code>code-reviewer</code> subagent with a clean context window classifies findings on two axes: severity {Heavy, Light} × fix-nature {local edit, needs rethinking}. Local edits are fixed in-phase (soft cap 5); Heavy+rethinking <strong>blocks Commit</strong>.</span></td></tr>
+        <td><span class="de">Ein <code>code-reviewer</code>-Subagent mit frischem Kontextfenster klassifiziert Findings auf zwei Achsen: Schwere {Heavy, Light} × Fix-Natur {Local edit, Needs rethinking}. Lokale Edits werden in der Phase gefixt (Soft-Cap 5); Heavy+Rethinking <strong>blockiert den Commit</strong> — bis der Mensch es routet: in einen neuen Slice (sobald er existiert) oder zurück in Phase 4. Findings werden pro Runde festgehalten; ein Re-Review prüft zuerst die früheren.</span>
+            <span class="en">A <code>code-reviewer</code> subagent with a clean context window classifies findings on two axes: severity {Heavy, Light} × fix-nature {local edit, needs rethinking}. Local edits are fixed in-phase (soft cap 5); Heavy+rethinking <strong>blocks Commit</strong> — until the human routes it: to a new slice (once that slice exists) or back to Phase 4. Findings are recorded per round; a re-review verifies the earlier ones first.</span></td></tr>
       <tr><td>9</td><td>Commit &amp; Cleanup</td><td><code>/craft:commit</code></td><td><span class="lvl l1">L1</span></td>
         <td><span class="de">Atomare Commits (Conventional Commits + <code>Slice:</code>-Footer), Entscheidungs-Promotion (<code>[K]eep/[I]ntent/[R]ules/[D]iscard</code>), Slice-Archiv schreiben, Plan-Datei löschen. Der Slice schließt hier.</span>
             <span class="en">Atomic commits (Conventional Commits + <code>Slice:</code> footer), decision promotion (<code>[K]eep/[I]ntent/[R]ules/[D]iscard</code>), slice archive written, plan file deleted. The slice closes here.</span></td></tr>
@@ -434,11 +434,30 @@ pre,.figwrap,.hero .install{
     larger sessions — it is what lets a slice's 9-phase loop run in one go.</p>
 
     <p class="small dim de">Voraussetzungen (von <code>/craft:prime</code> hart geprüft): <code>context-mode</code>,
-      <code>agent-browser</code>, <code>git</code>, <code>gh</code>. Fehlt eines, bricht Prime mit konkreten
-      Installationsanweisungen ab.</p>
+      <code>agent-browser</code>, <code>git</code>, <code>gh</code>, <strong>bash ≥ 5.0</strong> und <code>python3</code>
+      (für die Hilfsskripte). Prime sammelt alle fehlenden Werkzeuge und bricht dann einmal ab — mit dem
+      Installationsbefehl für das eigene Betriebssystem (<code>brew</code>, <code>apt</code>, <code>dnf</code>, …;
+      Windows über WSL 2). Ein unverändertes macOS bringt nur bash 3.2 mit: vorher <code>brew install bash</code>. Wird
+      Claude Code aus dem Dock oder einer IDE gestartet und sieht die neue bash nicht im <code>PATH</code>, nennt
+      Prime statt eines Installationsbefehls die <code>PATH</code>-Korrektur (aus dem Terminal starten oder
+      <code>env.PATH</code> in <code>~/.claude/settings.json</code> setzen).</p>
     <p class="small dim en">Prerequisites (strictly verified by <code>/craft:prime</code>): <code>context-mode</code>,
-      <code>agent-browser</code>, <code>git</code>, <code>gh</code>. If one is missing, prime aborts with concrete
-      install instructions.</p>
+      <code>agent-browser</code>, <code>git</code>, <code>gh</code>, <strong>bash ≥ 5.0</strong> and <code>python3</code>
+      (for the helper scripts). Prime collects every missing tool, then aborts once — with the install command for
+      your OS (<code>brew</code>, <code>apt</code>, <code>dnf</code>, …; Windows via WSL 2). A stock macOS ships
+      bash 3.2: run <code>brew install bash</code> first. If Claude Code is launched from the Dock or an IDE and does
+      not see that bash on its <code>PATH</code>, prime names the <code>PATH</code> fix instead of an install command
+      (start from a terminal, or set <code>env.PATH</code> in <code>~/.claude/settings.json</code>).</p>
+    <p class="small dim de">CRAFTs lokaler Zustand (<code>.primed</code>, <code>.hook-env</code>,
+      <code>.execute.lock</code>, <code>settings.local.json</code>, <code>.craft/</code>) gehört nicht ins Repo:
+      <code>/craft:onboard</code> trägt die nicht abgedeckten Pfade als <code># CRAFT local state</code>-Block in die
+      <code>.gitignore</code> ein; in früher onboardeten Projekten bietet <code>/craft:prime</code> (Schritt 4f) das
+      an und schreibt erst nach deinem Ja (siehe <a href="#knowledge">Wissensmodell</a>).</p>
+    <p class="small dim en">CRAFT's local state (<code>.primed</code>, <code>.hook-env</code>,
+      <code>.execute.lock</code>, <code>settings.local.json</code>, <code>.craft/</code>) does not belong in the repo:
+      <code>/craft:onboard</code> adds the uncovered paths to <code>.gitignore</code> as a
+      <code># CRAFT local state</code> block; in projects onboarded earlier <code>/craft:prime</code> (step 4f) offers
+      it and writes only on your yes (see <a href="#knowledge">knowledge model</a>).</p>
   </div>
 </div></section>
 
@@ -450,11 +469,13 @@ pre,.figwrap,.hero .install{
     <h2><span class="de">Der Status-Graph — und alle Abbiegemöglichkeiten</span><span class="en">The status graph — and every branch-off</span></h2>
     <p class="de">Jeder Slice-Plan trägt ein <code>Status:</code>-Feld — das <strong>Execution-Token</strong> des
     Workflows: Ein Kommando <em>schreibt</em> es, das nächste <em>konsumiert</em> es. <code>/craft:continue</code>
-    liest den Status und routet zum richtigen Kommando; sein einziger Schreibzugriff ist das bestätigte Fortsetzen eines pausierten Slice. Der Graph ist maschinell geprüft
+    liest den Status und routet zum richtigen Kommando; sein einziger Schreibzugriff ist das bestätigte Fortsetzen eines pausierten Slice
+    (Schritt 4a — das eine Resume: stellt den beim Pausieren gesicherten <code>Paused-status</code> wieder her). Der Graph ist maschinell geprüft
     (<code>scripts/test-workflow-status-graph.sh</code>) — kein Status ohne Konsumenten.</p>
     <p class="en">Every slice plan carries a <code>Status:</code> field — the workflow's <strong>execution
     token</strong>: one command <em>writes</em> it, the next <em>consumes</em> it. <code>/craft:continue</code>
-    reads the status and routes to the right command; its one write is the confirmed resume of a paused slice. The graph is machine-checked
+    reads the status and routes to the right command; its one write is the confirmed resume of a paused slice
+    (step 4a — the one resume: it restores the <code>Paused-status</code> recorded by the pause). The graph is machine-checked
     (<code>scripts/test-workflow-status-graph.sh</code>) — no status without a consumer.</p>
 
     <div class="figwrap">
@@ -471,6 +492,9 @@ pre,.figwrap,.hero .install{
         </marker>
         <marker id="sarrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
           <path d="M0,0 L10,5 L0,10 z" fill="#3fb950"/>
+        </marker>
+        <marker id="sarrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#bc8cff"/>
         </marker>
       </defs>
 
@@ -545,7 +569,7 @@ pre,.figwrap,.hero .install{
       <rect x="70" y="480" width="110" height="34" rx="17" fill="#11161d" stroke="#8b949e" stroke-dasharray="4 3"/>
       <text x="125" y="502" text-anchor="middle" fill="#8b949e" font-size="12.5">paused</text>
       <path d="M 560 324 Q 560 480 182 494" fill="none" stroke="#8b949e" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#sarr)"/>
-      <text x="480" y="470" fill="#8b949e" font-size="10">pause <tspan fill="#6e7681">(<tspan class="de">aus jeder Phase</tspan><tspan class="en">from any phase</tspan>)</tspan></text>
+      <text x="284" y="510" fill="#8b949e" font-size="10">pause<tspan x="284" dy="12" fill="#6e7681">(<tspan class="de">aus jeder Phase außer blocked</tspan><tspan class="en">from any phase but blocked</tspan>)</tspan></text>
       <path d="M 125 480 Q 130 380 218 326" fill="none" stroke="#8b949e" stroke-width="1.3" marker-end="url(#sarr)"/>
       <text x="120" y="392" fill="#8b949e" font-size="10">continue</text>
 
@@ -559,13 +583,18 @@ pre,.figwrap,.hero .install{
       <text x="500" y="510" fill="#f85149" font-size="10">unblock [R]</text>
       <text x="500" y="523" fill="#6e7681" font-size="9.5"><tspan class="de">stellt Blocked-status wieder her</tspan><tspan class="en">restores the recorded Blocked-status</tspan></text>
 
+      <!-- review loop-back (reviewing -> implementing, /craft:review Step 8) -->
+      <path d="M 905 324 C 985 380 985 560 880 565 L 300 565 C 262 565 258 440 258 328" fill="none" stroke="#bc8cff" stroke-width="1.4" marker-end="url(#sarrp)"/>
+      <text x="580" y="583" text-anchor="middle" fill="#bc8cff" font-size="10">/craft:review → implementing · <tspan class="de">Rücksprung (Step 8)</tspan><tspan class="en">loop-back (Step 8)</tspan></text>
+      <text x="580" y="597" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">Findings zurück in Phase 4 — danach Re-Review</tspan><tspan class="en">findings back to phase 4 — then a re-review</tspan></text>
+
       <!-- done note -->
       <text x="1175" y="355" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">Archiv geschrieben,</tspan><tspan class="en">archive written,</tspan></text>
       <text x="1175" y="368" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">Plan gelöscht</tspan><tspan class="en">plan deleted</tspan></text>
     </svg>
-    <div class="figcap de">Hauptkette (blau) mit Warte-Status (gelb), Unterbrechungen (grau/rot) und der Debug-Schleife (türkis).
+    <div class="figcap de">Hauptkette (blau) mit Warte-Status (gelb), Unterbrechungen (grau/rot), der Debug-Schleife (türkis) und dem Review-Rücksprung (violett).
       Achtung: <code>review</code> = Phase 6 wartet, <code>reviewing</code> = Phase 8 läuft.</div>
-    <div class="figcap en">Main chain (blue) with waiting states (amber), interrupts (gray/red) and the debug loop (teal).
+    <div class="figcap en">Main chain (blue) with waiting states (amber), interrupts (gray/red), the debug loop (teal) and the review loop-back (purple).
       Careful: <code>review</code> = phase 6 pending, <code>reviewing</code> = phase 8 running.</div>
     </div>
 
@@ -575,10 +604,12 @@ pre,.figwrap,.hero .install{
           <th><span class="de">Was passiert</span><span class="en">What happens</span></th>
           <th><span class="de">Rückweg</span><span class="en">Way back</span></th></tr>
       <tr><td><code>/craft:pause</code></td>
-        <td><span class="de">Kurz weg, Kontextwechsel</span><span class="en">Stepping away, context switch</span></td>
-        <td><span class="de">Pausen-Notiz in den Plan, <span class="pill st">paused</span>; Code und Commits unangetastet.</span>
-            <span class="en">Pause note into the plan, <span class="pill st">paused</span>; code and commits untouched.</span></td>
-        <td><code>/craft:continue</code></td></tr>
+        <td><span class="de">Kurz weg, Kontextwechsel — oder ein unterbrochener <code>/craft:execute</code>-Lauf (pausiert jeden noch laufenden Slice)</span>
+            <span class="en">Stepping away, context switch — or an interrupted <code>/craft:execute</code> run (pauses every slice still running)</span></td>
+        <td><span class="de">Pausen-Notiz plus Pause-Record (<code>Paused-status</code> = der ersetzte Status, <code>Paused-since</code> = Zeitstempel) in den Plan, <span class="pill st">paused</span>; Code und Commits unangetastet. Eine erneute Pause behält den Record. Ein <span class="pill bad">blocked</span> Slice wird abgelehnt — die Pause würde den Block verwerfen.</span>
+            <span class="en">Pause note plus pause record (<code>Paused-status</code> = the status it replaces, <code>Paused-since</code> = timestamp) into the plan, <span class="pill st">paused</span>; code and commits untouched. A repeated pause keeps the record. A <span class="pill bad">blocked</span> slice is refused — the pause would drop the block.</span></td>
+        <td><span class="de"><code>/craft:continue</code> — Schritt 4a stellt nach Bestätigung <code>Paused-status</code> wieder her (das eine Resume; <code>/craft:build</code> nutzt denselben Schritt)</span>
+            <span class="en"><code>/craft:continue</code> — step 4a restores <code>Paused-status</code> on confirmation (the one resume; <code>/craft:build</code> runs the same step)</span></td></tr>
       <tr><td><code>/craft:handoff</code></td>
         <td><span class="de">Kontext „vergiftet", Session festgefahren</span><span class="en">Context poisoned, session stuck</span></td>
         <td><span class="de">Komprimierte Übergabe (<code>## Handoff</code>: Wo stehen wir / Versucht / Ausgeschlossen / Beste nächste Idee) in den Plan, <code>Handoff active: yes</code>. Der Status bleibt unverändert!</span>
@@ -593,8 +624,8 @@ pre,.figwrap,.hero .install{
             <span class="small dim en">When the prerequisite closes via <code>/craft:commit</code>, the blocked slice auto-resurfaces.</span></td></tr>
       <tr><td><code>/craft:abort</code></td>
         <td><span class="de">Slice aufgeben</span><span class="en">Abandon a slice</span></td>
-        <td><span class="de">Mehrfache Warnungen (frische Arbeit? Teil-Commits? Worktree?), dann <strong>getippte Slice-ID</strong> als Bestätigung; Plan-Datei wird gelöscht (kein Archiv — abgebrochene Slices haben keinen Archivwert).</span>
-            <span class="en">Multiple warnings (recent work? partial commits? worktree?), then a <strong>typed slice ID</strong> to confirm; the plan file is deleted (no archive — aborted slices have no archive value).</span></td>
+        <td><span class="de">Mehrfache Warnungen (frische Arbeit? Teil-Commits? Worktree? offener Handoff?), dann <strong>getippte Slice-ID</strong> als Bestätigung; Plan-Datei wird gelöscht (kein Archiv — abgebrochene Slices haben keinen Archivwert). Ein lebender Handoff-Marker im Worktree wird vor dem Entfernen angezeigt.</span>
+            <span class="en">Multiple warnings (recent work? partial commits? worktree? open handoff?), then a <strong>typed slice ID</strong> to confirm; the plan file is deleted (no archive — aborted slices have no archive value). A live handoff marker in the worktree is shown before removal.</span></td>
         <td><span class="de">keiner — bewusst endgültig</span><span class="en">none — deliberately final</span></td></tr>
       <tr><td><code>/craft:debug</code></td>
         <td><span class="de"><code>[B]</code> in Phase 5, manuell, oder auto-angeboten nach 2 Fix-Versuchen am selben Symptom</span>
@@ -603,6 +634,13 @@ pre,.figwrap,.hero .install{
             <span class="en">Four steps: <strong>ALIGN</strong> (pin the bug down together) → <strong>PROTOCOL</strong> (freeze the verification command <em>before</em> any fix) → <strong>AUTONOMOUS LOOP</strong> (up to 5 attempts, each with verification + negative check, 15k token brake) → <strong>ESCALATION</strong> (handoff / recap / renegotiate protocol / take it manually).</span></td>
         <td><span class="de">Erfolg → Phase 6; der Verifikations-Befehl wird als Regressionstest angeboten</span>
             <span class="en">Success → phase 6; the verification command is offered as a regression test</span></td></tr>
+      <tr><td><code>/craft:review</code> → Phase 4</td>
+        <td><span class="de">Heavy+Rethinking-Finding oder Fix-Cap erreicht — der Mensch wählt den Rücksprung</span>
+            <span class="en">Heavy+rethinking finding or fix cap reached — the human chooses the loop-back</span></td>
+        <td><span class="de">Step 8 hängt je Finding einen Sub-Task <code>Loop-back &lt;ID&gt;</code> an, notiert die Entscheidung und setzt <span class="pill st">implementing</span>. Findings stehen pro Runde mit IDs (<code>R&lt;round&gt;-&lt;n&gt;</code>) in <code>## Review Findings</code>; ein Re-Review prüft zuerst jedes frühere Finding (<code>holds</code> / <code>partial</code> / <code>broken</code>) und meldet <code>reopens &lt;ID&gt;</code>, wenn ein Fix nicht hält. Welche Zeilen offen sind, liest ein Parser (<code>scripts/review-findings-state.sh</code>) — daran hängt das Commit-Gate.</span>
+            <span class="en">Step 8 appends one <code>Loop-back &lt;ID&gt;</code> sub-task per finding, records the decision and sets <span class="pill st">implementing</span>. Findings are recorded per round with IDs (<code>R&lt;round&gt;-&lt;n&gt;</code>) under <code>## Review Findings</code>; a re-review first verifies every earlier finding (<code>holds</code> / <code>partial</code> / <code>broken</code>) and raises <code>reopens &lt;ID&gt;</code> when a fix did not hold. Which lines are open is read by one parser (<code>scripts/review-findings-state.sh</code>) — the commit gate depends on it.</span></td>
+        <td><span class="de"><code>/craft:build</code> → Phasen 5–7 → erneut <code>/craft:review</code></span>
+            <span class="en"><code>/craft:build</code> → phases 5–7 → <code>/craft:review</code> again</span></td></tr>
       <tr><td><code>/craft:release</code></td>
         <td><span class="de">In-Place-Build wartet auf IDE-Review (<span class="pill halt">awaiting-release</span>)</span>
             <span class="en">In-place build awaiting IDE review (<span class="pill halt">awaiting-release</span>)</span></td>
@@ -612,8 +650,8 @@ pre,.figwrap,.hero .install{
       <tr><td><code>/craft:commit</code> ×2</td>
         <td><span class="de">Profil: <code>pull-request</code> + <code>Protected-main: yes</code></span>
             <span class="en">Profile: <code>pull-request</code> + <code>Protected-main: yes</code></span></td>
-        <td><span class="de"><strong>„Freigabe ≠ Merge"</strong>: Erster Aufruf pusht + öffnet den PR (<span class="pill halt">awaiting-approval</span>), merged aber nicht. Der zweite Aufruf merged via <code>gh pr merge</code> — nur bei echtem GitHub-<code>APPROVED</code>, nie <code>--admin</code>. Der Mensch gibt frei, das System merged.</span>
-            <span class="en"><strong>"Approval ≠ merge"</strong>: the first invocation pushes + opens the PR (<span class="pill halt">awaiting-approval</span>) but does not merge. The second invocation merges via <code>gh pr merge</code> — only on a real GitHub <code>APPROVED</code>, never <code>--admin</code>. The human approves, the system merges.</span></td>
+        <td><span class="de"><strong>„Freigabe ≠ Merge"</strong>: Erster Aufruf pusht + öffnet den PR (<span class="pill halt">awaiting-approval</span>), merged aber nicht. Der zweite Aufruf merged via <code>gh pr merge</code> — nur bei echtem GitHub-<code>APPROVED</code>, nie <code>--admin</code>. Der Mensch gibt frei, das System merged. Ein versionierter Plan verlässt den Trunk mit dem PR (<code>scripts/plan-landing.sh</code>).</span>
+            <span class="en"><strong>"Approval ≠ merge"</strong>: the first invocation pushes + opens the PR (<span class="pill halt">awaiting-approval</span>) but does not merge. The second invocation merges via <code>gh pr merge</code> — only on a real GitHub <code>APPROVED</code>, never <code>--admin</code>. The human approves, the system merges. A tracked plan leaves the trunk with the PR (<code>scripts/plan-landing.sh</code>).</span></td>
         <td><span class="de">Slice schließt</span><span class="en">slice closes</span></td></tr>
     </table></div>
 
@@ -621,11 +659,26 @@ pre,.figwrap,.hero .install{
     <code>slice-builder</code>-Agent bei jeder menschenpflichtigen Pause eine <code>.craft/handoff.md</code>
     (<code>awaiting-test</code>, <code>awaiting-protocol</code>, <code>awaiting-scope-decision</code>,
     <code>awaiting-refactor-decision</code>, <code>awaiting-rethink-decision</code>, …) — das sind Worktree-Marker,
-    keine Slice-Status.</p>
+    keine Slice-Status. Gelöscht wird so ein Marker nie: Er gilt nur als „Mensch gebraucht", solange der Slice-Plan im
+    Worktree noch auf ihn wartet — also noch beim passenden Status (<code>paused</code>, <code>blocked</code> oder
+    <code>reviewing</code>) <em>und</em> in derselben Episode (<code>Episode:</code> = <code>Paused-since</code>,
+    <code>Blocked-since</code> bzw. die Review-Runde). Ist die Frage beantwortet, ist der Marker veraltet; eine spätere
+    Pause belebt ihn nicht wieder. Das entscheidet ein Helfer, <code>scripts/handoff-marker-state.sh</code>, für den
+    SessionStart-Hook, <code>/craft:worktree-status</code> und <code>/craft:execute</code> — im Zweifel gilt der Marker.
+    <code>slice-builder</code> benennt veraltete Marker in <code>handoff-resolved-&lt;Written&gt;.md</code> um;
+    <code>/craft:abort</code> und <code>/craft:worktree-clean</code> zeigen einen lebenden Marker, bevor sie den
+    Worktree entfernen.</p>
     <p class="small dim en">There is a second marker namespace: inside worktrees the <code>slice-builder</code>
     agent writes a <code>.craft/handoff.md</code> on every human-required pause (<code>awaiting-test</code>,
     <code>awaiting-protocol</code>, <code>awaiting-scope-decision</code>, <code>awaiting-refactor-decision</code>,
-    <code>awaiting-rethink-decision</code>, …) — worktree markers, not slice statuses.</p>
+    <code>awaiting-rethink-decision</code>, …) — worktree markers, not slice statuses. No command deletes such a marker:
+    it means "human needed" only while the slice plan in the worktree still waits for it — at the paired status
+    (<code>paused</code>, <code>blocked</code> or <code>reviewing</code>) <em>and</em> in the same episode
+    (<code>Episode:</code> = <code>Paused-since</code>, <code>Blocked-since</code> or the review round). Once answered, the
+    marker is stale; a later pause never revives it. One helper, <code>scripts/handoff-marker-state.sh</code>, decides this
+    for the SessionStart hook, <code>/craft:worktree-status</code> and <code>/craft:execute</code> — doubt means live.
+    <code>slice-builder</code> renames a stale marker to <code>handoff-resolved-&lt;Written&gt;.md</code>;
+    <code>/craft:abort</code> and <code>/craft:worktree-clean</code> show a live marker before they remove its worktree.</p>
   </div>
 </div></section>
 
@@ -827,14 +880,34 @@ pre,.figwrap,.hero .install{
           Post-Assertions prüfen die Freigabe.</li>
         <li><strong>Abhängigkeiten:</strong> Slices mit <code>Depends-On</code> werden als DAG aufgelöst;
           nur die freie „Frontier" läuft parallel.</li>
-        <li><strong>Review-Checkpoints:</strong> Im Epic-Plan markierte Slices stoppen den Lauf <em>vor</em> dem Merge.</li>
+        <li><strong>Epic-Einträge ↔ Slice-IDs:</strong> <code>/craft:plan</code> verknüpft einen verfeinerten
+          Zerlegungs-Eintrag mit seiner Slice-ID. A6 löst die Einträge nur über <code>scripts/epic-entry-link.sh</code>
+          auf (<code>plan</code> / <code>landed</code> / <code>missing</code> / <code>ambiguous</code> / <code>unlinked</code>) —
+          so findet auch ein erneuter Lauf einen bereits gelandeten Slice. Ein Eintrag ohne Slice-ID wird abgelehnt,
+          selbst wenn sein Plan existiert, mit dem Befehl, der ihn verknüpft.</li>
+        <li><strong>Review-Checkpoints:</strong> Im Epic-Plan markierte Slices stoppen den Lauf <em>vor</em> dem Merge;
+          ein gezeigter Checkpoint wird mit dem Stand des Slice in <code>.craft/checkpoints.md</code> des Epic-Worktrees
+          vermerkt — der nächste Lauf gilt als Freigabe und merged; hat sich der Slice seitdem geändert, hält er erneut.</li>
+        <li><strong>Erneuter Lauf:</strong> Ein zweites <code>/craft:execute</code> baut auf dem auf, was ein früherer
+          Lauf hinterlassen hat. Schritt 1c (<code>scripts/execute-resume-state.sh</code>) liest das vor jedem Schreibzugriff:
+          Worktrees werden wiederverwendet (<code>reuse</code>), gemergte Slices übersprungen (<code>skip</code>), der
+          angehaltene Slice eines sequenziellen Epics fortgesetzt (<code>resume</code>), pausierte oder blockierte Slices
+          bleiben stehen (<code>held</code>). Was nichts erklärt — ein übrig gebliebener Branch, ein schmutziger Baum,
+          ein nicht committeter Plan (<code>plan_not_committed</code>) — bricht ab, bevor irgendetwas angelegt wird, und
+          nennt die Korrektur.</li>
+        <li><strong>Sauberer Baum:</strong> CRAFTs eigene Pläne, ID-Zähler und lokaler Zustand zählen nicht als
+          uncommittete Arbeit (<code>scripts/tree-dirt-state.sh</code>). Ein Worktree entsteht nur aus einer Basis, die
+          seinen Plan byte-gleich enthält. Unter Protected-main reist das Entfernen eines versionierten Plans im
+          freigegebenen PR mit; der zweite <code>/craft:commit</code>-Durchlauf entfernt die lokale Kopie, bevor er den
+          Trunk synchronisiert (<code>scripts/plan-landing.sh</code>).</li>
         <li><strong>Harte Grenzen:</strong> merged nie nach <code>main</code> (das ist <code>/craft:commit</code>),
           pusht nie, löst Heavy+Rethinking-Findings nie selbst auf. Ein Handoff eines Slices bricht den Lauf nicht ab —
-          unabhängige Slices laufen weiter.</li>
+          unabhängige Slices laufen weiter. Eine Unterbrechung pausiert jeden noch laufenden Slice mit Pause-Record.</li>
       </ul>
-      <p>Rundherum: <code>/craft:worktree-status</code> (Übersicht aller Worktrees inkl. Handoff-Marker),
+      <p>Rundherum: <code>/craft:worktree-status</code> (Übersicht aller Worktrees inkl. lebender Handoff-Marker),
       <code>/craft:checkout</code> (in einen Worktree zum Inspizieren wechseln),
-      <code>/craft:worktree-clean</code> (verwaiste Worktrees nach Bestätigung entfernen — nie mit <code>--force</code>).</p>
+      <code>/craft:worktree-clean</code> (verwaiste Worktrees nach Bestätigung entfernen, einen offenen Handoff vorher
+      anzeigen — nie mit <code>--force</code>).</p>
     </div>
     <div class="en">
       <h3>What the orchestrator guarantees</h3>
@@ -847,14 +920,33 @@ pre,.figwrap,.hero .install{
           post-assertions verify its release.</li>
         <li><strong>Dependencies:</strong> slices with <code>Depends-On</code> are resolved as a DAG;
           only the free "frontier" runs in parallel.</li>
-        <li><strong>Review checkpoints:</strong> slices marked in the epic plan halt the run <em>before</em> merging.</li>
+        <li><strong>Epic entries ↔ slice IDs:</strong> <code>/craft:plan</code> links a refined decomposition entry to
+          its slice ID. A6 resolves entries only through <code>scripts/epic-entry-link.sh</code>
+          (<code>plan</code> / <code>landed</code> / <code>missing</code> / <code>ambiguous</code> / <code>unlinked</code>) —
+          so a re-run still finds a slice that has already landed. An entry without a slice ID is rejected, even while
+          its plan exists, with the command that links it.</li>
+        <li><strong>Review checkpoints:</strong> slices marked in the epic plan halt the run <em>before</em> merging;
+          a shown checkpoint is recorded with the slice's tip in the epic worktree's <code>.craft/checkpoints.md</code> —
+          the next run counts as the go-ahead and merges; a slice changed since it was shown halts again.</li>
+        <li><strong>Re-runs:</strong> a second <code>/craft:execute</code> builds on what an earlier run left behind.
+          Step 1c (<code>scripts/execute-resume-state.sh</code>) reads it before any write: worktrees are reused
+          (<code>reuse</code>), merged slices skipped (<code>skip</code>), a sequential epic's stopped slice resumed
+          (<code>resume</code>), paused or blocked slices left where they are (<code>held</code>). Anything nothing
+          accounts for — a leftover branch, a dirty tree, an uncommitted plan (<code>plan_not_committed</code>) — aborts
+          before anything is created and names the fix.</li>
+        <li><strong>Clean tree:</strong> CRAFT's own plans, ID counters and local state do not count as uncommitted work
+          (<code>scripts/tree-dirt-state.sh</code>). A worktree is created only from a base that holds its plan
+          byte-identical. Under protected main a tracked plan's removal rides in the approved PR; the second
+          <code>/craft:commit</code> pass drops the local copy before it syncs the trunk
+          (<code>scripts/plan-landing.sh</code>).</li>
         <li><strong>Hard limits:</strong> never merges into <code>main</code> (that is <code>/craft:commit</code>),
           never pushes, never resolves Heavy+rethinking findings itself. One slice's handoff doesn't abort the run —
-          independent slices continue.</li>
+          independent slices continue. An interrupt pauses every slice still running, with its pause record.</li>
       </ul>
-      <p>Around it: <code>/craft:worktree-status</code> (overview of all worktrees incl. handoff markers),
+      <p>Around it: <code>/craft:worktree-status</code> (overview of all worktrees incl. live handoff markers),
       <code>/craft:checkout</code> (switch into a worktree for inspection),
-      <code>/craft:worktree-clean</code> (remove orphaned worktrees after confirmation — never with <code>--force</code>).</p>
+      <code>/craft:worktree-clean</code> (remove orphaned worktrees after confirmation, showing an open handoff first —
+      never with <code>--force</code>).</p>
     </div>
   </div>
 </div></section>
@@ -1022,6 +1114,7 @@ pre,.figwrap,.hero .install{
 
 <pre><code>your-project/
 ├── CLAUDE.md                          <span class="cmt"># <span class="de">schlanker Index auf alles Untere</span><span class="en">slim index pointing at everything below</span></span>
+├── .gitignore                         <span class="cmt"># <span class="de">+ Block „# CRAFT local state" (Onboard / Prime 4f)</span><span class="en">+ a "# CRAFT local state" block (onboard / prime 4f)</span></span>
 ├── .claude/
 │   ├── project/                       <span class="cmt"># <span class="de">DAUERHAFT — versioniert</span><span class="en">DURABLE — version-controlled</span></span>
 │   │   ├── intent.md                  <span class="cmt"># <span class="de">Warum: Vision, Ziele, Entscheidungen (≤ ~80 Zeilen)</span><span class="en">why: vision, goals, decisions (≤ ~80 lines)</span></span>
@@ -1033,10 +1126,33 @@ pre,.figwrap,.hero .install{
 │   ├── plans/                         <span class="cmt"># <span class="de">EPHEMER — lebt nur solange ein Slice offen ist</span><span class="en">EPHEMERAL — lives only while a slice is open</span></span>
 │   │   ├── slice-001-user-login.md    <span class="cmt"># <span class="de">aktiver Plan — trägt das Status-Token</span><span class="en">active plan — carries the status token</span></span>
 │   │   ├── .next-id · .next-epic-id   <span class="cmt"># <span class="de">ID-Zähler (getrennte Räume)</span><span class="en">ID counters (independent spaces)</span></span>
-│   │   └── .execute.lock              <span class="cmt"># <span class="de">nur während eines /craft:execute-Laufs</span><span class="en">only during a /craft:execute run</span></span>
+│   │   ├── .primed                    <span class="cmt"># <span class="de">lokal: Session-Marker — Prime schreibt ihn, der SessionStart-Hook löscht ihn</span><span class="en">local: session marker — written by prime, cleared by the SessionStart hook</span></span>
+│   │   ├── .hook-env                  <span class="cmt"># <span class="de">lokal: die bash, mit der der Hook lief (Prime vergleicht)</span><span class="en">local: the bash the hook ran with (prime compares)</span></span>
+│   │   └── .execute.lock              <span class="cmt"># <span class="de">lokal: nur während eines /craft:execute-Laufs</span><span class="en">local: only during a /craft:execute run</span></span>
 │   ├── skills/                        <span class="cmt"># <span class="de">projekt-lokale Spezialisten, lazy geladen</span><span class="en">project-local specialists, lazy-loaded</span></span>
-│   └── settings.local.json            <span class="cmt"># <span class="de">Allowlist + Worktree-Trust (gitignored)</span><span class="en">allowlist + worktree trust (gitignored)</span></span>
-└── research/                          <span class="cmt"># <span class="de">immer schreibgeschützt (PreToolUse-Hook)</span><span class="en">always write-protected (PreToolUse hook)</span></span></code></pre>
+│   └── settings.local.json            <span class="cmt"># <span class="de">lokal: Allowlist + Worktree-Trust</span><span class="en">local: allowlist + worktree trust</span></span>
+└── research/                          <span class="cmt"># <span class="de">immer schreibgeschützt (PreToolUse-Hook)</span><span class="en">always write-protected (PreToolUse hook)</span></span>
+
+../your-project-worktrees/             <span class="cmt"># <span class="de">Worktrees liegen außerhalb des Repos (/craft:execute)</span><span class="en">worktrees live outside the repo (/craft:execute)</span></span>
+└── slice-001-user-login/
+    └── .craft/                        <span class="cmt"># <span class="de">lokal</span><span class="en">local</span></span>
+        ├── handoff.md                 <span class="cmt"># <span class="de">„Mensch gebraucht" — gilt nur, solange der Plan wartet</span><span class="en">"human needed" — counts only while the plan waits</span></span>
+        └── handoff-resolved-&lt;Written&gt;.md  <span class="cmt"># <span class="de">beantwortet, von slice-builder umbenannt</span><span class="en">answered, renamed by slice-builder</span></span></code></pre>
+
+    <p class="de">Mit <strong>lokal</strong> markiert ist CRAFTs Zustand pro Klon — er gehört nie in einen Commit. Ob die
+    <code>.gitignore</code> des Projekts ihn abdeckt, entscheidet <code>scripts/ensure-gitignore.sh</code> per
+    <code>git check-ignore</code>; nur Regeln aus den eigenen <code>.gitignore</code>-Dateien zählen, eine persönliche
+    globale Excludes-Datei nicht (Team und CI haben sie nicht). Fehlende Pfade landen in einem
+    <code># CRAFT local state</code>-Block — <code>/craft:onboard</code> schreibt ihn direkt, <code>/craft:prime</code>
+    (Schritt 4f) bietet ihn an. Ein bewusst wieder freigegebener Pfad (<code>!</code>-Regel) bleibt, wie er ist.
+    CRAFTs eigene Prüfungen auf einen sauberen Baum zählen diese Dateien ohnehin nicht mit.</p>
+    <p class="en">Entries marked <strong>local</strong> are CRAFT's per-clone state — never committed. Whether the
+    project's <code>.gitignore</code> covers them is decided by <code>scripts/ensure-gitignore.sh</code> via
+    <code>git check-ignore</code>; only rules from the project's own <code>.gitignore</code> files count, a personal global
+    excludes file does not (teammates and CI don't have it). Missing paths go into one <code># CRAFT local state</code>
+    block — <code>/craft:onboard</code> writes it directly, <code>/craft:prime</code> (step 4f) offers it. A path the
+    project un-ignores on purpose (<code>!</code> rule) is left as it is. CRAFT's own clean-tree checks do not count these
+    files either way.</p>
   </div>
 </div></section>
 
@@ -1055,32 +1171,32 @@ pre,.figwrap,.hero .install{
 
     <div class="tblwrap"><table>
       <tr><th colspan="2"><span class="de">Session &amp; Navigation</span><span class="en">Session &amp; navigation</span></th></tr>
-      <tr><td><code>/craft:prime</code></td><td><span class="de">Session-Start: Tool-Check, Kontext laden, Drift-Check, aktive Slices, Empfehlung. Läuft automatisch (SessionStart-Hook).</span><span class="en">Session start: tool check, context load, drift check, active slices, recommendation. Auto-runs (SessionStart hook).</span></td></tr>
-      <tr><td><code>/craft:continue</code></td><td><span class="de">Liest den Status des aktiven Slice und empfiehlt das nächste Kommando — schreibt nur beim bestätigten Fortsetzen eines pausierten Slice.</span><span class="en">Reads the active slice's status, recommends the next command — writes only on the confirmed resume of a paused slice.</span></td></tr>
+      <tr><td><code>/craft:prime</code></td><td><span class="de">Session-Start: Tool-Check (inkl. bash ≥ 5.0 und python3), Kontext laden, Drift-Check, Angebot für den Local-State-Block in der <code>.gitignore</code>, aktive Slices, Empfehlung. Im CRAFT-Quell-Repo zusätzlich: läuft das Plugin aus dem Working Tree oder einer abweichenden installierten Kopie (per Inhalt verglichen)? Läuft automatisch (SessionStart-Hook).</span><span class="en">Session start: tool check (incl. bash ≥ 5.0 and python3), context load, drift check, local-state <code>.gitignore</code> offer, active slices, recommendation. In CRAFT's own source repo also: does the plugin run from the working tree or a diverged installed copy (compared by content)? Auto-runs (SessionStart hook).</span></td></tr>
+      <tr><td><code>/craft:continue</code></td><td><span class="de">Liest den Status des aktiven Slice und empfiehlt das nächste Kommando — schreibt nur beim bestätigten Fortsetzen eines pausierten Slice (Schritt 4a stellt <code>Paused-status</code> wieder her); einen blockierten Slice verändert es nie.</span><span class="en">Reads the active slice's status, recommends the next command — writes only on the confirmed resume of a paused slice (step 4a restores <code>Paused-status</code>); never mutates a blocked slice.</span></td></tr>
       <tr><td><code>/craft:status</code></td><td><span class="de">Leichte Übersicht: Slices, Phasen, Fortschrittsbalken, Blocker, Handoffs. Read-only.</span><span class="en">Lightweight overview: slices, phases, progress bars, blockers, handoffs. Read-only.</span></td></tr>
       <tr><td><code>/craft:checkout</code></td><td><span class="de">In einen Worktree wechseln (Anleitung) zum Inspizieren während Recap/Review.</span><span class="en">Switch into a worktree (instructions) for inspection during recap/review.</span></td></tr>
       <tr><th colspan="2"><span class="de">Phasen-Kommandos</span><span class="en">Phase commands</span></th></tr>
-      <tr><td><code>/craft:plan</code></td><td><span class="de">Phase 3 — Slice planen: Trigger / Effekt / Test-Strategie, Sub-Tasks, Plan-Datei.</span><span class="en">Phase 3 — plan a slice: trigger / effect / test strategy, sub-tasks, plan file.</span></td></tr>
+      <tr><td><code>/craft:plan</code></td><td><span class="de">Phase 3 — Slice planen: Trigger / Effekt / Test-Strategie, Sub-Tasks, Plan-Datei; verknüpft einen Epic-Eintrag mit der neuen Slice-ID.</span><span class="en">Phase 3 — plan a slice: trigger / effect / test strategy, sub-tasks, plan file; links an epic entry to the new slice ID.</span></td></tr>
       <tr><td><code>/craft:epic</code></td><td><span class="de">Multi-Slice-Epic planen: Vision + Zerlegung (≥ 2 Slices), eigener ID-Raum.</span><span class="en">Plan a multi-slice epic: vision + decomposition (≥ 2 slices), own ID space.</span></td></tr>
       <tr><td><code>/craft:build</code></td><td><span class="de">Phase 4 — implementieren, Sub-Tasks in Reihenfolge, Tests still, Bündel-Meldungen.</span><span class="en">Phase 4 — implement, sub-tasks in order, tests silent, bundle reports.</span></td></tr>
       <tr><td><code>/craft:test</code></td><td><span class="de">Phase 5 — der Mensch testet: Demo-Setup → Ausprobieren → <code>[W]/[B]/[U]</code>.</span><span class="en">Phase 5 — the human tests: demo setup → exercise → <code>[W]/[B]/[U]</code>.</span></td></tr>
       <tr><td><code>/craft:recap</code></td><td><span class="de">Phase 6 — Was/Warum erklären, Entscheidungen sichern, ggf. Mermaid-Diagramm.</span><span class="en">Phase 6 — explain what/why, capture decisions, Mermaid diagram if complex.</span></td></tr>
       <tr><td><code>/craft:refactor</code></td><td><span class="de">Phase 7 — max. 2–3 strukturelle Verbesserungen; pro Projekt abschaltbar.</span><span class="en">Phase 7 — max 2–3 structural improvements; droppable per project.</span></td></tr>
-      <tr><td><code>/craft:review</code></td><td><span class="de">Phase 8 — Fresh-Context-Review, Heavy/Light × Local/Rethink, Commit-Gate.</span><span class="en">Phase 8 — fresh-context review, heavy/light × local/rethink, commit gate.</span></td></tr>
-      <tr><td><code>/craft:commit</code></td><td><span class="de">Phase 9 — atomare Commits, Promotion-Dialog, Archiv, Plan löschen, ggf. PR-Flow.</span><span class="en">Phase 9 — atomic commits, promotion dialog, archive, plan deletion, PR flow if configured.</span></td></tr>
+      <tr><td><code>/craft:review</code></td><td><span class="de">Phase 8 — Fresh-Context-Review, Heavy/Light × Local/Rethink, Findings pro Runde, Rücksprung nach Phase 4, Commit-Gate.</span><span class="en">Phase 8 — fresh-context review, heavy/light × local/rethink, findings per round, loop-back to phase 4, commit gate.</span></td></tr>
+      <tr><td><code>/craft:commit</code></td><td><span class="de">Phase 9 — atomare Commits, Promotion-Dialog, Archiv (committet es selbst), Plan löschen, ggf. PR-Flow. Deine eigenen uncommitteten Änderungen bleiben unangetastet.</span><span class="en">Phase 9 — atomic commits, promotion dialog, archive (committed by itself), plan deletion, PR flow if configured. Your own uncommitted changes are left alone.</span></td></tr>
       <tr><th colspan="2"><span class="de">Orchestrierung</span><span class="en">Orchestration</span></th></tr>
-      <tr><td><code>/craft:execute</code></td><td><span class="de">Epic/Slice autonom bauen — parallel (Worktrees), in-place oder sequenziell.</span><span class="en">Build an epic/slice autonomously — parallel (worktrees), in-place or sequential.</span></td></tr>
+      <tr><td><code>/craft:execute</code></td><td><span class="de">Epic/Slice autonom bauen — parallel (Worktrees), in-place oder sequenziell. Ein erneuter Lauf baut auf dem vorherigen auf.</span><span class="en">Build an epic/slice autonomously — parallel (worktrees), in-place or sequential. A re-run builds on the earlier one.</span></td></tr>
       <tr><td><code>/craft:release</code></td><td><span class="de">In-Place-Halt lösen: „Diff gesehen, weiter zu Phase 5".</span><span class="en">Lift the in-place halt: "diff reviewed, on to phase 5".</span></td></tr>
       <tr><th colspan="2"><span class="de">Unterbrechungen &amp; Zustand</span><span class="en">Interrupts &amp; state</span></th></tr>
-      <tr><td><code>/craft:pause</code></td><td><span class="de">Slice pausieren, Notiz in den Plan.</span><span class="en">Pause the slice, note into the plan.</span></td></tr>
+      <tr><td><code>/craft:pause</code></td><td><span class="de">Slice pausieren: Notiz + Pause-Record (<code>Paused-status</code> / <code>Paused-since</code>) in den Plan; lehnt einen blockierten Slice ab.</span><span class="en">Pause the slice: note + pause record (<code>Paused-status</code> / <code>Paused-since</code>) into the plan; refuses a blocked slice.</span></td></tr>
       <tr><td><code>/craft:handoff</code></td><td><span class="de">Übergabe für frische Session schreiben (Status bleibt).</span><span class="en">Write a handoff for a fresh session (status unchanged).</span></td></tr>
       <tr><td><code>/craft:block</code> / <code>/craft:unblock</code></td><td><span class="de">Blocker erstklassig erfassen / auflösen (<code>[R]/[P]/[A]</code>), Auto-Resurface via Commit.</span><span class="en">Record / clear a first-class blocker (<code>[R]/[P]/[A]</code>), auto-resurface via commit.</span></td></tr>
-      <tr><td><code>/craft:abort</code></td><td><span class="de">Slice endgültig verwerfen — getippte ID als Bestätigung.</span><span class="en">Discard a slice for good — typed ID to confirm.</span></td></tr>
+      <tr><td><code>/craft:abort</code></td><td><span class="de">Slice endgültig verwerfen — getippte ID als Bestätigung; zeigt vorher einen offenen Handoff im Worktree.</span><span class="en">Discard a slice for good — typed ID to confirm; shows an open handoff in the worktree first.</span></td></tr>
       <tr><td><code>/craft:intent-update</code></td><td><span class="de">Einziger Weg, <code>intent.md</code> außerhalb von Phase 9 zu ändern — Diff + Bestätigung.</span><span class="en">The only way to edit <code>intent.md</code> outside phase 9 — diff + confirmation.</span></td></tr>
       <tr><th colspan="2"><span class="de">Worktrees &amp; Wartung</span><span class="en">Worktrees &amp; maintenance</span></th></tr>
-      <tr><td><code>/craft:worktree-status</code> / <code>-clean</code></td><td><span class="de">Worktrees auflisten / verwaiste nach Bestätigung entfernen.</span><span class="en">List worktrees / remove orphans after confirmation.</span></td></tr>
-      <tr><td><code>/craft:onboard</code></td><td><span class="de">Einmaliges Onboarding — Greenfield oder Migration eines bestehenden <code>.claude/</code>.</span><span class="en">One-time onboarding — greenfield or migration of an existing <code>.claude/</code>.</span></td></tr>
-      <tr><td><code>/craft:upgrade</code></td><td><span class="de">Marketplace-Klon von GitHub synchronisieren; Installation übernimmt Claude Code beim Neustart.</span><span class="en">Sync the marketplace clone from GitHub; Claude Code reinstalls on next start.</span></td></tr>
+      <tr><td><code>/craft:worktree-status</code> / <code>-clean</code></td><td><span class="de">Worktrees mit lebenden Handoff-Markern auflisten / verwaiste nach Bestätigung entfernen (offener Handoff wird vorher gezeigt).</span><span class="en">List worktrees with their live handoff markers / remove orphans after confirmation (an open handoff is shown first).</span></td></tr>
+      <tr><td><code>/craft:onboard</code></td><td><span class="de">Einmaliges Onboarding — Greenfield oder Migration eines bestehenden <code>.claude/</code>; trägt CRAFTs lokalen Zustand in die <code>.gitignore</code> ein.</span><span class="en">One-time onboarding — greenfield or migration of an existing <code>.claude/</code>; gitignores CRAFT's local state.</span></td></tr>
+      <tr><td><code>/craft:upgrade</code></td><td><span class="de">Marketplace-Klon von GitHub synchronisieren; installiert wird per Auto-Update oder <code>/plugin update craft@craft</code>, geladen in einer neuen Session.</span><span class="en">Sync the marketplace clone from GitHub; installation happens by auto-update or <code>/plugin update craft@craft</code>, loaded in a new session.</span></td></tr>
       <tr><th colspan="2"><span class="de">Slash-aufrufbare Skills</span><span class="en">Slash-invocable skills</span></th></tr>
       <tr><td><code>/craft</code></td><td><span class="de">Zustandsbewusster Einstieg: erkennt Onboarding-/Slice-Status, bietet gültige Aktionen an.</span><span class="en">State-aware entry point: detects onboarding/slice state, offers valid actions.</span></td></tr>
       <tr><td><code>/craft:brainstorm</code> / <code>/craft:grill-me</code></td><td><span class="de">Phase 1 (Ideation) / Phase 2 (Alignment-Interview).</span><span class="en">Phase 1 (ideation) / phase 2 (alignment interview).</span></td></tr>
@@ -1105,35 +1221,56 @@ pre,.figwrap,.hero .install{
         no MCP server. The repo is its own marketplace (<code>marketplace.json</code> with
         <code>source: "./"</code>).</span></p></div>
       <div class="card"><h4>Hooks</h4>
-        <p><span class="de"><strong>SessionStart:</strong> <code>session-start.sh</code> stößt das Auto-Prime an
-        (nur in onboardeten Projekten); <code>worktree-handoff-notify.sh</code> zeigt wartende Worktree-Handoffs.
+        <p><span class="de"><strong>SessionStart:</strong> <code>session-start.sh</code> löscht <code>.primed</code>;
+        in onboardeten Projekten stößt er das Auto-Prime an und hält in <code>.hook-env</code> fest, mit welcher bash
+        er lief; <code>worktree-handoff-notify.sh</code> zeigt wartende Worktree-Handoffs — nur lebende,
+        per <code>scripts/handoff-marker-state.sh</code>.
         <strong>PreToolUse:</strong> <code>readonly-context-guard.sh</code> verweigert Write/Edit auf
         <code>research/</code> und deklarierte Read-only-Quellen — mit pfad-normalisierender Traversal-Abwehr,
-        fail-open bei fehlendem <code>jq</code>.</span>
-        <span class="en"><strong>SessionStart:</strong> <code>session-start.sh</code> triggers auto-prime
-        (only in onboarded projects); <code>worktree-handoff-notify.sh</code> surfaces pending worktree handoffs.
+        fail-open bei fehlendem <code>jq</code>. Hooks bleiben kompatibel mit bash 3.2.</span>
+        <span class="en"><strong>SessionStart:</strong> <code>session-start.sh</code> clears <code>.primed</code>;
+        in onboarded projects it triggers auto-prime and records in <code>.hook-env</code> which bash it ran with; <code>worktree-handoff-notify.sh</code> surfaces pending worktree handoffs — live ones only, via
+        <code>scripts/handoff-marker-state.sh</code>.
         <strong>PreToolUse:</strong> <code>readonly-context-guard.sh</code> denies Write/Edit on
         <code>research/</code> and declared read-only sources — with path-normalizing traversal defense,
-        fail-open when <code>jq</code> is missing.</span></p></div>
+        fail-open when <code>jq</code> is missing. Hooks stay bash-3.2-compatible.</span></p></div>
       <div class="card"><h4>Agents</h4>
-        <p><span class="de"><strong>code-reviewer</strong> (Opus): klassifiziert nur — hat strukturell keine
-        Schreib-Tools. <strong>slice-builder</strong> (Sonnet): führt Phase 4–7 eines Slices im Worktree aus,
-        schreibt bei jeder menschenpflichtigen Pause <code>.craft/handoff.md</code>, committet/merged/pusht nie
-        selbst und erfindet nie eine menschliche Antwort.</span>
-        <span class="en"><strong>code-reviewer</strong> (Opus): classifies only — structurally has no write
-        tools. <strong>slice-builder</strong> (Sonnet): runs a slice's phases 4–7 in its worktree, writes
-        <code>.craft/handoff.md</code> on every human-required pause, never commits/merges/pushes itself and
-        never fabricates a human answer.</span></p></div>
-      <div class="card"><h4><span class="de">Selbst-Tests</span><span class="en">Self-tests</span></h4>
-        <p><span class="de"><code>test-workflow-status-graph.sh</code> beweist, dass der Status-Graph geschlossen
-        ist und die Commands ihm entsprechen — über maschinenlesbare Marker, denn <em>Prosa ist nicht prüfbar</em>
-        (ein Grep unterscheidet Gebot nicht von Verbot). <code>test-readonly-context.sh</code> testet den
-        Schreibschutz-Hook inklusive Traversal-Fällen.</span>
-        <span class="en"><code>test-workflow-status-graph.sh</code> proves the status graph is closed and the
-        commands agree with it — via machine-readable markers, because <em>prose is not checkable</em>
-        (a grep can't tell prescription from prohibition). <code>test-readonly-context.sh</code> tests the
-        write-protection hook including traversal cases.</span></p></div>
+        <p><span class="de"><strong>code-reviewer</strong> (Opus): klassifiziert nur — hat keine
+        Write-/Edit-Tools; prüft bei einem Re-Review zuerst die früheren Findings. <strong>slice-builder</strong> (Sonnet):
+        führt Phase 4–7 eines Slices im Worktree aus, schreibt bei jeder menschenpflichtigen Pause
+        <code>.craft/handoff.md</code> (mit <code>Episode:</code>), benennt beim Start einen veralteten Marker um,
+        committet/merged/pusht nie selbst und erfindet nie eine menschliche Antwort.</span>
+        <span class="en"><strong>code-reviewer</strong> (Opus): classifies only — has no Write/Edit tools; on a
+        re-review it verifies the earlier findings first. <strong>slice-builder</strong> (Sonnet): runs a slice's
+        phases 4–7 in its worktree, writes <code>.craft/handoff.md</code> (with its <code>Episode:</code>) on every
+        human-required pause, renames a stale marker at start, never commits/merges/pushes itself and never
+        fabricates a human answer.</span></p></div>
+      <div class="card"><h4><span class="de">Helfer &amp; Selbst-Tests</span><span class="en">Helpers &amp; self-tests</span></h4>
+        <p><span class="de">Entscheidungen, die mehrere Commands teilen, stehen genau einmal in einem Bash-Helfer unter
+        <code>scripts/</code> — die Commands rufen ihn auf, statt die Regel nachzuerzählen. Die Harnesses (Tabelle unten)
+        treiben die Helfer gegen echte Fixtures und sichern Hooks und diese Seite ab; der Status-Graph wird über
+        maschinenlesbare Marker geprüft, denn <em>Prosa ist nicht prüfbar</em> (ein Grep unterscheidet Gebot nicht von Verbot).</span>
+        <span class="en">Decisions several commands share live exactly once, in a Bash helper under
+        <code>scripts/</code> — commands call it instead of restating the rule. The harnesses (table below) drive
+        the helpers against real fixtures and keep the hooks and this page honest; the status graph is checked through
+        machine-readable markers, because <em>prose is not checkable</em> (a grep can't tell prescription from prohibition).</span></p></div>
     </div>
+
+    <h3><span class="de">Die Selbst-Test-Harnesses</span><span class="en">The self-test harnesses</span></h3>
+    <div class="tblwrap"><table>
+      <tr><th>Harness (<code>scripts/</code>)</th><th><span class="de">Was es absichert</span><span class="en">What it guards</span></th></tr>
+      <tr><td><code>test-workflow-status-graph.sh</code></td><td><span class="de">Status-Graph geschlossen unter beiden Phase-7-Konfigurationen; <code>craft:writes</code>/<code>craft:reads</code>-Marker und Tabelle stimmen in beide Richtungen überein; <code>/craft:continue</code> routet jeden Status zum richtigen Konsumenten.</span><span class="en">Status graph closed under both Phase-7 configurations; <code>craft:writes</code>/<code>craft:reads</code> markers and the table agree both ways; <code>/craft:continue</code> routes every status to its consumer.</span></td></tr>
+      <tr><td><code>test-readonly-context.sh</code></td><td><span class="de">Schreibschutz-Hook inkl. Traversal-Fällen und der Sync-Helfer <code>ensure-readonly-context.sh</code>; Hook und Helfer normalisieren Pfade gleich.</span><span class="en">Write-protection hook incl. traversal cases and the sync helper <code>ensure-readonly-context.sh</code>; hook and helper normalize paths alike.</span></td></tr>
+      <tr><td><code>test-docs-site.sh</code></td><td><span class="de">Diese Seite: Version und Zähler im Badge, EN/DE-Parität, Anker, Tag-Balance.</span><span class="en">This page: badge version and counts, EN/DE parity, anchors, tag balance.</span></td></tr>
+      <tr><td><code>test-plugin-cache-drift.sh</code></td><td><span class="de"><code>check-plugin-cache-drift.sh</code>: läuft die installierte Kopie oder der Working Tree — per Inhalt, nicht per Version (Prime Schritt 5c).</span><span class="en"><code>check-plugin-cache-drift.sh</code>: installed copy vs. working tree — by content, not version (prime step 5c).</span></td></tr>
+      <tr><td><code>test-toolchain-check.sh</code></td><td><span class="de"><code>check-toolchain.sh</code>: bash ≥ 5.0 und python3, Installationsbefehl je Betriebssystem, die bash des Hooks; die Hooks laufen dabei unter <code>/bin/bash</code> 3.2.</span><span class="en"><code>check-toolchain.sh</code>: bash ≥ 5.0 and python3, per-OS install command, the hook's bash; hooks are run under <code>/bin/bash</code> 3.2.</span></td></tr>
+      <tr><td><code>test-gitignore-sync.sh</code></td><td><span class="de"><code>ensure-gitignore.sh</code>: Abdeckung des lokalen Zustands, ein Block, Negationen respektiert, globale Excludes zählen nicht.</span><span class="en"><code>ensure-gitignore.sh</code>: local-state coverage, one block, negations respected, global excludes never count.</span></td></tr>
+      <tr><td><code>test-handoff-marker-state.sh</code></td><td><span class="de"><code>handoff-marker-state.sh</code>: lebend/veraltet je Plan-Status und Episode, „im Zweifel lebend", der fail-open-Pfad des Hooks.</span><span class="en"><code>handoff-marker-state.sh</code>: live/stale per plan status and episode, doubt-means-live, the hook's fail-open path.</span></td></tr>
+      <tr><td><code>test-review-findings-state.sh</code></td><td><span class="de"><code>review-findings-state.sh</code>: Runden, Finding-IDs, Auflösungen, offene Zeilen (Review Step 6/7, Commit Step 5).</span><span class="en"><code>review-findings-state.sh</code>: rounds, finding IDs, resolutions, open lines (review steps 6/7, commit step 5).</span></td></tr>
+      <tr><td><code>test-execute-resume-state.sh</code></td><td><span class="de"><code>execute-resume-state.sh</code> (<code>create</code> / <code>reuse</code> / <code>skip</code> / <code>resume</code> / <code>held</code> / <code>conflict</code>) an echten git-Fixtures, dazu <code>tree-dirt-state.sh</code>.</span><span class="en"><code>execute-resume-state.sh</code> (<code>create</code> / <code>reuse</code> / <code>skip</code> / <code>resume</code> / <code>held</code> / <code>conflict</code>) on real git fixtures, plus <code>tree-dirt-state.sh</code>.</span></td></tr>
+      <tr><td><code>test-plan-landing.sh</code></td><td><span class="de"><code>plan-landing.sh</code> <code>close</code> / <code>sync</code> gegen ein Bare-Origin mit simuliertem Merge, inkl. Rollback.</span><span class="en"><code>plan-landing.sh</code> <code>close</code> / <code>sync</code> against a bare origin with a simulated merge, incl. rollback.</span></td></tr>
+      <tr><td><code>test-epic-entry-link.sh</code></td><td><span class="de"><code>epic-entry-link.sh</code> <code>candidates</code> / <code>link</code> / <code>resolve</code>: idempotente Links, tote IDs neu verknüpft, byte-genaue Schreibvorgänge.</span><span class="en"><code>epic-entry-link.sh</code> <code>candidates</code> / <code>link</code> / <code>resolve</code>: idempotent links, dead IDs relinked, byte-exact writes.</span></td></tr>
+    </table></div>
 
     <h3><span class="de">Begleitwerkzeuge (Pflicht)</span><span class="en">Companion tools (required)</span></h3>
     <div class="tblwrap"><table>
@@ -1142,25 +1279,38 @@ pre,.figwrap,.hero .install{
       <tr><td><code>agent-browser</code></td><td><span class="de">Browser-Automatisierung für Hands-on-Verifikation (Phase 5).</span><span class="en">Browser automation for hands-on verification (phase 5).</span></td></tr>
       <tr><td><code>git</code></td><td><span class="de">Worktrees, Branches, das gesamte Ausführungs- und Commit-Modell.</span><span class="en">Worktrees, branches, the whole execution and commit model.</span></td></tr>
       <tr><td><code>gh</code></td><td><span class="de">PR-Landing im Protected-main-Profil (öffnen + mergen nur nach Approval).</span><span class="en">PR landing under the protected-main profile (open + merge only after approval).</span></td></tr>
+      <tr><td><code>bash</code> ≥ 5.0</td><td><span class="de">Mindest-Laufzeit der Skripte unter <code>scripts/</code>, definiert in <code>scripts/check-toolchain.sh</code>. Die Hooks und die Helfer, die sie aufrufen, bleiben bash-3.2-kompatibel — nur so können sie eine zu alte bash überhaupt melden.</span><span class="en">Minimum runtime for the scripts under <code>scripts/</code>, defined once in <code>scripts/check-toolchain.sh</code>. The hooks and the helpers they call stay bash-3.2-compatible — only that way can they report an old bash at all.</span></td></tr>
+      <tr><td><code>python3</code></td><td><span class="de">Von den Hilfsskripten genutzt (z. B. zum Lesen und Schreiben der Settings-JSON).</span><span class="en">Used by the helper scripts (e.g. to read and write the settings JSON).</span></td></tr>
     </table></div>
 
     <p class="small dim de">Upgrade-Modell: <code>/craft:upgrade</code> synct nur den Marketplace-Klon
-    (<code>~/.claude/plugins/marketplaces/…</code>) — die Installation in den Plugin-Cache übernimmt Claude Code
-    beim nächsten Start. Wichtig fürs Dogfooding: Die laufende Session führt immer die <em>Cache</em>-Version aus,
-    nicht den Working Tree.</p>
+    (<code>~/.claude/plugins/marketplaces/…</code>) — die Installation in den Plugin-Cache (ein Verzeichnis pro Version)
+    übernimmt Claude Code. Der Schlüssel dafür ist die <code>version</code> in <code>plugin.json</code>: Ist sie schon
+    installiert, wird nichts aktualisiert — neue Plugin-Stände erreichen Nutzer nur über ein Release mit höherer Version.
+    Ist Auto-Update für den Marketplace aktiv, lädt Claude Code die neue Version nach dem Session-Start im Hintergrund;
+    ohne Auto-Update installiert <code>/plugin update craft@craft</code> (CLI: <code>claude plugin update craft@craft</code>) sie.
+    Die laufende Session behält die geladene — Commands und Agents der neuen Version gibt es erst in einer neuen Session.
+    Wichtig fürs Dogfooding: Die laufende Session führt immer die <em>Cache</em>-Version aus, nicht den Working Tree;
+    im CRAFT-Quell-Repo meldet <code>/craft:prime</code> (Schritt 5c) die abweichenden Dateien.</p>
     <p class="small dim en">Upgrade model: <code>/craft:upgrade</code> only syncs the marketplace clone
-    (<code>~/.claude/plugins/marketplaces/…</code>) — installation into the plugin cache is Claude Code's job on
-    next start. Dogfooding caveat: a running session always executes the <em>cache</em> version, not the working tree.</p>
+    (<code>~/.claude/plugins/marketplaces/…</code>) — installation into the plugin cache (one directory per version) is
+    Claude Code's job. Its key is the <code>version</code> in <code>plugin.json</code>: if that version is already
+    installed, nothing is updated — new plugin content reaches users only through a release with a higher version. With
+    auto-update enabled for the marketplace, Claude Code fetches the new version in the background after session start;
+    without auto-update, <code>/plugin update craft@craft</code> (CLI: <code>claude plugin update craft@craft</code>) installs it.
+    The running session keeps the one it loaded — the new version's commands and agents arrive in a new session.
+    Dogfooding caveat: a running session always executes the <em>cache</em> version, not the working tree; in CRAFT's own
+    source repo <code>/craft:prime</code> (step 5c) reports the differing files.</p>
   </div>
 </div></section>
 
 </main>
 
 <footer><div class="wrap">
-  <div>CRAFT v1.4.0 · MIT License · Christoph Raschke ·
+  <div>CRAFT v1.5.0 · MIT License · Christoph Raschke ·
     <a href="https://github.com/ChriRas/craft">github.com/ChriRas/craft</a></div>
-  <div class="de">Diese Seite wurde aus einer vollständigen Analyse des Plugin-Quellcodes generiert (Stand: Juli 2026).</div>
-  <div class="en">This page was generated from a complete analysis of the plugin source (as of July 2026).</div>
+  <div class="de">Diese Seite wurde aus einer vollständigen Analyse des Plugin-Quellcodes generiert (Stand: September 2026).</div>
+  <div class="en">This page was generated from a complete analysis of the plugin source (as of September 2026).</div>
 </div></footer>
 
 <script>
