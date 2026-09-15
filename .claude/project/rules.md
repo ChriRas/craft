@@ -15,7 +15,8 @@
   (`.claude-plugin/plugin.json`, `marketplace.json`); Bash for `hooks/` and `scripts/`.
 - **Bash baseline:** `scripts/` may use bash ≥ 5.0 (the minimum is defined once, in
   `scripts/check-toolchain.sh`); `hooks/`, `scripts/check-toolchain.sh` and
-  `scripts/handoff-marker-state.sh` (called by a hook) stay **bash-3.2-compatible** — hooks run
+  `scripts/handoff-marker-state.sh` (called by a hook) and `scripts/review-findings-state.sh` (called by
+  that helper) stay **bash-3.2-compatible** — hooks run
   with whatever bash Claude Code hands them, and only an old-bash-safe hook and helper can report
   an old bash. `scripts/test-toolchain-check.sh`
   asserts it with **two independent detectors**: a bash-4-construct scanner and real
@@ -36,7 +37,7 @@
   `bash scripts/test-plugin-cache-drift.sh` (plugin runtime vs. working tree, B2),
   `bash scripts/test-toolchain-check.sh` (bash/python3 requirement, OS install hints, hook bash),
   `bash scripts/test-gitignore-sync.sh` (CRAFT local-state gitignore helper, B4),
-  `bash scripts/test-handoff-marker-state.sh` (handoff-marker liveness helper + hook, B7),
+  `bash scripts/test-handoff-marker-state.sh` (handoff-marker liveness helper + hook, B7; + episodes, B11),
   `bash scripts/test-review-findings-state.sh` (review findings-record parser, B6),
   `bash scripts/test-execute-resume-state.sh` (execute re-run state + tree-dirt helpers, B8/B14),
   `bash scripts/test-plan-landing.sh` (a tracked plan's removal under protected main, B16), and
@@ -85,7 +86,9 @@
 - Every place that writes `.craft/handoff.md` carries `<!-- craft:handoff status=<s> plan=<p> -->`
   next to the write (`plan=-` for `failure`); `scripts/test-handoff-marker-state.sh` binds the
   markers to the helper's pairing and pins the exact writer and reader sets — a new writer is added there
-  deliberately (slice-036).
+  deliberately (slice-036). Every non-failure writer also writes the marker's `Episode:`, and every
+  `Status: paused` writer the pause record (`skills/workflow/SKILL.md` → Pause record); the harness checks
+  both by proximity (slice-042).
 
 ## Tabus (Anti-Patterns)
 
