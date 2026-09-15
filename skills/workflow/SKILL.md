@@ -362,6 +362,7 @@ adjacent to the instruction it describes, so the drift is visible to a reader in
 | `/craft:commit` | `awaiting-approval` | `/craft:commit` | any |
 | `/craft:block` | `blocked` | `/craft:unblock` | any |
 | `/craft:pause` | `paused` | `/craft:continue` | any |
+| `/craft:execute` | `paused` | `/craft:continue` | any |
 
 <!-- /craft:transitions -->
 
@@ -384,8 +385,8 @@ Four notes the table cannot carry itself:
   deletes the plan file instead — the archive and the git history are the record. It survives in
   the plan template and in a few abort checks as a legacy value.
 
-**Not in this graph** — four legitimate exclusions, all unmarked and unrowed on purpose. (There
-was briefly a fifth, and it was *not* on purpose: `/craft:refactor`'s Subagent-Mode section
+**Not in this graph** — five legitimate exclusions, all unmarked and unrowed on purpose. (There
+was briefly a sixth, and it was *not* on purpose: `/craft:refactor`'s Subagent-Mode section
 restated the Phase-7-dropped rule and wrote `reviewing` a second time, unmarked and unrowed. It is
 gone — the subagent section now delegates to the one gate via a `craft:delegates` token, and the
 harness asserts the token's presence and that the section carries no status write of its own.)
@@ -395,9 +396,11 @@ harness asserts the token's presence and that the section carries no status writ
   — they live in the worktree handoff file, not in a slice plan, and are a separate namespace;
 - `/craft:unblock`'s restore-write — it writes back the *recorded* `Blocked-status`, a variable, not
   a fixed value, so it has no single edge to declare;
-- `slice-builder`'s failure-retry restore (step 0) — it writes the entry status of the phase recorded
-  in the `failure` marker's `Phase:`, a variable over five values, and only over `paused` (the status
-  its own Failure handling set) — never over a status set since the failure;
+- `/craft:continue`'s resume (step 4a, also run by `/craft:build` on a `paused` plan) — it writes back the
+  *recorded* `Paused-status`, a variable, so it has no single edge to declare;
+- `slice-builder`'s failure-retry restore (step 0) — it writes 4a's restore of the recorded `Paused-status`, or, for a
+  plan without a usable record, the entry status of the phase in the `failure` marker's `Phase:` (a variable over five
+  values), and only over `paused` (the status its own Failure handling set) — never over a status set since the failure;
 - `/craft:epic`'s `Status: planning` — that is written into an **epic** plan, a different artifact
   with its own lifecycle.
 
@@ -718,9 +721,32 @@ The slice archive is the Decision Log, emergent from Phase 6 + 9 — there is no
 
 If a slice is paused or abandoned mid-phase:
 
-- `/craft:pause` saves state; the plan file remains with its current `Status:` field.
+- `/craft:pause` saves state: the plan file stays, at `Status: paused`, with the **pause record** below.
 - `/craft:abort <slice>` asks confirmation (Level 0), then deletes the plan file. Aborted slices have no archive value.
 - `/craft:prime` detects stale slices (untouched for >N days) and asks: resume or discard.
+
+### Pause record — `Paused-status` and `Paused-since`
+
+Every write of `Status: paused` — `/craft:pause`, the Subagent-Mode pauses of `/craft:build`, `/craft:test` and
+`/craft:refactor`, `slice-builder`'s Failure handling, and `/craft:execute`'s interrupt pause — also writes the pause record, two on-demand header fields directly below `Status:` (absent on a
+slice that is not paused), the counterpart of `/craft:block`'s `Blocked-status`:
+
+```
+> Paused-status: <the Status value the pause replaces, e.g. testing>
+> Paused-since: <ISO datetime, UTC — YYYY-MM-DDTHH:MM:SSZ>
+```
+
+- **Never over `blocked`:** a pause would drop the block (its fields, `/craft:unblock`'s resume). `/craft:pause` refuses a
+  blocked slice and `slice-builder`'s Failure handling leaves one as it is.
+- **A pause from any other status starts an episode:** record the replaced status and a fresh `Paused-since`.
+- **A pause of a slice that is already `paused` stays in its episode:** keep both fields unchanged (only the Pause
+  Note changes). A new stamp would turn a handoff the human has not answered yet stale.
+- **A handoff marker written with the pause** carries that `Paused-since` value, character for character, as its
+  `Episode:` (see **Handoff marker lifecycle** below).
+- **Resume** — moving the plan off `paused` — is defined once, in `/craft:continue` (**Resume a paused slice**): it
+  restores `Paused-status` and removes both fields. No other command resumes on its own terms: `/craft:build` runs 4a
+  itself, `slice-builder`'s failure retry (step 0) applies the same restore, and the
+  phase commands that refuse a `paused` slice (`/craft:test`, `/craft:refactor`) name `/craft:continue` instead.
 
 ---
 
@@ -759,6 +785,7 @@ Slice-ID: slice-NNN
 Status: awaiting-test | awaiting-refactor-decision | awaiting-rethink-decision | awaiting-protocol | awaiting-scope-decision | awaiting-block-decision | failure
 Phase: 4 | 5 | 6 | 7 | 8
 Written: <ISO datetime>
+Episode: <the plan's episode when written — see Handoff marker lifecycle; omitted for failure>
 ---
 
 # Handoff: <one-line title>
@@ -776,7 +803,7 @@ The orchestrator's "epic partially complete" output lists every active handoff w
 
 No command deletes the marker when the human resolves it. Instead **the slice plan in the worktree is the truth and
 the marker is a projection of it**: a marker is **live** only while that plan is still at the status its own status
-pairs with. Once the human has resolved the handoff — a Phase-5 answer, `/craft:unblock`, a review route — the plan
+pairs with. Once the human has resolved the handoff — the confirmed resume (`/craft:continue` 4a), `/craft:unblock`, a review route — the plan
 has moved on and the marker is **stale**: it no longer means "human needed".
 
 | Marker status | Live while the plan is at |
@@ -789,10 +816,28 @@ has moved on and the marker is **stale**: it no longer means "human needed".
 | `awaiting-rethink-decision` | `reviewing` |
 | `failure` | — (no paired plan status; live until a retry) |
 
-The decision is made in one place, `scripts/handoff-marker-state.sh <worktree>` (`STATE=NONE|LIVE|STALE`); this
-table is its readable copy, and `scripts/test-handoff-marker-state.sh` fails when the two disagree. **Doubt means
+**A status can be re-entered for an unrelated reason** — a pause after a resume, a block after an unblock, a new
+review round in `reviewing` — and an old marker would count again. So a marker also carries its **episode** (`Episode:`), and is live
+only while the plan is at the paired status **and** still in that episode:
+
+| Plan at | The episode is | Written into the marker by |
+|---|---|---|
+| `paused` | the plan header's `Paused-since:` (**Pause record** above) | the pause writers, copying the stamp |
+| `blocked` | the plan header's `Blocked-since:` (`/craft:block` → frontmatter) | the `awaiting-block-decision` writer, copying the stamp |
+| `reviewing` | the review round count (`scripts/review-findings-state.sh` → `ROUNDS=`); it also ends once no finding line is open | the `awaiting-rethink-decision` writer, from the helper |
+
+A new episode needs no clean-up: every entry into a status *from another status* goes through a writer that stamps
+anew (a pause of a paused slice and a re-block of a blocked one keep their stamp — same episode), and an interactive
+`/craft:review` appends its round before it routes. A round routed by hand with no new round (`OPEN_COUNT=0`) ends the
+episode too — a guard, not a path any writer takes. A marker **without** `Episode:`
+(written before B11) is judged by its status alone.
+
+The decision is made in one place, `scripts/handoff-marker-state.sh <worktree>` (`STATE=NONE|LIVE|STALE`); these
+tables are its readable copy, and `scripts/test-handoff-marker-state.sh` fails when they disagree. **Doubt means
 live** — no plan in the worktree (a project may gitignore `.claude/plans/`), several plans for one slice-ID, a
-missing status, an unknown marker status: the marker counts, as it did before the check existed. The same holds
+missing status, an unknown marker status, an episode the plan cannot confirm (no stamp, the findings parser failed,
+a value that is not a UTC stamp `YYYY-MM-DDTHH:MM:SSZ` or a round number, a marker episode later than the plan's —
+`REASON=episode_unknown`): the marker counts, as it did before the check existed. The same holds
 when **the helper cannot run** (not found, non-zero exit, no `STATE=` line): a present `.craft/handoff.md` counts as
 live. Every reader and `slice-builder` apply this one fallback; none restates it.
 

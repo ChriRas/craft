@@ -31,7 +31,8 @@ If user provides nothing, the agent composes a minimal note from current state (
 ### 2. Update the slice plan
 
 <!-- craft:writes status=paused -->
-- Set `Status: paused` in the frontmatter.
+- Set `Status: paused` in the frontmatter, with the **pause record** (`Paused-status`, `Paused-since`) exactly as
+  `skills/workflow/SKILL.md` → **Pause record** defines it — including what an already-`paused` slice keeps.
 - Append (or overwrite) a `## Pause Note` section:
 
   ```markdown
@@ -64,8 +65,9 @@ The status line above.
 
 | Situation | Behavior |
 |---|---|
-| Slice is already `paused` | Update the note (with prior note preserved in an `## Earlier Pause Notes` rolling section). |
+| Slice is already `paused` | Update the note (with prior note preserved in an `## Earlier Pause Notes` rolling section). The pause record stays unchanged (**Pause record**: same episode). |
 | Slice is in `committed` status | Stop with: *"Slice already closed. Nothing to pause."* |
+| Slice is `blocked` | Stop with: *"Slice is blocked — a pause would drop the block. Use `/craft:unblock` (or `/craft:block` to re-word it)."* (**Pause record**: never over `blocked`.) |
 | User wants to pause without any note | Allow, but write `(no note)` so the entry is still visible to the next session. |
 
 ---

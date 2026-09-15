@@ -1,7 +1,7 @@
 ---
 description: Resume work on an active slice. Routes automatically to the right phase command based on the slice's recorded Status. Use after /craft:prime when picking up where you left off.
 argument-hint: "[slice-NNN]"
-allowed-tools: ["Read", "Glob"]
+allowed-tools: ["Read", "Glob", "Edit"]
 ---
 
 # /craft:continue — Resume an Active Slice
@@ -9,6 +9,8 @@ allowed-tools: ["Read", "Glob"]
 ## Purpose
 
 Pick up work on an open slice without re-thinking the entry point. Reads the slice plan, identifies the current phase, and recommends or routes to the corresponding command.
+
+Its one write is the **resume of a `paused` slice** (step 4a): the confirmed resume moves the plan off `paused`, which is what tells a waiting handoff marker that the human has answered.
 
 `/craft:continue` is the navigation glue between `/craft:prime` (orient) and the phase commands (act).
 
@@ -59,14 +61,40 @@ Pull `Status`, `Phase`, `Slice-ID`, and any pause/handoff notes.
 | `awaiting-release` | `/craft:release` — the in-place review halt (built in place, paused before Phase 5); review the raw diff in your IDE, then release to resume into Phase 5 |
 | `awaiting-approval` | `/craft:commit` — a protected-main PR is open and waiting; approve it on GitHub, then re-run `/craft:commit` to merge via `gh`. **Sequential-epic slice** (an active `epic-<NNN>` plan lists it in `## Slice Decomposition` under an `Epic Mode: sequential` + protected-main profile): re-run `/craft:execute <epic-NNN>` instead — its `s0` merges this slice and continues the epic. |
 | `committed` | this slice is done — recommend `/craft:plan` for the next one |
-| `paused` | ask whether to resume; if yes, route based on the `Phase:` field <!-- craft:reads status=paused --> |
+| `paused` | ask whether to resume; if yes, **resume** it (step 4a) and route by the restored status <!-- craft:reads status=paused --> |
 | any unrecognized value | log warning, ask the user what to do |
 
 ### 4. Handle pause and handoff
 
 - If the slice plan has a `## Handoff` section that was filled (i.e., this is a fresh-context restart) → show its summary to the user and route based on `Phase`.
-- If the slice was paused with a `## Pause Note`, surface that note and ask whether the user wants to continue from that point.
+- If the slice is at `Status: paused`, surface its `## Pause Note` and ask whether the user wants to continue from that point. A Pause Note on a slice at any other status is history (marked `> Resumed:` or `> Superseded by block:`) — never a reason to resume.
 - If the slice is `blocked`, surface its `## Blocker` section (what's missing / resume acceptance) and route to `/craft:unblock` — do not mutate here; unblocking is that command's job.
+
+### 4a. Resume a paused slice
+
+The **one** definition of moving a plan off `paused` (`skills/workflow/SKILL.md` → **Pause record**). `/craft:build`
+runs it on a `paused` plan; the phase commands that refuse one point here. It runs **only when `Status:` is `paused`**,
+and only on the user's yes in step 3/4; a no leaves the plan untouched.
+
+1. **Where** — edit the plan in the checkout this command runs in. For a slice built in a worktree that is the slice
+   worktree (reach it with `/craft:checkout`): its plan copy is the one the handoff marker is judged against.
+2. **What to restore** — the pause record's `Paused-status:`, when it holds a status other than `paused` or `blocked`.
+   A plan without a record (paused before B11), or with such a value, has no structured answer: **ask** the user which
+   status to resume into — offer `implementing`, `testing`, `review`, `refactoring`, `reviewing`, `committing` and
+   propose a default read from the `## Pause Note`. Never guess from `Phase:` (a plan-time stamp that reads stale).
+   Note the record's `Paused-since` too — step 5 needs it after step 3 removes the record.
+3. **Write** — set `Status:` to that value and remove the two pause-record fields (`Paused-status`, `Paused-since`).
+   Keep `## Pause Note` as history, with `> Resumed: <ISO datetime> → <status>` prepended. A handoff marker written with the pause is now stale by derivation — rename
+   nothing (`skills/workflow/SKILL.md` → **Handoff marker lifecycle**).
+4. **Check** — `Read` the plan back: `Status:` must equal the restored value and neither field may remain. On a
+   mismatch warn loudly (*"⚠ Resume not written as intended in `<path>` — inspect before continuing"*) and stop.
+5. **Say what the resume does not do** — only when a handoff marker belongs to **this** pause: `Read`
+   `.craft/handoff.md` in this checkout; it belongs when its frontmatter `Episode:` equals the `Paused-since` noted in
+   step 2, or — a marker written before B11 — it has no `Episode:` and its `Status:` is one the lifecycle table
+   (`skills/workflow/SKILL.md` → **Handoff marker lifecycle**) pairs with `paused`. Then the resume records **no
+   answer** to the question the handoff asked (a scope decision, a protocol, a refactor pick): carry the warning in the
+   output block (Output Format). No marker, or one from another episode (an old, never-renamed marker) → no warning.
+6. **Route** — continue with step 5 using the restored status's row in step 3.
 
 ### 5. Emit recommendation, do not auto-invoke
 
@@ -84,6 +112,8 @@ Continuing slice-<NNN> "<title>"
   Started: <K> days ago
 
 [If Handoff or Pause Note present, show 2–3 line excerpt]
+[After a resume (step 4a): Resumed: paused → <status>]
+[Only after a handoff's pause (4a step 5): ⚠ Resume records no answer — give it by running the recommended command interactively; a subagent re-run would meet the same question again.]
 
 Recommended next: /<phase-command>
 ```
@@ -103,5 +133,6 @@ Recommended next: /<phase-command>
 ## What This Command Does NOT Do
 
 - It does **not** execute any phase work directly.
-- It does **not** modify the slice plan.
-- It does **not** change `Status` (the phase command itself does that when it actually starts work).
+- It does **not** modify the slice plan — except the confirmed resume of a `paused` slice (step 4a).
+- It does **not** otherwise change `Status` (the phase command itself does that when it actually starts work). A
+  `blocked` slice is resumed by `/craft:unblock`, never here.

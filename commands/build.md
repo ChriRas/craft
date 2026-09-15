@@ -40,7 +40,7 @@ Follow `skills/workflow/SKILL.md` Phase 4 mechanics and the autonomy matrix. Cod
 If `Status` is `planning`, write `Status: implementing` back to the slice plan.
 
 <!-- craft:reads status=implementing -->
-If `Status` is already `implementing` or `paused`, resume without status change.
+If `Status` is already `implementing`, resume without status change. If it is `paused`, do not resume on your own: ask the user to confirm the resume (4a runs only on a yes; a no stops here), then run `/craft:continue`'s **4a. Resume a paused slice** steps 1–5 (where, what to restore, write, check, the no-answer warning — carried in this command's output). Instead of 4a's step 6, go on here only if the restored status is `implementing`; otherwise stop and recommend the command `/craft:continue`'s step 3 names for that status.
 
 ### 4. Load the stack-pack and detect specialists
 
@@ -158,7 +158,7 @@ Update `Status: testing` in the slice plan.
 
 When the `slice-builder` subagent invokes `/craft:build` during an autonomous run, the main procedure runs unchanged — the build loop is mechanical and safe to automate. Four behavioral overrides apply.
 
-**Pausing for a human decision** — the two overrides that need a human answer (*Self-verification trigger*, *Outside-scope edits*) end the same way: write `.craft/handoff.md` in the worktree with the override's status (a handoff-file status, not a slice-plan one), <!-- craft:writes status=paused --> set the slice plan `Status: paused` plus a Pause Note naming what the human must decide, and stop. The plan status matters: a marker counts as live only while the plan is at the status it pairs with (`skills/workflow/SKILL.md` → **Handoff marker lifecycle**), and both statuses pair with `paused`.
+**Pausing for a human decision** — the two overrides that need a human answer (*Self-verification trigger*, *Outside-scope edits*) end the same way: <!-- craft:writes status=paused --> set the slice plan `Status: paused` with the pause record (`skills/workflow/SKILL.md` → **Pause record**) plus a Pause Note naming what the human must decide, write `.craft/handoff.md` in the worktree with the override's status (a handoff-file status, not a slice-plan one) and the record's `Paused-since` as its `Episode:`, and stop. The plan status matters: a marker counts as live only while the plan is at the status it pairs with, in the same episode (`skills/workflow/SKILL.md` → **Handoff marker lifecycle**), and both statuses pair with `paused`.
 
 - **Self-verification trigger** (Procedure step 4) — instead of asking the human "Should we enter `/craft:debug` mode?" on a 2nd same-symptom fix attempt, <!-- craft:handoff status=awaiting-protocol plan=paused --> pause for a human decision with `Status: awaiting-protocol`; the Pause Note describes the recurring symptom. The subagent does not negotiate a verification protocol with no human present.
 - **Outside-scope edits** (Procedure step 3 / Error Handling row 5) — instead of asking the human for approval at Level 1, <!-- craft:handoff status=awaiting-scope-decision plan=paused --> pause for a human decision with `Status: awaiting-scope-decision`; the Pause Note names the file or change outside the plan. The plan boundary is a contract; the subagent never expands scope unilaterally.

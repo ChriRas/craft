@@ -85,7 +85,7 @@
 > fields below `Status:` (absent on a normal slice):
 > `Blocker-type:` (prerequisite-work | external | decision | access) ·
 > `Blocked-on:` (slice/epic-ID, free text, or `(pending — create via /craft:plan)`) ·
-> `Blocked-since:` (ISO date) · `Blocked-status:` (prior execution Status to restore on unblock).
+> `Blocked-since:` (ISO datetime) · `Blocked-status:` (prior execution Status to restore on unblock).
 
 (none)
 
@@ -97,6 +97,8 @@
 
 ## Pause Note
 
-> Filled by `/pause` when work pauses mid-phase.
+> Filled by `/pause` when work pauses mid-phase. Every pause also adds the on-demand frontmatter
+> fields `Paused-status:` (the Status to restore on resume) · `Paused-since:` (ISO datetime) below
+> `Status:` — `skills/workflow/SKILL.md` → Pause record.
 
 (none)
