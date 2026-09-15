@@ -67,7 +67,9 @@
   reviewer strayed into a sibling fixture in slice-034). A probe that must write `.claude/plans/`
   needs `--permission-mode bypassPermissions` confined to the scratch fixture — `acceptEdits`
   refuses those writes. When the prime gate is not under test, the probe's plugin copy omits
-  `hooks/` and the fixture pre-creates `.claude/plans/.primed`.
+  `hooks/` and the fixture pre-creates `.claude/plans/.primed`. A probe never selects `fable`
+  (or any model that may bill usage credits): `-p` bills credits without asking — probes run
+  on a model the plan includes (slice-044).
 - Architectural decisions are banked in `brainstorm-decisions.md` as `D<N>` entries
   before they are implemented.
 - Commit messages follow Conventional Commits — `<type>(scope): subject` (D9).
