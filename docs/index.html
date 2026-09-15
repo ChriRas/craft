@@ -450,11 +450,11 @@ pre,.figwrap,.hero .install{
     <h2><span class="de">Der Status-Graph — und alle Abbiegemöglichkeiten</span><span class="en">The status graph — and every branch-off</span></h2>
     <p class="de">Jeder Slice-Plan trägt ein <code>Status:</code>-Feld — das <strong>Execution-Token</strong> des
     Workflows: Ein Kommando <em>schreibt</em> es, das nächste <em>konsumiert</em> es. <code>/craft:continue</code>
-    liest nur den Status und routet zum richtigen Kommando. Der Graph ist maschinell geprüft
+    liest den Status und routet zum richtigen Kommando; sein einziger Schreibzugriff ist das bestätigte Fortsetzen eines pausierten Slice. Der Graph ist maschinell geprüft
     (<code>scripts/test-workflow-status-graph.sh</code>) — kein Status ohne Konsumenten.</p>
     <p class="en">Every slice plan carries a <code>Status:</code> field — the workflow's <strong>execution
     token</strong>: one command <em>writes</em> it, the next <em>consumes</em> it. <code>/craft:continue</code>
-    just reads the status and routes to the right command. The graph is machine-checked
+    reads the status and routes to the right command; its one write is the confirmed resume of a paused slice. The graph is machine-checked
     (<code>scripts/test-workflow-status-graph.sh</code>) — no status without a consumer.</p>
 
     <div class="figwrap">
@@ -1056,7 +1056,7 @@ pre,.figwrap,.hero .install{
     <div class="tblwrap"><table>
       <tr><th colspan="2"><span class="de">Session &amp; Navigation</span><span class="en">Session &amp; navigation</span></th></tr>
       <tr><td><code>/craft:prime</code></td><td><span class="de">Session-Start: Tool-Check, Kontext laden, Drift-Check, aktive Slices, Empfehlung. Läuft automatisch (SessionStart-Hook).</span><span class="en">Session start: tool check, context load, drift check, active slices, recommendation. Auto-runs (SessionStart hook).</span></td></tr>
-      <tr><td><code>/craft:continue</code></td><td><span class="de">Liest den Status des aktiven Slice und empfiehlt das nächste Kommando — mutiert nie.</span><span class="en">Reads the active slice's status, recommends the next command — never mutates.</span></td></tr>
+      <tr><td><code>/craft:continue</code></td><td><span class="de">Liest den Status des aktiven Slice und empfiehlt das nächste Kommando — schreibt nur beim bestätigten Fortsetzen eines pausierten Slice.</span><span class="en">Reads the active slice's status, recommends the next command — writes only on the confirmed resume of a paused slice.</span></td></tr>
       <tr><td><code>/craft:status</code></td><td><span class="de">Leichte Übersicht: Slices, Phasen, Fortschrittsbalken, Blocker, Handoffs. Read-only.</span><span class="en">Lightweight overview: slices, phases, progress bars, blockers, handoffs. Read-only.</span></td></tr>
       <tr><td><code>/craft:checkout</code></td><td><span class="de">In einen Worktree wechseln (Anleitung) zum Inspizieren während Recap/Review.</span><span class="en">Switch into a worktree (instructions) for inspection during recap/review.</span></td></tr>
       <tr><th colspan="2"><span class="de">Phasen-Kommandos</span><span class="en">Phase commands</span></th></tr>
