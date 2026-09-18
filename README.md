@@ -199,7 +199,7 @@ Projects can override any agent's model in `.claude/project/craft-profile.md` un
 - code-reviewer: sonnet # faster review for low-stakes slices
 ```
 
-`/craft:prime` reports the effective model per agent and flags invalid entries. See [`model-defaults.md`](./model-defaults.md) for the full default table, the override resolution rules, and the one-shot Issue-#173 verification procedure.
+`/craft:prime` reports, per agent, the model CRAFT will ask for at spawn time. Model values are not validated — prime cannot tell a real model ID from a typo. A value the spawn parameter cannot carry is **dropped** rather than passed, so it does not fail at spawn time either; prime reports such an override as inert and the agent runs on its own default. See [`model-defaults.md`](./model-defaults.md) for which values a project override reaches, for the sources that can still decide the model outside CRAFT's reach, and for the full default table, the override resolution rules and the one-shot Issue-#173 verification procedure.
 
 ---
 

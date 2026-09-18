@@ -23,7 +23,7 @@
   `/bin/bash` 3.2 runs that fail on shell error text. `bash -n` is no evidence — it accepts
   bash-4 constructs, and a 3.2 run skips a failing command and carries on green.
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate .`. Eleven standalone Bash harnesses cover what is
+  `claude plugin validate .`. Twelve standalone Bash harnesses cover what is
   mechanically checkable; keep all green:
   `bash scripts/test-readonly-context.sh` (read-only guard + sync helper, incl.
   the guard↔helper normalizer agreement),
@@ -40,8 +40,17 @@
   `bash scripts/test-handoff-marker-state.sh` (handoff-marker liveness helper + hook, B7; + episodes, B11),
   `bash scripts/test-review-findings-state.sh` (review findings-record parser, B6),
   `bash scripts/test-execute-resume-state.sh` (execute re-run state + tree-dirt helpers, B8/B14),
-  `bash scripts/test-plan-landing.sh` (a tracked plan's removal under protected main, B16), and
-  `bash scripts/test-epic-entry-link.sh` (epic decomposition entry ↔ slice-ID, B12).
+  `bash scripts/test-plan-landing.sh` (a tracked plan's removal under protected main, B16),
+  `bash scripts/test-epic-entry-link.sh` (epic decomposition entry ↔ slice-ID, B12), and
+  `bash scripts/test-model-enum.sh` (B17) — the allowed model values are declared once in
+  `model-defaults.md` and every marked copy is bound to that declaration in both
+  directions; it also holds `fable` out of every shipped agent and the agent frontmatter
+  to the cache-TTL rule. The harness never carries a copy of the value **list** itself (it would be
+  one more copy) and binds `BOUND_FILES` itself by scanning the tree for markers. **Known limits,
+  routed to slice-047:** described once, in `model-defaults.md` → *How a copy is bound* → *Known
+  limits of the binding mechanism*; not restated here. It proves it bites via
+  46 mutation fixtures that must go red and 3 legitimate edits that must stay green, plus a
+  positive control.
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.

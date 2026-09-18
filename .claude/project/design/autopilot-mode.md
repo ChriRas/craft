@@ -30,7 +30,7 @@ Probe recipes: §12; raw numbers: the slice-044 and slice-045 archives. "docs" =
 | Subagent / workflow / teammate / compaction requests default to 5 m; `subagentPromptCacheTtl` and a subagent's `experimental: {cacheTtl}` switch to 1 h — **also for plugin agents**; the frontmatter `1h` is ignored while the subscription uses usage credits (the setting is not) | prompt-caching.md, sub-agents.md + probe 5 (default re-wrote its ~5.4 k agent prefix — 5 917 written incl. the new turn — after a 5 min 53 s gap, while a 4.4 k base, likely left warm by the earlier 1 h runs, was read; plugin agent with `cacheTtl: 1h` read 12 329 tokens after 5 min 53 s) | **confirmed** |
 | Subagent nesting depth 3 by default (`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`, `1` disables) | env-vars.md | docs — master→builder→reviewer = depth 2, fits |
 | Plugin agents support `model`, `effort`, `maxTurns`, `isolation`, `background`, `skills`, `experimental`; ignore `hooks`, `mcpServers`, `permissionMode` | sub-agents.md + probe 5 (`experimental` honoured) | docs + primary evidence |
-| Subagent `model` ∈ `sonnet \| opus \| haiku \| fable \| <full model ID> \| inherit`; the Agent tool offers `sonnet \| opus \| haiku \| fable` | sub-agents.md + the Agent tool schema | documented + primary evidence; `claude plugin validate` checks no model value (accepts `not-a-model`) |
+| Subagent `model` takes the frontmatter set, and the Agent tool's parameter a narrower one — both declared in `model-defaults.md` (→ Allowed Model Values, → Spawn-Reachable Values), not restated here | sub-agents.md + the Agent tool schema | documented + primary evidence; `claude plugin validate` checks no model value (accepts `not-a-model`) |
 | `fable` (Fable 5.1) can, depending on plan and seat tier, bill to usage credits instead of plan limits (on this account: beyond its own Fable allotment, per the user); `-p` and the Agent SDK bill it **without asking**; a background session holds the consent prompt for `dialogExpiry` (5 min), then ends the turn | model-config.md | docs — not probed (cost) |
 | Per-run token and cache counts: the subagent transcript's per-request `usage` (`cache_creation.{ephemeral_5m, ephemeral_1h}_input_tokens`, `cache_read_input_tokens`, `model`) | probes 3, 5, 6b | **primary evidence** (the task notification's `subagent_tokens` stays a second source). Internal helper agents leave **no** transcript (their `agent_transcript_path` does not exist) — about a third of the subagent-window spend in probe 6 (26.7 k master context), each helper costing about one cache read of the master prefix, so likely proportional to the master context — so a transcript sum undercounts; only `cost.total_cost_usd` holds all of it |
 | A `UserPromptSubmit` block (`decision: "block"`) sends **no main-conversation request**; in `-p` the session-title helper (Haiku 4.5, ~900 tokens) still runs | hooks.md + probe 4 (headless) + probes 6 / 6b (interactive: `requests`, `cost` unchanged) | **confirmed** |
@@ -113,20 +113,23 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
   master is the main session, and a command's `model` frontmatter switches only that turn, re-reads the whole context
   uncached and reverts on the next prompt (prompt-caching.md) — so CRAFT cannot hold the master on Sonnet (hand-backs
   would come back on the session model anyway): the human starts the session on Sonnet and `/craft:autopilot` checks it. The per-spawn overrides (builder after a trip, a human-chosen
-  Fable planner) are a resolution source beyond `model-defaults.md` → Resolution Order ("no further sources") — decided in
-  epic planning.
+  Fable planner) are a resolution source beyond the agent file and the project profile — **done: slice-046** names it as
+  source 3 in `model-defaults.md` → Resolution Order, with its bounds and its narrower value set (declared in
+  `model-defaults.md` → Spawn-Reachable Values — not restated here, because three commands read it at run time; and a
+  per-spawn override carries a model, never `effort`).
 
   **Fable is never called automatically** (user, 2026-09-15): on this account it has its own allotment (about half a
   weekly limit, per the user), usage beyond it bills to credits, and `-p` bills without asking. Efficiency levers beside
   the model: a lean master, a tight reviewer brief, per-agent `effort`, per-agent cache TTL (§6), no model switch inside
-  the master run. `model-defaults.md` still allows only `opus|sonnet|haiku|inherit`, and the enum is copied in seven
-  files (`model-defaults.md` twice, `commands/prime.md` step 4b, `templates/craft-profile.md.template`, three profile
-  templates, `docs/index.html`) — define it once and add `fable` / full model IDs for a human-chosen override (a D2
-  item, §8).
+  the master run. **Done: slice-046** — the enum is declared once in `model-defaults.md` and admits `fable` and full
+  model IDs; the copies that were needed are marker-bound and harness-checked, the rest were deleted (`commands/prime.md`
+  carries none: it no longer validates model values at all). The D2 item of §8 is closed.
 - **How a builder returns — three modes, probed** (slice-044 probes 6 / 6b; slice-045 runs 1–3, §2):
   - *Default (fork mode on):* background. The master's turn ends, and one builder reached it **three times** in run 1
     (hand-back, task notification, and another notification when a background command the builder left running woke it
-    after its report) — not a ceiling: each further wake or resume adds one. The master must de-duplicate on `agent_id` and pays one main request per duplicate. The builder
+    after its report) — not a ceiling: each further wake or resume adds one. The master must de-duplicate on `agent_id` and pays one main request per duplicate.
+    **Superseded by Q8 below:** builders run in the foreground, which delivers once, so no de-duplication is built —
+    this paragraph describes the rejected default mode, kept because it is what the probes measured. The builder
     keeps `run_in_background` + Monitor; it can wait idle only after its report (below), and a command it leaves running
     re-starts it.
   - *`CLAUDE_CODE_FORK_SUBAGENT=0`:* Claude picks. Foreground when it needs the result, but a builder that returns
@@ -150,8 +153,9 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
   default (fork mode on) a direct delegation to `craft:code-reviewer` — the agent `/craft:review` spawns; a trivial brief
   from a plain prompt, not a `/craft:review` run — received its result twice (hand-back + task notification, one extra main
   request). `/craft:review` and `/craft:execute`'s `slice-builder` are expected to behave alike (not run).
-  `model-defaults.md` is stale in two statements — "Subagents block their parent on a single return" (async by default
-  now) and "exact model IDs … not officially documented" (sub-agents.md documents them).
+  `model-defaults.md` was stale in two statements — "Subagents block their parent on a single return" (async by default
+  now) and "exact model IDs … not officially documented" (sub-agents.md documents them) — **done: slice-046**, both
+  corrected.
 
 ## 5. Ping-pong breaker
 
@@ -204,7 +208,7 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
   selecting `fable` (§4) closes the Fable path only; the general overage path (Opus / Sonnet past the plan limit with
   extra usage enabled) still rests on the thresholds above, the 5 m-TTL heuristic — whose reliability this gap leaves
   open — and extra usage disabled in the account.
-- **Cache TTL per agent (Q5, slice-044):** default subagent TTL 5 m re-writes the agent's prefix after every gap > 5 min;
+- **Cache TTL per agent (Q5, slice-044) — done: slice-046.** The rule and this derivation now live in `model-defaults.md` → Cache TTL, and both shipped agents are asserted against it by `scripts/test-model-enum.sh` (`slice-builder` 1h, `code-reviewer` the 5m default). What follows is the reasoning trail, not the current rule: default subagent TTL 5 m re-writes the agent's prefix after every gap > 5 min;
   `experimental: {cacheTtl: 1h}` in the agent file works for plugin agents. With API list multipliers — writes 1.25× (5 m)
   / 2× (1 h), reads 0.1× — a gap costs the 5 m agent 1.25× its context and the 1 h agent a 0.1× read, so 1 h pays off once
   the contexts re-written at gaps sum to more than ≈ 0.65 × the final context: one long wait after the context reached
@@ -212,8 +216,7 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
   cache writes count against the 5h / 7d windows is not documented — calibration decides. So: 1 h for a builder that runs
   long test suites or waits on services, 5 m for short-burst agents; the frontmatter `experimental` may change and its
   `1h` is ignored on usage credits (the `subagentPromptCacheTtl` setting is not), so the choice must degrade to a
-  re-write, not an error. A builder that must wait needs an explicit wait path — a plain `sleep` is blocked in subagent
-  Bash calls, and `run_in_background` + Monitor is the path the block message names.
+  re-write, not an error.
 - **The builder's wait path (slice-045):** a builder **cannot wait idle before its report** — in an interactive session the
   `SubagentHandback` enforcement forces a report first (seen in run 2, §2, §4), and idling after the report (possible only
   in the background, run 1) hands the master an unfinished result. It waits inside a tool call: a blocking foreground Bash command

@@ -123,17 +123,44 @@ bash scripts/test-plan-landing.sh
 # template use it. Keep green.
 bash scripts/test-epic-entry-link.sh
 
+# Model enum + capability tiers — the allowed model values are DECLARED once, in model-defaults.md
+# under a `craft:model-enum canonical` marker, and every other site that names them carries the same
+# marker and is compared against that declaration in both directions, with an expected binding-site count per file, and a tree-wide scan
+# so a marked file missing from that list fails instead of going unchecked. This comment names no
+# values on purpose, and the harness carries no copy of the value LIST — its self-test fixtures are
+# built from the canonical line at run time, so adding a value to the FRONTMATTER enum is an edit to
+# the seven marked lines a human reads (in six files) and nothing else; adding a SPAWN-REACHABLE
+# value is that line plus SPAWN_EXPECTED_VALUES in the harness, which fails loudly and says so. (Two fixtures do name a single agent model; the
+# harness header says so.) A list in either place would be exactly the unbound copy the mechanism exists to prevent. The copies in the templates and the docs page cannot
+# be removed — they exist so a human reads the values where they are — so they are bound instead. It also pins the two rules that keep
+# `fable` human-chosen (no shipped agent declares it) and the agent frontmatter honest against
+# model-defaults.md → Cache TTL (1h for an agent that waits, the 5m default for a short-burst one —
+# code-reviewer's BARE frontmatter is asserted, so it reads as a decision, not an oversight), and it
+# binds EVERY agent in agents/ to BOTH tables that describe its model — the cross-check loops over
+# the directory, so a third agent is covered the moment it exists and fails the run until its tier
+# row exists; the edits adding one are listed in model-defaults.md → Resolution Order, which also
+# says which of them still fail quietly. KNOWN LIMITS: described ONCE, in
+# model-defaults.md → How a copy is bound → Known limits of the binding mechanism (routed to
+# slice-047). Do not restate them here — this block is a pointer on purpose. 46 mutation fixtures that must go red,
+# 3 legitimate edits that must stay green, and a positive control prove the checks bite. Read those
+# numbers off a run (`| grep -c "correctly RED"`), never re-derive them — they were wrong in four
+# places at once in round 8 because each surface was updated by hand at a different time. It also binds a
+# SECOND declaration, model-defaults.md → Spawn-Reachable Values: the values a spawn parameter can carry,
+# which three commands read at run time — bound by a declared value count, a subset relation to the enum,
+# and a presence check on the rule and its heading. Keep green.
+bash scripts/test-model-enum.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The eleven harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The twelve harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, and the epic entry ↔ slice-ID link.
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, and the single declaration of the allowed model values.
 
 ## Dogfooding Is Not Self-Verification
 
