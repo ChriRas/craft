@@ -86,6 +86,13 @@
 - No `Co-Authored-By` trailer in commits.
 - Durable-state files are changed only with explicit human confirmation — the agent
   proposes, never silently mutates.
+- **A number that describes a run is read off that run, never derived by reasoning** —
+  fixture counts, check counts, diff sizes — and every place that ships it is corrected in one
+  pass. Five recurrences in slice-046, the last of them on the published docs page in both
+  languages, in the very entry claiming the number had been "corrected by counting".
+- **A test harness that has never been executed is a claim about a test, not a test.** Three
+  of slice-046's four Phase-5 fixtures were wrong on their first real run; none would have
+  surfaced by rehearsing the protocol on paper.
 
 ## Code Conventions
 
@@ -101,6 +108,11 @@
   deliberately (slice-036). Every non-failure writer also writes the marker's `Episode:`, and every
   `Status: paused` writer the pause record (`skills/workflow/SKILL.md` → Pause record); the harness checks
   both by proximity (slice-042).
+- **A pointer's own unreachability handler cannot live behind that pointer.** An agent that
+  needs the handler is by definition one that could not read the file the pointer targets, so
+  that one sentence is stated at *each* reader and bound there. It is the deliberate exception
+  to the tabu above, not a regression against it — and it is bound so a later de-duplication
+  pass goes red instead of silently reinstating the silence (B-R7-1, slice-046).
 
 ## Tabus (Anti-Patterns)
 
@@ -112,6 +124,11 @@
   maintained, is how the Phase-7 routing bug (B1, slice-031) came about and survived — the
   subagent path handled the drop, the interactive one did not. Adding checks *on top of* a
   duplication does not make it safe; the second copy has to go.
+  **Where a copy cannot go, it is *bound*.** A profile template and the docs page exist so a
+  human reads the values where they are needed, so the copy stays and carries a marker, and a
+  harness compares it against the one declaration in both directions, with a declared
+  binding-site count per file. A bound copy is not an exception to this tabu but its other
+  half — an *un*bound one is the violation (slice-046).
 - No skipping git hooks or signing (`--no-verify`, `--no-gpg-sign`).
 
 ## Deployment
