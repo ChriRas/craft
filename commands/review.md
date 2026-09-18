@@ -62,7 +62,9 @@ Gather everything the fresh review agent needs to judge the slice. Do not summar
 
 Launch the **`code-reviewer`** subagent via the `Task` tool with `subagent_type: "code-reviewer"`. The named agent is pinned at `model: opus` for review-grade judgment (see `model-defaults.md`); a clean context window is the source of independence. Hand it the review brief from Step 1 and the rubric below. The agent classifies — it does not edit — and returns a structured findings list; the parent command applies fixes.
 
-If a project has overridden `code-reviewer` in `.claude/project/craft-profile.md` → `## Agent Model Overrides`, the override's model is used instead. `/craft:prime` reports the effective value.
+Before spawning, settle the reviewer's model: follow `model-defaults.md` → **Spawn-Reachable Values** → *What a spawn site must do*, for the agent `code-reviewer`. That procedure decides whether this project's override travels with the spawn or is dropped, leaving the agent's own `model: opus` in force. It is defined once, there — this command deliberately keeps no second copy of it. `/craft:prime` reports the value this step will ask for.
+
+**If that file cannot be resolved** — neither `${CLAUDE_PLUGIN_ROOT}/model-defaults.md` nor `<project-root>/model-defaults.md` exists — spawn `code-reviewer` with **no** `model` parameter, and emit `⚠ Could not read model-defaults.md — spawning code-reviewer without a model; a project override, if any, was dropped.` This one sentence is stated here on purpose and is **not** a second copy of the procedure: it is the single case the pointer above structurally cannot deliver, because the file it points into is the file that is missing. Deleting it in the name of de-duplication reinstates B-R7-1, where the override vanished and nothing anywhere said so.
 
 #### Findings rubric — two orthogonal axes
 
