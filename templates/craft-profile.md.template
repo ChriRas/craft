@@ -70,9 +70,21 @@
 
 ## Agent Model Overrides
 
-> Override CRAFT subagent models (defaults in `model-defaults.md`). Allowed values:
-> `opus`, `sonnet`, `haiku`, `inherit`. An empty block means "use defaults".
-> `/craft:prime` reports the effective model and soft-warns on invalid entries.
+> Override CRAFT subagent models (defaults in `model-defaults.md`).
+> <!-- craft:model-enum -->
+> Allowed values: `opus`, `sonnet`, `haiku`, `inherit`, `fable`, `<model-id>`
+> An empty block means "use defaults". `/craft:prime` reports, per agent, the model CRAFT will
+> **ask for** at spawn time, and warns on an unknown agent name.
+> **Not every value above reaches an agent.** The spawn parameter carries a narrower set; a value
+> outside it is dropped rather than passed — it does **not** fail at spawn time — and the agent
+> runs on its own default. `/craft:prime` names such an override as `is inert` at every session
+> start, which is where you find out. Which values arrive is declared in the CRAFT plugin's
+> `model-defaults.md` → Spawn-Reachable Values; the plugin lives under
+> `~/.claude/plugins/cache/craft/craft/<version>/`. The CRAFT docs site explains the distinction
+> but does not list the set — the values live in that one file.
+> Model values are otherwise **not** checked here: prime cannot tell a real model ID from a typo.
+> `fable` is valid but human-chosen only — CRAFT never selects it, and prime flags it at
+> every session start because it can bill to usage credits.
 
 <!--
 Examples (uncomment to use):
