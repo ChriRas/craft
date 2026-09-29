@@ -76,30 +76,40 @@ fail() { echo "ERROR=$1" >&2; exit "$2"; }
 PROJECT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 cd "${PROJECT}" 2>/dev/null || fail "project_dir_unreachable:${PROJECT}" 3
 
+# What counts as an EXAMPLE — a region whose contents must not be read as content — is decided
+# once, in example-regions.sh, and no longer here. This script's own parser was the reference the
+# helper's case table was written against, so the behaviour is meant to be unchanged; the one
+# deliberate widening is that a fence opened inside a `>` blockquote is now recognised
+# (slice-047). scripts/test-epic-entry-link.sh is what holds that claim.
+EXAMPLE_REGIONS="$(dirname "${BASH_SOURCE[0]}")/example-regions.sh"
+[ -f "${EXAMPLE_REGIONS}" ] || fail "example_regions_helper_missing:${EXAMPLE_REGIONS}" 3
+
 SEP=" — "
 ID_RE='^slice-[0-9]{3,}$'
-FENCE_OPEN_BT_RE='^[[:space:]]*(`{3,})[^`]*$'
-FENCE_OPEN_TL_RE='^[[:space:]]*(~{3,})'
-FENCE_CLOSE_RE='^[[:space:]]*(`{3,}|~{3,})$'
 ENTRY_RE='^-\ \[[\ xX]\]\ (.+)$'
 ITEM_RE='^[[:space:]]*[-*+][[:space:]]+\[[^]]?\]'
 
 # parse <epic-plan> → E_LINE (line number), E_ID (slice-ID or empty), E_NAME, E_INTENT; I_LINE, I_TEXT (ignored)
 parse() {
-  local f="$1" n=0 in=0 fence="" fence_line=0 fence_in=0 line t rest id
+  local f="$1" n=0 in=0 line t rest id blanked unclosed u_line="" u_fence="" u_in=0
   E_LINE=(); E_ID=(); E_NAME=(); E_INTENT=(); I_LINE=(); I_TEXT=()
+
+  # Example regions are blanked first, by the one helper; the blanked copy keeps the line count,
+  # so the line numbers this function reports are still the real ones.
+  blanked="$(mktemp)" || fail "epic_plan_unreadable:${f}" 4
+  if ! "${BASH:-bash}" "${EXAMPLE_REGIONS}" blank markdown "${f}" > "${blanked}" 2>/dev/null; then
+    rm -f "${blanked}"; fail "epic_plan_unreadable:${f}" 4
+  fi
+  unclosed="$("${BASH:-bash}" "${EXAMPLE_REGIONS}" report markdown "${f}" 2>/dev/null)"
+  if [[ "${unclosed}" =~ ^UNCLOSED=([0-9]+)\ (.+)$ ]]; then
+    u_line="${BASH_REMATCH[1]}"; u_fence="${BASH_REMATCH[2]}"
+  fi
+
   while IFS= read -r line || [[ -n "${line}" ]]; do
     n=$((n + 1))
     t="${line%$'\r'}"; t="${t%"${t##*[![:space:]]}"}"   # drop a trailing CR and whitespace
-    if [[ -n "${fence}" ]]; then
-      if [[ "${t}" =~ ${FENCE_CLOSE_RE} && "${BASH_REMATCH[1]:0:1}" == "${fence:0:1}" && ${#BASH_REMATCH[1]} -ge ${#fence} ]]; then
-        fence=""
-      fi
-      continue
-    fi
-    if [[ "${t}" =~ ${FENCE_OPEN_BT_RE} || "${t}" =~ ${FENCE_OPEN_TL_RE} ]]; then
-      fence="${BASH_REMATCH[1]}"; fence_line=${n}; fence_in=${in}; continue
-    fi
+    # the section state AT the unclosed fence decides whether it is reported (see below)
+    [[ -n "${u_line}" && ${n} -eq ${u_line} ]] && u_in=${in}
     if [[ "${t}" == "## "* ]]; then
       if [[ "${t}" == "## Slice Decomposition" ]]; then in=1; else in=0; fi
       continue
@@ -115,10 +125,13 @@ parse() {
     fi
     E_LINE+=("${n}"); E_ID+=("${id}"); E_NAME+=("${rest%%"${SEP}"*}")
     if [[ "${rest}" == *"${SEP}"* ]]; then E_INTENT+=("${rest#*"${SEP}"}"); else E_INTENT+=(""); fi
-  done < "${f}"
-  # a fence still open at the end hides the rest of the file: never let that pass silently
-  if [[ -n "${fence}" && ( ${fence_in} -eq 1 || ${#E_LINE[@]} -eq 0 ) ]]; then
-    I_LINE+=("${fence_line}"); I_TEXT+=("unclosed fence ${fence}")
+  done < "${blanked}"
+  rm -f "${blanked}"
+  # a fence still open at the end hides the rest of the file: never let that pass silently.
+  # Reported only when it opened inside the section, or when it swallowed every entry — the
+  # condition this script has always applied, kept verbatim across the move to the helper.
+  if [[ -n "${u_line}" && ( ${u_in} -eq 1 || ${#E_LINE[@]} -eq 0 ) ]]; then
+    I_LINE+=("${u_line}"); I_TEXT+=("unclosed fence ${u_fence}")
   fi
 }
 

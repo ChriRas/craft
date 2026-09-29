@@ -260,6 +260,30 @@ out="$(run "$P")"
 { printf '%s\n' "$out" | grep -q '^MALFORMED=fence-unclosed LINE=5 MODE=phase8$' && has "$out" "OPEN_COUNT=1"; } \
   && ok "a fence left open at the end is MALFORMED and counted open (it may hide findings)" || bad "unclosed fence (out=$out)"
 
+# R2-1 loop-back (slice-047): a prose line that merely NAMES an HTML comment opener used to open a
+# phantom example region that the exact-`-->` closer never closed, so the whole rest of the plan --
+# the findings record with it -- was blanked and this parser answered OPEN_COUNT=0 on a plan with an
+# open finding. This is the case that would have caught it: the gate reads THIS number. The token is
+# assembled at run time so that this harness does not carry a line naming it, which is the trigger.
+OPENER="$(printf '<!%s' '--')"
+P="$(printf '# P\n\nthe token `%s` named in prose must not open a region\n\n## Review Findings\n\n### Round 1 — 2026-09-14 (Phase-8)\n\n- R1-1 · Heavy · Rethink · a · escalated → route pending\n' "$OPENER" | plan)"
+out="$(run "$P")"
+{ has "$out" "ROUNDS=1" && has "$out" "OPEN_COUNT=1"; } \
+  && ok "a prose mention of a comment opener does not hide the findings record (R2-1)" || bad "prose opener mention (out=$out)"
+
+P="$(printf '# P\n\n%s\nhidden\n%s\n\n## Review Findings\n\n### Round 1 — 2026-09-14 (Phase-8)\n\n- R1-1 · Heavy · Rethink · a · escalated → route pending\n' "$OPENER" '-->' | plan)"
+out="$(run "$P")"
+{ has "$out" "ROUNDS=1" && has "$out" "OPEN_COUNT=1"; } \
+  && ok "a real comment block that opens and closes still hides only its own lines (R2-1 guard)" || bad "real comment block (out=$out)"
+
+# R3-1 (slice-047 review round 3): a block closed at the END of its last text line -- the shape an
+# editor's block-comment toggle writes -- was never closed by the exact-`-->` rule, and this parser
+# answered OPEN_COUNT=0 on a plan with an open finding.
+P="$(printf '# P\n\n%s Dropped from scope for now:\nthe old goal paragraph, kept for reference %s\n\n## Review Findings\n\n### Round 1 — 2026-09-14 (Phase-8)\n\n- R1-1 · Heavy · Rethink · a · escalated → route pending\n' "$OPENER" '-->' | plan)"
+out="$(run "$P")"
+{ has "$out" "ROUNDS=1" && has "$out" "OPEN_COUNT=1"; } \
+  && ok "a comment block closed at the end of its last text line does not hide the findings record (R3-1)" || bad "trailing closer (out=$out)"
+
 P="$(printf '## Review Findings:\n\n### Round 1 — 2026-09-14 (Phase-8)\n\n- R1-1 · Heavy · Rethink · a\n  ```foo``` wrapped · fixed in-phase\n- R1-2 · Heavy · Rethink · b · escalated → route pending\n' | plan)"
 out="$(run "$P")"
 { [[ "$(line_for "$out" R1-2)" == *"OPEN=yes"* ]] && has "$out" "OPEN_COUNT=1" && ! printf '%s' "$out" | grep -q '^MALFORMED='; } \
@@ -284,6 +308,25 @@ helper_res="$(bash "$HELPER" --print-resolutions | awk -F'|' '$2=="no"{print sub
 { [[ -n "$step6" ]] && [[ "$step6" == "$helper_res" ]]; } \
   && ok "commands/review.md Step 6 format block lists exactly the helper's resolutions" \
   || bad "Step 6 ↔ helper drift: step6=[$(printf '%s' "$step6" | tr '\n' ';')] helper=[$(printf '%s' "$helper_res" | tr '\n' ';')]"
+
+# --- the example-regions helper is unavailable (slice-047) -----------------------------------------------------------
+# This parser no longer decides what a fenced example is; scripts/example-regions.sh does. Without
+# it the script cannot tell a finding line from one parked in an example, so it FAILS rather than
+# answering. That is what its two callers are built for: commands/review.md Step 6 reads a
+# non-zero exit as "nothing about the record is known" and keeps Commit blocked, and
+# handoff-marker-state.sh turns it into `unknown`, which doubt-means-live keeps live. An earlier
+# draft fell back to the raw file and said nothing, which is the one outcome neither caller can
+# detect.
+# Created under $ROOT so the EXIT trap at the top of this file covers it, including on a signal.
+# A second, independent temp lifecycle is a second copy of the cleanup rule (slice-047, N6 round 2).
+NOHELP="$(mktemp -d "$ROOT/nohelp.XXXXXX")"
+mkdir -p "$NOHELP/scripts"
+cp "$HELPER" "$NOHELP/scripts/"
+printf '## Review Findings\n\n- Heavy · Rethink · x · escalated → route pending\n' > "$NOHELP/plan.md"
+out="$(bash "$NOHELP/scripts/$(basename "$HELPER")" "$NOHELP/plan.md" 2>&1)"; rc=$?
+{ [[ $rc -ne 0 ]] && [[ "$out" == *"example_regions_helper_missing"* ]] && ! printf '%s' "$out" | grep -q '^OPEN_COUNT='; } \
+  && ok "without example-regions.sh the parser fails closed — non-zero, named error, no OPEN_COUNT to misread" \
+  || bad "fail-closed (rc=$rc out=$out)"
 
 # --- old bash -------------------------------------------------------------------------------------------------------
 if [[ -x /bin/bash ]] && [[ "$(/bin/bash -c 'echo ${BASH_VERSINFO[0]}')" -lt 4 ]]; then

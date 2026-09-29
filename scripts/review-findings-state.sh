@@ -83,7 +83,37 @@ done
 [[ -n "${PLAN}" ]] || { echo "ERROR=missing_argument:<plan>" >&2; exit 2; }
 [[ -f "${PLAN}" && -r "${PLAN}" ]] || { echo "ERROR=plan_unreadable:${PLAN}" >&2; exit 4; }
 
-CRAFT_RESOLUTIONS="${RESOLUTIONS}" CRAFT_MODE="${MODE}" awk '
+# What counts as an EXAMPLE is decided once, in example-regions.sh, and no longer by a fence
+# scanner of this file's own (slice-047). The blanked copy keeps the line count, so every LINE=
+# this script reports is still the real one. Written in bash 3.2 and with no python3: this script
+# is reached from the SessionStart hook through handoff-marker-state.sh, and the helper was chosen
+# to keep that path free of a dependency that can be missing.
+# Invoked with "${BASH:-bash}", the interpreter already running this script, never PATH's `bash`:
+# handoff-marker-state.sh guarantees the findings parser runs with ITS bash, and its harness
+# poisons PATH to prove it. A `bash …` call here broke that guarantee and turned a routed round
+# into STATE=LIVE — caught by that harness, not by this one (slice-047).
+EXAMPLE_REGIONS="$(dirname "${BASH_SOURCE[0]}")/example-regions.sh"
+UNCLOSED_LINE=""
+
+# FAIL CLOSED, never degrade quietly. Without the helper this script cannot tell a finding line
+# from one parked in a fenced example, and an answer built on that would be wrong rather than
+# missing. Its two callers are built for exactly this: commands/review.md Step 6 reads "the helper
+# cannot run" as "nothing about the record is known" and blocks Commit, and
+# handoff-marker-state.sh turns a non-zero exit into `unknown`, which doubt-means-live keeps live.
+# An earlier draft here fell back to the raw file and said nothing — silently the wrong answer.
+[ -f "${EXAMPLE_REGIONS}" ] || { echo "ERROR=example_regions_helper_missing:${EXAMPLE_REGIONS}" >&2; exit 4; }
+BLANKED="$(mktemp 2>/dev/null)" || { echo "ERROR=tmpfile_unavailable" >&2; exit 4; }
+if ! "${BASH:-bash}" "${EXAMPLE_REGIONS}" blank markdown "${PLAN}" > "${BLANKED}" 2>/dev/null; then
+  unlink "${BLANKED}" 2>/dev/null
+  echo "ERROR=example_regions_failed:${PLAN}" >&2
+  exit 4
+fi
+_rep="$("${BASH:-bash}" "${EXAMPLE_REGIONS}" report markdown "${PLAN}" 2>/dev/null)"
+case "${_rep}" in
+  UNCLOSED=*) UNCLOSED_LINE="${_rep#UNCLOSED=}"; UNCLOSED_LINE="${UNCLOSED_LINE%% *}" ;;
+esac
+
+CRAFT_RESOLUTIONS="${RESOLUTIONS}" CRAFT_MODE="${MODE}" CRAFT_UNCLOSED_LINE="${UNCLOSED_LINE}" awk '
 function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t]+$/, "", s); return s }
 
 # Length of the canonical resolution c matched at the start of v, or 0.
@@ -166,33 +196,13 @@ BEGIN {
   for (k = 1; k <= NRES; k++) {
     split(rows[k], p, "|"); RES_O[k] = p[1]; RES_C[k] = substr(rows[k], length(p[1]) + length(p[2]) + 3)
   }
-  insec = 0; fence = ""; ROUND = 0; LEGACY = "no"; OPENC = 0; PENDING = ""
+  insec = 0; ROUND = 0; LEGACY = "no"; OPENC = 0; PENDING = ""
 }
 {
   sub(/\r$/, "")
-  # CommonMark-style fences: up to 3 spaces of indent, a run of 3+ backticks or tildes; a
-  # backtick opener carries no backtick in its info string; a closer uses the same character,
-  # is at least as long, and has nothing after it. An unclosed fence is reported at END.
-  if (fence == "") {
-    if (match($0, /^ ? ? ?(```+|~~~+)/)) {
-      run = substr($0, RSTART, RLENGTH); sub(/^ +/, "", run)
-      info = substr($0, RSTART + RLENGTH)
-      if (!(substr(run, 1, 1) == "`" && index(info, "`"))) {
-        fence = run; fence_line = NR; if (insec) flush(); next
-      }
-    }
-  } else {
-    line2 = $0; sub(/^ ? ? ?/, "", line2)
-    c = substr(fence, 1, 1)
-    isclose = 0
-    if (c == "`" && line2 ~ /^`+[ \t]*$/) isclose = 1
-    if (c == "~" && line2 ~ /^~+[ \t]*$/) isclose = 1
-    if (isclose) {
-      closer = line2; sub(/[ \t]+$/, "", closer)
-      if (length(closer) >= length(fence)) { fence = ""; next }
-    }
-    next
-  }
+  # No fence scanner here any more: example-regions.sh has already blanked every example region,
+  # and a blanked line reaches flush() below exactly as the old `if (insec) flush(); next` branch
+  # did — an empty line matches no bullet, no heading and no continuation.
   if ($0 ~ /^## /) {
     if (insec) { flush(); insec = 0 }
     if (tolower($0) ~ /^## review findings([^a-z0-9_]|$)/) insec = 1
@@ -227,7 +237,8 @@ BEGIN {
 }
 END {
   flush()
-  if (fence != "") {
+  if (ENVIRON["CRAFT_UNCLOSED_LINE"] != "") {
+    fence_line = ENVIRON["CRAFT_UNCLOSED_LINE"] + 0
     if (ROUND == 0) MODEOF[0] = "phase8"
     MAL[++NMAL] = "MALFORMED=fence-unclosed LINE=" fence_line " MODE=phase8"; OPENC++
     FU[++NFU] = "FOLLOWUP_MALFORMED=fence-unclosed LINE=" fence_line
@@ -243,4 +254,7 @@ END {
   for (k = 1; k <= NMAL; k++) print MAL[k]
   print "OPEN_COUNT=" OPENC
 }
-' "${PLAN}"
+' "${BLANKED}"
+_rc=$?
+unlink "${BLANKED}" 2>/dev/null
+exit "${_rc}"

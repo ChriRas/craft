@@ -57,7 +57,10 @@
 # Exit codes: 0 success (any STATE) · 2 bad arguments · 4 worktree unreachable ·
 # 5 rename failed (marker left in place).
 # Bash-3.2-compatible on purpose — the SessionStart hook runs it, and it runs
-# review-findings-state.sh with the same bash, so that parser is bash-3.2-bound too.
+# review-findings-state.sh with the same bash, so that parser is bash-3.2-bound too --
+# and so is example-regions.sh, which that parser calls. The chain is hook ->
+# handoff-marker-state.sh -> review-findings-state.sh -> example-regions.sh; every link
+# of it is bound by scripts/test-toolchain-check.sh.
 
 set -uo pipefail
 

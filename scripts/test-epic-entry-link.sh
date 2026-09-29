@@ -270,6 +270,12 @@ expect "list items that are not entries, and an unclosed fence, are IGNORED" "$o
 check  "  … each named with its line"                       bash -c 'grep -q "^IGNORED LINE=[0-9]* TEXT=\* \[ \] starred" <<<"$1" && grep -q "^IGNORED LINE=[0-9]* TEXT=unclosed fence" <<<"$1"' _ "$out"
 expect "  … RESULT unresolved"                              "$out" "" RESULT unresolved
 
+# slice-047 NOTE — no blockquote case here, deliberately. The move onto example-regions.sh
+# widened fence detection to `>` blockquotes, and a case was written here to pin it. It passed
+# against the OLD parser too, so it proved nothing: this script's ENTRY_RE is anchored at column
+# 0, so a `> - [ ] x` line is never an entry with or without fence detection. The widening is
+# real but unobservable HERE; it bites where markers live inside blockquotes (the profile
+# templates, test-model-enum.sh), and scripts/test-example-regions.sh is what covers it.
 fixture
 out="$(run link "$EPIC" auth slice-999)"
 expect "link to an ID with no plan and no archive (a typo) → ERROR" "$out" "" ERROR "slice_not_found:slice-999:missing"
