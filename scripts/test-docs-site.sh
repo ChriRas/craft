@@ -103,6 +103,19 @@ else:
         real=counts[name]
         pass_(f"badge {name}={got} matches tree") if got==real else fail_(f"badge says {got} {name}, tree has {real} — docs are stale")
 
+# The harness table is a staleness surface like the badge, and nothing bound it: slice-047 added
+# a harness and the table would have stayed at twelve rows in silence. Bound in BOTH directions —
+# a row for a script that does not exist is as wrong as a script with no row.
+rows=set(re.findall(r'<td><code>(test-[a-z0-9-]+\.sh)</code>', src))
+files={f for f in os.listdir(os.path.join(root,'scripts')) if f.startswith('test-') and f.endswith('.sh')}
+if rows==files:
+    pass_(f"harness table lists exactly the {len(files)} harnesses in scripts/")
+else:
+    miss=sorted(files-rows); extra=sorted(rows-files)
+    fail_("harness table is stale — "
+          + (f"no row for: {miss}. " if miss else "")
+          + (f"row for a script that does not exist: {extra}." if extra else ""))
+
 wrong={v for v in re.findall(r'v(\d+\.\d+\.\d+)', src) if v!=version}
 pass_(f"all version strings are v{version}") if not wrong else fail_(f"version strings != plugin.json: {sorted(wrong)}")
 
