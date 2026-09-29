@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+### Changed
+- **`example-regions.sh`** (slice-047) — one definition of "an example, not content" for the findings parser, the epic link helper and two harnesses; a consumer without it fails closed.
+
 ## [1.5.0] - 2026-09-15
 
 > **Upgrade note — read before updating.**
