@@ -864,9 +864,11 @@ pre,.figwrap,.hero .install{
       <text x="1033" y="420" text-anchor="middle" fill="#6e7681" font-size="9.5"><tspan class="de">kein Worktree, kein Epic-Branch</tspan><tspan class="en">no worktree, no epic branch</tspan></text>
     </svg>
     <div class="figcap de">Modus 1 wählt <code>Epic Mode: parallel</code> bzw. <code>Execution → Mode: worktree</code>;
-      Modus 2 <code>Execution → Mode: in-place</code>; Modus 3 <code>Epic Mode: sequential</code>.</div>
+      Modus 2 <code>Execution → Mode: in-place</code>; Modus 3 <code>Epic Mode: sequential</code> — oder, pro Lauf,
+      <code>/craft:execute &lt;epic&gt; --autopilot</code>: derselbe Weg auf einem Epic-Branch, ohne Halt zwischen den Slices.</div>
     <div class="figcap en">Mode 1 = <code>Epic Mode: parallel</code> / <code>Execution → Mode: worktree</code>;
-      mode 2 = <code>Execution → Mode: in-place</code>; mode 3 = <code>Epic Mode: sequential</code>.</div>
+      mode 2 = <code>Execution → Mode: in-place</code>; mode 3 = <code>Epic Mode: sequential</code> — or, per run,
+      <code>/craft:execute &lt;epic&gt; --autopilot</code>: the same path on an epic branch, with no halt between slices.</div>
     </div>
 
     <div class="de">
@@ -900,7 +902,15 @@ pre,.figwrap,.hero .install{
           seinen Plan byte-gleich enthält. Unter Protected-main reist das Entfernen eines versionierten Plans im
           freigegebenen PR mit; der zweite <code>/craft:commit</code>-Durchlauf entfernt die lokale Kopie, bevor er den
           Trunk synchronisiert (<code>scripts/plan-landing.sh</code>).</li>
-        <li><strong>Harte Grenzen:</strong> merged nie nach <code>main</code> (das ist <code>/craft:commit</code>),
+        <li><strong>Autopilot (<code>--autopilot</code>):</strong> baut die Slices eines Epics nacheinander in place auf
+          <code>epic-&lt;NNN&gt;-&lt;slug&gt;</code> — je ein <code>slice-builder</code> im Vordergrund, dann
+          <code>/craft:commit</code> auf Level 2 (Split ohne Rückfrage, Entscheidungen <code>[K]</code>) — und macht ohne
+          Halt weiter; jedes Ereignis landet im <code>## Autopilot Log</code> des Epic-Plans. Jeder menschliche Haltepunkt
+          bleibt: Phase-5-Prüfung, Review-Eskalation, Blocker oder Fehler stoppen den Lauf, ein erneuter Aufruf setzt fort.
+          Am Ende ein Digest und die Frage, ob nach <code>main</code> gemergt wird — vorher bleibt <code>main</code>
+          unberührt. Voraussetzung: eine Session mit <code>CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1</code>.</li>
+        <li><strong>Harte Grenzen:</strong> merged nie nach <code>main</code> (das ist <code>/craft:commit</code>; einzige
+          Ausnahme: das Ja am Ende eines Autopilot-Laufs),
           pusht nie, löst Heavy+Rethinking-Findings nie selbst auf. Ein Handoff eines Slices bricht den Lauf nicht ab —
           unabhängige Slices laufen weiter. Eine Unterbrechung pausiert jeden noch laufenden Slice mit Pause-Record.</li>
       </ul>
@@ -939,7 +949,15 @@ pre,.figwrap,.hero .install{
           byte-identical. Under protected main a tracked plan's removal rides in the approved PR; the second
           <code>/craft:commit</code> pass drops the local copy before it syncs the trunk
           (<code>scripts/plan-landing.sh</code>).</li>
-        <li><strong>Hard limits:</strong> never merges into <code>main</code> (that is <code>/craft:commit</code>),
+        <li><strong>Autopilot (<code>--autopilot</code>):</strong> builds an epic's slices one by one in place on
+          <code>epic-&lt;NNN&gt;-&lt;slug&gt;</code> — a foreground <code>slice-builder</code> each, then
+          <code>/craft:commit</code> at Level 2 (split without questions, decisions <code>[K]</code>) — and moves on without
+          a halt; every event goes to the epic plan's <code>## Autopilot Log</code>. Every human stop stays: a Phase-5
+          check, a review escalation, a blocker or a failure stops the run, and a re-run resumes it. At the end a digest
+          and the question whether to merge into <code>main</code> — <code>main</code> is untouched until then. Needs a
+          session started with <code>CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1</code>.</li>
+        <li><strong>Hard limits:</strong> never merges into <code>main</code> (that is <code>/craft:commit</code>; the one
+          exception is the yes at the end of an autopilot run),
           never pushes, never resolves Heavy+rethinking findings itself. One slice's handoff doesn't abort the run —
           independent slices continue. An interrupt pauses every slice still running, with its pause record.</li>
       </ul>
@@ -1186,7 +1204,7 @@ pre,.figwrap,.hero .install{
       <tr><td><code>/craft:review</code></td><td><span class="de">Phase 8 — Fresh-Context-Review, Heavy/Light × Local/Rethink, Findings pro Runde, Rücksprung nach Phase 4, Commit-Gate.</span><span class="en">Phase 8 — fresh-context review, heavy/light × local/rethink, findings per round, loop-back to phase 4, commit gate.</span></td></tr>
       <tr><td><code>/craft:commit</code></td><td><span class="de">Phase 9 — atomare Commits, Promotion-Dialog, Archiv (committet es selbst), Plan löschen, ggf. PR-Flow. Deine eigenen uncommitteten Änderungen bleiben unangetastet.</span><span class="en">Phase 9 — atomic commits, promotion dialog, archive (committed by itself), plan deletion, PR flow if configured. Your own uncommitted changes are left alone.</span></td></tr>
       <tr><th colspan="2"><span class="de">Orchestrierung</span><span class="en">Orchestration</span></th></tr>
-      <tr><td><code>/craft:execute</code></td><td><span class="de">Epic/Slice autonom bauen — parallel (Worktrees), in-place oder sequenziell. Ein erneuter Lauf baut auf dem vorherigen auf.</span><span class="en">Build an epic/slice autonomously — parallel (worktrees), in-place or sequential. A re-run builds on the earlier one.</span></td></tr>
+      <tr><td><code>/craft:execute</code></td><td><span class="de">Epic/Slice autonom bauen — parallel (Worktrees), in-place oder sequenziell; mit <code>--autopilot</code> ein Epic ohne Halt zwischen den Slices auf seinem Epic-Branch. Ein erneuter Lauf baut auf dem vorherigen auf.</span><span class="en">Build an epic/slice autonomously — parallel (worktrees), in-place or sequential; with <code>--autopilot</code> an epic on its epic branch with no halt between slices. A re-run builds on the earlier one.</span></td></tr>
       <tr><td><code>/craft:release</code></td><td><span class="de">In-Place-Halt lösen: „Diff gesehen, weiter zu Phase 5".</span><span class="en">Lift the in-place halt: "diff reviewed, on to phase 5".</span></td></tr>
       <tr><th colspan="2"><span class="de">Unterbrechungen &amp; Zustand</span><span class="en">Interrupts &amp; state</span></th></tr>
       <tr><td><code>/craft:pause</code></td><td><span class="de">Slice pausieren: Notiz + Pause-Record (<code>Paused-status</code> / <code>Paused-since</code>) in den Plan; lehnt einen blockierten Slice ab.</span><span class="en">Pause the slice: note + pause record (<code>Paused-status</code> / <code>Paused-since</code>) into the plan; refuses a blocked slice.</span></td></tr>

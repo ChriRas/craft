@@ -97,7 +97,8 @@ bash scripts/test-review-findings-state.sh
 # slice: create, reuse (an existing worktree), skip (merged by a merge commit, or archived), resume (the
 # sequential slice an earlier run left open), held (paused/blocked) or conflict (a leftover branch,
 # worktree or path, a dirty tree or wrong branch nothing accounts for). /craft:execute step 1c calls it
-# before anything is created. Covers real git fixtures, the ancestor trap, both landings and that
+# before anything is created. Covers real git fixtures, the ancestor trap, both landings, an autopilot run's
+# epic branch passed as the trunk (slice-049 — no helper change, the sequential rows answer it), and that
 # commands/execute.md handles every ACTION value. Also covers scripts/tree-dirt-state.sh: CRAFT's plans,
 # counters and local state are no dirt for /craft:execute A3, /craft:commit and the re-run, and those
 # commands judge the tree only through it. Keep green.

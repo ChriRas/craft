@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+### Added
+- **Autopilot loop** (F6, slice-049) — `/craft:execute <epic> --autopilot` runs an epic's slices one-by-one in place on its epic branch: a foreground `slice-builder` builds each, `/craft:commit` lands it there at Level 2 (split without questions, decisions `[K]`), and the run moves on without a halt; every event goes to the epic plan's `## Autopilot Log`. Every human stop stays — a Phase-5 check, a review escalation, a blocker or a failure stops the run, and a re-run resumes it. At the end a digest (summary and follow-ups per slice) and the question whether to merge into `main`; `main` is untouched until then. Needs a session started with `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`.
+
 ### Changed
 - **`example-regions.sh`** (slice-047) — one definition of "an example, not content" for the findings parser, the epic link helper and two harnesses; a consumer without it fails closed.
 

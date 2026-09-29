@@ -147,6 +147,11 @@ When you have an epic with multiple slices that can run in parallel, hand the bu
 /craft:execute epic-001           # runs the next slice in-place, commits it, halts for review
 /craft:execute epic-001           # re-run continues at the next slice … until the epic is complete
 
+# Or hands-off, per run (start the session with CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1):
+/craft:execute epic-001 --autopilot   # in place on epic-001-<slug>: builds, commits and logs each slice with
+                                      # no halt between them; stops only where a human is needed (re-run to
+                                      # resume); at the end a digest and "merge into main?" — main is untouched until yes
+
 # Side tools:
 /craft:worktree-status            # overview of all active worktrees
 /craft:worktree-clean             # remove orphaned worktrees after manual aborts
