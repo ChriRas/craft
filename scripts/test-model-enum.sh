@@ -77,24 +77,50 @@ SPAWN_HEADING='## Spawn-Reachable Values'
 #
 # defenced <file> prints the path of a copy with every fenced line blanked, line numbering
 # intact, so every check below can keep addressing lines by number.
+# The one definition of "this line is an example, not content", shared with
+# epic-entry-link.sh, review-findings-state.sh and test-workflow-status-graph.sh (slice-047).
+EXAMPLE_REGIONS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/example-regions.sh"
+[ -f "$EXAMPLE_REGIONS" ] || { printf 'ERROR: example-regions.sh missing at %s\n' "$EXAMPLE_REGIONS" >&2; exit 4; }
+
+# R4-3 (slice-047): the checks that read THIS file's tables and rules — tier definitions, the
+# Role → tier rows, the Default Mapping rows, the fable rule — all read it raw, so a row or a rule
+# parked in a fenced example was read as content. They read the defenced copy now, like every
+# marker-level check. That entry of the known-limits block is closed.
+#
+# section_bounds <file> <heading-line-regex> <terminator-regex> -> "<start>,<end>", blank when
+# the heading is absent. A heading check binds a NAME and nothing else; this is what lets a check
+# also assert that the section the name opens still carries what readers are sent there for.
+section_bounds() {
+  awk -v h="$2" -v t="$3" '
+    !start && $0 ~ h { start = NR; next }
+    start && $0 ~ t  { print start "," NR - 1; found = 1; exit }
+    END { if (start && !found) print start "," NR }
+  ' "$1"
+}
+
+# mode_for <file> -> the example-regions.sh mode for it. The helper does NOT infer this: it
+# takes the mode as an argument and exits 2 without one, so the decision is the caller's.
+# Declared once here because this file asks for a mode twice -- blank() below and the report
+# gate -- and two independent copies of the rule can diverge silently, which is exactly what
+# this harness exists to prevent (slice-047, N2 round 2).
+mode_for() {
+  case "$1" in *.html|*.htm) printf html ;; *) printf markdown ;; esac
+}
+
 defenced() {
-  local f="$1" out
+  local f="$1" out mode
   out="$WORK_DIR/defenced/$(printf '%s' "$f" | tr '/' '_')"
   if [ ! -f "$out" ]; then
     mkdir -p "$WORK_DIR/defenced"
-    python3 - "$f" "$out" <<'PY'
-import sys
-src, dst = sys.argv[1], sys.argv[2]
-out, fenced = [], False
-for ln in open(src, encoding="utf-8", errors="replace").read().splitlines():
-    # strip blockquote markers too: a fence can open inside a '>' quote
-    if ln.lstrip(" \t>").startswith(("```", "~~~")):
-        fenced = not fenced
-        out.append("")
-        continue
-    out.append("" if fenced else ln)
-open(dst, "w", encoding="utf-8").write("\n".join(out) + "\n")
-PY
+    # What counts as an EXAMPLE is decided once, in example-regions.sh (slice-047). This used to
+    # be a naive parity toggle here: it flipped on any line starting with ``` or ~~~, so a nested
+    # fence toggled twice and a decoy inside it read as content (R4-1), and it ran the MARKDOWN
+    # rules over docs/index.html, which is not Markdown at all and hides its examples in <pre>
+    # (R7-3b). The CALLER picks the mode -- the helper takes it as an argument and exits 2
+    # without one -- so mode_for() above is the single place this file decides it;
+    # "${BASH:-bash}" is the interpreter already running this script, never PATH's.
+    "${BASH:-bash}" "$EXAMPLE_REGIONS" blank "$(mode_for "$f")" "$f" > "$out" \
+      || { printf 'ERROR: example-regions.sh failed on %s\n' "$f" >&2; exit 4; }
   fi
   printf '%s\n' "$out"
 }
@@ -216,6 +242,85 @@ vlist() {
 }
 
 CANON_COUNT="$(printf '%s\n' "$CANON_VALUES" | wc -l | tr -d ' ')"
+
+# R4-6 (slice-047): the exactly-one-colon rule ran on copies only. With copies present that felt
+# safe, but only the text after the LAST colon is compared, so a second colon on the CANONICAL
+# line hides whatever precedes it from every comparison — and the declaration is the one line no
+# copy can catch drifting, because every copy is compared against it.
+canon_colons="$(printf '%s' "$CANON_VALUE_LINE" | sed -E 's:</?(code|td|tr|th|strong|em|span|p|li|ul|ol|br)\b[^>]*>::g' | tr -cd ':' | wc -c | tr -d ' ')"
+if [ "$canon_colons" -ne 1 ]; then
+  fail "$CANON_FILE:$((CANON_LINE + 1)) — a marked value line must contain exactly one ':' (found $canon_colons); only the text after it is checked, so a second colon hides whatever precedes it from every comparison."
+else
+  pass "$CANON_FILE:$((CANON_LINE + 1)) — exactly one ':' on the canonical value line"
+fi
+
+# A stray word between the colon and the first value IS caught today — every copy reports drift
+# against the declaration — but the message names the COPIES, sending the maintainer to seven
+# files that are all fine. Asserting it here names the one line that is wrong (slice-047).
+canon_tail="${CANON_VALUE_LINE#*:}"
+canon_tail="${canon_tail#"${canon_tail%%[![:space:]]*}"}"
+case "$canon_tail" in
+  '`'*) pass "$CANON_FILE:$((CANON_LINE + 1)) — the canonical value list starts at the first value, no stray tail" ;;
+  *)    fail "$CANON_FILE:$((CANON_LINE + 1)) — a stray word sits between the ':' and the first value ('$(printf '%s' "$canon_tail" | cut -c1-24)…'); every copy will report drift against this line, which sends the reader to the copies instead of here." ;;
+esac
+
+# R4-10 (slice-047): the tier set was typed out three times inside this file — a second,
+# unbound copy of a set, in the harness of a slice whose thesis is "declared once". It is read
+# from the Capability Tiers table now. Why that change has no fixture, and why derived and
+# hardcoded are observationally identical while there are exactly two tiers: see the R4-10
+# comment at the self-test cases below, and model-defaults.md -> Known limits. Not restated
+# here -- an earlier version of this comment claimed a behavioural difference that does not
+# exist, which is the defect class B1/B2 were opened for (slice-047, R1-3).
+TIER_SET="$(grep -oE '^\|[[:space:]]*\*\*`?[a-z][a-z-]*`?\*\*[[:space:]]*\|' "$(defenced "$CANON_FILE")" \
+  | sed -E 's/^\|[[:space:]]*\*\*`?//; s/`?\*\*[[:space:]]*\|$//' | sort -u | paste -sd'|' -)"
+if [ -z "$TIER_SET" ]; then
+  fail "$CANON_FILE — no capability tier definition rows found; the tier set cannot be read"
+  # Degraded mode on an ALREADY-RED run: the fail() above has fired, so this run reports a
+  # failure whatever follows. The value only keeps the checks below from producing noise on
+  # top of the real message. It is deliberately NOT a maintained copy of the tier set --
+  # grow the table and this line does not need to follow (slice-047, R1-10).
+  TIER_SET='deep-reason|execute'
+else
+  pass "capability tier set read from the table, not hardcoded ($TIER_SET)"
+fi
+
+# An unclosed fence hides every line after it, so a bound file with one goes quiet from that point
+# and every check below simply has less to look at — the harness gets greener, not louder. `blank`
+# cannot tell; `report` can, so ask it. The same gap was closed in test-workflow-status-graph.sh in
+# sub-task 6 and not carried here, and it cost a whole debug round: a self-test case of this file's
+# own left a fence open, half of model-defaults.md went dark, and the run failed with a pile of
+# unrelated messages instead of naming the fence (B1, slice-047).
+UNCLOSED_BOUND=""
+for entry in "${BOUND_FILES[@]}" "${SPAWN_BOUND_FILES[@]}"; do
+  bf="${entry%:*}"
+  [ -f "$bf" ] || continue
+  brep="$("${BASH:-bash}" "$EXAMPLE_REGIONS" report "$(mode_for "$bf")" "$bf" 2>/dev/null)"
+  [ -n "$brep" ] && UNCLOSED_BOUND="$UNCLOSED_BOUND $bf:${brep#UNCLOSED=}"
+done
+if [ -n "${UNCLOSED_BOUND// }" ]; then
+  fail "bound file(s) with an unclosed fence — every check below reads a file that goes quiet from there:${UNCLOSED_BOUND}"
+else
+  pass "no bound file leaves a fence open (an unclosed one would hide the rest of it from every check below)"
+fi
+
+# R4-8 (slice-047): nothing checked that this file still has a section headed
+# `## Allowed Model Values`. /craft:prime step 4b resolves the alias set BY THAT HEADING NAME, so
+# renaming it breaks prime with every check green. Same shape as the spawn heading check below,
+# and like it the heading must also still CONTAIN the declaration it opens.
+ENUM_HEADING='## Allowed Model Values'
+if ! grep -qE "^${ENUM_HEADING}[[:space:]]*$" "$(defenced "$CANON_FILE")"; then
+  fail "$CANON_FILE — the '$ENUM_HEADING' heading is gone; /craft:prime step 4b resolves the alias set by that heading name."
+else
+  pass "$CANON_FILE still carries the '$ENUM_HEADING' heading (the name /craft:prime resolves by)"
+  ENUM_SECT="$(section_bounds "$(defenced "$CANON_FILE")" "^${ENUM_HEADING}[[:space:]]*$" '^## ')"
+  if [ -z "$ENUM_SECT" ]; then
+    fail "$CANON_FILE — could not delimit the '$ENUM_HEADING' section"
+  elif [ "$CANON_LINE" -lt "${ENUM_SECT%,*}" ] || [ "$CANON_LINE" -gt "${ENUM_SECT#*,}" ]; then
+    fail "$CANON_FILE:$CANON_LINE — the canonical declaration sits OUTSIDE the '$ENUM_HEADING' section (lines $ENUM_SECT); prime would find a section that carries no set."
+  else
+    pass "$CANON_FILE: the canonical declaration sits inside the section its heading opens (lines $ENUM_SECT)"
+  fi
+fi
 pass "canonical declaration: $CANON_FILE:$((CANON_LINE + 1)) — $CANON_COUNT values ($(printf '%s' "$CANON_VALUES" | tr '\n' ' '))"
 
 # Parsing must not lose a value. Set comparison cannot see this: a normalization bug hits
@@ -331,7 +436,7 @@ done < <(
   # The raw grep is only a cheap candidate filter; each hit is confirmed against the file's
   # defenced copy, so a marker that exists only inside a fenced example is not reported —
   # otherwise the mechanism could not be documented anywhere in the tree with a code block.
-  grep -rlE "$MARKER_RE" . --exclude-dir=.git 2>/dev/null | while IFS= read -r cand; do
+  grep -rlE "$MARKER_RE" . --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=vendor 2>/dev/null | while IFS= read -r cand; do
     grep -qE "$MARKER_RE" "$(defenced "${cand#./}")" && printf '%s\n' "$cand"
   done
 )
@@ -346,7 +451,12 @@ done < <(
 #
 # This is checkable without false positives because a near-miss is marker-SHAPED — inside an HTML
 # comment, alone on its line — and a prose mention never is.
-NEARMISS_RE='^[[:space:]>]*<!--[^>]*([Mm][Oo][Dd][Ee][Ll]|[Ss][Pp][Aa][Ww][Nn])-[Ee][Nn][Uu][Mm][^>]*-->[[:space:]]*$'
+# R4-7 (slice-047): two spellings used to match neither this nor MARKER_RE and were therefore
+# compared by nothing and reported by nothing — a separator variant (`craft:model_enum`) and a
+# real marker followed by a second comment on the same line. `[-_]` catches the first; ending
+# in `.*$` instead of `[^>]*-->[[:space:]]*$` catches the second. Still anchored to a line that
+# STARTS with the comment, so a prose mention in backticks is untouched.
+NEARMISS_RE='^[[:space:]>]*<!--[^>]*([Mm][Oo][Dd][Ee][Ll]|[Ss][Pp][Aa][Ww][Nn])[-_][Ee][Nn][Uu][Mm].*$'
 NEARMISS=0
 while IFS= read -r hit; do
   [ -n "$hit" ] || continue
@@ -360,7 +470,7 @@ while IFS= read -r hit; do
   printf '%s\n' "$line" | grep -qE "$SPAWN_MARKER_RE" && continue
   NEARMISS=$((NEARMISS + 1))
   fail "$f:$n — looks like a binding marker but is not one: '$(printf '%s' "$line" | sed 's/^[[:space:]>]*//')'. Check spelling and case, or remove it — nothing compares the values beneath it."
-done < <(grep -rnE "$NEARMISS_RE" . --exclude-dir=.git 2>/dev/null)
+done < <(grep -rnE "$NEARMISS_RE" . --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=vendor 2>/dev/null)
 
 [ "$NEARMISS" -eq 0 ] && pass "no marker-shaped comment that is not the marker"
 
@@ -512,7 +622,7 @@ else
         fail "$found carries a spawn binding marker but is not in SPAWN_BOUND_FILES — it looks bound and is not checked."
       fi
     done < <(
-      grep -rlE "$SPAWN_MARKER_RE" . --exclude-dir=.git 2>/dev/null | while IFS= read -r cand; do
+      grep -rlE "$SPAWN_MARKER_RE" . --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=vendor 2>/dev/null | while IFS= read -r cand; do
         grep -qE "$SPAWN_MARKER_RE" "$(defenced "${cand#./}")" && printf '%s\n' "$cand"
       done
     )
@@ -545,13 +655,7 @@ else
   # round 9 moved the declaration out of this section and gutted the procedure below it, heading
   # kept in both cases, and the run stayed green (F2). A pointer that resolves to a section which
   # no longer answers is R8-6's failure mode one layer out.
-  section_bounds() {
-    awk -v h="$2" -v t="$3" '
-      !start && $0 ~ h { start = NR; next }
-      start && $0 ~ t  { print start "," NR - 1; found = 1; exit }
-      END { if (start && !found) print start "," NR }
-    ' "$1"
-  }
+  # section_bounds() is defined at the top of this file (R4-3).
 
   if ! grep -qE "^${SPAWN_HEADING}[[:space:]]*$" "$(defenced "$SPAWN_CANON_FILE")"; then
     fail "$SPAWN_CANON_FILE — the '$SPAWN_HEADING' heading is gone; /craft:prime, /craft:execute and /craft:review resolve the set by that heading name."
@@ -655,8 +759,11 @@ fi
 # sentence. If that ever started counting, the contract's own description would be
 # checked as a copy and this harness would report drift about itself.
 
-PROSE_MARKERS="$(grep -cE 'craft:model-enum' "$CANON_FILE")"
-BINDING_MARKERS="$(grep -cE "$MARKER_RE" "$CANON_FILE")"
+# R4-9 (slice-047): both counts used to read the raw file, so a marker parked in a fenced
+# example inflated the prose count and this check reported the distinction as tested when it was
+# not. Read through defenced(), like every other marker-level check.
+PROSE_MARKERS="$(grep -cE 'craft:model-enum' "$(defenced "$CANON_FILE")")"
+BINDING_MARKERS="$(grep -cE "$MARKER_RE" "$(defenced "$CANON_FILE")")"
 if [ "$PROSE_MARKERS" -le "$BINDING_MARKERS" ]; then
   fail "$CANON_FILE — expected the contract to also mention the marker in prose; the prose/binding distinction is untested"
 else
@@ -686,7 +793,7 @@ fi
 # What it can honestly claim: the sentence is present. Not that it says what it should, and
 # not that anything obeys it. The enforceable half is the agents/*.md check above; this one
 # only stops the rule from vanishing unnoticed.
-if ! grep -q 'human-chosen only' "$CANON_FILE"; then
+if ! grep -q 'human-chosen only' "$(defenced "$CANON_FILE")"; then
   fail "$CANON_FILE — the 'human-chosen only' rule for fable is gone; fable is an allowed value with nothing stating that CRAFT never selects it"
 else
   pass "$CANON_FILE still states the 'human-chosen only' rule (presence only — no check can read its meaning)"
@@ -713,7 +820,7 @@ frontmatter() { sed -n '2,/^---$/p' "$1"; }
 # the third place. Binding the frontmatter to the tier keeps the slice's own thesis honest —
 # a second description of a rule must at minimum be checked against the first.
 tier_model() {  # tier_model <tier> -> the model that tier resolves to, read from the table
-  grep -E "^\|[[:space:]]*\*\*\`?$1\`?\*\*[[:space:]]*\|" "$CANON_FILE" \
+  grep -E "^\|[[:space:]]*\*\*\`?$1\`?\*\*[[:space:]]*\|" "$(defenced "$CANON_FILE")" \
     | sed -E 's/^[^|]*\|[^|]*\|[[:space:]]*//; s/[[:space:]]*\|.*$//' \
     | tr -d '`' | tr -d ' '
 }
@@ -723,8 +830,8 @@ tier_model() {  # tier_model <tier> -> the model that tier resolves to, read fro
 # table (or changing the Default Mapping row) stayed green while the agent kept its old model.
 # Review round 2 reproduced three such green runs.
 role_tier() {
-  grep -E "^\|[[:space:]]*\`?$1\`?[[:space:]]*\|" "$CANON_FILE" \
-    | grep -oE '\|[[:space:]]*(deep-reason|execute)[[:space:]]*\|' \
+  grep -E "^\|[[:space:]]*\`?$1\`?[[:space:]]*\|" "$(defenced "$CANON_FILE")" \
+    | grep -oE "\|[[:space:]]*($TIER_SET)[[:space:]]*\|" \
     | head -1 | tr -d '| '
 }
 
@@ -733,7 +840,7 @@ role_tier() {
 # model-defaults.md defines '—' as "not a value … the cell was never decided", so an empty
 # result means "the agent must declare no effort key", not "any effort is fine".
 role_effort() {
-  grep -E "^\|[[:space:]]*\`?$1\`?[[:space:]]*\|[[:space:]]*(deep-reason|execute)[[:space:]]*\|" "$CANON_FILE" \
+  grep -E "^\|[[:space:]]*\`?$1\`?[[:space:]]*\|[[:space:]]*($TIER_SET)[[:space:]]*\|" "$(defenced "$CANON_FILE")" \
     | head -1 | awk -F'|' '{print $4}' \
     | sed -E 's/\*\(proposal\)\*//g; s/[[:space:]]//g' | tr -d '`'
 }
@@ -747,7 +854,7 @@ ttl_bullet() {
     /^- \*\*/ { cur = ($0 ~ /^- \*\*1h\*\*/) ? "1h" : (($0 ~ /^- \*\*5m/) ? "5m" : "other") }
     /^[[:space:]]*$/ { cur = "" }
     cur == want { print }
-  ' "$CANON_FILE"
+  ' "$(defenced "$CANON_FILE")"
 }
 
 # role_ttl <agent-name> -> 1h | 5m | '' (named by neither bullet).
@@ -759,7 +866,7 @@ role_ttl() {
 
 # default_mapping_model <agent-name> -> the Model cell of its Default Mapping row.
 default_mapping_model() {
-  grep -E "^\|.*\`$1\`" "$CANON_FILE" \
+  grep -E "^\|.*\`$1\`" "$(defenced "$CANON_FILE")" \
     | grep -E '\| *[0-9]+ —' \
     | sed -E 's/.*\|[[:space:]]*\`?([a-z0-9-]+)\`?[[:space:]]*\|[[:space:]]*$/\1/' \
     | head -1 | tr -d '` '
@@ -862,9 +969,9 @@ fi
 # copy of the enum.
 
 row_names_role_and_tier() {
-  grep -E '^\|' "$CANON_FILE" \
+  grep -E '^\|' "$(defenced "$CANON_FILE")" \
     | grep -F -- "$1" \
-    | grep -qE '\|[[:space:]]*(deep-reason|execute)[[:space:]]*\|'
+    | grep -qE "\|[[:space:]]*($TIER_SET)[[:space:]]*\|"
 }
 
 TIER_ROWS_OK=1
@@ -878,13 +985,13 @@ done
 [ "$TIER_ROWS_OK" -eq 1 ] && pass "Role → tier table pairs all eight roles with a tier"
 
 TIERS_OK=1
-for tier in 'deep-reason' 'execute'; do
-  if ! grep -qE "^\|[[:space:]]*\*\*\`?$tier\`?\*\*" "$CANON_FILE"; then
+for tier in $(printf '%s' "$TIER_SET" | tr '|' ' '); do
+  if ! grep -qE "^\|[[:space:]]*\*\*\`?$tier\`?\*\*" "$(defenced "$CANON_FILE")"; then
     fail "$CANON_FILE — capability tier '$tier' has no definition row"
     TIERS_OK=0
   fi
 done
-[ "$TIERS_OK" -eq 1 ] && pass "both capability tiers have a definition row"
+[ "$TIERS_OK" -eq 1 ] && pass "every capability tier read from the table has a definition row"
 
 # --- 7. self-test: prove the checks bite ----------------------------------------------
 # A harness that only ever runs against a correct tree reports GREEN whether or not it
@@ -900,6 +1007,9 @@ if [ -z "${CRAFT_ENUM_SELFTEST_CHILD:-}" ]; then
     rm -rf "$dst"
     mkdir -p "$dst/scripts" "$dst/agents" "$dst/commands" "$dst/templates/profiles" "$dst/docs"
     cp "$ROOT/scripts/test-model-enum.sh" "$dst/scripts/"
+    # defenced() calls it; without it every fixture dies at startup and the control goes red
+    # (slice-047).
+    cp "$ROOT/scripts/example-regions.sh" "$dst/scripts/"
     cp "$ROOT/model-defaults.md" "$dst/"
     # prime.md is the declared-zero binding site; review.md and execute.md are the two spawn
     # sites whose unreachable-declaration fallback check (2d/e) reads them. A check that reads a
@@ -931,27 +1041,83 @@ if [ -z "${CRAFT_ENUM_SELFTEST_CHILD:-}" ]; then
   # that should fail it" — blaming the harness for a broken fixture. python3, not perl:
   # every other script under scripts/ uses it, and check-toolchain.sh guarantees only bash
   # and python3.
+  # R4-2 (slice-047): this used to `replace(old, new, 1)` after only checking that the pattern
+  # EXISTS. With several occurrences the mutation silently hit the first one — which may be a
+  # documentation example rather than the binding site the case names — and the case then reported
+  # a result about something else while still looking green. A fixture that cannot say which
+  # occurrence it changed is not evidence, so an ambiguous pattern is now a fixture error (exit 4)
+  # and the case must be given a longer, unique pattern instead.
+  #
+  # A fourth argument, "<n>/<total>", lets a case DECLARE which occurrence it means and how many
+  # there are; absent, it means 1/1 and several occurrences are an error. The declaration exists
+  # for the unavoidable case: a fixture that mutates THIS file writes its pattern literally in its
+  # own source, so the pattern is always there twice — once at the real site, once in the fixture.
+  # Picking the first silently worked only because the code happens to sit above the fixtures; the
+  # declaration says so out loud and fails if the count ever changes.
+  #
+  # Exit codes: 3 = pattern absent, 4 = count is not the declared total, 0 = the n-th replaced.
   subst() {
-    python3 - "$1" "$2" "$3" <<'PY'
+    python3 - "$1" "$2" "$3" "${4:-1/1}" <<'PY'
 import pathlib, sys
-path, old, new = sys.argv[1], sys.argv[2], sys.argv[3]
+path, old, new, which = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+nth, total = (int(x) for x in which.split("/"))
 p = pathlib.Path(path)
 t = p.read_text()
-if old not in t:
+n = t.count(old)
+if n == 0:
     sys.exit(3)
-p.write_text(t.replace(old, new, 1))
+if n != total:
+    sys.stderr.write("COUNT=%d DECLARED=%d\n" % (n, total))
+    sys.exit(4)
+i = -1
+for _ in range(nth):
+    i = t.index(old, i + 1)
+p.write_text(t[:i] + new + t[i + len(old):])
 PY
   }
 
+  # Reports an ambiguous pattern as what it is — a broken fixture — separately from an absent one,
+  # because the two need different repairs: absent means the tree moved, ambiguous means the case
+  # was never specific enough.
+  subst_report() {   # subst_report <label> <file> <exit-code>
+    case "$3" in
+      3) fail "self-test '$1' — the mutation did not apply (its pattern is gone from $2); the fixture, not the harness, is broken" ;;
+      4) fail "self-test '$1' — the mutation's pattern does not occur as often as the case declares in $2, so the case cannot say which occurrence it tests (R4-2); give it a unique pattern, or declare '<n>/<total>'" ;;
+      *) fail "self-test '$1' — subst failed on $2 (exit $3)" ;;
+    esac
+  }
+
+  # subst is the fixture machinery, so it gets its own checks: every other case below is only
+  # as trustworthy as it is. R4-2 was that it verified the pattern EXISTS and then replaced the
+  # first occurrence, so a case could silently mutate a documentation example instead of the
+  # binding site it names and still report a result.
+  _sp="$SELFTEST_DIR/subst-probe"
+  mkdir -p "$_sp"
+  printf 'alpha\nbeta\nalpha\n' > "$_sp/f"
+  ( cd "$_sp" && subst f zeta x 2>/dev/null ); [ $? -eq 3 ] \
+    && pass "subst: an absent pattern is exit 3 (the tree moved)" \
+    || fail "subst: an absent pattern should exit 3"
+  ( cd "$_sp" && subst f alpha x 2>/dev/null ); [ $? -eq 4 ] \
+    && pass "subst: two occurrences with no declaration is exit 4 (R4-2 — the case cannot say which it means)" \
+    || fail "subst: an undeclared ambiguous pattern should exit 4"
+  ( cd "$_sp" && subst f alpha x 1/3 2>/dev/null ); [ $? -eq 4 ] \
+    && pass "subst: a declared total that does not match the file is exit 4" \
+    || fail "subst: a wrong declared total should exit 4"
+  printf 'alpha\nbeta\nalpha\n' > "$_sp/f"
+  if ( cd "$_sp" && subst f alpha REPLACED 2/2 2>/dev/null ) \
+     && [ "$(sed -n '1p' "$_sp/f")" = "alpha" ] && [ "$(sed -n '3p' "$_sp/f")" = "REPLACED" ]; then
+    pass "subst: '2/2' replaces the SECOND occurrence and leaves the first alone"
+  else
+    fail "subst: '2/2' did not replace the second occurrence (got: $(tr '\n' ' ' < "$_sp/f"))"
+  fi
+
   # selftest_case <label> <file> <old> <new>  — mutate one file, expect RED.
-  selftest_case() {
-    local label="$1" file="$2" old="$3" new="$4"
+  selftest_case() {   # … [<n>/<total>]
+    local label="$1" file="$2" old="$3" new="$4" which="${5:-1/1}"
     local dir="$SELFTEST_DIR/case"
     seed_fixture "$dir"
-    if ! ( cd "$dir" && subst "$file" "$old" "$new" ); then
-      fail "self-test '$label' — the mutation did not apply (its pattern is gone from $file); the fixture, not the harness, is broken"
-      return
-    fi
+    ( cd "$dir" && subst "$file" "$old" "$new" "$which" 2>/dev/null ); rc=$?
+    if [ "$rc" -ne 0 ]; then subst_report "$label" "$file" "$rc"; return; fi
     if run_fixture "$dir"; then
       fail "self-test '$label' — the harness stayed GREEN on a tree that should fail it"
     else
@@ -967,10 +1133,8 @@ PY
     local dir="$SELFTEST_DIR/case"
     seed_fixture "$dir"
     cp "$dir/$src" "$dir/$dst"
-    if ! ( cd "$dir" && subst "$dst" "$old" "$new" ); then
-      fail "self-test '$label' — the mutation did not apply (its pattern is gone from $src); the fixture, not the harness, is broken"
-      return
-    fi
+    ( cd "$dir" && subst "$dst" "$old" "$new" 2>/dev/null ); rc=$?
+    if [ "$rc" -ne 0 ]; then subst_report "$label" "$dst" "$rc"; return; fi
     if run_fixture "$dir"; then
       fail "self-test '$label' — the harness stayed GREEN on a tree that should fail it"
     else
@@ -985,10 +1149,8 @@ PY
     local label="$1" file="$2" old="$3" new="$4"
     local dir="$SELFTEST_DIR/case"
     seed_fixture "$dir"
-    if ! ( cd "$dir" && subst "$file" "$old" "$new" ); then
-      fail "self-test '$label' — the mutation did not apply (its pattern is gone from $file); the fixture, not the harness, is broken"
-      return
-    fi
+    ( cd "$dir" && subst "$file" "$old" "$new" 2>/dev/null ); rc=$?
+    if [ "$rc" -ne 0 ]; then subst_report "$label" "$file" "$rc"; return; fi
     if run_fixture "$dir"; then
       pass "self-test '$label' — correctly stayed GREEN"
     else
@@ -1001,14 +1163,14 @@ PY
   # adding a second spawn binding site AND registering it in SPAWN_BOUND_FILES. With one
   # substitution the site would be unregistered and the tree scan would fire instead — red for a
   # reason other than the one the label names, the R8-9 defect this harness now guards against.
-  selftest_case2() {
-    local label="$1" f1="$2" o1="$3" n1="$4" f2="$5" o2="$6" n2="$7"
+  selftest_case2() {   # … [<n>/<total> for the SECOND substitution]
+    local label="$1" f1="$2" o1="$3" n1="$4" f2="$5" o2="$6" n2="$7" w2="${8:-1/1}"
     local dir="$SELFTEST_DIR/case"
     seed_fixture "$dir"
-    if ! ( cd "$dir" && subst "$f1" "$o1" "$n1" ) || ! ( cd "$dir" && subst "$f2" "$o2" "$n2" ); then
-      fail "self-test '$label' — a mutation did not apply; the fixture, not the harness, is broken"
-      return
-    fi
+    ( cd "$dir" && subst "$f1" "$o1" "$n1" 2>/dev/null ); rc=$?
+    if [ "$rc" -ne 0 ]; then subst_report "$label" "$f1" "$rc"; return; fi
+    ( cd "$dir" && subst "$f2" "$o2" "$n2" "$w2" 2>/dev/null ); rc=$?
+    if [ "$rc" -ne 0 ]; then subst_report "$label" "$f2" "$rc"; return; fi
     if run_fixture "$dir"; then
       fail "self-test '$label' — the harness stayed GREEN on a tree that should fail it"
     else
@@ -1115,7 +1277,7 @@ effort: high'
   # <model-id>. Every site loses the same value, so set comparison still sees perfect
   # agreement — only the written-vs-extracted invariant catches it.
   selftest_case "the normalizer silently drops a value everywhere" \
-    scripts/test-model-enum.sh 'r"</?(?:code|td|tr|th|strong|em|span|p|li|ul|ol|br)\b[^>]*>"' 'r"</?[A-Za-z][^>]*>"'
+    scripts/test-model-enum.sh 'r"</?(?:code|td|tr|th|strong|em|span|p|li|ul|ol|br)\b[^>]*>"' 'r"</?[A-Za-z][^>]*>"' 1/2
 
   selftest_case "a role loses its tier-table row" \
     model-defaults.md '| `plan-architect` | deep-reason |' '| |'
@@ -1147,7 +1309,7 @@ effort: high'
 
   selftest_case "a file is dropped from BOUND_FILES" \
     scripts/test-model-enum.sh '  "templates/profiles/careful.md:1"
-' ''
+' '' 1/2
 
   # Round 2 reproduced this GREEN: the checked text and the text a human reads were different.
   selftest_case "drift hides behind a second colon" \
@@ -1290,7 +1452,145 @@ Spawn-reachable values: `opus`, `sonnet` — full set in model-defaults.md: `opu
 
 <!-- keep the trailing comment closed:' \
     scripts/test-model-enum.sh 'SPAWN_BOUND_FILES=(' 'SPAWN_BOUND_FILES=(
-  "templates/profiles/balanced.md:1"'
+  "templates/profiles/balanced.md:1"' 1/3
+
+  # --- slice-047 sub-task 8: the five holes slice-046 disclosed and routed here ---------------
+  # Each was reproduced GREEN in slice-046 and is a fixture now. Labels name the MUTATION, not a
+  # single check: several checks may fire, and the run compares exit status.
+
+  # R4-6 — the one-colon rule ran on copies only. The declaration is the one line no copy can
+  # catch drifting, because every copy is compared against IT.
+  selftest_case "a second colon on the canonical value line hides what precedes it (R4-6)" \
+    model-defaults.md "Allowed values: $(vlist "$CANON_COUNT")" \
+                      "Allowed values: $(vlist $((CANON_COUNT - 2))) — full set: $(vlist "$CANON_COUNT")"
+
+  # R4-7a — a separator variant. `craft:model_enum` matched neither MARKER_RE nor the old
+  # NEARMISS_RE, so it was compared by nothing and reported by nothing.
+  selftest_case_newfile "a separator-variant marker looks bound and is not (R4-7)" \
+    templates/profiles/balanced.md templates/profiles/decoy-sep.md \
+    '<!-- craft:model-enum -->' '<!-- craft:model_enum -->'
+
+  # R4-7b — a real marker followed by a second comment on the same line. MARKER_RE requires the
+  # line to END at the first `-->`, and the old near-miss regex could not span the second one.
+  selftest_case_newfile "a marker trailed by a second comment looks bound and is not (R4-7)" \
+    templates/profiles/balanced.md templates/profiles/decoy-trail.md \
+    '<!-- craft:model-enum -->' '<!-- craft:model-enum --> <!-- keep -->'
+
+  # R4-8 — /craft:prime step 4b resolves the alias set BY THIS HEADING NAME.
+  # Anchored with its surrounding newlines: the bare string occurs five times in this file (the
+  # heading plus four prose references), and a fixture that depends on the heading happening to
+  # come first is one insertion away from silently renaming prose instead (R4-2).
+  selftest_case "the heading prime resolves the alias set by is renamed (R4-8)" \
+    model-defaults.md "$(printf '\n## Allowed Model Values\n')" "$(printf '\n## Model Values (allowed)\n')"
+
+  # R4-9 — check 3 read the raw file, so a marker parked in a fenced example counted as a prose
+  # mention and the prose/binding distinction reported itself as tested when it was not.
+  # The mutation must remove the file's ONE real prose mention and put a prose-style mention
+  # inside a fence. Attempt 1 changed a sentence that does not contain the marker at all, so the
+  # counts never moved and the case was a silent pass with the fix applied too.
+  #   raw      → prose 3 > binding 2  → passes (the distinction reads as tested, and is not)
+  #   defenced → prose 2 = binding 2  → fails  (correctly caught)
+  selftest_case "the only prose mention of the marker is one parked in a fence (R4-9)" \
+    model-defaults.md 'A file that names these values carries the marker `craft:model-enum`, as an HTML comment' \
+'A file that names these values carries the marker, as an HTML comment
+
+```
+A file that names these values carries the marker `craft:model-enum`, as an HTML comment
+```
+'
+
+  # The stray-tail diagnosis: caught before, but reported at the copies. This pins that the
+  # canonical line itself is named. (I first declared 1/2 here by assuming the Format-section copy
+  # matched the same prefix; it does not, and subst said so — which is R4-2's machinery earning
+  # its place on its first day.)
+  selftest_case "a stray word between the colon and the first value on the canonical line" \
+    model-defaults.md "Allowed values: $(vlist 1)" "Allowed values: probably $(vlist 1)"
+
+  # R4-3 — the checks that read this file's tables and rules read it raw, so a tier row parked in
+  # a fenced example was read as a real row. Here the real row is deleted and a correct-looking one
+  # is parked in a fence: the old readers found it and reported the table as complete.
+  selftest_case "a tier row deleted and a decoy parked in a fence (R4-3)" \
+    model-defaults.md '| `code-reviewer` | deep-reason | — |' \
+'
+```
+| `code-reviewer` | deep-reason | — |
+```
+'
+
+  # R4-3, second half — the `fable` rule is one of the "rules" that check read raw. Real rule
+  # deleted, a correct-looking one parked in a fence: the old reader found it and reported the rule
+  # as present. (Test Strategy leg 3, fourth replay.)
+  selftest_case "the fable rule deleted and a decoy parked in a fence (R4-3)" \
+    model-defaults.md 'human-chosen only' \
+'REDACTED
+
+```
+human-chosen only
+```
+'
+
+  # R4-10 has NO fixture, deliberately (B2, slice-047). The fix reads the tier set from the
+  # Capability Tiers table instead of typing it out three times. With exactly two tiers that is
+  # **observationally identical** to the hardcoded alternation: a role retiered to a tier the table
+  # does not define fails as "no Role → tier row assigns a tier" either way, via a check older than
+  # the fix. Reverting the fix leaves the whole run green, which is what a fixture here would have
+  # to contradict and cannot. The fix removes an unbound copy — this harness's own copy of a set,
+  # in a slice whose thesis is "declared once" — and pays off when the table grows. Stated in
+  # model-defaults.md rather than asserted by a case that would test something else.
+
+  # --- slice-047: the reproductions slice-046 disclosed and could not close ------------------
+  # Each of these stayed GREEN while the tree was wrong, which is the definition of a silent
+  # pass. They are fixtures now because example-regions.sh decides what an example is, and it
+  # parses the constructs instead of counting them.
+
+  # R4-1 — a NESTED fence. The old parity toggle flipped on the outer ```` and back on the inner
+  # ```, so the decoy inside read as content and stood in for the marker that had been deleted,
+  # while the visible list drifted to a shorter set. The plan's Effect section names the exact
+  # before/after: "1 binding site(s), as declared" → "0 binding site(s), expected 1".
+  selftest_case "a nested fence hides the real marker while a decoy stands in for it (R4-1)" \
+    templates/profiles/careful.md \
+"> <!-- craft:model-enum -->
+> Allowed values: $(vlist "$CANON_COUNT")" \
+"> Allowed values: $(vlist $((CANON_COUNT - 2)))
+>
+> \`\`\`\`
+> \`\`\`
+> <!-- craft:model-enum -->
+> Allowed values: $(vlist "$CANON_COUNT")
+> \`\`\`
+> \`\`\`\`"
+
+  # R7-3a — an HTML comment is not a Markdown fence, so a decoy parked in a template's own
+  # "Examples (uncomment to use)" block was a binding site to every fence-based check. All four
+  # profile templates carry such a block a few lines below their marker.
+  selftest_case "a decoy in the template's own Examples comment block stands in (R7-3a)" \
+    templates/profiles/careful.md \
+"> <!-- craft:model-enum -->
+> Allowed values: $(vlist "$CANON_COUNT")" \
+"> Allowed values: $(vlist $((CANON_COUNT - 2)))
+
+<!-- Examples (uncomment to use):
+> <!-- craft:model-enum -->
+> Allowed values: $(vlist "$CANON_COUNT")
+-->"
+
+  # R7-3b — docs/index.html is not Markdown at all, so a Markdown fence parser can never cover
+  # it however good it is. Its examples live in <pre>. defenced() used to run the markdown rules
+  # over it; the caller passes html mode for it (mode_for()).
+  # The real marker is DELETED and a complete decoy — marker plus an identical value line — is
+  # parked inside a <pre>, mirroring R7-3a's shape. A first attempt merely wrapped the real
+  # marker in <pre> with no value line after it: that went red under the old toggle too, on
+  # "no value list after the marker" rather than on the decoy standing in — red for a reason
+  # other than its label, which is the one thing a fixture here must never be (slice-047).
+  selftest_case "a decoy inside a <pre> on the docs page stands in (R7-3b)" \
+    docs/index.html \
+"      <!-- craft:model-enum -->
+$(sed -n '1023p' "$ROOT/docs/index.html")" \
+"      <pre>
+      <!-- craft:model-enum -->
+$(sed -n '1023p' "$ROOT/docs/index.html")
+      </pre>
+$(sed -n '1023p' "$ROOT/docs/index.html")"
 
   selftest_case_green "a repeated value is not a normalizer bug" \
     model-defaults.md "Allowed values: $(vlist 2)" "Allowed values: $(vlist 1), $(vlist 2)"

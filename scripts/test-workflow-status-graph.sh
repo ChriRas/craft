@@ -113,6 +113,27 @@ TEMPLATE="$ROOT/templates/slice-plan.md.template"
 PLAN_CMD="$COMMANDS/plan.md"
 RULES="$ROOT/.claude/project/rules.md"
 
+# What counts as an EXAMPLE is decided once, in example-regions.sh (slice-047). This file used to
+# carry THREE independent copies of the same naive parity toggle — in the marker scan, in
+# unfence(), and in the delegation-coverage scan — each of which a nested or unclosed fence could
+# fool. The python blocks below read blanked copies instead and no longer decide it at all.
+# Invoked with "${BASH:-bash}", the interpreter running this script, never PATH's `bash`.
+EXAMPLE_REGIONS="$SCRIPT_DIR/example-regions.sh"
+[ -f "$EXAMPLE_REGIONS" ] || { echo "ERROR: example-regions.sh missing at $EXAMPLE_REGIONS" >&2; exit 4; }
+BLANKED_COMMANDS="$(mktemp -d)"
+trap 'rm -rf "$BLANKED_COMMANDS"' EXIT
+UNCLOSED_IN=""
+for _f in "$COMMANDS"/*.md; do
+  [ -f "$_f" ] || continue
+  "${BASH:-bash}" "$EXAMPLE_REGIONS" blank markdown "$_f" > "$BLANKED_COMMANDS/$(basename "$_f")" \
+    || { echo "ERROR: example-regions.sh failed on $_f" >&2; exit 4; }
+  # An unclosed fence hides every line after it, markers included, and a harness that only
+  # BLANKS would go quietly green with fewer things to check. The old parity toggle had the same
+  # hole and no way to know; the helper does, so ask it (slice-047).
+  _rep="$("${BASH:-bash}" "$EXAMPLE_REGIONS" report markdown "$_f" 2>/dev/null)"
+  [ -n "$_rep" ] && UNCLOSED_IN="$UNCLOSED_IN $(basename "$_f"):${_rep#UNCLOSED=}"
+done
+
 for f in "$SKILL" "$TEMPLATE" "$PLAN_CMD"; do
   [[ -f "$f" ]] || { echo "FATAL: expected file not found: $f" >&2; exit 2; }
 done
@@ -121,6 +142,15 @@ PASS=0
 FAIL=0
 ok()  { printf '  PASS  %s\n' "$1"; PASS=$((PASS + 1)); }
 bad() { printf '  FAIL  %s\n' "$1"; FAIL=$((FAIL + 1)); }
+
+# Collected while the blanked copies were built, above. An unclosed fence in a command file
+# hides every marker after it, so this harness would check fewer things and say nothing —
+# exactly the silent green it exists to prevent (slice-047).
+if [[ -n "${UNCLOSED_IN// }" ]]; then
+  bad "command file(s) with an unclosed fence — every marker after it is hidden from this run:${UNCLOSED_IN}"
+else
+  ok "no command file leaves a fence open (an unclosed one would hide markers from every check below)"
+fi
 
 # --- parse the canonical transition table ------------------------------------
 # One "producer<TAB>status<TAB>consumer<TAB>config" line per row. The heredoc is
@@ -151,7 +181,7 @@ fi
 
 # --- parse the markers out of every command ----------------------------------
 # One "kind<TAB>command<TAB>status<TAB>when" line per marker (when="" if unscoped).
-markers="$(python3 - "$COMMANDS" <<'PY'
+markers="$(python3 - "$BLANKED_COMMANDS" <<'PY'
 import os, re, sys
 d = sys.argv[1]
 pat = re.compile(r"<!--\s*craft:(writes|reads)\s+status=([a-z-]+)(?:\s+when=([a-z0-9-]+))?\s*-->")
@@ -161,18 +191,10 @@ for name in sorted(os.listdir(d)):
     if not name.endswith(".md"):
         continue
     cmd = "/craft:" + name[:-3]
-    raw = open(os.path.join(d, name), encoding="utf-8").read().splitlines()
-
-    # Blank out fenced code blocks: a marker parked in an example is not an instruction.
-    # (A reviewer disarmed an earlier version by hiding a marker in a fenced block under
-    # "What This Command Does NOT Do" — the harness stayed green.)
-    lines, fenced = [], False
-    for ln in raw:
-        if ln.lstrip().startswith("```"):
-            fenced = not fenced
-            lines.append("")
-            continue
-        lines.append("" if fenced else ln)
+    # Already blanked by example-regions.sh — a marker parked in an example is not an
+    # instruction, and this block no longer decides what an example is. Line numbers survive
+    # blanking, so the positions reported below are still the real ones.
+    lines = open(os.path.join(d, name), encoding="utf-8").read().splitlines()
 
     for i, ln in enumerate(lines):
         for kind, status, when in pat.findall(ln):
@@ -325,7 +347,7 @@ done <<< "$markers"
 # field, naming no command), and `planning` (legitimately offers /craft:plan first, to
 # finish planning, before /craft:build).
 echo "ROUTER:"
-router_out="$(python3 - "$COMMANDS/continue.md" <<'PY'
+router_out="$(python3 - "$BLANKED_COMMANDS/continue.md" <<'PY'
 import re, sys
 text = open(sys.argv[1], encoding="utf-8").read()
 for line in text.splitlines():
@@ -385,24 +407,18 @@ review.md|loop-back|step-8|Step 8|status=implementing|the Step-8 review loop-bac
 echo "DELEGATION:"
 while IFS='|' read -r dfile drule dto dhead dattrs dgate dloss; do
 [[ -n "$dfile" ]] || continue
-verdict="$(python3 - "$COMMANDS/$dfile" "$drule" "$dto" "$dhead" "$dattrs" <<'PY' 2>&1
+verdict="$(python3 - "$BLANKED_COMMANDS/$dfile" "$drule" "$dto" "$dhead" "$dattrs" <<'PY' 2>&1
 import re, sys
 text = open(sys.argv[1], encoding="utf-8").read()
 rule, target, heading, attrs = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
 
-def unfence(s):
-    # ignore fenced examples, as everywhere else
-    lines, fenced = [], False
-    for ln in s.splitlines():
-        if ln.lstrip().startswith("```"):
-            fenced = not fenced; lines.append(""); continue
-        lines.append("" if fenced else ln)
-    return "\n".join(lines)
+# No unfence() here any more: the file this reads has already been blanked by
+# example-regions.sh, so every section taken out of it is example-free.
 
 m = re.search(r"^##\s+Subagent Mode\b.*?$(.*?)(?=^##\s|\Z)", text, re.S | re.M)
 if not m:
     print("NOSECTION"); sys.exit()
-body = unfence(m.group(1))
+body = m.group(1)
 
 token = re.search(r"<!--\s*craft:delegates\s+rule=" + re.escape(rule)
                   + r"\s+to=" + re.escape(target) + r"\s*-->", body)
@@ -414,7 +430,7 @@ target_ok = False
 if h:
     rest = text[h.end():]
     nxt = re.search(r"^#{1," + str(len(h.group(1))) + r"}\s", rest, re.M)
-    section = unfence(rest[:nxt.start()] if nxt else rest)
+    section = rest[:nxt.start()] if nxt else rest
     want = r"<!--\s*craft:writes\s+" + r"\s+".join(map(re.escape, attrs.split())) + r"\s*-->"
     target_ok = re.search(want, section) is not None
 
@@ -450,7 +466,7 @@ done <<< "$DELEGATIONS"
 # The table above is maintained by hand, so it can silently lose an entry — an emptied table once
 # stayed 84/0 green, and a new craft:delegates token anywhere in commands/ would go unchecked. Bind
 # the table to the tokens actually present, in both directions (fenced examples ignored).
-coverage="$(DELEGATION_TABLE="$DELEGATIONS" python3 - "$COMMANDS" <<'PY' 2>&1
+coverage="$(DELEGATION_TABLE="$DELEGATIONS" python3 - "$BLANKED_COMMANDS" <<'PY' 2>&1
 import os, re, sys, pathlib
 table = set()
 for line in os.environ.get("DELEGATION_TABLE", "").splitlines():
@@ -459,12 +475,8 @@ for line in os.environ.get("DELEGATION_TABLE", "").splitlines():
         table.add((cells[0], cells[1], cells[2]))
 found = set()
 for f in sorted(pathlib.Path(sys.argv[1]).glob("*.md")):
-    fenced = False
+    # already blanked by example-regions.sh
     for ln in f.read_text(encoding="utf-8").splitlines():
-        if ln.lstrip().startswith("```"):
-            fenced = not fenced; continue
-        if fenced:
-            continue
         for m in re.finditer(r"<!--\s*craft:delegates\s+rule=(\S+)\s+to=(\S+)\s*-->", ln):
             found.add((f.name, m.group(1), m.group(2)))
 if not table:
@@ -498,6 +510,13 @@ fi
 # to a human as "dropped" and to the commands as "kept" — silently flipping the whole
 # routing. That ambiguity is what this asserts, and it is the only outcome that can fail.
 echo "DETECTION:"
+# $RULES and $TEMPLATE are read RAW, unlike every commands/*.md above. Disclosed, not
+# overlooked (slice-047, R1-5): neither carries a marker region, so there is no bounded
+# declaration a blanked copy would protect -- blanking them would only move the question of
+# which region counts, not answer it. A fenced example in either file can therefore still
+# reach these two checks. Related work: the raw $SKILL read ABOVE (the transition-table
+# parse) -- but that one IS bounded by the craft:transitions markers, while these two have
+# no marker boundary at all, so they are a different and wider question, not the same one.
 if [[ -f "$RULES" ]]; then
   verdict="$(python3 - "$RULES" <<'PY'
 import re, sys
@@ -541,7 +560,7 @@ fi
 
 # --- SECTIONS: the plan sections /craft:plan asserts on must exist ------------
 echo "SECTIONS:"
-missing="$(python3 - "$PLAN_CMD" "$TEMPLATE" <<'PY'
+missing="$(python3 - "$BLANKED_COMMANDS/plan.md" "$TEMPLATE" <<'PY'
 import re, sys
 plan = open(sys.argv[1], encoding="utf-8").read()
 tpl  = open(sys.argv[2], encoding="utf-8").read()
