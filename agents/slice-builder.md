@@ -1,6 +1,6 @@
 ---
 name: slice-builder
-description: Autonomous Phase 4–7 executor for one slice during a `/craft:execute` run. Runs inside a slice-worktree, delegates to `/craft:build → /craft:test → /craft:recap → /craft:refactor → /craft:review` in subagent mode, writes `.craft/handoff.md` on every human-required pause. Spawned by `/craft:execute`; not for direct human use.
+description: Autonomous Phase 4–7 executor for one slice during a `/craft:execute` run. Runs inside a slice-worktree (in an autopilot run, in the main checkout on the epic branch), delegates to `/craft:build → /craft:test → /craft:recap → /craft:refactor → /craft:review` in subagent mode, writes `.craft/handoff.md` on every human-required pause. Spawned by `/craft:execute`; not for direct human use.
 tools: ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "Task"]
 model: sonnet
 effort: high
@@ -25,6 +25,12 @@ The parent (`/craft:execute`) hands you:
 - **Branch name** — `<slice-id>-<slug>`. Already checked out in your worktree by the parent.
 
 You do **not** create the worktree, do **not** allocate the slice ID, do **not** decide the merge target. Those are the orchestrator's job.
+
+**In an autopilot run** (`/craft:execute <epic-NNN> --autopilot`, which says so when it spawns you) there is no
+worktree: your working directory is the **main checkout**, on the epic branch `epic-<NNN>-<slug>`, and the slice plan
+is the one in that checkout. Everything this file says about "your worktree" applies to that checkout — the handoff
+marker is `.craft/handoff.md` at its root. You never switch or create branches there: the epic branch is the landing,
+and `/craft:execute` lands your slice on it with `/craft:commit` once you report `status=committing`.
 
 ---
 
@@ -108,7 +114,7 @@ When step 5 completes with `Status: committing` (and no handoff marker present),
 slice-builder done: slice-NNN status=committing branch=<slice-id>-<slug> findings=H<N>/L<N>
 ```
 
-The orchestrator picks this up, merges your slice-branch into the epic-branch (or stashes for the final commit in lone-slice mode), and continues.
+The orchestrator picks this up, merges your slice-branch into the epic-branch (or stashes for the final commit in lone-slice mode), and continues. In an autopilot run `branch=` names the epic branch, and the orchestrator commits your slice onto it.
 
 If at any step you wrote `.craft/handoff.md` and stopped (paused, blocked, or — for a review handoff — left at the status `commands/review.md` Subagent Mode defines), emit instead (the `paused` token is the orchestrator's parse key for every handoff):
 
