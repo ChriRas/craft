@@ -1,6 +1,6 @@
 ---
-description: Autonomously execute an epic or single slice. Parallel worktree mode (default) creates parallel git worktrees and delegates Phase 4–7 to subagents per slice, merging into an epic-branch; in-place mode builds a single slice on a branch in the main checkout, halts before Phase 5 for IDE review (resumed via /craft:release); sequential epic mode runs an epic's slices one-by-one in place, landing each per slice — committed directly on the trunk (direct) or via an approved PR (pull-request/protected-main) — with a review halt between.
-argument-hint: "<epic-NNN | slice-NNN>"
+description: Autonomously execute an epic or single slice. Parallel worktree mode (default) creates parallel git worktrees and delegates Phase 4–7 to subagents per slice, merging into an epic-branch; in-place mode builds a single slice on a branch in the main checkout, halts before Phase 5 for IDE review (resumed via /craft:release); sequential epic mode runs an epic's slices one-by-one in place, landing each per slice — committed directly on the trunk (direct) or via an approved PR (pull-request/protected-main) — with a review halt between; `--autopilot` runs an epic's slices one-by-one in place on its epic branch with foreground slice-builders and no halt between them, stopping only where a human is needed and asking at the end whether to merge into main.
+argument-hint: "<epic-NNN [--autopilot] | slice-NNN>"
 allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "Task"]
 ---
 
@@ -30,6 +30,10 @@ For a single slice without an epic, the orchestrator runs the same loop with one
 
 The argument is `epic-NNN` or `slice-NNN`. If absent, abort: *"`/craft:execute` requires a target (`epic-NNN` or `slice-NNN`). Run `/craft:epic` or `/craft:plan` first, then call `/craft:execute <target>`."*
 
+A second argument `--autopilot` selects the **Autopilot run** (below) and is valid on an epic target only. On a
+slice target, abort: *"`--autopilot` runs an epic. Run the slice with `/craft:execute <slice-NNN>`, or list it in an
+epic."* It is chosen per run, never read from the profile: an autopilot run is one the human starts on purpose (D32).
+
 ---
 
 ## Pre-Assertions
@@ -55,8 +59,8 @@ Failure → abort: *"No plan found for `<target>`. Run `/craft:plan` or `/craft:
 
 Failure → abort: *"Working tree is not clean / not on main. Commit, stash, or move to main before `/craft:execute` — worktrees require a clean starting point."*
 
-**Exception — a sequential epic target** (`Epic Mode: sequential`). Skip A3; Procedure step 1c
-judges the tree and the branch instead. A re-run of a sequential epic legitimately finds the one
+**Exception — a sequential epic target** (`Epic Mode: sequential`) **or an autopilot run**. Skip A3; Procedure step 1c
+judges the tree and the branch instead (an autopilot run first settles its epic branch in a0, which runs after A4 and before A6 — see A6). A re-run of a sequential epic legitimately finds the one
 slice an earlier invocation left open — its uncommitted work on the trunk (`direct`), or its
 `<slice-id>-<slug>` branch checked out (`pull-request` + `Protected-main: yes`, including a slice
 mid-landing at `Status: awaiting-approval`) — and only the helper can tell that apart from a dirty
@@ -73,6 +77,13 @@ Check for `.claude/plans/.execute.lock`. If present, abort: *"Another `/craft:ex
 Failure → abort: *"Plugin manifest unreadable — version cannot be recorded in epic/slice frontmatter. Re-install the plugin."*
 
 ### A6 — DAG resolvable
+
+**An autopilot run settles its epic branch first:** run the Autopilot run's **a0** after A4 and before this assertion.
+The helper below reads archives from the working tree, and a slice that landed on the epic branch has no plan and no
+archive on the trunk — read from there it is `missing`, and the rejection would send the human to re-plan work that
+has landed (slice-049 review R1). Because a0 has already changed the checkout, **every A6 rejection in an autopilot run
+also says so**: the checkout is now on `<epic-branch>` — go back with `git checkout <trunk>` to work elsewhere, or fix
+the epic and re-run, which keeps the branch.
 
 For an epic target: resolve every entry of `## Slice Decomposition` through the helper that defines the entry format —
 
@@ -118,6 +129,9 @@ Pick the path from the target kind and the profile:
 - **Single-slice target** — branch on `Execution → Mode` (default `worktree`):
   - **`worktree`** (default) — continue with steps 1c–10 below: the parallel, worktree-isolated path. It always auto-commits per sub-task inside the worktree (its merge model depends on it — epic Decision C), so `Auto-commit: off` is ignored here.
   - **`in-place`** — skip steps 1c–10 entirely and follow the **In-place path** sub-procedure. It builds the single slice on a branch in the main checkout, makes no commits, and halts before Phase 5 for human IDE review.
+- **Epic target with `--autopilot`** — follow the **Autopilot run** below, whatever `Epic Mode` says: its a0 has
+  already settled the epic branch (before A6), so step 1c runs with that branch as the trunk; then skip steps 2–10 and
+  follow the Sequential epic path with the autopilot deltas.
 - **Epic target** — branch on `Epic Mode` (default `parallel`):
   - **`parallel`** (default) — continue with steps 1c–10 below: the worktree fan-out + epic-branch merge.
   - **`sequential`** — run step 1c, then skip steps 2–10 and follow the **Sequential epic path** sub-procedure. It runs the epic's slices **one-by-one in dependency order**, each built in the main checkout and landed per slice (committed on the trunk under `direct`, or via an approved PR under `pull-request` + `Protected-main: yes`), halting for review between slices. (`Execution → Mode` governs single-slice targets only; it does not apply to epic targets — an epic runs in place via `Epic Mode: sequential`, per A7.)
@@ -139,6 +153,9 @@ Each `<slice>` is what A6 resolved it to — its plan path, or its slice-ID once
 - worktree path, lone slice — its plan;
 - sequential epic path — `--mode sequential --landing <direct|pull-request>` and every slice of the
   epic;
+- autopilot run — `--mode sequential --landing direct --trunk <epic-branch>` and every slice of the epic: the epic
+  branch is where each slice lands, so to the helper it is the trunk (a `wrong_branch` then means the checkout is not
+  on the epic branch);
 - `--branch-pattern '<p>'` / `--path-pattern '<p>'` when `rules.md` `## Worktree Settings` overrides them.
 
 Which `ACTION=` / `REASON=` a situation yields is defined in the script's header, not here. Act on
@@ -358,8 +375,9 @@ end here.
 Only under `Merge → Type: pull-request` + `Protected-main: yes`; the `direct` workflow lands
 each slice synchronously in `s3` and never reaches this state, so skip s0 for `direct`.
 
-Check whether any slice listed in the epic's `## Slice Decomposition` has
-`Status: awaiting-approval` — a PR opened by a prior invocation's `s3`, not yet merged. If none,
+Check whether any slice A6 resolved to a plan (`STATE=plan` — the epic's entries are read through
+`scripts/epic-entry-link.sh`, never here) has `Status: awaiting-approval` — a PR opened by a prior invocation's `s3`,
+not yet merged. If none,
 skip to s1 (a fresh run, or the `direct` workflow). If one exists, it is the **mid-landing
 slice** — complete its landing before starting any new slice by delegating to `/craft:commit`
 (its **second invocation**, since the slice is `awaiting-approval`). `/craft:commit` reads the PR
@@ -386,7 +404,8 @@ Take the slices A6 resolved the epic's `## Slice Decomposition` to and each slic
 DAG is acyclic). Topologically sort. Then take the step-1c lines — after s0 has landed a slice, run
 the helper once more with the same arguments (that slice's plan is gone and its archive makes it
 `ACTION=skip`; the tree is back on the trunk), and act on it exactly as step 1c does — a conflict or a
-helper that cannot run aborts, and the abort names the slice s0 has already landed:
+helper that cannot run aborts, and the abort names the slice s0 has already landed. An autopilot run does the same
+after every slice a3 lands (a4):
 
 - A line is `ACTION=held` → a human holds that slice at `paused` / `blocked`. Stop: release the lock
   and route it to `/craft:continue` / `/craft:unblock`; the human re-runs `/craft:execute <epic-NNN>`
@@ -482,9 +501,126 @@ the local trunk synced). Release the lock.
 
 ---
 
+## Autopilot run (`--autopilot`)
+
+An epic run the human starts on purpose and then leaves (D32): the epic's slices are built one-by-one **in place on
+the epic branch** by a foreground `slice-builder`, landed there by `/craft:commit` at Level 2, and the run moves on to
+the next slice without a halt. It **is** the Sequential epic path — order, resume, held slices and landing are s1–s3's,
+and are not restated here. This section lists only where an autopilot run differs. `main` does not move until the
+human says yes at the end (a5).
+
+**Every human stop stays.** Phase 5's `[W]/[B]/[U]`, a review escalation, a debug protocol, a scope question, a blocker
+and a builder failure all stop the run (a2). What the run takes over is only what needs no judgment: the order, the
+resume, the spawn, the commit split and the `[K]` default. Removing a stop is the work of later epic-003 slices.
+
+### a0 — Preconditions and the epic branch (after A4, before A6 and before the lock)
+
+a0 runs inside the Pre-Assertions (A6 says where), so a stop here has created nothing and holds no lock yet — the
+relaunch its message asks for does not trip A4.
+
+1. **Foreground builders.** `Bash` `printenv CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` must print `1`. Otherwise stop before
+   anything is created: *"Autopilot needs foreground builders. Quit this session and start it with
+   `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 claude`, then run `/craft:execute <epic-NNN> --autopilot` again."* — the
+   master delivers each builder's result once only in the foreground (design record §9 Q8).
+2. **Model note.** If this session does not run on Sonnet, say so in one line and continue: the master mostly reads
+   helper output and digests, and on Opus it costs 2.5× for that (design record §4). Never switch the model yourself.
+3. **The epic branch** — `epic-<NNN>-<slug>` from the epic plan's `Epic-ID:` / `Epic-Slug:` (`Branch name pattern`
+   does not apply; it names slice branches). By the current branch:
+   - **the epic branch** → a re-run; keep it.
+   - **the trunk**, `tree-dirt-state.sh` reports `DIRTY=no`, the epic branch does not exist → `git checkout -b <epic-branch>`.
+   - **the trunk**, `DIRTY=no`, the epic branch exists → `git checkout <epic-branch>` (an earlier run stopped, and the
+     human went back to the trunk).
+   - anything else (another branch, or a dirty trunk) → stop and name it: the run builds on the epic branch only, and
+     never carries changes it cannot account for onto it. A dirty trunk while the epic has a slice plan at an execution
+     status is most likely that slice's work, carried along when the human left the epic branch: name
+     `git checkout <epic-branch>` as the fix, which carries it back — never "commit or stash", which would put slice
+     work on the trunk. Name commit or stash only when no slice of the epic is in flight.
+4. **Then** A6–A7 run, the lock is taken (Procedure step 1), and step 1c runs with the epic branch as the trunk (step
+   1c, *autopilot run*). A `wrong_branch` or `dirty_without_open_slice` there aborts as step 1c says.
+
+### a1 — Run-start briefing (once per invocation, before the first spawn)
+
+Emit the briefing block (Output Format → *Autopilot — briefing*): builds in place on `<epic-branch>`, `main` untouched
+until the end; the checkout is occupied — do not edit files or switch branches in it while the run lasts; the slice
+order with what step 1c found (to build, to resume, landed); where it stops for you; how to stop (Esc — a re-run of
+the same command resumes from disk) and that a stopped run is resumed the same way. If the epic plan has no
+`## Autopilot Log` (an epic planned before the template carried it), insert the section directly above `## Recap
+Draft` — its place in the template — or at the end of the file when that heading is absent. Drop its `(no autopilot
+run yet)` line if present, and log `▶ · <epic-id> · run started`.
+
+**The log.** One line per event in the epic plan's `## Autopilot Log`, appended as the **last line of that section** —
+directly above the next `## ` heading, or at the end of the file when the section is the file's last — never below
+another section's heading (a human test's first line landed below `## Recap Draft`, slice-049) — and never rewritten:
+`- <ISO datetime> · <▶ | ✓ | ⛔ | ■> · <slice-id or epic-id> · <text>`, the datetime read off the clock for each line
+(`date -u +%Y-%m-%dT%H:%M:%SZ`), never written from memory — a probe's master logged round, invented times spanning six
+minutes for a run of two and a half (slice-049). **Write the log line first, then print it** — every `▶ / ✓ / ⛔ / ■` the master prints has its line, on every invocation, a resume included
+(a probe's re-run printed its `✓` and logged nothing, slice-049). It is the run's durable record: a new session
+re-reads it instead of any chat history.
+
+### a2 — Build a slice: s2 with a foreground builder
+
+Replaces s2's *Delegate Phase 4–8* bullet — the master never runs the phase commands itself. Before the spawn print and
+log `▶ slice <k>/<n> <slice-id> "<title>" — <create | resume at <Status>>`. For `ACTION=create` nothing is set up:
+the checkout is already on the epic branch.
+
+Spawn `slice-builder` via `Task` exactly as step 5 does — the model settled per step 5's model bullet, the slice plan as
+its target — with the **main checkout** as its working directory and the note that this is an autopilot run on
+`<epic-branch>` (the agent's *In an autopilot run* paragraph). No worktree is created and no `.primed` marker is
+seeded: this checkout is already primed.
+
+- **The spawn must return in the foreground.** The Agent result is final (`completed`). If it came back launched in
+  the background instead, do not start anything else: wait for the builder's report, then stop the run as below with
+  `⛔ … background spawn — check CLAUDE_CODE_DISABLE_BACKGROUND_TASKS`.
+- **Classify the outcome** as step 6 does — its four states, the live marker read with `handoff-marker-state.sh .`
+  in the main checkout. **Success** (`Status: committing`) → a3. **Handoff, Failure, Held at start** → stop the run:
+  print and log `⛔ <slice-id> stopped: <marker Status or plan Status> — <what the human does>`, release the lock and
+  emit *Autopilot — stopped*. What the human does is what step 8 says for a stopped slice, run in the main checkout
+  (no `/craft:checkout`: the slice is built here). Name a file for the human to remove or edit only after checking,
+  in this invocation, that it exists — a human test was sent to delete a lock that was already gone (slice-049); afterwards `/craft:execute <epic-NNN> --autopilot` resumes it —
+  step 1c reads it as `ACTION=resume`.
+
+### a3 — Land the slice on the epic branch: s3 at Level 2
+
+Replaces s3's landing. Run `/craft:commit` following its **Autopilot Mode** section: the split without confirmation,
+every decision `[K]`, the commits and the archive on the epic branch, the plan closed, and no landing step — the epic
+branch **is** the landing. **Any** `/craft:commit` stop — a pre- or post-assertion, a failing `git commit` (a
+pre-commit hook), a Step-7 failure — stops the run like a Handoff (a2). Only when `/craft:commit` completed, print and
+log `✓ <slice-id> landed on <epic-branch> (<first>..<last>)`.
+
+### a4 — No halt between slices: s4
+
+Replaces s4. Without a halt, **run the step-1c helper once more** with the same arguments — the slice just landed now
+reads `ACTION=skip` — and act on it exactly as step 1c does: a conflict or a helper that cannot run stops the run `⛔`.
+Then go back to s1 with those fresh lines; the step-1c lines from before the landing still name the landed slice
+`resume`, and s1 would pick it again (slice-049 review R1). s1 sends the run to a5 once every slice has landed. (s0
+does not apply: an autopilot slice never waits on a PR.) s1's stop on a held slice is a stop like a2's: log it `⛔`.
+
+### a5 — Epic end: digest and sign-off
+
+Replaces s5. For every slice of the epic — all now `ACTION=skip` — read its archive under `.claude/project/slices/`:
+the first sentence of `## What`, and the bullets of `## Follow-ups` if it has any. Emit *Autopilot — epic complete*
+with those, then ask, Level 0:
+
+```
+Merge <epic-branch> into <trunk>?
+  [Y] yes — direct: git checkout <trunk> + git merge --no-ff <epic-branch>;
+            pull-request + Protected-main: push <epic-branch> and open the PR (you approve and merge on GitHub)
+  [N] no  — leave <epic-branch> as it is; nothing else changes
+```
+
+- **[Y], `direct`** → `git checkout <trunk>` then `git merge --no-ff <epic-branch> -m "Merge <epic-NNN>: <epic title>"`.
+  A conflict stops before anything else: surface it, never resolve it. Log `■ <epic-id> merged into <trunk>`.
+- **[Y], `pull-request` + `Protected-main: yes`** → `git push -u origin <epic-branch>`, then
+  `gh pr create --base <trunk> --head <epic-branch>` with the digest as its body. Log `■ <epic-id> PR #<N> opened`.
+- **[N]** → log `■ <epic-id> complete, not merged`.
+
+Release the lock. The epic plan stays in `.claude/plans/`: closing an epic is not part of an autopilot run.
+
+---
+
 ## Post-Assertions
 
-Run all of the following after the procedure completes. P1 and P3 apply to the parallel worktree path only; P5 to the in-place path; P6 to the sequential epic path. Any failure → warn loudly. No auto-rollback.
+Run all of the following after the procedure completes. P1 and P3 apply to the parallel worktree path only; P5 to the in-place path; P6 to the sequential epic path; P7 to an autopilot run. Any failure → warn loudly. No auto-rollback.
 
 ### P1 — Worktrees exist for every spawned slice
 
@@ -545,6 +681,17 @@ per the Merge Workflow:
 Failure → *"⚠ Sequential epic run in an unexpected state — expected no worktrees/epic-branch
 and the current slice landed, cleanly-halted, or awaiting-approval on its PR branch. Inspect
 `git log`, `git branch`, the slice plans, and `.claude/project/slices/`."*
+
+### P7 — Autopilot run ended cleanly (autopilot run only)
+
+`git worktree list --porcelain` shows only the main worktree; the trunk points where it pointed before the run, unless
+a5 merged on the human's yes; the epic plan's `## Autopilot Log` and the epic branch agree **in both directions** —
+every `✓` names a slice whose archive exists and whose `Slice:` commits are on the epic branch (`git log <epic-branch>
+--grep "Slice: <slice-id>"`), and every slice landed in this invocation has its `✓` line; and the run ended
+at a `⛔` stop (the checkout on the epic branch, the stopped slice's plan at the status it stopped at) or at a5.
+
+Failure → *"⚠ Autopilot run in an unexpected state — inspect `git log <epic-branch>`, the trunk, `## Autopilot Log`
+and the slice plans."*
 
 ---
 
@@ -640,6 +787,36 @@ Sequential epic — complete:
    Recommended next: /craft:prime to refresh, or /craft:plan for the next epic.
 ```
 
+Autopilot — briefing (a1):
+
+```
+▶ Autopilot run — epic-<NNN> "<title>"
+   Builds in place on <epic-branch>; <trunk> is not touched until you say yes at the end.
+   This checkout is occupied: do not edit files or switch branches here until the run stops.
+   Order: slice-<a> (build) → slice-<b> (resume at <Status>) → …   [landed: slice-<x>, …]
+   Stops for you at: Phase-5 checks, review escalations, debug / scope questions, blockers, failures — and at the end.
+   Stop:   Esc.   Resume after any stop:   /craft:execute epic-<NNN> --autopilot
+```
+
+Autopilot — stopped (a2):
+
+```
+⛔ Autopilot stopped at slice-<id> "<title>" — <status>
+   <what you do, from the marker or the plan — in this checkout, no /craft:checkout>
+   Landed so far on <epic-branch>: <N> of <M>
+   Then:   /craft:execute epic-<NNN> --autopilot    (resumes this slice)
+```
+
+Autopilot — epic complete (a5):
+
+```
+✓ Autopilot — epic-<NNN> complete: <M> slices on <epic-branch>
+   slice-<id> — <first sentence of ## What>
+      follow-up: <bullet>            (only when the archive has follow-ups)
+   …
+   Merge <epic-branch> into <trunk>?   [Y] yes   [N] no
+```
+
 Aborted:
 
 ```
@@ -687,13 +864,18 @@ Review checkpoint reached:
 | Slice's `/craft:review` blocks with Heavy + needs-rethinking | Treat as Handoff. The slice's worktree is intact for `/craft:checkout`. |
 | User interrupts (signal, `/craft:pause`) | Drop into pause: <!-- craft:writes status=paused --> pause every slice whose `slice-builder` is still running (not yet collected as Success, Handoff, Held or Failure) and that is not `blocked` — `Status: paused` with the pause record (`skills/workflow/SKILL.md` → **Pause record**) and a Pause Note — in the plan copy that slice is built from: the slice worktree's in parallel mode, the main checkout's in in-place and sequential mode. Slices already stopped keep their plan and marker untouched. Release the lock, stop. |
 | P1–P4 fail | Warn loudly. The user reconciles manually. Do not retry automatically. |
+| Autopilot (a0): background tasks not disabled, or the checkout is on neither the epic branch nor a clean trunk | Stop before anything is created — a0 runs before the lock, so none is held — with the launch command or the branch to fix (for a dirty trunk while a slice is in flight: `git checkout <epic-branch>`, a0 item 3). |
+| Autopilot (a2): a spawn came back in the background | Wait for that builder's report, then stop the run (`⛔`); start nothing else. |
+| Autopilot: the human presses Esc during a spawn | The exception to the interrupt row above: the run ends where it was, and nothing is paused or rewritten for it — a paused slice would be `held` and need a `/craft:continue` before the re-run, where a slice left at its execution status simply resumes: the slice plan keeps the status the builder last wrote and the lock may remain — remove `.claude/plans/.execute.lock` if A4 reports it, then re-run `/craft:execute epic-<NNN> --autopilot`; step 1c reads the slice as `ACTION=resume`. |
+| Autopilot (a5): the merge into the trunk conflicts | Stop; surface the conflict. Never resolve it; the epic branch is intact. |
 
 ---
 
 ## What This Command Does NOT Do
 
 - It does **not** plan. Run `/craft:plan` (slice) or `/craft:epic` (epic) first.
-- It does **not** merge the epic-branch (or lone-slice-branch) into `main`. `/craft:commit` does that, after user review.
+- It does **not** merge the epic-branch (or lone-slice-branch) into `main`. `/craft:commit` does that, after user review. The one exception is an autopilot run's a5, and only on the human's `[Y]`.
+- In an **autopilot run** it does **not** remove a human stop, run the phase commands in the master, write `intent.md` / `rules.md`, push anything but the epic branch on a5's `[Y]` under protected main, or close the epic plan.
 - It does **not** clean up worktrees. `/craft:archive` (Phase 9) does that after the user has confirmed merge-to-main.
 - It does **not** auto-resolve Heavy + needs-rethinking findings. Those escalate to the user via Handoff.
 - It does **not** modify `intent.md` or `rules.md`. Architectural decisions surfaced inside a slice live in that slice's `## Decisions Made During This Slice` for Phase 9 promotion.
