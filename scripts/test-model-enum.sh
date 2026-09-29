@@ -1582,15 +1582,18 @@ human-chosen only
   # marker in <pre> with no value line after it: that went red under the old toggle too, on
   # "no value list after the marker" rather than on the decoy standing in — red for a reason
   # other than its label, which is the one thing a fixture here must never be (slice-047).
+  # The value line is the line after the page's marker, found by the marker — never by a line
+  # number: a hardcoded `sed -n '1023p'` broke the moment slice-049 added prose above the table.
+  DOCS_VALUE_LINE="$(awk '/<!-- craft:model-enum -->/ { getline; print; exit }' "$ROOT/docs/index.html")"
   selftest_case "a decoy inside a <pre> on the docs page stands in (R7-3b)" \
     docs/index.html \
 "      <!-- craft:model-enum -->
-$(sed -n '1023p' "$ROOT/docs/index.html")" \
+${DOCS_VALUE_LINE}" \
 "      <pre>
       <!-- craft:model-enum -->
-$(sed -n '1023p' "$ROOT/docs/index.html")
+${DOCS_VALUE_LINE}
       </pre>
-$(sed -n '1023p' "$ROOT/docs/index.html")"
+${DOCS_VALUE_LINE}"
 
   selftest_case_green "a repeated value is not a normalizer bug" \
     model-defaults.md "Allowed values: $(vlist 2)" "Allowed values: $(vlist 1), $(vlist 2)"
