@@ -10,14 +10,16 @@
 | # | ID | Type | Size | Item |
 |---|----|------|------|------|
 | 1 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
-| 2 | B15 | Fix | slice | Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
-| 3 | B17 | Fix | small | Settings helpers in a subdirectory project write the repo-root `settings.local.json` but report the project-dir `GITIGNORED` verdict (slice-039 R1-13) |
-| 4 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
-| 5 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
-| 6 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
-| 7 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
-| 8 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
-| 9 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
+| 2 | B19 | Fix | slice | Delete-safe plan cleanup: when the user's settings deny or ask on file removal, CRAFT never deletes — after the human's one-time confirmation (onboard / prime) it moves closed plans, the execute lock and aborted plans into a gitignored `.claude/plans/.closed/`, and hints with a copy-ready command once enough has piled up. Needed before an autopilot run on a machine with such a rule (slice-049 T4) |
+| 3 | B18 | Fix | small | Handoff-answer record (slice-042 R1-15): a resume records no answer to the handoff's question, so a subagent re-run — an autopilot re-run in particular — meets it again. Deferred by slice-049: build it when a real autopilot run shows a question that repeats (Phase-5 answers already live in `Status:`) |
+| 4 | B15 | Fix | slice | Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
+| 5 | B17 | Fix | small | Settings helpers in a subdirectory project write the repo-root `settings.local.json` but report the project-dir `GITIGNORED` verdict (slice-039 R1-13) |
+| 6 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
+| 7 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
+| 8 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
+| 9 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
+| 10 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
+| 11 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
 
 ## Notes per item
 
@@ -29,11 +31,30 @@ interactive `/craft:continue` 4a dialog (slice-042). `test-docs-site.sh` does no
 
 **B11 shipped with slice-042.** Its follow-up R1-15 (a resume records no answer to the handoff's question, so a
 subagent re-run meets it again) is in `.claude/project/slices/slice-042-b11-handoff-resolution-from-paused.md` →
-Follow-ups; F6's orchestrator must decide where an answer is stored.
+Follow-ups; it is roadmap **B18** now — slice-049 (the autopilot loop) deferred it until a real run shows a repeating question.
 
 **B12 shipped with slice-041.** Its follow-up R1-9 (the other `## Slice Decomposition` readers — `/craft:commit`
 Epic-finalize, `/craft:execute` s0, `/craft:continue` — still judge entries themselves) is in
 `.claude/project/slices/slice-041-b12-epic-slice-id-link.md` → Follow-ups; worth folding into F6's orchestrator work.
+
+**B19 — Delete-safe plan cleanup (2026-09-29, from slice-049's probes).** The user's `~/.claude/settings.json` denies
+`Bash(rm:*)` together with `git reset --hard` and `git clean`, set after an unrelated session went wrong — a rule a CRAFT
+user sets on purpose, which CRAFT must never go around. *Verified 2026-09-29 (code.claude.com/docs/en/permissions):* "if
+a tool is denied at any level, no other level can allow it" — a project or local `allow` cannot carve out
+`.claude/plans/`; rules run deny → ask → allow; an `ask` rule "still prompts you … even in auto mode" (not verified for
+`bypassPermissions`). *CRAFT side (this entry):* detect a deny or ask rule on file removal; on the human's confirmation
+move instead of delete at every removal site (`/craft:commit` Step 7, `/craft:abort`, the execute lock, worktree
+clean-up); `git rm` of a tracked plan is recoverable and stays; a hint with a copy-ready delete command when `.closed/`
+grows. Without it an autopilot run stops at the first plan closure (deny) or asks at every one (ask) — *shown by
+slice-049's human test:* every slice close stopped the run, and the execute lock was never released. **The lock
+needs no removal at all:** let it carry its state in its content (`released`, or a PID no longer running for the same
+target = stale, may be taken over) — which also settles slice-049's finding T1-a, a master that took a lock over on
+its own judgment. *Observed:* the
+context-mode PreToolUse hook enforces the same deny patterns and matched the pattern's text inside a heredoc that deleted
+nothing — so even prose about the rule can trip it; CRAFT's own helpers must not carry that text in a command line.
+*User side (separate, the user's own settings, later):* three tiers — recursive removal denied, single-file removal on
+`ask`, CRAFT's move as the third. Pattern trap: a rule for `rm -r` followed by a space does not match `-rf` or `-fr`
+(`*` stands only for the text in its place), so tier 1 needs several patterns and a test.
 
 **B15, B17 — follow-ups from slice-039** (B16 shipped with slice-040). Details in
 `.claude/project/slices/slice-039-b9-b10-b13-b14-tree-hygiene.md` → Follow-ups and Known limits. B15 is what parallel
