@@ -43,6 +43,13 @@
 
 - (none yet)
 
+## Autopilot Log
+
+> Appended by `/craft:execute <epic> --autopilot`, one line per event (`▶` run or slice started, `✓` landed on the epic
+> branch, `⛔` stopped for a human, `■` run ended). The run's durable record; never rewritten.
+
+(no autopilot run yet)
+
 ## Recap Draft
 
 > Filled when the epic closes. Becomes the basis for the epic archive entry.
