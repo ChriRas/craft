@@ -109,7 +109,7 @@ that then cannot be pushed.
 
 `/craft:commit` runs in one of three modes. Run this detection **before Step 1** and pick the matching procedure path. Run it from the **main checkout**, not from inside a worktree.
 
-- **Standard mode** — changes are uncommitted on the **current branch**: usually `main` with no `/craft:execute` run, but also a `<slice-id>-<slug>` branch when a slice was built in-place on a branch in the main checkout (an in-place single slice, or a sequential-epic slice under `pull-request` + `Protected-main: yes` — A6 needs that branch to open the PR from). Follow Steps 1–7 exactly as written below.
+- **Standard mode** — changes are uncommitted on the **current branch**: usually `main` with no `/craft:execute` run, but also a `<slice-id>-<slug>` branch when a slice was built in-place on a branch in the main checkout (an in-place single slice, or a sequential-epic slice under `pull-request` + `Protected-main: yes` — A6 needs that branch to open the PR from). Follow Steps 1–7 exactly as written below — except on an autopilot epic branch `epic-<NNN>-<slug>` in the main checkout, where the **Autopilot Mode** differences (end of this file) apply from Step 1 on.
 - **Slice-finalize mode** — `/craft:execute <slice-NNN>` has completed; a worktree at `../<repo>-worktrees/<slice-id>-<slug>/` holds the slice-branch with `Status: committing` (first pass) or `awaiting-approval` (protected-main PR completion, second pass) and a clean tree. Follow Steps 1a, 2, 4, 5, 5b, 6, 7 (with the merge in Step 1a replacing Step 1's atomic split — the orchestrator already committed the sub-task work inside the worktree).
 - **Epic-finalize mode** — `/craft:execute <epic-NNN>` has completed; an `epic-<NNN>-<slug>` worktree exists with every contained slice already merged in. Follow Steps 1b, 2, 4, 5, 5b, 6, 7. The decisions walk in Step 4 runs once per included slice.
 
@@ -298,6 +298,9 @@ the trunk with the approved merge and not as a direct commit.
 
 ### Step 6 — Land the branch (Merge Workflow — direct vs. protected-main PR)
 
+> **Never on an autopilot epic branch** `epic-<NNN>-<slug>` in the main checkout — Autopilot Mode skips this step under
+> every Merge Workflow: nothing is pushed and no PR is opened per slice.
+
 How a finished slice/epic reaches `main` is driven by the profile's `## Merge Workflow`
 (`Type`, `Protected-main`, `Approval`; documented defaults `direct` / `no` / `chat` when the
 profile or a field is absent). The commit split / decisions / archive above already ran;
@@ -390,7 +393,8 @@ In **Standard mode**: `rm .claude/plans/slice-<NNN>-<slug>.md` — under `pull-r
 >   stays `awaiting-approval` and a re-run of `/craft:commit` retries once the cause is cleared (Step 6
 >   finds the PR `MERGED` and comes straight back here).
 
-> **In-place-finalize (a slice built in-place on a non-trunk branch):** when the landed slice
+> **In-place-finalize (a slice built in-place on a non-trunk branch):** never on an autopilot epic branch
+> `epic-<NNN>-<slug>` — Autopilot Mode lands there. Otherwise, when the landed slice
 > was built in-place on a `<slice-id>-<slug>` branch in the main checkout (slice-018 in-place,
 > or a `sequential`-epic slice under a `pull-request` workflow) — i.e. only the primary
 > worktree exists **and** the current branch is not the trunk — return to the trunk after
@@ -613,11 +617,46 @@ Inspect and reconcile manually before starting the next slice.
 
 ---
 
+## Autopilot Mode (a slice on an autopilot epic branch)
+
+Applies whenever the main checkout's current branch is an autopilot epic branch, `epic-<NNN>-<slug>` — when
+`/craft:execute`'s **Autopilot run → a3** runs this command, **and** when a human does, after answering an autopilot
+stop by hand (`/craft:test` recommends `/craft:recap`, and the slice walks on to here). The slice was built in place on
+that branch, the one checkout, so Mode Detection finds **Standard mode**. Everything above runs as written, with these
+differences.
+
+**The landing — whoever runs it:**
+
+- **Step 6 is skipped, whatever `## Merge Workflow` says.** The epic branch is where the slice lands; nothing is pushed
+  and no PR is opened per slice. The merge into the trunk is the human's answer at the end of the run (a5).
+- **Step 7 removes the plan in place, under every Merge Workflow — and nothing else.** A tracked plan: `git rm -f`,
+  then a pathspec commit `chore(plans): close slice-<NNN>` on the epic branch; an untracked one: `rm`. The protected-main
+  gate note, *Plans and the trunk under protected main* (`plan-landing.sh`) and *In-place-finalize* do **not** apply —
+  no `git checkout <trunk>`, no sync, no merge, no branch deletion; the checkout stays on the epic branch. Without this,
+  every landed slice would reach the trunk one by one, before the human has seen the epic — and a trunk sync would
+  leave the epic branch mid-run.
+- Step 7b and the Post-Assertions run as written (P6 does not apply: Standard mode).
+- **Run by a human**, the command ends with `Recommended next: /craft:execute epic-<NNN> --autopilot` — the run resumes
+  at the next slice.
+
+**Only when `/craft:execute` a3 runs it — Level 2, no questions:**
+
+- Step 1 prints its split proposal and applies it; Step 2 composes the messages and does not wait for edits. The split
+  rules, the `Slice:` footer and the profile's `Co-Authored-By` and language settings apply unchanged. **No plan other
+  than the one this run closes enters the split** — Step 1 leaves them to a human, and there is none here; the epic
+  plan's `## Autopilot Log` lines stay uncommitted.
+- **Step 4 records every decision as `[K]`**, without the dialog. Nothing is written to `intent.md` / `rules.md`: a
+  promotion stays a human's Level-0 act.
+
+A failing pre- or post-assertion stops the command as it always does; `/craft:execute` then stops the run (a3).
+
+---
+
 ## What This Command Does NOT Do
 
 - It does **not** force-push, rebase, or amend prior commits.
-- It does **not** silently promote decisions. Every promotion to `intent.md` / `rules.md` requires explicit `[I]` / `[R]` from the user and diff confirmation.
+- It does **not** silently promote decisions. Every promotion to `intent.md` / `rules.md` requires explicit `[I]` / `[R]` from the user and diff confirmation — in an autopilot run every decision stays `[K]` (Autopilot Mode).
 - It does **not** commit if tests are red.
-- It does **not** open a PR unless the profile asks for it. A `direct` profile never opens a PR; a `pull-request` + `Protected-main: yes` profile opens one automatically as the profile-driven landing (Step 6) — but even then it **never merges without a real GitHub approval** (no `--admin`).
+- It does **not** open a PR unless the profile asks for it. A `direct` profile never opens a PR; a `pull-request` + `Protected-main: yes` profile opens one automatically as the profile-driven landing (Step 6) — but even then it **never merges without a real GitHub approval** (no `--admin`), and it opens none for a slice on an autopilot epic branch (Autopilot Mode).
 - It does **not** delete `_legacy/` files or any project history.
 - It does **not** auto-rollback on post-assertion failure. Git history is durable; partial state is surfaced for human reconciliation.
