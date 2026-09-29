@@ -296,10 +296,12 @@ touch `commands/` cannot be verified end-to-end in the session that writes them.
     occupied and what not to do meanwhile, the slice order, where it will stop for the human (escalations, budget stop,
     epic-end sign-off), and how to pause, resume and stop it; while it runs, a progress line per slice (which slice,
     which phase, what landed on the epic branch). Wording and exact place are for the epic's planning slice.
-  - **Open for epic planning:** each slice committed directly on the epic branch, or on a short-lived
-    `<slice-id>-<slug>` branch in the same checkout merged `--no-ff` into the epic branch (Q3's "one merge per slice");
-    how this relates to the existing sequential epic mode (in place, landing per slice on the trunk) — likely autopilot
-    reuses that path with the epic branch as the landing target.
+  - **Decided by slice-049 (user, 2026-09-29):** each slice commits **directly on the epic branch** — its `Slice:`
+    footer groups it; no short-lived slice branch, so Q3's "one merge per slice" is not built. Autopilot **is** the
+    sequential epic path, run as `/craft:execute epic-NNN --autopilot` with the epic branch as the landing target
+    (`commands/execute.md` → Autopilot run). The progress line is printed between spawns and logged in the epic plan's
+    `## Autopilot Log`; during a spawn the slice plan's `Status:` is the live phase (`/craft:status` from a second
+    session). Esc mid-spawn leaves the slice at its execution status, and a re-run resumes it.
 - **Q8 → Builders run in the foreground** (user, 2026-09-15, on slice-045's evidence and recommendation). The autopilot
   session runs with `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` (set at launch or through a settings `env` entry — §10), and
   `/craft:autopilot` checks it before the run and confirms each spawn ran in the foreground (how — §10). *Why:* one
@@ -353,10 +355,11 @@ touch `commands/` cannot be verified end-to-end in the session that writes them.
   - whether a blocking builder command near 10 min trips `CLAUDE_ASYNC_AGENT_STALL_TIMEOUT_MS`, and what a test suite
     longer than `BASH_MAX_TIMEOUT_MS` needs (raise the setting, split the suite);
   - whether a foreground spawn longer than the master's 1 h TTL leaves the master cold (§6);
-  - where D32's in-slice budget stop and Q7's progress line (which slice, which phase) live while the master is blocked on a foreground
-    builder (§9 Q8 consequence) — `budget-and-cache-guard` / `autopilot-loop`;
-  - how the human pauses or stops a master blocked on a foreground builder (Esc / Ctrl+C mid-spawn) and what state that
-    leaves — `autopilot-loop`;
+  - where D32's in-slice budget stop lives while the master is blocked on a foreground builder (§9 Q8 consequence) —
+    `budget-and-cache-guard`. (Q7's progress line: **resolved by slice-049**, §9 Q7.)
+  - ~~how the human pauses or stops a master blocked on a foreground builder (Esc / Ctrl+C mid-spawn) and what state that
+    leaves~~ — **resolved by slice-049** (§9 Q7): Esc; the slice keeps its execution status and a re-run resumes it.
+    Shown by slice-049's human test T1;
   - an unexplained 51 s delay on one builder `echo` in run 3 (auto-mode classifier latency suspected, unverified), and
     which permission mode an autopilot session runs in;
   - `/craft:execute`'s `slice-builder` under fork mode (expected to deliver twice like `craft:code-reviewer`; not run).
