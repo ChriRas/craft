@@ -387,6 +387,43 @@ printf 'x\n' > "$R/outside.txt"
 out="$(run --mode sequential slice-001 "$S2")"
 expect "  … a change elsewhere in the repository still is dirt" "$out" "" DIRTY yes
 
+echo "── autopilot: the epic branch is the trunk (slice-049) ──────────────"
+# /craft:execute --autopilot runs the sequential rows with --landing direct --trunk <epic-branch>: every slice
+# lands on the epic branch, so to this helper that branch plays the trunk. No helper change — these cases
+# pin that the existing sequential rows give the autopilot run the answers it needs.
+
+AP=(--mode sequential --landing direct --trunk epic-001-ep)
+fixture; git -C "$P" checkout -q -b epic-001-ep
+splan slice-001 a planning; splan slice-002 b planning
+out="$(run "${AP[@]}" "$S1" "$S2")"
+expect "autopilot: fresh run on the epic branch → ok"      "$out" "" RESULT ok
+expect "  … TRUNK is the epic branch"                     "$out" "" TRUNK epic-001-ep
+expect "  … first slice → create"                         "$out" "SLICE=slice-001" ACTION create
+
+splan slice-001 a reviewing
+printf 'wip\n' > "$P/work.txt"
+out="$(run "${AP[@]}" "$S1" "$S2")"
+expect "autopilot: stopped slice, its work on the epic branch → resume" "$out" "SLICE=slice-001" ACTION resume
+expect "  … the dirt is that slice's, not a conflict"     "$out" "" RESULT ok
+
+# the slice landed: /craft:commit (Autopilot Mode) committed its work and archive on the epic branch, removed the plan
+(cd "$P" && printf 'archive\n' > .claude/project/slices/slice-001-a.md && git add -A && git commit -q -m "slice-001")
+rm "$P/.claude/plans/slice-001-a.md"
+out="$(run "${AP[@]}" slice-001 "$S2")"
+expect "autopilot: a slice landed on the epic branch → skip" "$out" "SLICE=slice-001" ACTION skip
+expect "  … the next slice → create"                      "$out" "SLICE=slice-002" ACTION create
+expect "  … clean after the landing"                      "$out" "" RESULT ok
+
+splan slice-002 b implementing
+git -C "$P" checkout -q main
+# only the slice in flight: slice-001's archive lives on the epic branch, so on main it is not found — which is
+# why /craft:execute's a0 settles the epic branch BEFORE step 1c runs
+out="$(run "${AP[@]}" "$S2")"
+expect "autopilot: a slice in flight, checkout back on main → wrong_branch" "$out" "" RESULT_REASON wrong_branch
+git -C "$P" checkout -q epic-001-ep
+out="$(run --mode sequential "$S2")"
+expect "control: the same run without --trunk <epic-branch> → wrong_branch" "$out" "" RESULT_REASON wrong_branch
+
 echo "── tree dirt: CRAFT's own files are not the human's work (B14) ──────"
 
 DIRT="$SCRIPT_DIR/tree-dirt-state.sh"
