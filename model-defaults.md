@@ -114,9 +114,14 @@ copy of itself.
 reason, and with the same history: slice-031 lost a gate because a marker parked in a fenced
 example kept it green after the real one was deleted.
 
-**How far that holds today.** The marker *comparison* checks are fence-aware, so a plain fenced
-example neither stands in for a missing marker nor raises a false alarm, and the mechanism stays
-documentable in a code block.
+**How far that holds today.** Every check reads the file through one shared helper,
+`scripts/example-regions.sh`, which *parses* the constructs rather than counting them: fenced
+blocks (nested, indented, inside a blockquote, or left unclosed), multi-line HTML comment blocks,
+and `<pre>` elements in the non-Markdown file among the binding sites. So an example neither stands
+in for a missing marker nor raises a false alarm — at the marker comparisons **and** at the checks
+that read this file's tables and rules — and the mechanism stays documentable in a code block.
+A single-line HTML comment is never treated as an example, because CRAFT's markers *are* HTML
+comments. The one definition is that helper; its contract is `scripts/test-example-regions.sh`.
 
 #### Known limits of the binding mechanism
 
@@ -125,51 +130,44 @@ documentable in a code block.
 > was hand-maintained in four places and was wrong in three consecutive versions, each time
 > differently, which is the same failure this whole mechanism exists to prevent.
 
-Beyond the marker comparison level the mechanism has **known, reproduced holes**. **Eight are
-routed to `slice-047 harness-fence-parser`** — recorded in slice-046's `## Review Findings` as
-R4-1, R4-2, R4-3, R4-6, R4-7, R4-8, R4-9 and R4-10. (R4-4 and R4-5 are *not* among them: those were
-prose findings slice-046 fixed itself.) **Five of the eight are not about fences at all.** Round 7
-added **two more to slice-047's scope** — R7-3a and R7-3b below, which is why that slice's brief
-covers "a marker inside any construct that is an example rather than content" and not only Markdown
-fences. **Two further holes are routed nowhere**, because nothing can close them; they are stated
-after the list. The list below is a summary; the plan's findings section is the record:
+The ten holes this block used to list as open were **closed by `slice-047
+harness-fence-parser`** — recorded in slice-046's `## Review Findings` as R4-1, R4-2, R4-3, R4-6,
+R4-7, R4-8, R4-9, R4-10 and, added by round 7, R7-3a and R7-3b. (R4-4 and R4-5 were never among
+them: those were prose findings slice-046 fixed itself.) Each is a self-test fixture in
+`scripts/test-model-enum.sh` now, and the three that had been reproduced GREEN were run **both**
+ways before being believed — red against the shared helper, green against a restored copy of the
+old parity toggle, because a fixture that is red under both reproduces nothing.
 
-- **R4-1** *(fence)* — the fence detector counts fences instead of parsing them, so a **nested**
-  fence can promote an example to a binding site — and, in the other direction, an unbalanced
-  fence line can hide a **real** marker from the tree scan;
-- **R4-3** *(fence)* — the checks that read this file's *tables and rules* — tier definitions,
-  role rows, Default Mapping rows, the `fable` rule — read it raw;
-- **R4-9** *(fence)* — so does one marker-level check, the prose-versus-binding count;
-- **R4-2** — a self-test case can hit the wrong occurrence and silently stop testing what its
-  label names, while still reporting success;
-- **R4-6** — the one-colon rule runs on copies only, never on the canonical declaration below;
-- **R4-7** — two marker spellings (a separator variant, and a real marker followed by a second
-  comment) match neither the marker regex nor the near-miss regex;
-- **R4-8** — nothing checks that this file still has a section headed `## Allowed Model Values`,
-  which `/craft:prime` step 4b depends on;
-- **R4-10** — the capability-tier set is hardcoded three times inside the harness — a second,
-  copied enum in the harness of a slice whose thesis is "declared once" — a role retiered to an
-  unknown tier is misdiagnosed, and both tree scans walk `node_modules`.
-- **R7-3a** *(example-construct, not a fence)* — a decoy marker parked inside a bound template's own
-  `<!-- Examples (uncomment to use): -->` block satisfies that file's site count after the **real**
-  marker is deleted and the list a human reads has drifted. All four bound templates carry such a
-  comment block three lines below their marker, so the construct is already in place in every one of
-  them. Reproduced: every real check green. The full run does go red — but only because unrelated
-  self-test fixtures lose the template text they match on, and the message says *"the fixture, not
-  the harness, is broken"*, which sends the maintainer to the fixture rather than to the drift.
-- **R7-3b** *(example-construct, and not Markdown at all)* — the same attack on `docs/index.html`
-  via a `<pre>` block is completely silent: `test-model-enum.sh` **and** `test-docs-site.sh` stay
-  green while the published documentation page ships a wrong value list. This one is structural:
-  `docs/index.html` is HTML, so a Markdown fence parser can never cover it. **Of the seven binding
-  sites, this is the one whose fence-level protection is nothing at all** — a fact worth knowing
-  before trusting the count of sites as a count of guarantees.
+What that did and did not buy, stated precisely so the next reader does not have to re-derive it:
 
-**A further hole, and it is not routed to slice-047 because no fence parser can close it (R1-3).**
+- **Closed structurally** — nested and unbalanced fences, tilde fences, a fence whose info string
+  disqualifies it, a fence inside a blockquote, an HTML comment block (R7-3a) and a `<pre>` in
+  `docs/index.html` (R7-3b). One helper parses all of them, so the four scripts that used to decide
+  separately can no longer disagree. One limit: a comment block that is never closed blanks the rest
+  of its file without a report, since `report` names only an unclosed fence (slice-047 R1-1).
+- **Closed by asking the helper a second question** — an unclosed fence hides every line after it,
+  which *both* the old toggle and the helper do. The difference is that the helper reports it, so
+  the harnesses that ask it fail loudly instead of checking fewer things in silence.
+- **Closed by removing a copy** — a self-test case must now declare which occurrence it mutates
+  (R4-2), so a case can no longer quietly test something other than its label.
+- **R4-10 is a copy removed, not a defect fixed, and it has no fixture on purpose.** The capability-
+  tier set is read from the Capability Tiers table instead of being typed out three times inside the
+  harness. With exactly two tiers, derived and hardcoded are **observationally identical** — a role
+  retiered to a tier the table does not define fails the same way under both, via a check older than
+  the change — so reverting it leaves the whole run green and **no test on this tree can show the
+  difference**. The value is that the harness stops keeping its own unbound copy of a set, in a slice
+  whose thesis is "declared once", and it is realised when the table grows. Said here rather than
+  asserted by a case that would be caught by something else (B2, slice-047).
+
+**Two holes remain, and neither is a fence problem.** They are stated below because nothing in this
+repository can close them.
+
+**The first remaining hole, and no parser can close it — which is why slice-047 did not (R1-3).**
 A file that names the values **without carrying a marker** is invisible to every check here: the
 tree scan finds markers, so a copy that declines to carry one is not a copy as far as the
 mechanism is concerned. It is not hypothetical — this slice added such a copy to `CLAUDE.md` and a
 human reviewer, not the harness, found it. Review round 7 reproduced it again from the other side:
-an unmarked value list re-grown inside `commands/prime.md` leaves all twelve harnesses green,
+an unmarked value list re-grown inside `commands/prime.md` leaves all thirteen harnesses green,
 although that file's declared site count of **0** reads like an assertion that it names no values.
 The count asserts that prime carries no *marker*; that it also names no *values* is a review
 obligation, not a check. A marker-based mechanism cannot, in principle, find a copy that opts out
@@ -183,12 +181,11 @@ subset check. Nothing in this repository can verify a third party's API: the har
 edit conspicuous, never confirm it is correct. Re-probe the Agent tool when that set is changed;
 do not treat a green run as evidence that the four values are the right four.
 
-Until slice-047 lands, read "fence-aware" as "at the marker comparison level", and read this
-section's guarantees as holding for the bound **copies** rather than for this declaration itself.
-slice-047's goal is one shared parser for the four scripts that currently decide separately what an
-*example* is, using `scripts/epic-entry-link.sh` as the reference — widened by R7-3 from Markdown
-fences alone to **any construct that presents a marker as an example rather than as content**,
-which is what it takes to reach an HTML comment block (R7-3a) and a non-Markdown file (R7-3b).
+**What is still true about this declaration itself.** The guarantees above hold for the bound
+**copies** by comparison; for a declaration with a single binding site they rest on the declared
+value **count**, the subset relation and the presence checks, never on a copy comparison — that is
+what the residual above is about. `scripts/example-regions.sh` changed what counts as an example;
+it did not give a lone declaration a second opinion about its own contents.
 
 On the marked line, everything after the **last** `:` is the value list, separated by
 `,`, `|` or `·`; the values may be backticked, `<code>`-wrapped or HTML-escaped, and
@@ -197,8 +194,11 @@ nothing but values may follow that colon.
 `scripts/test-model-enum.sh` compares every copy's value set against the declaration
 above and fails naming the file and line that drifts — in both directions, so a copy that
 keeps a value this declaration has dropped is caught too, and so is a stray word left
-after the colon. Both of those run on a **copy**: the canonical line is checked for value loss
-but not yet for a stray tail (a known gap, routed to slice-047).
+after the colon. The canonical line gets all three now (slice-047): value loss, exactly one
+colon, and no stray tail between the colon and the first value. The last of those was *already*
+caught before it was asserted here — every copy reported drift against the declaration — but the
+message named the seven copies, which sends the reader to files that are all fine. Asserting it at
+the declaration names the one line that is wrong.
 
 The harness carries no copy of the value *list*; it reads the values from the canonical line.
 That is what keeps it from becoming one more copy of the enum. (Two of its self-test fixtures do

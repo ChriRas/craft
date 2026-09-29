@@ -15,15 +15,15 @@
   (`.claude-plugin/plugin.json`, `marketplace.json`); Bash for `hooks/` and `scripts/`.
 - **Bash baseline:** `scripts/` may use bash ≥ 5.0 (the minimum is defined once, in
   `scripts/check-toolchain.sh`); `hooks/`, `scripts/check-toolchain.sh` and
-  `scripts/handoff-marker-state.sh` (called by a hook) and `scripts/review-findings-state.sh` (called by
-  that helper) stay **bash-3.2-compatible** — hooks run
+  `scripts/handoff-marker-state.sh` (called by a hook), `scripts/review-findings-state.sh` (called by
+  that helper) and `scripts/example-regions.sh` (called by that parser) stay **bash-3.2-compatible** — hooks run
   with whatever bash Claude Code hands them, and only an old-bash-safe hook and helper can report
   an old bash. `scripts/test-toolchain-check.sh`
   asserts it with **two independent detectors**: a bash-4-construct scanner and real
   `/bin/bash` 3.2 runs that fail on shell error text. `bash -n` is no evidence — it accepts
   bash-4 constructs, and a 3.2 run skips a failing command and carries on green.
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate .`. Twelve standalone Bash harnesses cover what is
+  `claude plugin validate .`. Thirteen standalone Bash harnesses cover what is
   mechanically checkable; keep all green:
   `bash scripts/test-readonly-context.sh` (read-only guard + sync helper, incl.
   the guard↔helper normalizer agreement),
@@ -46,11 +46,16 @@
   `model-defaults.md` and every marked copy is bound to that declaration in both
   directions; it also holds `fable` out of every shipped agent and the agent frontmatter
   to the cache-TTL rule. The harness never carries a copy of the value **list** itself (it would be
-  one more copy) and binds `BOUND_FILES` itself by scanning the tree for markers. **Known limits,
-  routed to slice-047:** described once, in `model-defaults.md` → *How a copy is bound* → *Known
-  limits of the binding mechanism*; not restated here. It proves it bites via
-  46 mutation fixtures that must go red and 3 legitimate edits that must stay green, plus a
-  positive control.
+  one more copy) and binds `BOUND_FILES` itself by scanning the tree for markers. **Known limits:** described once, in
+  `model-defaults.md` → *How a copy is bound* → *Known limits of the binding mechanism* — slice-047
+  closed the ten that block listed, two remain, and neither is a fence problem; not restated here. It proves it bites via
+  57 mutation fixtures that must go red and 3 legitimate edits that must stay green, plus a
+  positive control. Finally
+  `bash scripts/test-example-regions.sh` — the case table for
+  `scripts/example-regions.sh`, the single definition of "example, not content" that the four
+  scripts above now share instead of each deciding it with its own parity toggle. It was written
+  **before** the helper existed, against `scripts/epic-entry-link.sh`'s parser as the reference,
+  and it is the contract the helper is judged by.
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.

@@ -123,6 +123,20 @@ bash scripts/test-plan-landing.sh
 # template use it. Keep green.
 bash scripts/test-epic-entry-link.sh
 
+# Example regions — scripts/example-regions.sh is the ONE answer to "is this line an example
+# rather than content?", shared by epic-entry-link.sh, review-findings-state.sh,
+# test-workflow-status-graph.sh and test-model-enum.sh. Four scripts used to decide it separately
+# with naive parity toggles and demonstrably disagreed. It PARSES the constructs instead of
+# counting them: fenced blocks (nested, indented, blockquoted, unclosed), multi-line HTML comment
+# blocks, and <pre> in the one binding site that is not Markdown (docs/index.html). The CALLER
+# passes the mode; the helper takes it as an argument and exits 2 without one. A SINGLE-LINE HTML comment is never an example, because CRAFT's markers ARE HTML comments.
+# `blank` keeps the line count so callers keep their line numbers; `report` names an unclosed
+# fence, which is how a harness learns it is checking fewer things than it thinks. bash 3.2 and no
+# python3, because review-findings-state.sh reaches it from the SessionStart hook and that path
+# must not gain a dependency that can be missing; a consumer without the helper FAILS rather than
+# answering. The case table is the contract and was written before the helper existed. Keep green.
+bash scripts/test-example-regions.sh
+
 # Model enum + capability tiers — the allowed model values are DECLARED once, in model-defaults.md
 # under a `craft:model-enum canonical` marker, and every other site that names them carries the same
 # marker and is compared against that declaration in both directions, with an expected binding-site count per file, and a tree-wide scan
@@ -140,8 +154,11 @@ bash scripts/test-epic-entry-link.sh
 # the directory, so a third agent is covered the moment it exists and fails the run until its tier
 # row exists; the edits adding one are listed in model-defaults.md → Resolution Order, which also
 # says which of them still fail quietly. KNOWN LIMITS: described ONCE, in
-# model-defaults.md → How a copy is bound → Known limits of the binding mechanism (routed to
-# slice-047). Do not restate them here — this block is a pointer on purpose. 46 mutation fixtures that must go red,
+# model-defaults.md → How a copy is bound → Known limits of the binding mechanism. slice-047 closed
+# the ten holes that block used to list (fences nested/unbalanced/tilde/blockquoted, an HTML comment
+# block, a <pre> in the docs page, the raw table reads, the hardcoded tier set, the ambiguous
+# self-test mutation); TWO remain there, and neither is a fence problem. Do not restate them here —
+# this block is a pointer on purpose. 57 mutation fixtures that must go red,
 # 3 legitimate edits that must stay green, and a positive control prove the checks bite. Read those
 # numbers off a run (`| grep -c "correctly RED"`), never re-derive them — they were wrong in four
 # places at once in round 8 because each surface was updated by hand at a different time. It also binds a
@@ -156,11 +173,12 @@ claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The twelve harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The thirteen harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, and the single declaration of the allowed model values.
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the single declaration of the allowed model values, and the
+single definition of what counts as an example rather than content.
 
 ## Dogfooding Is Not Self-Verification
 
