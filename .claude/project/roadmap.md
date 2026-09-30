@@ -10,9 +10,9 @@
 | # | ID | Type | Size | Item |
 |---|----|------|------|------|
 | 1 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
-| 2 | B19 | Fix | slice | Delete-safe plan cleanup: when the user's settings deny or ask on file removal, CRAFT never deletes — after the human's one-time confirmation (onboard / prime) it moves closed plans, the execute lock and aborted plans into a gitignored `.claude/plans/.closed/`, and hints with a copy-ready command once enough has piled up. Needed before an autopilot run on a machine with such a rule (slice-049 T4) |
-| 3 | B18 | Fix | small | Handoff-answer record (slice-042 R1-15): a resume records no answer to the handoff's question, so a subagent re-run — an autopilot re-run in particular — meets it again. Deferred by slice-049: build it when a real autopilot run shows a question that repeats (Phase-5 answers already live in `Status:`) |
-| 4 | B15 | Fix | slice | Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
+| 2 | B18 | Fix | small | Handoff-answer record (slice-042 R1-15): a resume records no answer to the handoff's question, so a subagent re-run — an autopilot re-run in particular — meets it again. Deferred by slice-049: build it when a real autopilot run shows a question that repeats (Phase-5 answers already live in `Status:`) |
+| 3 | B15 | Fix | slice | Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
+| 4 | B20 | Fix | small | Parallel worktree mode removes its checkpoint record once a slice is merged (`commands/execute.md` step 9: "delete its lines, and the file and an empty `.craft/` with them") — a user rule that denies or asks on removing files refuses it too (D34); keep it as state or close it through `close-file.sh` (slice-050 follow-up) |
 | 5 | B17 | Fix | small | Settings helpers in a subdirectory project write the repo-root `settings.local.json` but report the project-dir `GITIGNORED` verdict (slice-039 R1-13) |
 | 6 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
 | 7 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
@@ -37,24 +37,14 @@ Follow-ups; it is roadmap **B18** now — slice-049 (the autopilot loop) deferre
 Epic-finalize, `/craft:execute` s0, `/craft:continue` — still judge entries themselves) is in
 `.claude/project/slices/slice-041-b12-epic-slice-id-link.md` → Follow-ups; worth folding into F6's orchestrator work.
 
-**B19 — Delete-safe plan cleanup (2026-09-29, from slice-049's probes).** The user's `~/.claude/settings.json` denies
-`Bash(rm:*)` together with `git reset --hard` and `git clean`, set after an unrelated session went wrong — a rule a CRAFT
-user sets on purpose, which CRAFT must never go around. *Verified 2026-09-29 (code.claude.com/docs/en/permissions):* "if
-a tool is denied at any level, no other level can allow it" — a project or local `allow` cannot carve out
-`.claude/plans/`; rules run deny → ask → allow; an `ask` rule "still prompts you … even in auto mode" (not verified for
-`bypassPermissions`). *CRAFT side (this entry):* detect a deny or ask rule on file removal; on the human's confirmation
-move instead of delete at every removal site (`/craft:commit` Step 7, `/craft:abort`, the execute lock, worktree
-clean-up); `git rm` of a tracked plan is recoverable and stays; a hint with a copy-ready delete command when `.closed/`
-grows. Without it an autopilot run stops at the first plan closure (deny) or asks at every one (ask) — *shown by
-slice-049's human test:* every slice close stopped the run, and the execute lock was never released. **The lock
-needs no removal at all:** let it carry its state in its content (`released`, or a PID no longer running for the same
-target = stale, may be taken over) — which also settles slice-049's finding T1-a, a master that took a lock over on
-its own judgment. *Observed:* the
-context-mode PreToolUse hook enforces the same deny patterns and matched the pattern's text inside a heredoc that deleted
-nothing — so even prose about the rule can trip it; CRAFT's own helpers must not carry that text in a command line.
-*User side (separate, the user's own settings, later):* three tiers — recursive removal denied, single-file removal on
-`ask`, CRAFT's move as the third. Pattern trap: a rule for `rm -r` followed by a space does not match `-rf` or `-fr`
-(`*` stands only for the text in its place), so tier 1 needs several patterns and a test.
+**B19 shipped with slice-050 (2026-09-30)** — D34: CRAFT never goes around a user rule that denies or asks on removing
+files. Closed plans move into the read-blocked `.claude/plans/.closed/` when such a rule applies (automatically, no
+confirmation), a helper never deletes, the execute lock carries its state (a lock this very session holds goes to the
+human), and `/craft:prime` hints a copy-ready cleanup command. Details and known limits in
+`.claude/project/slices/slice-050-b19-delete-safe-cleanup.md`. Its follow-up — parallel mode's checkpoint removal — is
+**B20**. Still the user's own settings work: three tiers — recursive removal denied, single-file removal on `ask`, CRAFT's
+move as the third; a rule for `rm -r` followed by a space does not match `-rf` or `-fr`, so tier 1 needs several patterns
+and a test.
 
 **B15, B17 — follow-ups from slice-039** (B16 shipped with slice-040). Details in
 `.claude/project/slices/slice-039-b9-b10-b13-b14-tree-hygiene.md` → Follow-ups and Known limits. B15 is what parallel
