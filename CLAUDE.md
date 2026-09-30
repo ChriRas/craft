@@ -190,7 +190,8 @@ bash scripts/test-delete-safe.sh
 # delete-mode.sh, subcommand-aware like Claude Code: compound commands, substitutions, wrappers, assignments), runs
 # the checks with a timeout and appends the evidence round to the plan itself. Covers pass / fail / none / malformed /
 # refused (a subcommand rule, an ask rule, every settings level, doubt — and that nothing ran), timeouts, append-only
-# rounds and the no-python3 path. Keep green.
+# rounds, `--only` (a named subset — the autopilot debug loop's verdict, slice-053; its round never reads as a Phase-5
+# pass) and the no-python3 path. Keep green.
 bash scripts/test-verify-run.sh
 
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
