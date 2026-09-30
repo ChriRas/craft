@@ -1,5 +1,5 @@
 {
-  "description": "Two SessionStart hooks plus a PreToolUse guard. (1) Clear the per-session `.claude/plans/.primed` marker (so the ensure-primed gate re-triggers this session, incl. after /clear) and auto-prime when the project is onboarded (.claude/project/intent.md present); silent otherwise. Non-Craft projects are never nudged — the user opts in by invoking /craft. (2) Surface any pending `.craft/handoff.md` markers from active worktrees so paused slices are visible at the start of a new session. (3) PreToolUse: readonly-context-guard.sh denies Write/Edit/NotebookEdit targeting a read-only context source — the in-repo research/ folder or any declared connected project (F1).",
+  "description": "Two SessionStart hooks plus a PreToolUse guard. (1) Clear the per-session `.claude/plans/.primed` marker (so the ensure-primed gate re-triggers this session, incl. after /clear) and auto-prime when the project is onboarded (.claude/project/intent.md present); silent otherwise. Non-Craft projects are never nudged — the user opts in by invoking /craft. (2) Surface any pending `.craft/handoff.md` markers from active worktrees so paused slices are visible at the start of a new session. (3) PreToolUse: readonly-context-guard.sh denies Write/Edit/NotebookEdit targeting a read-only context source — the in-repo research/ folder or any declared connected project (F1) — and denies Read/Grep/Glob as well as writes into .claude/plans/.closed/, where CRAFT moves closed plans (B19).",
   "hooks": {
     "SessionStart": [
       {
@@ -19,7 +19,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Write|Edit|NotebookEdit",
+        "matcher": "Write|Edit|NotebookEdit|Read|Grep|Glob",
         "hooks": [
           {
             "type": "command",

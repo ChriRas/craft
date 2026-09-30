@@ -20,6 +20,19 @@
 # On a match it prints a PreToolUse deny decision and exits 0; otherwise it
 # prints nothing and exits 0 (the tool proceeds normally).
 #
+# CLOSED PLANS (B19) — `<project>/.claude/plans/.closed/` holds plans CRAFT closed by
+# moving them (a user rule denies or asks on removing files). It is neither read nor
+# written: Read / Grep / Glob whose target, search path, pattern or glob lands in it are
+# denied too, and so is a write — for any path with a `.claude/plans/.closed` segment, in
+# whichever checkout. Reading stays allowed everywhere else — research/ and
+# connected projects are read-only, not read-blocked. On macOS / Linux / WSL, Claude Code
+# searches through Bash `find` / `grep` by default, which no hook can judge reliably; Grep
+# skips the directory once it is gitignored, and Glob may list its names, never content
+# (code.claude.com/docs/en/tools-reference, 2026-09-30).
+# KNOWN LIMIT: "gitignored" holds only once /craft:prime step 4f's block is applied; until
+# then a Grep over a parent directory can return closed plans' content (no CRAFT scanner
+# does such a Grep).
+#
 # FAIL-OPEN: if jq is missing or the event JSON is unparseable, the guard cannot
 # know the target, so it allows the call (a stray write to research/ is a soft
 # loss, but blocking *every* write would brick the agent). The miss is logged to
@@ -92,12 +105,59 @@ tool_name="$(printf '%s' "$input" | jq -r '.tool_name // empty' 2>/dev/null)" ||
   exit 0
 }
 
-# Only the write-family tools are guarded. The plugin matcher already scopes the
-# hook to these, but re-checking here means a broader matcher can never turn the
-# guard into a read blocker.
+# The write-family tools are guarded against every read-only root; the read-family
+# tools only against the closed-plans directory. Re-checking here means a broader
+# matcher can never turn the guard into a blocker for anything else.
 case "$tool_name" in
-  Write|Edit|NotebookEdit) ;;
+  Write|Edit|NotebookEdit|Read|Grep|Glob) ;;
   *) exit 0 ;;
+esac
+
+project_dir="${CLAUDE_PROJECT_DIR:-$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)}"
+project_dir="${project_dir:-$PWD}"
+
+# in_closed CANDIDATE BASE — true when CANDIDATE (a path or a glob pattern), joined to
+# BASE when relative and normalized, lands in a closed-plans directory — this project's
+# or any other checkout's (a session started in a slice worktree reads the main one's too).
+in_closed() {
+  local c="$1" b="$2"
+  [[ -n "$c" ]] || return 1
+  case "$c" in
+    /*) : ;;
+    *) c="$b/$c" ;;
+  esac
+  c="$(normalize_path "$c")"
+  [[ "$c" == */.claude/plans/.closed || "$c" == */.claude/plans/.closed/* ]]
+}
+deny_closed() {
+  # The reason sets the boundary itself: an open "ask the human" let an agent offer to
+  # loosen the block as one option among others (slice-050, Phase 5).
+  jq -cn --arg r "$1 is blocked on purpose: .claude/plans/.closed/ holds plans CRAFT closed by moving them instead of deleting them (B19). Do not read it another way, and do not suggest changing or disabling this block. If the human needs the plan, they can open it themselves." \
+    '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $r}}'
+  exit 0
+}
+
+# --- read family: only the closed-plans directory -------------------------------
+# Read carries file_path; Grep path (+ glob); Glob path (+ pattern). A relative
+# pattern or glob is taken relative to the search path, which defaults to the project.
+case "$tool_name" in
+  Read|Grep|Glob)
+    fp="$(printf '%s' "$input" | jq -r '.tool_input.file_path // empty' 2>/dev/null)"
+    sp="$(printf '%s' "$input" | jq -r '.tool_input.path // empty' 2>/dev/null)"
+    pat="$(printf '%s' "$input" | jq -r '.tool_input.pattern // empty' 2>/dev/null)"
+    gl="$(printf '%s' "$input" | jq -r '.tool_input.glob // empty' 2>/dev/null)"
+    base="$project_dir"
+    if [[ -n "$sp" ]]; then
+      case "$sp" in /*) base="$sp" ;; *) base="$project_dir/$sp" ;; esac
+    fi
+    in_closed "$fp" "$project_dir" && deny_closed "$tool_name of $fp"
+    in_closed "$sp" "$project_dir" && deny_closed "$tool_name in $sp"
+    in_closed "$gl" "$base" && deny_closed "$tool_name with glob $gl"
+    if [[ "$tool_name" == Glob ]]; then
+      in_closed "$pat" "$base" && deny_closed "Glob of $pat"
+    fi
+    exit 0
+    ;;
 esac
 
 # Write/Edit carry file_path; NotebookEdit carries notebook_path.
@@ -105,8 +165,6 @@ target="$(printf '%s' "$input" | jq -r '.tool_input.file_path // .tool_input.not
 [[ -n "$target" ]] || exit 0
 
 # --- resolve paths ------------------------------------------------------------
-project_dir="${CLAUDE_PROJECT_DIR:-$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)}"
-project_dir="${project_dir:-$PWD}"
 
 # Target is normally already absolute (Claude requires absolute paths for
 # Write/Edit); join defensively if a relative path ever arrives.
@@ -119,6 +177,7 @@ esac
 # slip past the guard (commands/../research/x) nor false-deny a real write
 # (research/../commands/x). Roots below are normalized the same way.
 abs_target="$(normalize_path "$abs_target")"
+in_closed "$abs_target" "$project_dir" && deny_closed "$tool_name of $abs_target"
 
 # is_under CANDIDATE ROOT — true when CANDIDATE is ROOT itself or sits below it.
 # The `/` boundary check prevents `/a/research` from matching `/a/research-x`.
