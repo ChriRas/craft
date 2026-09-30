@@ -86,6 +86,12 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
   base that holds its plan byte-identical. *Why not* let the clean-tree check count everything: it
   made plan files the human's problem and was, by accident, the only guard keeping worktrees off
   stale plans. Removing it without moving that guard (round-1 review) proved the guard was real.
+- **CRAFT never goes around a permission rule (D34, slice-050)** — when the user's settings deny or
+  ask on removing files, CRAFT moves what it closes into the read-blocked `.claude/plans/.closed/`
+  instead; a helper never deletes — it hands the command to the agent, so Claude Code's permission
+  check stays the final judge — and the execute lock carries its state instead of being removed.
+  *Why:* a rule set on purpose is the user's boundary; a script that deletes passes around it
+  whenever detection misses a rule, while the split turns such a gap into a prompt or a stop.
 - **Approve ≠ merge on protected `main` (epic Decision D)** — in a project whose profile
   sets protected-`main` PR mode, `/craft:commit` runs `gh pr merge` itself, but **only after
   a real human GitHub PR approval** (never `--admin`, so branch protection genuinely gates
