@@ -23,7 +23,7 @@ design record in `.claude/project/design/autopilot-mode.md`, to be built as an e
 
 ## Architectural Decisions
 
-The full decision log (D1–D34, with reasoning) lives in `brainstorm-decisions.md`;
+The full decision log (D1–D35, with reasoning) lives in `brainstorm-decisions.md`;
 the build blueprint in `plugin-architecture.md`. Headline decisions:
 
 - **Two-tier model** — the plugin ships the universal shell; projects keep
@@ -43,7 +43,9 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
   slow once finely planned work can be parceled out and run in parallel.
 - **Autopilot as opt-in inversion (D32)** — in an explicitly started autopilot run the human
   touches only the epic definition, one plan gate and the epic-end sign-off (plus escalations);
-  agents plan, build, verify, review and commit on an epic branch. *Why opt-in, not default:*
+  agents plan, build, verify, review and commit on an epic branch — Phase 5 verified by a helper that
+  runs the slice's committed checks (the user's deny / ask rules first), never by an agent's report,
+  and the product feel moves to the epic-end demo script (D35). *Why opt-in, not default:*
   product feel and direction calls still need a human — outside autopilot, D21/D28/D29 apply
   unchanged, except that this repo pilots an evidence-based Phase 5 (D21) with a two-pass
   review (D28) — see D33.
