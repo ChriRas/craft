@@ -89,8 +89,12 @@ bash scripts/test-handoff-marker-state.sh
 # Review findings record — scripts/review-findings-state.sh is the one parser of a slice plan's
 # ## Review Findings: rounds, finding IDs (R<round>-<n>), the resolution (the last ' · ' field) and
 # which lines are open. /craft:review Steps 6/7 and its Subagent-Mode gate, /craft:commit Step 5
-# (follow-ups) and scripts/handoff-marker-state.sh (a review episode, B11) call it. Covers legacy records, every resolution value, the quoted-value false positive,
-# malformed-means-open, advisory rounds, --followups, the Step-6 agreement and bash 3.2. Keep green.
+# (follow-ups) and scripts/handoff-marker-state.sh (a review episode, B11) call it. It also derives the ping-pong
+# breaker (slice-052) — TRIP= / REOPEN= / ROUND_CAP= (a `- note · extra round granted` line raises the cap) — which
+# /craft:review Pre-flight step 4 (the round cap) and Step 9 (the autopilot breaker) read; nothing stores a counter.
+# Covers legacy records, every resolution value (incl. accepted → known limit, archived via --followups), the quoted-value
+# false positive, malformed-means-open, advisory rounds, --followups, the Step-6 agreement, the breaker (first reopen of a
+# looped-back line, round cap, answered reopens, doubt, grants) and bash 3.2. Keep green.
 bash scripts/test-review-findings-state.sh
 
 # Execute re-run state — scripts/execute-resume-state.sh decides what a /craft:execute re-run finds per
