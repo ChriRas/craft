@@ -1,5 +1,5 @@
 ---
-description: Phase 9 — atomic commits, decisions promotion dialog, slice archive write, plan file deletion. On a pull-request + Protected-main profile it opens a PR and merges via gh only after a GitHub approval ("Freigabe ≠ Merge"). The slice closes here.
+description: Phase 9 — atomic commits, decisions promotion dialog, slice archive write, plan file closing (deleted, or moved into .claude/plans/.closed/ under a rule on removing files). On a pull-request + Protected-main profile it opens a PR and merges via gh only after a GitHub approval ("Freigabe ≠ Merge"). The slice closes here.
 allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob"]
 ---
 
@@ -7,9 +7,9 @@ allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob"]
 
 ## Purpose
 
-Close the slice properly: split changes into atomic commits with Conventional Commits + `Slice:` footers, surface decisions for promotion to `intent.md` / `rules.md`, write the slice archive entry from the Phase 6 recap, and delete the ephemeral plan file.
+Close the slice properly: split changes into atomic commits with Conventional Commits + `Slice:` footers, surface decisions for promotion to `intent.md` / `rules.md`, write the slice archive entry from the Phase 6 recap, and close the ephemeral plan file (deleted, or moved into `.claude/plans/.closed/` — Step 7).
 
-This command is a **durable-state mutation** (git history, project knowledge files, slice archive, plan deletion) and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md`. Follow that skill for Phase 9 mechanics.
+This command is a **durable-state mutation** (git history, project knowledge files, slice archive, plan closing) and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md`. Follow that skill for Phase 9 mechanics.
 
 ---
 
@@ -148,7 +148,8 @@ Otherwise (`Status: committing`) run Steps 1–7 normally.
 - Map changes to the slice's sub-tasks. Propose one commit per logical change. Order: foundation first, leaves last.
 - The plan(s) this run closes are never part of the split, tracked or not: their status edits are CRAFT's bookkeeping,
   and a tracked plan leaves the trunk in exactly one commit, its removal (Step 7, or Step 6 under protected main). Any
-  other plan under `.claude/plans/` — a sibling slice planned meanwhile — is the human's to include or leave out.
+  other plan under `.claude/plans/` — a sibling slice planned meanwhile — is the human's to include or leave out; never
+  anything under `.claude/plans/.closed/` (closed plans, gitignored only once `/craft:prime` step 4f's block is applied).
 
 Present the proposal as a list:
 
@@ -355,19 +356,35 @@ this step only decides the *landing*.
   `/craft:execute <epic>` invocation's `s0` completes it (second invocation → `gh pr merge` +
   Step 7's *Plans and the trunk under protected main*). Each slice lands on its own approved PR.
 
-### Step 7 — Delete the active plan files and clean up worktrees
+### Step 7 — Close the active plan files and clean up worktrees
 
 > **Protected-main PR gate:** Step 7 runs only on the **second** invocation, after `gh pr merge` succeeds (Step 6). On the first invocation the slice is left at `Status: awaiting-approval` with its plan intact — do not reach Step 7.
 
-In **Standard mode**: `rm .claude/plans/slice-<NNN>-<slug>.md` — under `pull-request` + `Protected-main: yes` never: *Plans and the trunk under protected main* below replaces this `rm`, for tracked and untracked plans alike, and must find the plan still on disk. The slice archive + commits are now the durable record. No worktree to remove (none was created).
+> **Closing an untracked plan** — the one definition; wherever this command *closes* a plan that git does not track, it
+> means this, and never an `rm` of your own (a user may deny or ask on removing files, and CRAFT never goes around that
+> rule — D34). From the project root, one call per plan: <!-- craft:close-file -->
+>
+> ```
+> bash "${CLAUDE_PLUGIN_ROOT}/scripts/close-file.sh" --project "<project-root>" <plan>
+> ```
+>
+> - `RESULT=moved` → the plan now lives at `TARGET=` in `.claude/plans/.closed/` (gitignored once `/craft:prime` step 4f's
+>   block is applied; move mode: a deny or ask rule on removing it, named by `RULE_SOURCE=`, or doubt, named by
+>   `REASON=`). Nothing else to do.
+> - `RESULT=delete` → no such rule: issue `DELETE_CMD=` exactly as printed, as a Bash call of its own — the permission
+>   check stays the final judge. If that call is denied or refused, run the helper again with `--move` and go on.
+> - `ERROR=tracked:` → git tracks it: the tracked-plan rule below applies instead. Any other `ERROR=` → surface it and
+>   leave the plan where it is; P5 reports it.
+
+In **Standard mode**: close `.claude/plans/slice-<NNN>-<slug>.md` (*Closing an untracked plan*) — under `pull-request` + `Protected-main: yes` never: *Plans and the trunk under protected main* below replaces this close, for tracked and untracked plans alike, and must find the plan still on disk. The slice archive + commits are now the durable record. No worktree to remove (none was created).
 
 > **A tracked plan** (`git ls-files --error-unmatch <plan>` succeeds — the project versions its
-> plans): delete it with `git rm -f` instead of `rm`, in every mode (Standard included) — `-f`
+> plans): delete it with `git rm -f` instead of closing it, in every mode (Standard included) — `-f`
 > because the plan always carries uncommitted status edits by now, and its content lives on in the
 > archive — and commit the deletions of this run with a pathspec,
 > `git commit -m "chore(plans): close slice-<NNN>" -- <plan paths>` (Epic-finalize: `close epic-<NNN>`),
 > on the trunk, after any merge this step performs — under `Type: direct` only, where an untracked or
-> ignored plan is simply removed. Under `pull-request` + `Protected-main: yes` see *Plans and the
+> ignored plan is simply closed. Under `pull-request` + `Protected-main: yes` see *Plans and the
 > trunk under protected main* below instead.
 
 > **Plans and the trunk under protected main** (second pass, after `gh pr merge` succeeded): the
@@ -381,7 +398,7 @@ In **Standard mode**: `rm .claude/plans/slice-<NNN>-<slug>.md` — under `pull-r
 >
 > How it moves the checkout and what it does with each plan copy is defined in the helper's header.
 > This call **is** the plan deletion in this mode and the trunk sync of *In-place-finalize* and the
-> finalize modes below; do not `rm` or `git rm` a plan before or after it.
+> finalize modes below; do not close or `git rm` a plan before or after it.
 > - `RESULT=ok` with `ON_TRUNK=no` for every plan → the plan is gone locally and on the remote trunk,
 >   nothing is staged. Continue.
 > - `ON_TRUNK=yes` → the merged PR did not carry that plan's removal (a PR opened before this rule):
@@ -406,7 +423,7 @@ In **Standard mode**: `rm .claude/plans/slice-<NNN>-<slug>.md` — under `pull-r
 >   **remote**; *Plans and the trunk under protected main* above has already checked out and
 >   fast-forwarded the trunk (so local `<trunk>` contains the merged work) and dropped the plan.
 >   Only `git branch -d <slice-id>-<slug>` is left.
-> Under `direct`, then continue the Standard-mode cleanup (`rm` the plan). If `git branch -d` fails (unmerged
+> Under `direct`, then continue the Standard-mode cleanup (close the plan). If `git branch -d` fails (unmerged
 > — should not happen post-land), surface it and skip the delete. Never `-D` (force).
 > (A `direct` **sequential**-epic slice builds directly on the trunk with no branch, so it
 > skips this entirely — it is already on `main`.)
@@ -415,17 +432,17 @@ In **Standard mode**: `rm .claude/plans/slice-<NNN>-<slug>.md` — under `pull-r
 > landed on the remote only. Before removing any worktree, bring the local trunk up to date in the
 > main checkout through *Plans and the trunk under protected main* above — that is how the archive
 > and promotions Steps 4–5 wrote in the worktree reach the main checkout, where P3/P4 read them and
-> a later `/craft:execute` A6 finds the archive — and the plan removal it performs replaces the `rm`
-> below.
+> a later `/craft:execute` A6 finds the archive — and the plan removal it performs replaces the plan
+> close below.
 
-In **Slice-finalize mode**: `rm` the slice plan (under protected main never — the sync above replaces this `rm`, also when it reports `ON_TRUNK=yes`). Then remove the worktree and delete the slice-branch:
+In **Slice-finalize mode**: close the slice plan (*Closing an untracked plan*; under protected main never — the sync above replaces this close, also when it reports `ON_TRUNK=yes`). Then remove the worktree and delete the slice-branch:
 
 ```
 git worktree remove ../<repo>-worktrees/<slice-id>-<slug>
 git branch -d <slice-id>-<slug>
 ```
 
-In **Epic-finalize mode**: `rm` every included slice's plan AND the epic plan (under protected main never — the sync above replaces this `rm`, also when it reports `ON_TRUNK=yes`). Then remove the slice-worktrees, the epic-worktree, and delete all the branches:
+In **Epic-finalize mode**: close every included slice's plan AND the epic plan (*Closing an untracked plan*; under protected main never — the sync above replaces this close, also when it reports `ON_TRUNK=yes`). Then remove the slice-worktrees, the epic-worktree, and delete all the branches:
 
 ```
 for each <slice-id>-<slug>: git worktree remove ../<repo>-worktrees/<slice-id>-<slug>
@@ -502,7 +519,7 @@ It must report `DIRTY=no` — the work commits (Step 3), the record commits (Ste
 
 - `Read` `.claude/project/slices/slice-<NNN>-<slug>.md` in the checkout Steps 4–5 wrote in (**Where Steps 4 and 5 write**, Step 4): the main checkout, or — on the first pass of a protected-main finalize — the slice/epic worktree; on that mode's second pass, the main checkout after Step 7's trunk sync. Must exist and contain the headers `## What`, `## Why`, `## Commits`, `## Decisions`.
 
-Failure → *"⚠ Slice archive entry missing or malformed at `<path>`. The plan file has not been deleted yet — recover the recap manually."*
+Failure → *"⚠ Slice archive entry missing or malformed at `<path>`. Step 7 has closed the plan — recover the recap from it: deleted → from git, if it was tracked; moved → at `<TARGET>` in `.claude/plans/.closed/`, which only you can open (CRAFT's guard blocks reading it)."*
 
 ### P4 — Decisions promotions executed as recorded
 
@@ -513,14 +530,14 @@ For each decision promoted to `[I]` or `[R]` in Step 4, in the same checkout P3 
 
 Failure → *"⚠ Decision `<text>` was marked for promotion to `<intent.md | rules.md>` but the file does not contain it. The decision is preserved in the slice archive; reconcile manually if needed."*
 
-### P5 — Plan files deleted
+### P5 — Plan files closed
 
-Every plan file removed in Step 7 must no longer exist:
+Every plan file Step 7 closed or removed must no longer exist at its path (a moved plan lives in `.claude/plans/.closed/`):
 
 - **Standard / Slice-finalize**: `.claude/plans/slice-<NNN>-<slug>.md`.
 - **Epic-finalize**: every included slice's plan AND `.claude/plans/epic-<NNN>-<slug>.md`.
 
-Failure → *"⚠ Plan file still present at `<path>`. The slice did not fully close. Delete manually after confirming the archive is correct."*
+Failure → *"⚠ Plan file still present at `<path>`. The slice did not fully close. Close it by hand after confirming the archive is correct."*
 
 ### P6 — Worktrees and branches removed (finalize modes)
 
@@ -548,7 +565,7 @@ Success:
 ```
 ✓ Slice slice-<NNN> "<title>" closed.
 ✓ Pre-assertions: slice ✓, tests green, recap present
-✓ Post-assertions: <N> commits ✓, working tree clean, archive ✓, plan deleted
+✓ Post-assertions: <N> commits ✓, working tree clean, archive ✓, plan closed
 
 Commits:
   <hash>  <subject>
@@ -630,7 +647,8 @@ differences.
 - **Step 6 is skipped, whatever `## Merge Workflow` says.** The epic branch is where the slice lands; nothing is pushed
   and no PR is opened per slice. The merge into the trunk is the human's answer at the end of the run (a5).
 - **Step 7 removes the plan in place, under every Merge Workflow — and nothing else.** A tracked plan: `git rm -f`,
-  then a pathspec commit `chore(plans): close slice-<NNN>` on the epic branch; an untracked one: `rm`. The protected-main
+  then a pathspec commit `chore(plans): close slice-<NNN>` on the epic branch; an untracked one: closed (*Closing an
+  untracked plan*, Step 7). The protected-main
   gate note, *Plans and the trunk under protected main* (`plan-landing.sh`) and *In-place-finalize* do **not** apply —
   no `git checkout <trunk>`, no sync, no merge, no branch deletion; the checkout stays on the epic branch. Without this,
   every landed slice would reach the trunk one by one, before the human has seen the epic — and a trunk sync would

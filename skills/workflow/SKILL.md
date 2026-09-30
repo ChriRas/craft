@@ -36,7 +36,7 @@ The 9-phase loop solves both by keeping each iteration short, end-to-end testabl
 | 6 | **Recap** | Level 1 | Explanation of what was built and why | Slice archive entry draft |
 | 7 | **Refactoring** | Level 1 | Small structural improvements | Cleaner code, same green tests |
 | 8 | **Review** | Level 1 | Independent fresh-eyes review of the slice artifact | Severity-graded findings, bounded in-phase fixes, a Commit gate |
-| 9 | **Commit & Cleanup** | Level 1 | Atomic commits + slice archive promotion + plan deletion | Commits, slice archive entry, deleted plan file |
+| 9 | **Commit & Cleanup** | Level 1 | Atomic commits + slice archive promotion + plan closing | Commits, slice archive entry, closed plan file (deleted, or moved into `.claude/plans/.closed/`) |
 
 After Phase 9, the loop returns to Phase 3 for the next slice. Phases 1 and 2 are typically only run at project start or when entering a major new domain — not every slice.
 
@@ -257,7 +257,7 @@ invisible to it. Mark every new status write, or the graph goes blind on that on
    - `[R]ules` (promote to `.claude/project/rules.md` — human confirms diff)
    - `[D]iscard`
 4. **Slice archive entry** — agent writes `.claude/project/slices/slice-NNN-<slug>.md` from the Phase 6 recap draft and the harvested decisions; any Phase-8 light / needs-rethinking findings are folded in under `## Follow-ups`.
-5. **Plan deletion** — `.claude/plans/slice-NNN-<slug>.md` is deleted. The slice archive plus commit history is the durable record.
+5. **Plan closing** — `.claude/plans/slice-NNN-<slug>.md` is closed: deleted, or moved into `.claude/plans/.closed/` when the user's settings deny or ask on removing it (D34; `/craft:commit` Step 7). The slice archive plus commit history is the durable record.
 
 #### Commit convention
 
@@ -382,7 +382,8 @@ Four notes the table cannot carry itself:
   when it fires and what it records; `/craft:build` consumes it through the `implementing` read it
   already has.
 - `committed` has **no row**, and that is correct: no command ever writes it. `/craft:commit`
-  deletes the plan file instead — the archive and the git history are the record. It survives in
+  closes the plan file instead (deleted, or moved into `.claude/plans/.closed/`, D34) — the archive and the git history
+  are the record. It survives in
   the plan template and in a few abort checks as a legacy value.
 
 **Not in this graph** — five legitimate exclusions, all unmarked and unrowed on purpose. (There
@@ -560,8 +561,8 @@ The pattern is mandatory for:
 
 - `/craft:onboard` — creates `.claude/project/intent.md` + `rules.md`.
 - `/craft:plan` — creates `.claude/plans/slice-NNN-<slug>.md`.
-- `/craft:commit` — git commit + plan deletion + slice archive write.
-- `/craft:abort` — plan file deletion.
+- `/craft:commit` — git commit + plan closing + slice archive write.
+- `/craft:abort` — plan file closing.
 - `/craft:upgrade` — marketplace clone sync (reference implementation).
 
 ### Exempt commands
@@ -707,7 +708,7 @@ mode needs no seed: it builds inline in the already-primed main session.
 
 ## Cross-Slice Memory
 
-After Phase 9 deletes the plan file, the slice's surviving signal lives in three places:
+After Phase 9 closes the plan file, the slice's surviving signal lives in three places:
 
 - **Code** — the implementation itself.
 - **Commits** — the chronology, with `Slice:` footers for reverse-tracing.
@@ -722,7 +723,7 @@ The slice archive is the Decision Log, emergent from Phase 6 + 9 — there is no
 If a slice is paused or abandoned mid-phase:
 
 - `/craft:pause` saves state: the plan file stays, at `Status: paused`, with the **pause record** below.
-- `/craft:abort <slice>` asks confirmation (Level 0), then deletes the plan file. Aborted slices have no archive value.
+- `/craft:abort <slice>` asks confirmation (Level 0), then closes the plan file — deleted, or moved into `.claude/plans/.closed/` (gitignored once `/craft:prime` step 4f's block is applied) when the user's settings deny or ask on removing it (D34). Aborted slices have no archive value.
 - `/craft:prime` detects stale slices (untouched for >N days) and asks: resume or discard.
 
 ### Pause record — `Paused-status` and `Paused-since`
@@ -764,7 +765,7 @@ When `/craft:execute <epic-or-slice>` is used, the 9-phase loop runs across para
 | 7 (Refactor) | slice-worktree | Subagent-callable mode of `/craft:refactor` skips if `rules.md` declares Phase 7 dropped; otherwise writes handoff candidates without applying. |
 | 8 (Review) | slice-worktree | Subagent-callable mode of `/craft:review` applies in-phase fixes automatically; open findings write a handoff and stop — the plan is not paused (`/craft:review` → Subagent Mode defines the outcome). |
 | 8 → epic-merge | epic-worktree | When a slice clears review, the orchestrator merges its branch into `epic-<NNN>-<slug>` with `--no-ff`. For a lone slice, this step is skipped — the slice-branch stays parked until Phase 9. |
-| 9 (Commit) | main | `/craft:commit` runs from main, detects the mode (Standard / Slice-finalize / Epic-finalize), merges with `--no-ff`, walks decisions across every included slice, writes archive entries, deletes plan files, and removes worktrees + branches. |
+| 9 (Commit) | main | `/craft:commit` runs from main, detects the mode (Standard / Slice-finalize / Epic-finalize), merges with `--no-ff`, walks decisions across every included slice, writes archive entries, closes plan files (deleted, or moved into `.claude/plans/.closed/`), and removes worktrees + branches. |
 
 ### Subagent-callable contract
 

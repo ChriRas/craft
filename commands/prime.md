@@ -271,7 +271,7 @@ Like the drift and stack-pack checks, the drift itself is **reported**; the writ
 
 CRAFT writes local, per-clone state into the project: `.claude/plans/.primed` (step 9), the
 SessionStart hook's `.claude/plans/.hook-env`, the `/craft:execute` run lock,
-`.claude/settings.local.json`, and the worktree handoff marker `.craft/`. Unignored, these show
+`.claude/settings.local.json`, the worktree handoff marker `.craft/`, and the closed plans in `.claude/plans/.closed/`. Unignored, these show
 as untracked files in every `git status` — noise for the human; CRAFT's own clean-tree checks do not
 count them (`scripts/tree-dirt-state.sh`). `/craft:onboard` adds them for new projects; this step
 reaches projects onboarded before it did.
@@ -310,6 +310,30 @@ Map the result to one status line:
 - **Helper not found, or any other error** → `⚠ Local-state gitignore check incomplete: <reason>`.
 
 Never abort prime. The `.gitignore` write happens only on the human's yes.
+
+### 4g. Delete-safe mode (informational)
+
+When the user's settings deny or ask on removing a file, CRAFT never removes one: it moves closed plans into the
+gitignored `.claude/plans/.closed/` instead (D34). Which rule applies, and when `.closed/` has piled up, is decided once,
+in `scripts/delete-mode.sh`. Resolve it like step 4f (`${CLAUDE_PLUGIN_ROOT}/scripts/`; else `<project-root>/scripts/`
+only in CRAFT's own source repo) and run it via Bash:
+
+```
+bash "<helper>" --project "<project-root>" --report
+```
+
+- **`MODE=move`** → `✓ Delete-safe mode: <RULE_KIND> rule <RULE> in <RULE_SOURCE> — closed plans move to
+  .claude/plans/.closed/`. With `REASON=` lines instead of a rule → `✓ Delete-safe mode: settings could not be read
+  (<REASON>) — closed plans move to .claude/plans/.closed/`.
+- **`MODE=delete`** → no line (nothing to report — CRAFT closes plans by the removal command, and Claude Code's
+  permission check judges it).
+- **`HINT=yes`** (either mode) → `⚠ .claude/plans/.closed/ holds <CLOSED_COUNT> closed plan(s), the oldest <CLOSED_OLDEST_DAYS>
+  day(s) old — empty it when you no longer need them:`, and after the status block print `HINT_CMD` exactly as the
+  helper printed it, as its own top-level code block (never inside the status block, never quoted) so it copies
+  cleanly. It is the human's command: never run it yourself.
+- **Helper not found, or no `MODE=` line** → `⚠ Delete-safe check incomplete: <reason>`.
+
+Reported, never corrected. Never abort prime.
 
 ### 5. Tool versions (informational)
 
@@ -464,6 +488,8 @@ The full status block — emit exactly this shape:
 ✓ Local state gitignored   (or ⚠ Local state not gitignored: <paths> + the --apply offer, or ⚠ … check incomplete — see step 4f)
   ⚠ <tracked-file warning(s), if any>
 <.gitignore update line — only after a yes to the step-4f offer>
+<delete-safe line — only in move mode (see step 4g)>
+  ⚠ <.closed/ cleanup hint — only at HINT=yes; its command follows the status block as its own code block>
 
 
 Active slices:
@@ -479,7 +505,7 @@ If no active slices, replace that section with `No active slices.`
 
 Keep the block under 20 lines for the common case. If many slices are active and the block would exceed that, summarize older slices into a one-line collapse: `+ 4 more slices (run /craft:status for full list)`.
 
-After emitting the block, prime silently writes the `.claude/plans/.primed` session marker (Procedure step 9) — no extra output line.
+After emitting the block, prime prints step 4g's cleanup command as its own code block when the helper reported `HINT=yes`, and then silently writes the `.claude/plans/.primed` session marker (Procedure step 9) — no extra output line.
 
 ---
 
@@ -512,6 +538,7 @@ After emitting the block, prime silently writes the `.claude/plans/.primed` sess
 | `ensure-readonly-context.sh` errors (python3 missing / settings unparseable) | Emit `⚠ Read-only context check incomplete: <reason>` and continue. Never abort. |
 | CRAFT local state not gitignored (step 4f) | Emit the `⚠ Local state not gitignored …` line and offer `--apply` (confirmation-gated). Not a blocker. |
 | `ensure-gitignore.sh` not found, errors, or `--apply` hits a conflicting rule (exit 6) | Emit the matching `⚠` line from step 4f and continue. Never abort. |
+| `delete-mode.sh` not found or prints no `MODE=` (step 4g) | Emit `⚠ Delete-safe check incomplete: <reason>` and continue. Never abort, and never run a cleanup command yourself. |
 
 ---
 

@@ -34,11 +34,26 @@ Failure → abort: *"Project is not onboarded. Run `/craft:onboard` first."*
 
 Failure → abort: *"Run `/craft:worktree-clean` from the main checkout, not from inside a worktree. `cd` to `<main-path>` first."*
 
-### A3 — No `/craft:execute` lock present
+### A3 — No `/craft:execute` run in progress
 
-`.claude/plans/.execute.lock` must not exist. A live execute-run may be using the worktrees this command would prune.
+`Bash` `bash "${CLAUDE_PLUGIN_ROOT}/scripts/execute-lock.sh" check --project "<project-root>"` must report
+`DECISION=proceed` or `takeover` — a released lock, or one whose owner is gone. The lock file is never removed (B19), so
+its presence says nothing; only the helper's rule does. A live execute-run may be using the worktrees this command would
+prune.
 
-Failure → abort: *"An `/craft:execute` run is in progress (lock file present). Let it finish before cleaning."*
+`DECISION=confirm` (`REASON=own_process`) — the lock is held by this very Claude Code session, whose builders may still
+work in the background. Ask, Level 0: *"The run lock is held by this session (target `<TARGET>`). Is a `/craft:execute`
+run from this session still working? [N] no, it ended — release it and clean up · [Y] yes — stop"*. Only on `[N]`:
+`bash "${CLAUDE_PLUGIN_ROOT}/scripts/execute-lock.sh" release --project "<project-root>"` (the plain release — this
+process owns the lock), then continue. Any other answer is a failure.
+
+Failure (`DECISION=stop`, a `confirm` not answered `[N]`, or the helper cannot run) → abort: *"An `/craft:execute` run
+may be in progress — the run lock is held by process `<OWNER_PID>` (target `<TARGET>`, reason `<REASON>`). Let it finish
+before cleaning."* On `DECISION=stop` only — the lock of another process — add *"If you are sure no run is active,
+release it yourself:"* and, after the message as its own top-level code block, the command
+`bash "<plugin-root>/scripts/execute-lock.sh" release --force --project "<project-root>"` with both paths resolved to
+absolute paths; never run it yourself. A `confirm` gets no such line: the lock is this session's, and forcing it would
+free a running run's lock.
 
 ---
 
@@ -177,7 +192,7 @@ Partial (some removals failed):
 | Situation | Behavior |
 |---|---|
 | A2 fails (inside a worktree) | Abort with cd-hint. |
-| A3 fails (execute lock present) | Abort. |
+| A3 fails (execute lock held by a live run, or unreadable) | Abort. |
 | `git worktree remove` fails (uncommitted changes) | Skip that entry, surface the git message, continue. Do not pass `--force`. |
 | `git branch -d` fails (unmerged) | Skip with warning. Do not use `-D` (force) — preserves the user's work. |
 | User says No to every category | Emit `Nothing removed. No state changed.` and exit cleanly. |

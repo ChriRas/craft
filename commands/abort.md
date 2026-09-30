@@ -1,5 +1,5 @@
 ---
-description: Abandon a slice. Asks confirmation, then deletes the plan file by default. Aborted slices have no archive value — they leave only their (possibly partial) commits behind, which the user manages separately.
+description: Abandon a slice. Asks confirmation, then closes the plan file by default — deleted, or moved into .claude/plans/.closed/ when the user's settings deny or ask on removing it. Aborted slices have no archive value — they leave only their (possibly partial) commits behind, which the user manages separately.
 argument-hint: "<slice-NNN>"
 allowed-tools: ["Bash", "Read", "Glob"]
 ---
@@ -8,11 +8,11 @@ allowed-tools: ["Bash", "Read", "Glob"]
 
 ## Purpose
 
-Discard work on a slice that won't be completed. The slice plan file is deleted by default — aborted slices are not archived (the archive is for completed slices that earned their place via Phase 9).
+Discard work on a slice that won't be completed. The slice plan file is closed by default — deleted, or moved into `.claude/plans/.closed/` (gitignored once `/craft:prime` step 4f's block is applied) when the user's settings deny or ask on removing it (D34) — aborted slices are not archived (the archive is for completed slices that earned their place via Phase 9).
 
 If partial commits exist, they remain in the git history and the user is responsible for cleanup (revert, branch reset, etc.) as appropriate.
 
-This command is a **durable-state mutation** (file deletion) and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md`.
+This command is a **durable-state mutation** (file deletion or move) and follows the Pre/Post-Assertion pattern documented in `skills/workflow/SKILL.md`.
 
 ---
 
@@ -134,13 +134,21 @@ Confirm abort? Type the slice ID exactly to confirm:
 
 Only proceed if the user types the exact slice ID (`slice-<NNN>`, including the `slice-` prefix and three-digit number). Anything else → clean abort with: *"Confirmation mismatch. Abort cancelled. Try again with the exact ID."*
 
-### Step 6 — Delete (or, by explicit user request, move)
+### Step 6 — Close (or, by explicit user request, move)
 
-Default action:
+Default action — close the plan, never with an `rm` of your own (a user may deny or ask on removing files, and CRAFT
+never goes around that rule — D34): <!-- craft:close-file -->
 
 ```
-rm <slice-plan>
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/close-file.sh" --project "<project-root>" <slice-plan>
 ```
+
+- `RESULT=moved` → the plan now lives at `TARGET=` in `.claude/plans/.closed/` (gitignored once `/craft:prime` step 4f's
+  block is applied; a deny or ask rule on removing it, named by `RULE_SOURCE=`, or doubt, named by `REASON=`).
+- `RESULT=delete` → issue `DELETE_CMD=` exactly as printed, as a Bash call of its own — the permission check stays the
+  final judge. If that call is denied or refused, run the helper again with `--move`.
+- `ERROR=tracked:` → git tracks the plan: `git rm -f -- <slice-plan>` instead (a staged deletion git can undo; the
+  human commits it). Any other `ERROR=` → surface it and stop; P1 reports the plan still in place.
 
 If the user explicitly requested archival earlier ("move to `_aborted/` instead"), substitute:
 
@@ -175,7 +183,7 @@ Run both after Step 6. Any failure → warn loudly, surface to the user, do **no
 `Glob` `.claude/plans/slice-<NNN>-*.md`.
 
 - Zero matches → P1 passes.
-- One or more matches → *"⚠ Slice plan still present at `<path>` after abort. The `rm`/`mv` may have failed silently. Inspect manually."*
+- One or more matches → *"⚠ Slice plan still present at `<path>` after abort. The close or `mv` may have failed silently. Inspect manually."*
 
 ### P2b — If worktree removal was requested: worktree and branch gone
 
@@ -198,10 +206,10 @@ Failure → *"⚠ Archival was requested but the moved file is not at `.claude/p
 
 ## Output Format
 
-Success (default delete):
+Success (default close):
 
 ```
-✓ slice-<NNN> aborted. Plan file deleted.
+✓ slice-<NNN> aborted. Plan file <deleted | moved to .claude/plans/.closed/[ (rule in <RULE_SOURCE>) — only when RULE_SOURCE= was printed]>.
 ✓ Pre-assertions: argument ✓, plan file located
 ✓ Post-assertions: plan removed
 
@@ -247,8 +255,8 @@ Partial (post-assertion failure):
 | A2 fails (no matching plan / multiple matches) | Abort with the diagnostic message. |
 | User confirms with wrong slice ID | Clean abort: *"Confirmation mismatch. Abort cancelled. Try again with the exact ID."* |
 | User answers "no" to the recency or handoff warning | Clean abort, plan untouched. |
-| User wants to move to `_aborted/` instead of deleting | Allow only when explicitly requested during this command run — `mv` instead of `rm`. Never default to archiving. |
-| P1 fails (file still present after rm/mv) | Warn loudly; user inspects manually. No auto-retry. |
+| User wants to move to `_aborted/` instead of closing | Allow only when explicitly requested during this command run — `mv` instead of the close. Never default to archiving. |
+| P1 fails (file still present after the close or mv) | Warn loudly; user inspects manually. No auto-retry. |
 | P2 fails (archival requested but file missing in `_aborted/`) | Warn loudly; user inspects manually. |
 
 ---

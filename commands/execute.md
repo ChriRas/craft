@@ -68,7 +68,22 @@ tree or a wrong branch nobody accounts for. Every other target still requires a 
 
 ### A4 — No concurrent execute run
 
-Check for `.claude/plans/.execute.lock`. If present, abort: *"Another `/craft:execute` is in progress (lock file `<path>` exists with PID `<pid>`). Wait for it to finish or remove the lock manually if it crashed."*
+`Bash` `bash "${CLAUDE_PLUGIN_ROOT}/scripts/execute-lock.sh" check --project "<project-root>"`. The lock is state, never
+removed (B19): whether a new run may take it is the helper's fixed rule, not a judgment of yours — act only on its
+`DECISION=`. `proceed` or `takeover` → continue (step 1 takes it). `confirm` (`REASON=own_process`) → the lock is held
+by this very Claude Code session, and only the human knows whether that run has ended: its builders may still work in
+the background. Ask, Level 0 — *"The run lock is held by this session (target `<TARGET>`, since `<SINCE>`). Is a
+`/craft:execute` run from this session still working? [N] no, it ended (e.g. interrupted with Esc) — release it and go
+on · [Y] yes — stop"*. Only on `[N]`: release the lock (step 1 — the plain release, which this process may run because
+it owns the lock; never `--force`), then continue. Any other answer → abort: *"A `/craft:execute` run from this session
+is still working (target `<TARGET>`). Re-run `/craft:execute` once it has ended and answer [N]."* — no `--force` line:
+the lock is this session's, and forcing it would free a running run's lock. `stop`, or a helper that cannot run →
+abort:
+*"Another `/craft:execute` may be in progress — the run lock is held by process `<OWNER_PID>` (target `<TARGET>`, since
+`<SINCE>`; reason `<REASON>`). Wait for that run to end. If you are sure no run is active, release it yourself:"* — and
+after the message, as its own top-level code block (never inside the quoted sentence), the command
+`bash "<plugin-root>/scripts/execute-lock.sh" release --force --project "<project-root>"` with both paths resolved to
+absolute paths. Never run that `--force` yourself — it is the human's.
 
 ### A5 — Plugin manifest readable
 
@@ -120,7 +135,24 @@ Execution-Mode × target combination to reject.
 
 ### 1. Acquire the lock
 
-Write `.claude/plans/.execute.lock` containing the current PID and the resolved target. Lock is released in Post-Assertions (or on graceful abort).
+The run lock is `.claude/plans/.execute.lock`, and `scripts/execute-lock.sh` is its only reader and writer — its header
+defines the lock's states and the takeover rule. It is **never removed** (a user may deny removing files, and a lock
+that could only be released by removal was never released — slice-049): its content says `held` or `released`.
+
+- **Take it:** `bash "${CLAUDE_PLUGIN_ROOT}/scripts/execute-lock.sh" acquire --project "<project-root>" --target
+  <epic-NNN|slice-NNN>`. `RESULT=acquired` or `taken_over` → go on (a takeover names the stale owner in `REASON=`; say
+  so in one line). `RESULT=refused` → abort with A4's message; `REASON=no_identity` means this Claude Code gave the
+  command no `CLAUDE_PID`, so no owner can be recorded — abort and say so: *"update Claude Code to v2.1.214 or later
+  (the first release that sets `CLAUDE_PID`)"*. No `RESULT=` line, or a non-zero exit other than 10 (`ERROR=write_failed`:
+  the lock could not be written) → abort as A4 does, naming the error; nothing is running yet.
+- **Release it** — wherever this command says *release the lock*: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/execute-lock.sh"
+  release --project "<project-root>"`. `RESULT=released`, `unchanged` or `absent` → released. `RESULT=refused` → surface
+  it (`⚠ Execute lock not released: <REASON>`) and go on; P4 reports it. Never delete the lock file, and never run
+  `release --force`.
+
+Release only a lock **this invocation** took (step 1 `RESULT=acquired` or `taken_over`): at the release points of its
+path, and on any abort after step 1. An abort in A4 or at step 1's refusal releases nothing — in this session a plain
+release would succeed on a running run's lock (both share `CLAUDE_PID`) and free it.
 
 ### 1b. Branch on mode
 
@@ -289,7 +321,8 @@ The record lives in the epic worktree, not in the epic plan — the plan sits in
 
 ### 10. Release the lock
 
-Delete `.claude/plans/.execute.lock` regardless of success or partial outcome — but only after the Post-Assertions have run.
+Release the lock (step 1) regardless of success or partial outcome — after Post-Assertions P1–P3 have run and before
+P4, which checks this release and therefore runs last.
 
 ---
 
@@ -329,7 +362,7 @@ holds changes uncommitted until release regardless of the field's value.
 
 If build stops early (a `/craft:debug` loop, an out-of-scope question), that pause stands —
 in-place mode surfaces it to you directly (you are present), rather than writing a worktree
-handoff.
+handoff. Release the lock (step 1) before you surface it: the run ends there.
 
 ### i3 — Halt before Phase 5
 
@@ -338,7 +371,7 @@ When Phase 4 completes, `/craft:build`'s phase-end bundle will have recommended
 **not** follow it and do **not** proceed to Phase 5 (`Status: testing`). Instead:
 
 1. <!-- craft:writes status=awaiting-release --> Set the slice plan `Status: awaiting-release` — the dedicated in-place review-halt state.
-2. Release the lock (delete `.claude/plans/.execute.lock`).
+2. Release the lock (step 1).
 3. Emit the in-place halted block (see Output Format): the branch name, that the changes are
    uncommitted in the main checkout for IDE review, and the resume gesture
    `/craft:release <slice-NNN>`.
@@ -389,10 +422,10 @@ and:
   slice is now **landed** and the working tree is back on the synced trunk. Continue to s1.
 - **Merged, but Step 7 stopped** (`/craft:commit` surfaced a `plan-landing.sh` `ERROR=`) — the slice
   is not landed locally: it stays `awaiting-approval` on its branch. Surface the error, release the
-  lock (`rm .claude/plans/.execute.lock`) and stop; once the cause is cleared, a re-run of
+  lock (step 1) and stop; once the cause is cleared, a re-run of
   `/craft:execute <epic-NNN>` retries through `s0`. Do **not** continue to s1.
 - **Not yet approved** (`reviewDecision` not `APPROVED`, PR still `OPEN`) — `/craft:commit`
-  changes nothing and reports it. Release the lock (`rm .claude/plans/.execute.lock`) and
+  changes nothing and reports it. Release the lock (step 1) and
   re-emit the awaiting-approval halt (see Output Format): the human approves on GitHub, then
   re-runs `/craft:execute <epic-NNN>`. Do **not** start the next slice.
 - **PR closed unmerged** — surface `/craft:commit`'s message, release the lock, and stop; the
@@ -452,8 +485,8 @@ Then, on whichever line was set up above:
   `/craft:build` → … → `/craft:review` again, then s3. The route is the human's decision, already
   made, and the human is present.
 - **Mid-slice hard stop** (a `[B]` → `/craft:debug`, a Heavy+rethink finding the human leaves
-  pending, a build early-stop) reaches neither s4 nor s5, so **release the lock** (`rm
-  .claude/plans/.execute.lock`) and stop — otherwise the resume re-run trips A4. The slice's
+  pending, a build early-stop) reaches neither s4 nor s5, so **release the lock** (step 1)
+  and stop — otherwise the resume re-run trips A4. The slice's
   uncommitted work stays on the trunk (`direct`) or on its `<slice-id>-<slug>` branch
   (`pull-request` + `Protected-main: yes`); the human resolves the slice, then re-runs
   `/craft:execute <epic-NNN>`, whose step 1c finds it as `ACTION=resume`.
@@ -471,8 +504,8 @@ lands on its own. The landing follows the Merge Workflow:
 - **`pull-request` + `Protected-main: yes`** — this is `/craft:commit`'s **first invocation**: it
   commits the sub-task work and the archive on the slice branch, opens the PR, sets the slice
   `Status: awaiting-approval`, and does **not** merge (the "Freigabe ≠ Merge" gate). The slice is
-  **not yet landed** — it awaits the human's GitHub approval. Release the lock (`rm
-  .claude/plans/.execute.lock`) and emit the awaiting-approval halt (see Output Format): the PR
+  **not yet landed** — it awaits the human's GitHub approval. Release the lock (step 1)
+  and emit the awaiting-approval halt (see Output Format): the PR
   URL and the resume gesture — approve on GitHub, then re-run `/craft:execute <epic-NNN>`, whose
   `s0` merges it and continues. `/craft:commit` prints its own PR-opened block ending in a
   `/craft:commit` resume gesture; for a sequential-epic slice that gesture is **superseded** by
@@ -576,7 +609,8 @@ seeded: this checkout is already primed.
   print and log `⛔ <slice-id> stopped: <marker Status or plan Status> — <what the human does>`, release the lock and
   emit *Autopilot — stopped*. What the human does is what step 8 says for a stopped slice, run in the main checkout
   (no `/craft:checkout`: the slice is built here). Name a file for the human to remove or edit only after checking,
-  in this invocation, that it exists — a human test was sent to delete a lock that was already gone (slice-049); afterwards `/craft:execute <epic-NNN> --autopilot` resumes it —
+  in this invocation, that it exists — slice-049's human test was sent to remove a file that was already gone — and
+  never the lock: its only human path is A4's `release --force` line; afterwards `/craft:execute <epic-NNN> --autopilot` resumes it —
   step 1c reads it as `ACTION=resume`.
 
 ### a3 — Land the slice on the epic branch: s3 at Level 2
@@ -609,7 +643,8 @@ Merge <epic-branch> into <trunk>?
 ```
 
 - **[Y], `direct`** → `git checkout <trunk>` then `git merge --no-ff <epic-branch> -m "Merge <epic-NNN>: <epic title>"`.
-  A conflict stops before anything else: surface it, never resolve it. Log `■ <epic-id> merged into <trunk>`.
+  A conflict stops the run: surface it, never resolve it, release the lock (step 1) and stop. Log
+  `■ <epic-id> merged into <trunk>`.
 - **[Y], `pull-request` + `Protected-main: yes`** → `git push -u origin <epic-branch>`, then
   `gh pr create --base <trunk> --head <epic-branch>` with the digest as its body. Log `■ <epic-id> PR #<N> opened`.
 - **[N]** → log `■ <epic-id> complete, not merged`.
@@ -644,9 +679,13 @@ Failure → *"⚠ Epic-branch is missing merge commits for slices: `<list>`. Re-
 
 ### P4 — Lock released
 
-`.claude/plans/.execute.lock` must not exist after the command returns.
+Only when this invocation took the lock (step 1) — an abort in A4 or at step 1's refusal leaves another run's lock as it
+is. After the command returns, `bash "${CLAUDE_PLUGIN_ROOT}/scripts/execute-lock.sh" check --project "<project-root>"`
+must report `LOCK=released`.
 
-Failure → *"⚠ Execute lock not released. Remove `.claude/plans/.execute.lock` before the next `/craft:execute` run."*
+Failure → *"⚠ Execute lock not released (`LOCK=<state>`, `REASON=<reason>`). The next `/craft:execute` run in this
+Claude Code session asks you whether this run has ended; from another process, release it with"* — followed by A4's `release --force` command,
+printed the way A4 prints it: its own top-level code block.
 
 ### P5 — In-place slice halted correctly (in-place mode only)
 
@@ -857,7 +896,8 @@ Review checkpoint reached:
 | Step 1c: the helper cannot run | Abort the same way — never treat it as a fresh run. |
 | Sequential protected-main (s0): PR not yet approved on re-run | s0 reports it; release the lock and re-emit the awaiting-approval halt. The human approves on GitHub, then re-runs `/craft:execute <epic-NNN>`. |
 | Sequential protected-main (s0): PR closed unmerged | Surface the message, release the lock, stop. The slice stays `awaiting-approval` for the human to resolve on GitHub. |
-| A4 fails (lock exists) | Abort with lock path; user removes if crashed. |
+| A4 stops (lock held by another live process, or unreadable) | Abort with the owner, target and reason, plus the copy-ready `execute-lock.sh release --force` line; only the human runs it, and only when no run is active. The lock file is never removed. |
+| A4 `confirm` (lock held by this session) not answered `[N]` | Abort: a run from this session is still working — re-run once it has ended and answer `[N]`. No `--force` line, and nothing is released. |
 | A6 fails (cycle / missing dep) | Abort. Name the cycle or missing slice. |
 | `git worktree add` fails despite step 1c (the state changed since, e.g. a concurrent manual `git worktree add`) | Abort the affected slice cleanly; other slices may still proceed. List the collision in the final output. |
 | Subagent crashes mid-Phase | Treat as Failure (step 7). Continue with other independent slices. |
@@ -866,8 +906,8 @@ Review checkpoint reached:
 | P1–P4 fail | Warn loudly. The user reconciles manually. Do not retry automatically. |
 | Autopilot (a0): background tasks not disabled, or the checkout is on neither the epic branch nor a clean trunk | Stop before anything is created — a0 runs before the lock, so none is held — with the launch command or the branch to fix (for a dirty trunk while a slice is in flight: `git checkout <epic-branch>`, a0 item 3). |
 | Autopilot (a2): a spawn came back in the background | Wait for that builder's report, then stop the run (`⛔`); start nothing else. |
-| Autopilot: the human presses Esc during a spawn | The exception to the interrupt row above: the run ends where it was, and nothing is paused or rewritten for it — a paused slice would be `held` and need a `/craft:continue` before the re-run, where a slice left at its execution status simply resumes: the slice plan keeps the status the builder last wrote and the lock may remain — remove `.claude/plans/.execute.lock` if A4 reports it, then re-run `/craft:execute epic-<NNN> --autopilot`; step 1c reads the slice as `ACTION=resume`. |
-| Autopilot (a5): the merge into the trunk conflicts | Stop; surface the conflict. Never resolve it; the epic branch is intact. |
+| Autopilot: the human presses Esc during a spawn | The exception to the interrupt row above: the run ends where it was, and nothing is paused or rewritten for it — a paused slice would be `held` and need a `/craft:continue` before the re-run, where a slice left at its execution status simply resumes: the slice plan keeps the status the builder last wrote and the lock stays held — a re-run from the same Claude Code session finds it `DECISION=confirm` (`REASON=own_process`) and A4 asks whether the run ended — it did, so answer `[N]` — from another one A4 names it; re-run `/craft:execute epic-<NNN> --autopilot`; step 1c reads the slice as `ACTION=resume`. |
+| Autopilot (a5): the merge into the trunk conflicts | Stop; surface the conflict and release the lock. Never resolve it; the epic branch is intact. |
 
 ---
 
