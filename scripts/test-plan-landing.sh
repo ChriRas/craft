@@ -179,6 +179,8 @@ expect "in-place: sync → RESULT ok (R1-2)"                  "$out" RESULT ok
 check  "  … on the trunk"                                   test "$(git -C "$P" branch --show-current)" = main
 check  "  … local trunk equals origin/main"                 test "$(git -C "$P" rev-parse main)" = "$(git -C "$P" rev-parse origin/main)"
 check  "  … the plan is gone from disk"                     test ! -e "$P/$PLAN"
+check  "  … its untracked copy was moved into .claude/plans/.closed/, never removed (B19)" \
+  test -f "$P/.claude/plans/.closed/$(basename "$PLAN")"
 check  "  … no staged deletion — only the human's change"   nothing_staged_but_human
 refute "  … origin/main does not track the plan"            tracked_in origin/main
 check  "  … origin/main holds the archive"                  git -C "$P" cat-file -e "origin/main:$ARCHIVE"

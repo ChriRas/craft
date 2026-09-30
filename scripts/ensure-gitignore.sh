@@ -5,8 +5,8 @@
 #
 # WHY ------------------------------------------------------------------------
 # CRAFT writes local, per-clone state into the project: the per-session prime
-# marker, the hook's bash record, the /craft:execute run lock, the local settings
-# file, and the worktree handoff marker. Left unignored, a primed session shows
+# marker, the hook's bash record, the /craft:execute run lock, the closed plans
+# (.claude/plans/.closed/, B19), the local settings file, and the worktree handoff marker. Left unignored, a primed session shows
 # untracked files in every `git status` (CRAFT's clean-tree checks do not count them —
 # scripts/tree-dirt-state.sh reads this list). Consumer
 # projects ignore these paths in inconsistent hand-written shapes — or not at all —
@@ -83,10 +83,11 @@ CRAFT_PATHS=(
   ".claude/plans/.primed"
   ".claude/plans/.hook-env"
   ".claude/plans/.execute.lock"
+  ".claude/plans/.closed/"
   ".claude/settings.local.json"
   ".craft/"
 )
-BLOCK_HEADER="# CRAFT local state (per-session markers, run lock, local settings, worktree handoff)"
+BLOCK_HEADER="# CRAFT local state (per-session markers, run lock, closed plans, local settings, worktree handoff)"
 BLOCK_PREFIX="# CRAFT local state"
 
 MODE="check"

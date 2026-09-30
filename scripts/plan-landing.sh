@@ -28,11 +28,13 @@
 #   sync --trunk <branch> [--remote <name>] <plan>...
 #       Second pass, after the approved merge, in the main checkout. Fetches <remote>/<trunk> and
 #       refuses a local trunk that cannot fast-forward to it. Then drops each local plan copy (an
-#       untracked one is removed, a tracked one restored to HEAD) and moves the checkout to the
+#       untracked one is moved into .claude/plans/.closed/ by close-file.sh --move — never removed,
+#       B19/D34; a tracked one restored to HEAD) and moves the checkout to the
 #       fetched trunk in ONE git step: `checkout -B <trunk> <upstream>` from another branch (the
 #       ancestor check makes that a fast-forward), `merge --ff-only` on the trunk itself. That
 #       step either completes or leaves HEAD where it was, so a failure puts every plan copy back
-#       on the branch it came from — the live plan is never lost to a sync that did not happen.
+#       on the branch it came from — the live plan is never lost to a sync that did not happen (a
+#       moved copy then also stays in .closed/: a duplicate, never a loss).
 #       A plan the synced trunk still tracks (the merged PR did not carry its removal) is removed
 #       from disk too, leaving an unstaged deletion: locally the slice then reads as landed, and
 #       that deletion is what the removal PR needs. --remote defaults to origin.
@@ -46,11 +48,13 @@
 #   ERROR=<reason>   on failure (stderr, after git's own message), with a non-zero exit code
 #
 # Exit codes: 0 success · 2 bad arguments · 3 not in a git repository · 5 the commit failed
-# (close; every plan copy is back) · 6 fetch, diverged trunk, restore, checkout or fast-forward
+# (close; every plan copy is back) · 6 fetch, diverged trunk, restore, close, checkout or fast-forward
 # failed (sync; nothing changed, or every plan copy is back on the branch sync started from) ·
 # 130 interrupted (every held plan copy is back).
 
 set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 fail() { echo "ERROR=$1" >&2; exit "$2"; }
 
@@ -141,7 +145,8 @@ for p in "${PLANS[@]}"; do
   if in_head "$p"; then
     git checkout -q HEAD -- "$p" 2>"${GITERR}" || { git_fail; put_back; fail "restore_failed:$p" 6; }
   else
-    rm -f -- "$p"
+    bash "${SCRIPT_DIR}/close-file.sh" --project "$PWD" --move "$p" >/dev/null 2>"${GITERR}" \
+      || { git_fail; put_back; fail "close_failed:$p" 6; }
   fi
 done
 if [[ "${BEFORE}" == "${TRUNK}" ]]; then

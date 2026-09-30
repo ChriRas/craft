@@ -36,8 +36,8 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 XDG_CONFIG_HOME="$ROOT/
 
 # The paths the helper must cover — kept in step with CRAFT_PATHS in the helper;
 # the first case fails loudly if the two ever drift apart.
-PATHS=".claude/plans/.primed .claude/plans/.hook-env .claude/plans/.execute.lock .claude/settings.local.json .craft/"
-MARKERS=".claude/plans/.primed .claude/plans/.hook-env .claude/plans/.execute.lock .claude/settings.local.json .craft/handoff.md"
+PATHS=".claude/plans/.primed .claude/plans/.hook-env .claude/plans/.execute.lock .claude/plans/.closed/ .claude/settings.local.json .craft/"
+MARKERS=".claude/plans/.primed .claude/plans/.hook-env .claude/plans/.execute.lock .claude/plans/.closed/slice-001-x.md .claude/settings.local.json .craft/handoff.md"
 
 new_repo() { # → prints the path of a fresh git repo (called in $(…), so no shared counter)
   local d
@@ -62,8 +62,8 @@ R="$(new_repo)"
 out="$(helper "$R" --check)"; rc=$?
 entries="$(printf '%s\n' "$out" | sed -n 's/^ENTRY=\([^ ]*\) .*/\1/p' | tr '\n' ' ' | sed 's/ $//')"
 [[ "$entries" == "$PATHS" ]] && ok "helper reports exactly the expected CRAFT paths, in order" || bad "path list drift (helper: '$entries')"
-{ [[ $rc -eq 10 ]] && [[ "$out" == *"MISSING=5"* ]] && [[ "$out" == *"STATUS=absent"* ]] && [[ "$out" == *"GITIGNORE=missing"* ]] && [[ ! -e "$R/.gitignore" ]]; } \
-  && ok "fresh repo: --check reports all 5 absent (exit 10) and writes nothing" || bad "fresh --check (rc=$rc, out=$out)"
+{ [[ $rc -eq 10 ]] && [[ "$out" == *"MISSING=6"* ]] && [[ "$out" == *"STATUS=absent"* ]] && [[ "$out" == *"GITIGNORE=missing"* ]] && [[ ! -e "$R/.gitignore" ]]; } \
+  && ok "fresh repo: --check reports all 6 absent (exit 10) and writes nothing" || bad "fresh --check (rc=$rc, out=$out)"
 
 out="$(helper "$R" --apply)"; rc=$?
 { [[ $rc -eq 0 ]] && [[ "$out" == *"CHANGED=yes"* ]] && all_ignored "$R" && [[ "$(count '^# CRAFT local state' "$R/.gitignore")" == 1 ]]; } \
@@ -96,8 +96,8 @@ done
 R="$(new_repo)"
 printf 'vendor/\n.claude/plans/.primed\n' > "$R/.gitignore"
 out="$(helper "$R" --apply)"
-{ [[ "$out" == *"MISSING=4"* ]] && [[ "$(count '^\.claude/plans/\.primed$' "$R/.gitignore")" == 1 ]] && all_ignored "$R" && no_leftovers "$R"; } \
-  && ok "partial coverage: only the 4 missing paths appended, .primed not duplicated, no backup left" || bad "partial coverage (out=$out)"
+{ [[ "$out" == *"MISSING=5"* ]] && [[ "$(count '^\.claude/plans/\.primed$' "$R/.gitignore")" == 1 ]] && all_ignored "$R" && no_leftovers "$R"; } \
+  && ok "partial coverage: only the 5 missing paths appended, .primed not duplicated, no backup left" || bad "partial coverage (out=$out)"
 
 # --- no trailing newline ---------------------------------------------------------
 R="$(new_repo)"
@@ -112,8 +112,8 @@ R="$(new_repo)"
 printf '# CRAFT local state\n.claude/plans/.primed\n\n*.log\n' > "$R/.gitignore"
 helper "$R" --apply >/dev/null
 block="$(sed -n '/^# CRAFT local state/,/^$/p' "$R/.gitignore" | grep -c '^\.')"
-{ [[ "$(count '^# CRAFT local state' "$R/.gitignore")" == 1 ]] && [[ "$block" == 5 ]] && [[ "$(tail -n 1 "$R/.gitignore")" == "*.log" ]] && no_leftovers "$R"; } \
-  && ok "existing CRAFT block is extended in place (one header, 5 entries, later lines kept, no backup left)" || bad "block extension: $(tr '\n' '|' < "$R/.gitignore")"
+{ [[ "$(count '^# CRAFT local state' "$R/.gitignore")" == 1 ]] && [[ "$block" == 6 ]] && [[ "$(tail -n 1 "$R/.gitignore")" == "*.log" ]] && no_leftovers "$R"; } \
+  && ok "existing CRAFT block is extended in place (one header, 6 entries, later lines kept, no backup left)" || bad "block extension: $(tr '\n' '|' < "$R/.gitignore")"
 
 # A block that ends the file (no blank line after it) — the shape every project has
 # once a future release adds a path.
@@ -121,8 +121,8 @@ R="$(new_repo)"
 printf 'dist/\n\n# CRAFT local state\n.claude/plans/.primed\n' > "$R/.gitignore"
 helper "$R" --apply >/dev/null
 block="$(sed -n '/^# CRAFT local state/,$p' "$R/.gitignore" | grep -c '^\.')"
-{ [[ "$(count '^# CRAFT local state' "$R/.gitignore")" == 1 ]] && [[ "$block" == 5 ]] && all_ignored "$R"; } \
-  && ok "CRAFT block at end of file is extended (5 entries, one header)" || bad "block at EOF: $(tr '\n' '|' < "$R/.gitignore")"
+{ [[ "$(count '^# CRAFT local state' "$R/.gitignore")" == 1 ]] && [[ "$block" == 6 ]] && all_ignored "$R"; } \
+  && ok "CRAFT block at end of file is extended (6 entries, one header)" || bad "block at EOF: $(tr '\n' '|' < "$R/.gitignore")"
 
 # --- a project below the git top level (monorepo) ----------------------------------------
 # The hook writes the markers relative to CLAUDE_PROJECT_DIR, so coverage and the block
@@ -202,7 +202,7 @@ helper "$R" --apply >/dev/null
 all_ignored "$R" && ok "  … --apply covers it; git ignores every marker" || bad "broader negation --apply: $(tr '\n' '|' < "$R/.gitignore")"
 
 R="$(new_repo)"
-printf '# CRAFT local state\n.claude/plans/.hook-env\n.claude/plans/.execute.lock\n.claude/settings.local.json\n.craft/\n.claude/plans/.primed\n!.claude/plans/.primed\n' > "$R/.gitignore"
+printf '# CRAFT local state\n.claude/plans/.hook-env\n.claude/plans/.execute.lock\n.claude/plans/.closed/\n.claude/settings.local.json\n.craft/\n.claude/plans/.primed\n!.claude/plans/.primed\n' > "$R/.gitignore"
 cp "$R/.gitignore" "$ROOT/snapshot"
 out="$(helper "$R" --check)"; rc=$?
 { [[ $rc -eq 0 ]] && [[ "$out" == *"STATUS=present"* ]] && [[ "$out" == *"MISSING=0"* ]]; } \

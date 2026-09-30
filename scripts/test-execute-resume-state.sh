@@ -338,6 +338,10 @@ splan slice-001 a planning; git -C "$P" add -A; git -C "$P" commit -q -m plans
 printf '12345 epic-001\n' > "$P/.claude/plans/.execute.lock"; touch "$P/.claude/plans/.primed" "$P/.claude/plans/.hook-env"
 out="$(run --mode sequential "$S1")"
 expect "CRAFT's own session files (lock, .primed, .hook-env) are not dirt" "$out" "" DIRTY no
+mkdir -p "$P/.claude/plans/.closed"; printf '# closed\n' > "$P/.claude/plans/.closed/slice-009-z.md"
+out="$(run --mode sequential "$S1")"
+expect "  … nor are closed plans in .claude/plans/.closed/ (B19), unignored and untracked" "$out" "" DIRTY no
+expect "  … and a closed plan is no slice in flight: slice-001 alone is read"  "$out" "SLICE=slice-001" ACTION create
 printf 'real\n' > "$P/real.txt"
 out="$(run --mode sequential "$S1")"
 expect "  … a real untracked file still is"       "$out" "" DIRTY yes
