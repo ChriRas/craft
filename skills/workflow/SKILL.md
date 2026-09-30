@@ -237,6 +237,8 @@ invisible to it. Mark every new status write, or the graph goes blind on that on
 
 **Findings record:** all findings are written to the slice plan's `## Review Findings` section — an audit trail of rounds, one line per finding with an ID and a resolution. The format, the round count and which lines are open are defined once, by `scripts/review-findings-state.sh`, and shown in `/craft:review` → Step 6; a re-review's reviewer receives the earlier rounds and verifies them first (Step 2).
 
+**Round cap and breaker:** a finding is Heavy only with a realistic failure, a slice gets a capped number of Phase-8 rounds, and inside an autopilot run a Heavy + needs-rethinking finding gets one loop-back before the ping-pong breaker blocks the slice — `/craft:review` → Pre-flight step 4, Step 7's cap route and Step 9 (slice-052).
+
 **Autonomy profile:** classifying findings — Level 3 (silent analysis, surfaced in the findings bundle); in-phase fixes — Level 2 (act, then bundle); escalation decisions and soft-cap breach — Level 1 (recommend, human decides).
 
 **Ad-hoc mode:** `/craft:review` is slash-invocable at any time. Invoked *before* Phase 8 it is **advisory only** — it produces findings, fixes nothing, and changes no phase state; the developer folds the findings into ongoing work.
@@ -359,6 +361,7 @@ adjacent to the instruction it describes, so the drift is visible to a reader in
 | `/craft:review` | `reviewing` | `/craft:review` | any |
 | `/craft:review` | `implementing` | `/craft:build` | any |
 | `/craft:review` | `committing` | `/craft:commit` | any |
+| `/craft:review` | `blocked` | `/craft:unblock` | any |
 | `/craft:execute` | `awaiting-release` | `/craft:release` | any |
 | `/craft:release` | `testing` | `/craft:test` | any |
 | `/craft:commit` | `awaiting-approval` | `/craft:commit` | any |

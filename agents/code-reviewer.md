@@ -46,7 +46,8 @@ for new issues. The verdict depends on what the line's resolution says the slice
   - **holds** — resolved in the code as it stands (the fix applied, the loop-back delivered);
   - **partial** — addressed, but a part is still wrong or missing; say which part;
   - **broken** — not resolved, or a later change undid it.
-- For a line **handed out of this slice** — `follow-up → slice archive` or `escalated → new slice …`:
+- For a line **handed out of this slice** — `follow-up → slice archive`, `escalated → new slice …` or `accepted → known limit`
+  (the human accepted it at the round cap):
   - **out of scope** — still not this slice's work, and this slice did not make it worse;
   - **worse** — this slice made the concern worse.
 
@@ -77,6 +78,15 @@ For each issue you find, classify it on two orthogonal axes:
 |---|---|---|
 | **Heavy** | parent fixes in Phase 8 | **escalated — blocks Commit** |
 | **Light** | parent fixes in Phase 8 | recorded as **follow-up** |
+
+**Heavy needs a realistic failure** (slice-052). Classify a finding Heavy only when you can name the failure: one
+reproduced on the current tree, or one reachable through a normal authoring or usage path — and say which in the
+description. **Input an untrusted party can hand the shipped product is such a path**: a security issue stays Heavy
+even when only crafted input triggers it. What is **Light** is a defect that needs a deliberately crafted
+*development artifact* — a slice plan or findings record written to mislead, a fixture or harness input built to fool
+a check — which only the project's own authors can supply; the description says so, so the parent can record it as a
+known limit. The Heavy categories above still apply; this threshold decides whether one is real. *Why:*
+every Heavy costs a review round, and a slice has a limited number of them (`/craft:review` → Round cap).
 
 ### 4. Return structured output
 

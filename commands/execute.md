@@ -610,7 +610,9 @@ seeded: this checkout is already primed.
   in the main checkout. **Success** (`Status: committing`) → a3. **Handoff, Failure, Held at start** → stop the run:
   print and log `⛔ <slice-id> stopped: <marker Status or plan Status> — <what the human does>`, release the lock and
   emit *Autopilot — stopped*. What the human does is what step 8 says for a stopped slice, run in the main checkout
-  (no `/craft:checkout`: the slice is built here). Name a file for the human to remove or edit only after checking,
+  (no `/craft:checkout`: the slice is built here). A slice stopped at `blocked` shows its plan's `## Blocker` below the
+  `⛔` line, as written — for a review the ping-pong breaker tripped (`commands/review.md` → Step 9) that is the
+  escalation package, at most 15 lines. Name a file for the human to remove or edit only after checking,
   in this invocation, that it exists — slice-049's human test was sent to remove a file that was already gone — and
   never the lock: its only human path is A4's `release --force` line; afterwards `/craft:execute <epic-NNN> --autopilot` resumes it —
   step 1c reads it as `ACTION=resume`.
@@ -861,8 +863,9 @@ Autopilot — briefing (a1):
    Builds in place on <epic-branch>; <trunk> is not touched until you say yes at the end.
    This checkout is occupied: do not edit files or switch branches here until the run stops.
    Order: slice-<a> (build) → slice-<b> (resume at <Status>) → …   [landed: slice-<x>, …]
-   Stops for you at: Phase-5 checks that fail, are refused or missing, review escalations, debug / scope questions,
-   blockers, failures — and at the end (with the UX demo script).
+   Stops for you at: Phase-5 checks that fail, are refused or missing, review ping-pong (a finding whose one
+   autonomous loop-back did not hold, or the round cap), debug / scope questions, blockers, failures — and at the end
+   (with the UX demo script).
    Stop:   Esc.   Resume after any stop:   /craft:execute epic-<NNN> --autopilot
 ```
 
@@ -870,6 +873,7 @@ Autopilot — stopped (a2):
 
 ```
 ⛔ Autopilot stopped at slice-<id> "<title>" — <status>
+   <the plan's ## Blocker, as written — only for a blocked slice>
    <what you do, from the marker or the plan — in this checkout, no /craft:checkout>
    Landed so far on <epic-branch>: <N> of <M>
    Then:   /craft:execute epic-<NNN> --autopilot    (resumes this slice)

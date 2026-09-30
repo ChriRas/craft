@@ -110,6 +110,11 @@ If the slice plan is already at `Status: reviewing` on a subsequent run (refacto
 
 `Read` `commands/review.md` and follow its `## Subagent Mode` section end to end — it is the one definition of the autonomous review outcome: which fixes apply, how findings are recorded, when the review writes a handoff (and what the plan status stays at), and when it clears. Do not decide "open" or the plan status yourself.
 
+**In an autopilot run** that section runs the ping-pong breaker (`commands/review.md` → Step 9). When it loops the
+slice back (`Status: implementing`), do not stop: go back to step 1 and walk the phases forward again — Phase 5 is
+verified by command again, and the next review round judges the loop-back. When it trips, it has written the `blocked`
+state and the handoff through **Blocker detection & escalation** below; stop there.
+
 ### 6. Return to orchestrator
 
 When step 5 completes with `Status: committing` (and no handoff marker present), you are done. Emit a single-line summary that the orchestrator can parse:
@@ -134,6 +139,11 @@ slice-builder paused: slice-NNN status=<awaiting-...|plan status> phase=<N> hand
 ---
 
 ## Blocker detection & escalation
+
+In an autopilot run the review's ping-pong breaker (`commands/review.md` → Step 9) also writes its `decision` block
+through this section's **Write the blocked state** and **Write the handoff and halt** — with `Blocked-status: reviewing`
+and the escalation package as `## Blocker`; the classification below does not apply to it (the breaker's trip is the
+reason).
 
 While running a phase (Phase 4 Build, or Phase 5a test-prep), you may hit an **out-of-scope
 obstacle** — a prerequisite that must be built first, an external wait, an open direction
@@ -182,12 +192,12 @@ and orphan detection all work unchanged. In the slice plan:
   > Blocker-type: <prerequisite-work | external | decision | access>
   > Blocked-on: <slice-NNN | epic-NNN | (pending — create via /craft:plan) | free text>
   > Blocked-since: <ISO datetime, UTC — YYYY-MM-DDTHH:MM:SSZ>
-  > Blocked-status: <execution token to restore on unblock — implementing in Phase 4, testing in Phase 5>
+  > Blocked-status: <execution token to restore on unblock — implementing in Phase 4, testing in Phase 5, reviewing for the review breaker>
   ```
 
   `Blocked-status` is the live execution token the slice held before blocking — `implementing` when
-  the blocker surfaces in Phase 4, `testing` when it surfaces in Phase 5a. Never write `paused` or
-  `blocked` there. For `prerequisite-work`, leave `Blocked-on: (pending — create via /craft:plan)` —
+  the blocker surfaces in Phase 4, `testing` when it surfaces in Phase 5a, `reviewing` for the review's breaker in
+  Phase 8. Never write `paused` or `blocked` there. For `prerequisite-work`, leave `Blocked-on: (pending — create via /craft:plan)` —
   you do not create the prerequisite slice. For `external` / `decision` / `access`, `Blocked-on` is a
   free-text description of what is being waited on / decided / granted.
 - Add the `## Blocker` section (overwrite the template's `(none)` placeholder):
@@ -218,7 +228,7 @@ orchestrator collects and `/craft:checkout` shows:
 ---
 Slice-ID: slice-NNN
 Status: awaiting-block-decision
-Phase: 4 | 5
+Phase: 4 | 5 | 8
 Written: <ISO datetime>
 Episode: <the plan's Blocked-since value, character for character>
 ---
@@ -232,7 +242,8 @@ access → wait / decide / grant.>
 
 ## Suggested next action
 
-/craft:checkout slice-NNN, then: for a prerequisite-work **spawn**, run /craft:plan (or
+/craft:checkout slice-NNN (in an autopilot run: no checkout — act in the main checkout), then: for a
+prerequisite-work **spawn**, run /craft:plan (or
 /craft:epic) to build the prerequisite, then /craft:unblock to link and resume; for park /
 descope / external / decision / access, run /craft:unblock to act on the block.
 ```
@@ -250,7 +261,8 @@ not advance to the next phase.
 - **Never** spawn another `slice-builder` subagent. The orchestrator manages fan-out — you handle exactly one slice.
 - **Never** delete or move the slice plan file. Status updates are in-place edits only.
 - **Never** fabricate a human answer to a `[W]/[B]/[U]`, `[K]/[I]/[R]/[D]`, or any lettered-choice prompt. Write a handoff instead.
-  (`/craft:test` → Subagent Mode step 0a in an autopilot run is no such answer: a helper's pass decides, not you — D35.)
+  (`/craft:test` → Subagent Mode step 0a in an autopilot run is no such answer: a helper's pass decides, not you — D35.
+  Nor is `/craft:review` → Step 9's single loop-back in an autopilot run: the helper's `TRIP=none` decides — slice-052.)
 - **Never** choose a blocker's **spawn / park / descope** resolution (nor create the prerequisite slice/epic). You classify the blocker *type* — an observable property — and write the `blocked` state; the resolution fork is a human direction decision, recorded in the `awaiting-block-decision` handoff for the human to act on via `/craft:unblock`.
 - **Always** keep handoff markers atomic and complete — `Status:`, `Phase:`, `Written:` timestamp, `Episode:` (every status but `failure` — `skills/workflow/SKILL.md` → **Handoff marker lifecycle**), a one-line title, a short body, and a suggested next action.
 
