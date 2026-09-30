@@ -1208,6 +1208,38 @@ human answers `[W]/[B]/[U]` on. The human still gives the verdict; the agent nev
   this repo is the pilot. Until then the project rule and the command prose disagree on purpose;
   the rule, not the prose, governs this repo.
 
+### D34 — CRAFT Never Goes Around a Permission Rule; State Over Deletion
+
+> Decided 2026-09-30 while planning slice-050 (roadmap B19). Cross-cutting: binds every CRAFT
+> command and helper that removes a file, and the `/craft:execute` lock.
+
+slice-049's human test ran under a user setting that denies `Bash(rm:*)`: every slice close stopped
+the autopilot run, and the execute lock was never released. The rule is set on purpose, and a
+project or local `allow` cannot lift a deny set at another level (code.claude.com/docs/en/permissions,
+verified 2026-09-29).
+
+Decision:
+
+- **CRAFT never goes around a user permission rule.** When the effective settings deny or ask on
+  removing a single file, CRAFT moves closed files into a gitignored, read-blocked
+  `.claude/plans/.closed/` instead — automatically, reported by `/craft:prime`. *Why ask too:* an
+  ask rule prompts at every plan close, which stalls an autopilot run like a deny.
+- **A helper never deletes a project file.** Without a rule it returns the delete command and the
+  agent issues it, so Claude Code's permission check stays the final judge. *Why:* a script that
+  deletes passes around the rule whenever detection misses one; the split turns a detection gap
+  into a prompt or a stop, never a forbidden deletion. Exempt: a script's own temp files; a
+  **tracked** file, which git can restore (`plan-landing.sh` removes tracked plans before its commit,
+  and one the synced trunk still tracks); and CRAFT's per-session marker `.claude/plans/.primed`,
+  removed by the SessionStart hook — hook commands run outside the permission check, so no user rule
+  is gone around.
+- **State lives in content, not in a file's existence.** The lock is never deleted; it carries
+  `held` / `released`, and a takeover follows a fixed rule, never the agent's judgment. Applies
+  slice-036's derived state over cleanup; settles slice-049 T1-a.
+- **Cleanup is the human's.** `.closed/` over a threshold yields a copy-ready delete command at
+  session start; CRAFT never deletes it.
+- **Scope** — tiering the user's own settings (recursive removal denied, single-file on ask) is the
+  user's work, not CRAFT's.
+
 ---
 
 ## 7. Carry-Over to Next Clusters
