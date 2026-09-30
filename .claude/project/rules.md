@@ -134,6 +134,10 @@
   that one sentence is stated at *each* reader and bound there. It is the deliberate exception
   to the tabu above, not a regression against it — and it is bound so a later de-duplication
   pass goes red instead of silently reinstating the silence (B-R7-1, slice-046).
+- **No removal command in a line an agent issues** (slice-050). A helper keeps its own `rm` (its
+  temp files) inside the script file; a command line the agent issues — Bash, `ctx_execute` —
+  never carries one, not even inside a heredoc: a user's `Bash(rm:*)` rule and context-mode's
+  PreToolUse hook match the text, whatever the line actually does.
 
 ## Tabus (Anti-Patterns)
 
