@@ -84,6 +84,8 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
   confirm still means live.
   So do the review ping-pong breaker's counters (slice-052): rounds and reopens are read from the findings record by
   `review-findings-state.sh`, never stored — a counter a writer forgets to bump cannot exist.
+  So does the autopilot's plan gate (slice-054): whether it is still owed is read by `plan-gate-state.sh` from the
+  plans' `Planned-by:` marker and the log's approval line — it returns after `[N]` or a crash and never after `[Y]`.
 - **CRAFT's own files are not the human's work (slice-039)** — which paths count as uncommitted
   work is decided once, by `scripts/tree-dirt-state.sh`: plans, ID counters and local state never
   block `/craft:execute` or `/craft:commit`. The flip side is that a command commits only what it
@@ -116,8 +118,9 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
 - No short-name command shims — the `/craft:` namespace is the only entry surface.
 - No per-command model frontmatter — Claude Code does not support it; per-phase
   model selection routes through subagents only. Dialogic phases (Plan, Debug
-  autonomous loop) are NOT delegated either — their streaming/pause UX is
-  incompatible with a subagent boundary (slice-010).
+  autonomous loop) are NOT delegated either outside an autopilot run — their streaming/pause UX is
+  incompatible with a subagent boundary (slice-010); inside one there is no one to ask, so planners
+  (slice-054) and the debug loop (slice-053) run as agents behind the plan gate and the end stops.
 
 ## Open Questions
 
