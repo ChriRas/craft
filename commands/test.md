@@ -179,12 +179,27 @@ Recommended next: /craft:build
 When invoked by the `slice-builder` subagent during an autonomous `/craft:execute` run, the human cannot perform sub-step 5b in real time. The subagent therefore takes this path instead:
 
 0. Verify the slice plan is at `Status: testing` (set by `/craft:build` on clean Phase-4 completion). If any other status, <!-- craft:handoff status=failure plan=- --> write `.craft/handoff.md` with `Status: failure` and a one-line note "Out-of-band slice state — expected `testing`, found `<X>`" and stop. This catches a slipped Phase-4 transition before it pollutes Phase 5.
+0a. **In an autopilot run** (the spawn says so — `agents/slice-builder.md` → *In an autopilot run*) Phase 5 is verified
+   by command, not by a human (D35). From the project root run
+   `bash "<plugin-root>/scripts/verify-run.sh" --project "<project-root>" <slice-plan>` — it judges every check command
+   against the user's deny / ask rules, runs the checks of the plan's `<!-- craft:verify -->` block and writes the
+   evidence round into `## Verification Evidence` itself; never write or edit that section yourself.
+   - `RESULT=pass` → Phase 5 is passed: write the status a `[W]` writes, `Status: review` (Sub-step 5c → *If `[W]`
+     Works* holds the one write of this transition), and return to the builder — no pause, no handoff, steps 1–4 do
+     not run.
+   - `RESULT=fail`, `refused` or `none`, or no `RESULT=` line → the verification does not replace the human: continue
+     with steps 1–4 below (the `awaiting-test` stop). Name the round in the Pause Note and in the handoff block, one
+     line: *"Verification: `RESULT=<r>` (round `<ROUND>` in `## Verification Evidence`; `<FAILED>` or `<REASON>`)."* —
+     or, when `ROUND=-` or no `RESULT=` line came back, *"Verification: no round written — `<REASON>`, or the exit code
+     and the first stderr line."*
+   Outside an autopilot run, skip 0a.
 1. Prepare 5a (Demo-Setup) — derive the trigger / try-this / expected-effect block, write nothing yet. If it cannot be prepared, take the blocker path below instead, with no pause.
 2. <!-- craft:writes status=paused --> Update the slice plan's `Status: paused` with the pause record (`skills/workflow/SKILL.md` → **Pause record**) and append a Pause Note: *"Awaiting human Phase-5 exercise (subagent-invoked)."*
 3. <!-- craft:handoff status=awaiting-test plan=paused --> Write the 5a block to `.craft/handoff.md` inside the slice worktree with `Status: awaiting-test` and the record's `Paused-since` as its `Episode:`.
 4. Return control to the orchestrator. The orchestrator surfaces the handoff in the final "epic partially complete" block; the user resumes the slice via `/craft:checkout <slice-id>` + `/craft:continue` after exercising the artifact.
 
-The subagent does **not** fabricate the W/B/U answer — sub-step 5c always requires a human.
+The subagent does **not** fabricate the W/B/U answer — sub-step 5c always requires a human. Step 0a is no W/B/U answer:
+it writes `review` only on a helper's pass (D35), and the product feel goes to the human at the epic end.
 
 If 5a cannot even be prepared because a prerequisite is missing — classically, the artifact cannot be exercised because deployment infrastructure does not exist yet — that is a **blocker**, not an `awaiting-test` pause. The subagent follows the slice-builder's **Blocker detection & escalation** instead: classify the blocker, write the first-class `blocked` state (`Blocked-status: testing`), write `.craft/handoff.md` with `Status: awaiting-block-decision`, and stop — rather than writing the `awaiting-test` handoff for an artifact that cannot be run.
 

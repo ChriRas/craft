@@ -43,6 +43,14 @@
 
 - (none yet)
 
+## UX Demo Script
+
+> Appended by `/craft:execute <epic> --autopilot` (a3; the block format is defined there), one block per slice that
+> landed — verified by command or passed by you. Walk it at the epic-end sign-off (a5): the product-feel check that
+> verification by command does not replace (D35). Never rewritten.
+
+(no slices landed yet)
+
 ## Autopilot Log
 
 > Appended by `/craft:execute <epic> --autopilot`, one line per event (`▶` run or slice started, `✓` landed on the epic

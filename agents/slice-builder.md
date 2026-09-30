@@ -82,13 +82,17 @@ When all sub-tasks are checked, `/craft:build` updates the slice plan `Status: t
 
 `Read` `commands/test.md` and follow its `## Subagent Mode` section: prepare 5a (Demo-Setup) — derive the demo invocation from the slice's recorded trigger — then pause the slice plan with the pause record (`skills/workflow/SKILL.md` → **Pause record**), then write the prepared block into `.craft/handoff.md` with `Status: awaiting-test` and the record's `Paused-since` as its `Episode:` — in that order, as the section defines it.
 
+**In an autopilot run** the section's step 0a runs first: `verify-run.sh` checks the slice by command (D35). On
+`RESULT=pass` the section has you write `Status: review` — then do not stop: continue at step 3. Anything else ends in the
+`awaiting-test` stop below, with the verification round named.
+
 **Stop here.** Return control to the orchestrator. You do not attempt 5b or 5c — both require a human.
 
 If 5a itself cannot be prepared because a prerequisite is missing — the classic case, an artifact that cannot be exercised because deployment infrastructure does not exist yet — that is a blocker, not an awaiting-test pause: escalate via **Blocker detection & escalation** below (classify, write the `blocked` state with `Blocked-status: testing`, halt) instead of writing the `awaiting-test` handoff.
 
 The orchestrator surfaces your handoff in its final block. The human exercises the artifact via `/craft:checkout <slice-id>`, resumes it with `/craft:continue` (step 4a — never by editing `Status:` by hand, which would leave the pause record behind), answers Phase 5 in `/craft:test`, then continues interactively or runs `/craft:execute <epic-NNN>` again (which re-spawns you to continue from Phase 6 once `[W]` set the slice to `review`).
 
-If, on a subsequent execute-run, you find the slice plan already at `Status: review` (Phase 5 cleared by the human), skip step 2 and continue at step 3.
+If, on a subsequent execute-run, you find the slice plan already at `Status: review` (Phase 5 cleared by the human, or by step 0a's pass in an autopilot run), skip step 2 and continue at step 3.
 
 ### 3. Phase 6 — Recap (subagent mode)
 
@@ -246,6 +250,7 @@ not advance to the next phase.
 - **Never** spawn another `slice-builder` subagent. The orchestrator manages fan-out — you handle exactly one slice.
 - **Never** delete or move the slice plan file. Status updates are in-place edits only.
 - **Never** fabricate a human answer to a `[W]/[B]/[U]`, `[K]/[I]/[R]/[D]`, or any lettered-choice prompt. Write a handoff instead.
+  (`/craft:test` → Subagent Mode step 0a in an autopilot run is no such answer: a helper's pass decides, not you — D35.)
 - **Never** choose a blocker's **spawn / park / descope** resolution (nor create the prerequisite slice/epic). You classify the blocker *type* — an observable property — and write the `blocked` state; the resolution fork is a human direction decision, recorded in the `awaiting-block-decision` handoff for the human to act on via `/craft:unblock`.
 - **Always** keep handoff markers atomic and complete — `Status:`, `Phase:`, `Written:` timestamp, `Episode:` (every status but `failure` — `skills/workflow/SKILL.md` → **Handoff marker lifecycle**), a one-line title, a short body, and a suggested next action.
 
@@ -270,4 +275,5 @@ If a phase delegate (`/craft:build` etc.) returns an unstructured error or crash
 - It does not interact with the human directly. All human-facing signals are mediated through the slice plan or `.craft/handoff.md`.
 - It does not select what to work on. The orchestrator hands it exactly one slice plan.
 - It does not perform git worktree operations. The orchestrator creates and removes worktrees.
-- It does not call `claude plugin validate` or any project-CI command. That belongs to the human's review step.
+- It does not call `claude plugin validate` or any project-CI command. That belongs to the human's review step. The
+  one exception is `scripts/verify-run.sh` in an autopilot run's Phase 5 (step 2), which runs the plan's committed checks.

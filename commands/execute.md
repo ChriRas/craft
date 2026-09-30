@@ -542,9 +542,11 @@ the next slice without a halt. It **is** the Sequential epic path — order, res
 and are not restated here. This section lists only where an autopilot run differs. `main` does not move until the
 human says yes at the end (a5).
 
-**Every human stop stays.** Phase 5's `[W]/[B]/[U]`, a review escalation, a debug protocol, a scope question, a blocker
-and a builder failure all stop the run (a2). What the run takes over is only what needs no judgment: the order, the
-resume, the spawn, the commit split and the `[K]` default. Removing a stop is the work of later epic-003 slices.
+**Every human stop stays, but one.** A review escalation, a debug protocol, a scope question, a blocker and a builder
+failure all stop the run (a2), and so does Phase 5's `[W]/[B]/[U]` — unless the slice's committed checks pass by command
+(`/craft:test` → Subagent Mode step 0a, D35); the product feel then goes to the human at a5 through `## UX Demo Script`.
+What the run takes over is only what needs no judgment: the order, the resume, the spawn, the commit split and the `[K]`
+default. Removing further stops is the work of later epic-003 slices.
 
 ### a0 — Preconditions and the epic branch (after A4, before A6 and before the lock)
 
@@ -615,11 +617,36 @@ seeded: this checkout is already primed.
 
 ### a3 — Land the slice on the epic branch: s3 at Level 2
 
-Replaces s3's landing. Run `/craft:commit` following its **Autopilot Mode** section: the split without confirmation,
+**First, record the slice for the human** — every slice that reaches a3, from a2's Success or from s2's resume at
+`committing`, and before `/craft:commit` closes its plan:
+
+1. **How Phase 5 was passed.** Read the slice plan's `## Verification Evidence`. Its last round counts as *verified by
+   command* when its result line reads `- result · pass · <p>/<n> checks passed` **and** no review loop-back came after
+   it: its heading carries `review rounds: <N>` (the review rounds the plan held when it ran), and no
+   `**Review round <R> → loop-back to Phase 4**` decision in the plan has `<R>` greater than `<N>` — a pass before a later
+   loop-back never saw the code that lands. A heading without `review rounds:` counts only when the plan holds no
+   loop-back decision at all. Otherwise Phase 5 was passed by the human (`[W]`). Hold the phrase for the landed line:
+   `verified by command (<p>/<n>, run <r>, <round datetime>)` or `Phase 5 by you ([W])`.
+2. **The demo block** — skip it when `## UX Demo Script` already holds a `### <slice-id> —` block (a re-run). Otherwise
+   append it as the last lines of that section, never rewriting an earlier block. A missing section goes directly above
+   `## Autopilot Log`, or at the end of the file. On the first append, drop the section's `(no slices landed yet)` line
+   (or an older `(no slices verified yet)`):
+
+   ```
+   ### <slice-id> — <title>
+   - Trigger: <the slice plan's ## Trigger, verbatim>
+   - Try this: <the steps `/craft:test` 5a derives from that trigger — its Demo-Setup table: the click sequence, the
+     exact command, the request, …>
+   - Expected: <the slice plan's ## Effect, verbatim>
+   - Checked by: <the verify block's check names, comma-separated — or "none">
+   - Phase 5: <the phrase from 1>
+   ```
+
+Then land it. Run `/craft:commit` following its **Autopilot Mode** section: the split without confirmation,
 every decision `[K]`, the commits and the archive on the epic branch, the plan closed, and no landing step — the epic
 branch **is** the landing. **Any** `/craft:commit` stop — a pre- or post-assertion, a failing `git commit` (a
 pre-commit hook), a Step-7 failure — stops the run like a Handoff (a2). Only when `/craft:commit` completed, print and
-log `✓ <slice-id> landed on <epic-branch> (<first>..<last>)`.
+log `✓ <slice-id> landed on <epic-branch> (<first>..<last>) · <the phrase from 1>` — one `✓` per landed slice.
 
 ### a4 — No halt between slices: s4
 
@@ -633,7 +660,8 @@ does not apply: an autopilot slice never waits on a PR.) s1's stop on a held sli
 
 Replaces s5. For every slice of the epic — all now `ACTION=skip` — read its archive under `.claude/project/slices/`:
 the first sentence of `## What`, and the bullets of `## Follow-ups` if it has any. Emit *Autopilot — epic complete*
-with those, then ask, Level 0:
+with those and the epic plan's `## UX Demo Script` — the product-feel check the verification did not replace: walk it
+before you answer — then ask, Level 0:
 
 ```
 Merge <epic-branch> into <trunk>?
@@ -833,7 +861,8 @@ Autopilot — briefing (a1):
    Builds in place on <epic-branch>; <trunk> is not touched until you say yes at the end.
    This checkout is occupied: do not edit files or switch branches here until the run stops.
    Order: slice-<a> (build) → slice-<b> (resume at <Status>) → …   [landed: slice-<x>, …]
-   Stops for you at: Phase-5 checks, review escalations, debug / scope questions, blockers, failures — and at the end.
+   Stops for you at: Phase-5 checks that fail, are refused or missing, review escalations, debug / scope questions,
+   blockers, failures — and at the end (with the UX demo script).
    Stop:   Esc.   Resume after any stop:   /craft:execute epic-<NNN> --autopilot
 ```
 
@@ -853,6 +882,8 @@ Autopilot — epic complete (a5):
    slice-<id> — <first sentence of ## What>
       follow-up: <bullet>            (only when the archive has follow-ups)
    …
+   UX demo script — walk it before you answer (the epic plan's ## UX Demo Script):
+      <the section's blocks, as written>
    Merge <epic-branch> into <trunk>?   [Y] yes   [N] no
 ```
 

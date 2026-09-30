@@ -131,6 +131,8 @@ Reporting `[B]` triggers `/craft:debug` automatically. The agent says: "User rep
 #### Phase 5 cannot be skipped
 
 Even if automated tests in Phase 4 are green, Phase 5 must run. This is constitutive for "human keeps product-feel control."
+The one opt-in exception is an autopilot run (D32, D35): a helper's pass of the slice's committed checks replaces the
+stop, and the human's product-feel check moves to the epic end (`## UX Demo Script`).
 
 ---
 
@@ -760,7 +762,7 @@ When `/craft:execute <epic-or-slice>` is used, the 9-phase loop runs across para
 | 1–2 (Brainstorm, Alignment) | main | Pre-slice; unchanged. |
 | 3 (Planning) | main | `/craft:plan` writes the plan file on main. Worktrees are NOT created here. |
 | 4 (Implementation) | slice-worktree | `/craft:execute` creates `../<repo>-worktrees/<slice-id>-<slug>/` on branch `<slice-id>-<slug>` from the epic-branch (or `main` for a lone slice). The `slice-builder` subagent runs `/craft:build` here. |
-| 5 (Testing) | slice-worktree | Subagent-callable mode of `/craft:test` writes `.craft/handoff.md` and pauses — Phase 5 requires a human and cannot be automated. |
+| 5 (Testing) | slice-worktree | Subagent-callable mode of `/craft:test` writes `.craft/handoff.md` and pauses — Phase 5 requires a human. The one exception: in an autopilot run a helper's pass of the committed checks (`/craft:test` → Subagent Mode step 0a, D35); the product feel then goes to the human at the epic end. |
 | 6 (Recap) | slice-worktree | Subagent-callable mode of `/craft:recap` auto-drafts the What/Why/Walk-through. Flagged for human review at checkout. |
 | 7 (Refactor) | slice-worktree | Subagent-callable mode of `/craft:refactor` skips if `rules.md` declares Phase 7 dropped; otherwise writes handoff candidates without applying. |
 | 8 (Review) | slice-worktree | Subagent-callable mode of `/craft:review` applies in-phase fixes automatically; open findings write a handoff and stop — the plan is not paused (`/craft:review` → Subagent Mode defines the outcome). |

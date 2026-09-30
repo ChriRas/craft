@@ -29,6 +29,11 @@
 
 {{recorded_answer_from_phase_3_question_3}}
 
+> For an autopilot run (D35): a marker line `<!-- craft:verify -->`, then — with no blank or other line between them —
+> one check per line, e.g. `- check suite :: exit=0 :: bash tests/run.sh`. The grammar is defined once, in the header
+> of `scripts/verify-run.sh`, which runs the checks in Phase 5 after judging each against your deny / ask rules.
+> Without the block the slice stops for your Phase-5 check.
+
 ## Sub-Tasks
 
 - [ ] {{sub_task_1}}
@@ -58,6 +63,12 @@
 > Filled by `/debug` Step 3 (AUTONOMOUS LOOP). Audit trail of each attempt.
 
 (none)
+
+## Verification Evidence
+
+> Written by `scripts/verify-run.sh` (autopilot Phase 5, D35) — one round per run, appended, never edited by hand.
+
+(none yet)
 
 ## Decisions Made During This Slice
 
