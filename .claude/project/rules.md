@@ -105,14 +105,10 @@
 - **A test harness that has never been executed is a claim about a test, not a test.** Three
   of slice-046's four Phase-5 fixtures were wrong on their first real run; none would have
   surfaced by rehearsing the protocol on paper.
-- **Phase 8 is calibrated to real risk** (2026-09-29, after slice-046's nine rounds and the
-  046 → 047 → 048 cascade). Project rule until epic-003's `ping-pong-breaker` ships it plugin-wide
-  in `/craft:review` + `craft:code-reviewer` — then this block shrinks to a pointer.
-  - **Heavy needs a realistic failure** — reproduced on the current tree, or reachable through a
-    normal authoring or usage path. A defect that needs deliberately adversarial input against
-    CRAFT's own tooling is **Light** and recorded as a known limit.
-  - **At most 3 Phase-8 rounds per slice.** After round 3 no further round: open Light findings
-    become follow-ups; an open Heavy goes to the human — loop-back, or accept as a known limit.
+- **Phase 8 is calibrated to real risk** (2026-09-29, after slice-046's nine rounds; plugin-wide
+  since slice-052). The Heavy threshold and the round cap are CRAFT's own now —
+  `agents/code-reviewer.md` → 3 and `/craft:review` → Pre-flight step 4 / Step 7's cap route.
+  This project adds:
   - **No automatic new slice.** An escalation becomes a roadmap entry and is prioritised there;
     a new slice starts only on the human's explicit decision.
   - **Harnesses are staleness detectors, not security boundaries** — no hardening against a
