@@ -23,7 +23,7 @@
   `/bin/bash` 3.2 runs that fail on shell error text. `bash -n` is no evidence — it accepts
   bash-4 constructs, and a 3.2 run skips a failing command and carries on green.
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate .`. Fifteen standalone Bash harnesses cover what is
+  `claude plugin validate .`. Sixteen standalone Bash harnesses cover what is
   mechanically checkable; keep all green:
   `bash scripts/test-readonly-context.sh` (read-only guard + sync helper, incl.
   the guard↔helper normalizer agreement),
@@ -63,6 +63,9 @@
   Plus `bash scripts/test-verify-run.sh` (D35) — the autopilot's Phase 5 by command:
   `verify-run.sh` (the verify block, evidence rounds) and the shared, subcommand-aware
   rule matcher `permission-rule-match.sh` that refuses a check before anything runs.
+  Plus `bash scripts/test-plan-gate-state.sh` (slice-054) — which plans still await the
+  autopilot's plan gate, derived by `plan-gate-state.sh` from the `Planned-by:` marker and the
+  log's approval line.
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.
@@ -102,6 +105,10 @@
   fixture counts, check counts, diff sizes — and every place that ships it is corrected in one
   pass. Five recurrences in slice-046, the last of them on the published docs page in both
   languages, in the very entry claiming the number had been "corrected by counting".
+- **A slice's verify block names `test-model-enum.sh` only when the slice touches what it binds** —
+  `model-defaults.md`, `agents/`, or a file carrying a `craft:model-enum` / `craft:spawn-enum` marker. It runs
+  8–10 min (57 mutation fixtures, each a full repo copy) and then needs `timeout=1200`; every other harness
+  takes seconds (slice-054). Phase 8 and a release still run it in full.
 - **A test harness that has never been executed is a claim about a test, not a test.** Three
   of slice-046's four Phase-5 fixtures were wrong on their first real run; none would have
   surfaced by rehearsing the protocol on paper.
