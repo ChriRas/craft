@@ -12,7 +12,7 @@ through the CRAFT workflow.
 
 ## Design Records
 
-- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — the full decision log (D1–D33).
+- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — the full decision log (D1–D34).
 - [`plugin-architecture.md`](./plugin-architecture.md) — the build blueprint.
 - [`README.md`](./README.md) — plugin overview and command reference.
 
@@ -67,7 +67,7 @@ bash scripts/test-toolchain-check.sh
 
 # Local-state gitignore helper — scripts/ensure-gitignore.sh decides, via git check-ignore, whether
 # the project's own .gitignore files cover CRAFT's local state (.primed, .hook-env, .execute.lock,
-# settings.local.json, .craft/) and appends the missing paths to one "# CRAFT local state" block.
+# .closed/, settings.local.json, .craft/) and appends the missing paths to one "# CRAFT local state" block.
 # /craft:onboard applies it, /craft:prime step 4f offers it. Covers broader rules, a project negation
 # (reads negated, never appended — a negated directory is the pinned known limit), global excludes
 # (never coverage), idempotency, conflict restore, and a /bin/bash 3.2 run. Keep green.
@@ -168,18 +168,29 @@ bash scripts/test-example-regions.sh
 # and a presence check on the rule and its heading. Keep green.
 bash scripts/test-model-enum.sh
 
+# Delete-safe closing — B19 / D34: CRAFT never goes around a user rule that denies or asks on removing
+# files. scripts/delete-mode.sh decides, on the concrete `rm -- <path>` the agent would issue and over every
+# settings level a script can read, whether such a rule applies (doubt means move); scripts/close-file.sh
+# then moves the file into the gitignored .claude/plans/.closed/ or prints DELETE_CMD for the agent — it never
+# removes anything itself; scripts/execute-lock.sh keeps the /craft:execute lock as state (held / released,
+# owner = CLAUDE_PID + start time) with one fixed takeover rule. Covers the rule matrix, move / collision /
+# refusal cases, every lock state incl. legacy locks, the guard's read block on .closed/ under bash 5 and
+# /bin/bash 3.2, that no scanner sees .closed/, the pinned close sites (commit.md, abort.md) with no
+# agent-issued rm left in the prose, and prime's cleanup hint (run for real on a fixture). Keep green.
+bash scripts/test-delete-safe.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The thirteen harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The fourteen harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the single declaration of the allowed model values, and the
-single definition of what counts as an example rather than content.
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the single declaration of the allowed model values, the
+single definition of what counts as an example rather than content, and delete-safe closing.
 
 ## Dogfooding Is Not Self-Verification
 

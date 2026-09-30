@@ -28,6 +28,7 @@ A complete coding-loop scaffolding:
 - **Personality autoload**: the Senior-Developer baseline above is the universal Tier 1; on top of it, optional **stack-packs** (e.g. `stack-php-laravel`) — language/framework idiom packs a project declares in `rules.md` — load automatically during the code-near phases.
 - **A SessionStart hook** that auto-runs `/craft:prime` in Craft-onboarded projects so every fresh chat orients itself; stays silent in non-Craft projects.
 - **A read-only context guard** — keep reference material the agent may *read* but never *write*: the in-repo `research/` folder (protected by convention) and external "connected projects" declared in `rules.md`. A PreToolUse hook blocks `Write`/`Edit`/`NotebookEdit` on those paths, while `/craft:prime` keeps declared projects *readable* via `additionalDirectories`.
+- **Delete-safe closing** — if your Claude Code settings deny or ask on removing files (say `Bash(rm:*)`), CRAFT never goes around that rule: it moves closed and aborted plans into the gitignored `.claude/plans/.closed/` instead of removing them, and the guard keeps the agent from reading them. `/craft:prime` says when this mode is on and, once `.closed/` holds 20 plans or one older than 30 days, hands you a one-line command to empty it. Without such a rule, the agent removes the plan itself and Claude Code's permission check judges it.
 - **A migration path** for projects that already have a `.claude/` setup — `/craft:onboard` detects the existing content and moves conflicting commands to `_legacy/` while preserving project-specific specialists.
 
 ---
@@ -246,7 +247,8 @@ When you run `/craft:onboard`, the plugin creates:
 
 CRAFT also writes local, per-clone state that must never be committed: the per-session prime
 marker `.claude/plans/.primed`, the hook's `.claude/plans/.hook-env`, the `/craft:execute` run lock
-`.claude/plans/.execute.lock`, `.claude/settings.local.json`, and the worktree handoff marker
+`.claude/plans/.execute.lock` (never removed — its content says `held` or `released`), the closed-plans
+directory `.claude/plans/.closed/`, `.claude/settings.local.json`, and the worktree handoff marker
 `.craft/`. `/craft:onboard` adds whichever of them your `.gitignore` files do not already cover to one
 `# CRAFT local state` block. In a project onboarded before that, `/craft:prime` reports the uncovered
 paths and offers to add them, and writes only after you say yes. Commit the `.gitignore` change.
