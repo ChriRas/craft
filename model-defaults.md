@@ -238,7 +238,8 @@ Spawn-reachable values: `opus`, `sonnet`, `haiku`, `fable`
 **Why this set is load-bearing.** That parameter is the **only** route from
 `## Agent Model Overrides` to a running agent, because CRAFT cannot rewrite the plugin's
 `agents/*.md` at run time. So an override of `inherit` or a full `<model-id>` never arrives: the
-spawn sites drop it (`/craft:execute` step 5, `/craft:review` Step 2) and the agent runs on its
+spawn sites drop it (`/craft:execute` step 5, `/craft:review` Step 2, `skills/debug/SKILL.md` →
+Autonomous Mode step 2) and the agent runs on its
 frontmatter model, which `/craft:prime` resolves to and reports. Write one of the four, or change
 the agent file.
 
@@ -249,9 +250,12 @@ parameter can carry (below).
 
 **Three commands read this section at run time** — `/craft:prime` step 4b (to resolve past an
 unreachable override and to emit the inert line), `/craft:execute` step 5 and `/craft:review`
-Step 2 (to decide whether to pass the override with the spawn). None of them carries a copy of the
-set. That is why the harness binds this line in both directions and asserts the rule sentence is
-still present: a silent edit here changes command behaviour in three places at once.
+Step 2 (to decide whether to pass the override with the spawn) — and, since slice-053, one skill:
+`skills/debug/SKILL.md` → Autonomous Mode step 2 (`code-reviewer`'s Protocol Freeze spawn). None of
+them carries a copy of the set. That is why the harness binds this line in both directions and
+asserts the rule sentence is still present: a silent edit here changes behaviour in four places at
+once. *Known limit:* the harness's reader and spawn-site lists name only the three commands (it is
+frozen, `rules.md`), so the skill's pointer and fallback sentence are not asserted there.
 
 ### What a spawn site must do
 
@@ -504,8 +508,8 @@ section to its `.claude/project/craft-profile.md`:
 
 **Source 2 only exists where a spawn site applies it.** A project override is read by
 `/craft:prime` but *used* by the command that starts the agent, so each spawn site carries the
-instruction: `commands/review.md` for `code-reviewer`, `commands/execute.md` step 5 for
-`slice-builder`. A new agent whose spawn site omits it gets an override that prime reports and
+instruction: `commands/review.md` and `skills/debug/SKILL.md` → Autonomous Mode (the Protocol
+Freeze spawn) for `code-reviewer`, `commands/execute.md` step 5 for `slice-builder`. A new agent whose spawn site omits it gets an override that prime reports and
 nothing honours — which is exactly what happened to `slice-builder` until review round 5 found
 it.
 

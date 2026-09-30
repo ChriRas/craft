@@ -187,9 +187,13 @@ When invoked by the `slice-builder` subagent during an autonomous `/craft:execut
    - `RESULT=pass` → Phase 5 is passed: write the status a `[W]` writes, `Status: review` (Sub-step 5c → *If `[W]`
      Works* holds the one write of this transition), and return to the builder — no pause, no handoff, steps 1–4 do
      not run.
-   - `RESULT=fail`, `refused` or `none`, or no `RESULT=` line → the verification does not replace the human: continue
-     with steps 1–4 below (the `awaiting-test` stop). Name the round in the Pause Note and in the handoff block, one
-     line: *"Verification: `RESULT=<r>` (round `<ROUND>` in `## Verification Evidence`; `<FAILED>` or `<REASON>`)."* —
+   - `RESULT=fail` with a non-empty `FAILED=` (a check failed or timed out) → run `skills/debug/SKILL.md` →
+     **Autonomous Mode** on the failed check(s) first (slice-053): its attempts are judged by further `verify-run.sh`
+     runs, and a round reading `pass` is this step's `RESULT=pass` above. Only its end stop continues below, with its
+     escalation package in the Pause Note next to the round line.
+   - `RESULT=fail` with `REASON=malformed:…` (and `FAILED=-`), `refused` or `none`, or no `RESULT=` line → the verification does not replace
+     the human: continue with steps 1–4 below (the `awaiting-test` stop). Name the round in the Pause Note and in the handoff block, one
+     line, naming the last round (after a debug loop, its last attempt's): *"Verification: `RESULT=<r>` (round `<ROUND>` in `## Verification Evidence`; `<FAILED>` or `<REASON>`)."* —
      or, when `ROUND=-` or no `RESULT=` line came back, *"Verification: no round written — `<REASON>`, or the exit code
      and the first stderr line."*
    Outside an autopilot run, skip 0a.

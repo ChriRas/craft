@@ -152,6 +152,87 @@ The user picks. The agent does not pre-pick.
 
 ---
 
+## Autonomous Mode (autopilot run)
+
+Inside an autopilot run (`/craft:execute <epic-NNN> --autopilot`; the spawn says so) there is no human for ALIGN,
+PROTOCOL or ESCALATION. This section is the **one** definition of how the four steps run there (slice-053);
+`commands/build.md` and `commands/test.md` (Subagent Mode) enter it, and nothing else changes it. Outside an autopilot
+run it never applies. The rule that replaces the human is D35's: **the verdict is `scripts/verify-run.sh`'s, never
+the agent's** — an attempt has passed only when a helper round reads `pass`.
+
+**Entry.** Two triggers, one loop:
+
+- **Phase 4** — the builder is about to make a 2nd fix attempt on the same symptom (`commands/build.md` → Subagent
+  Mode). The protocol does not exist yet; it is drafted and frozen by two agents (below).
+- **Phase 5** — `verify-run.sh` reported `RESULT=fail` (a check failed or timed out; `commands/test.md` → Subagent Mode
+  step 0a). The failed check (`FAILED=`) **is** the frozen protocol — committed with the Test Strategy before any code;
+  the other checks are its negative check.
+
+**No verify block, no autonomous mode.** A plan without a `<!-- craft:verify -->` block stops at once, at the entry's
+end stop (below): its Phase 5 stops anyway, and a block holding only bug checks would turn that stop into a pass.
+
+1. **ALIGN** — the agent writes the `## Bugs` entry itself (Expected / Actual / Reproduction / Scope, as Step 1), from
+   the recurring symptom (Phase 4) or the failed check's evidence round (Phase 5), and adds
+   `- **Aligned by:** slice-builder (autopilot — no human ALIGN)`.
+2. **PROTOCOL** — Phase 5 skips this step. Phase 4: draft the protocol as verify-block lines in the grammar of
+   `scripts/verify-run.sh` (its header): one or more checks that fail today and pass only when the bug
+   is fixed (`- check bug-<id>-<n> :: …`) and at least one negative check that passes today and must still pass after
+   the fix (`- check bug-<id>-neg-<n> :: …`). `<id>` is lower-case `[a-z0-9-]`, `<n>` counts from 1, and no name may
+   already be in the block — an unparseable or duplicate line makes the whole block malformed, and it can never be
+   removed again (below). Before asking anyone, judge each draft command with
+   `bash "<plugin-root>/scripts/permission-rule-match.sh" --project "<project-root>" --command "$CMD"`, where `CMD` holds
+   the command byte-exact (read it from a quoted heredoc, `CMD=$(cat <<'EOF' … EOF)`, so its own quotes survive):
+   anything but `MATCH=no` would be refused later — redraft it. Then **freeze by two agents**: spawn `code-reviewer` with its
+   **Protocol Freeze** brief (`agents/code-reviewer.md`) — the `## Bugs` entry, the draft lines, the plan's Test
+   Strategy and the diff so far. Before spawning, settle the reviewer's model: follow `model-defaults.md` →
+   **Spawn-Reachable Values** → *What a spawn site must do*, for the agent `code-reviewer`; it is defined once, there.
+   **If that file cannot be resolved** — neither `<plugin-root>/model-defaults.md` nor `<project-root>/model-defaults.md`
+   exists — spawn `code-reviewer` with **no** `model` parameter, and emit `⚠ Could not read model-defaults.md —
+   spawning code-reviewer without a model; a project override, if any, was dropped.` (This sentence is not a copy of
+   that procedure: it is the one case its pointer cannot deliver — B-R7-1.) Only on `freeze`: append the lines to the
+   plan's verify block (after its last check, no line between) and record the protocol under
+   `## Verification Protocols` as Step 2 does, naming the check lines, with
+   `- **Frozen by:** slice-builder + code-reviewer (autopilot), <ISO date>` in place of Step 2's `Frozen at:`. On
+   `reject: <why>`, redraft once against the reason and ask again; a second `reject` is the end stop — a rejected draft
+   is written nowhere but the Pause Note. **Then the red baseline, by the helper:** run the Phase-4 command of step 3
+   once with every protocol name, before any attempt. Its `FAILED=` must name exactly the `bug-…` checks and no
+   `-neg-` check — a bug check that already passes would let any attempt "pass", and a failing negative check guards
+   nothing. Anything else is the end stop, and the package names that round.
+3. **LOOP** — as Step 3, up to *Max attempts* (`rules.md` → Self-Verification Settings), token brake 15k. Between
+   attempts the builder may run the protocol's commands itself to explore; only the helper ends an attempt:
+   - Phase 4: `bash "<plugin-root>/scripts/verify-run.sh" --project "<project-root>" --only <protocol check names> <plan>`;
+   - Phase 5: the same without `--only` — the whole block.
+
+   Each attempt's `## Bug Fix Attempts` entry (Step 3's format) carries, instead of the agent's own ✓ / ❌, the line
+   `- **Verdict:** verify-run.sh round <ROUND> — <RESULT>`. `RESULT=pass` ends the loop: Phase 4 returns to the
+   sub-task being built, Phase 5 returns to step 0a's pass branch. `RESULT=fail` → the next attempt. `RESULT=refused`
+   or a malformed block is no bug to fix → the end stop at once.
+4. **End stop** (replaces ESCALATION) — the attempts are exhausted, the protocol was rejected twice, the red baseline
+   was not the expected one, the helper refused or found the block malformed, or (Phase 4) there is no verify block. Stop at the entry's pause — Phase 4: `commands/build.md`'s `awaiting-protocol`; Phase 5:
+   `commands/test.md`'s `awaiting-test` — with an **escalation package of at most 15 lines** in the Pause Note: the
+   bug; the protocol's check names and where they live (`frozen checks in the verify block: <names> — yours to keep,
+   replace or remove`, or the committed check that failed); one line per attempt (hypothesis → round, result); the last
+   evidence round; and the options on the resume path — resume with `/craft:continue` and fix it in `/craft:build` /
+   `/craft:test`, re-negotiate the protocol in an interactive `/craft:debug` (its verify lines included), or
+   `/craft:handoff` for a fresh context. The human picks; the agent does not pre-pick.
+
+**Forbidden in this mode**, in addition to Step 3's list: editing, removing or reordering any check line of the verify
+block — a committed Test Strategy check or a frozen protocol line —; editing, for the loop's duration, any file that verifies
+rather than is verified — a check's test, harness, fixture or verification script (in this repo `scripts/test-*.sh`);
+the code under test is not frozen, even when a check's command runs it directly (`bash greet.sh`), because that is where
+the fix goes; and
+writing a `## Verification Evidence` round by hand. All three are evidence-tampering. A check the agent believes wrong
+is the end stop — the human re-negotiates it — never an edit; this overrides the Senior-Developer Problem-Playbook's
+"adapt the test and record why" inside this mode. **Promotion to a regression test** needs no question here: a frozen protocol's
+lines stay in the verify block, so every later Phase-5 run checks the bug again.
+
+**Meeting it interactively.** An interactive `/craft:debug` on a plan this mode stopped finds the `## Bugs` entry
+(`Aligned by: slice-builder`), the attempts, and — from Phase 4 — a frozen protocol whose `bug-…` lines sit in the
+verify block. ALIGN starts from that entry instead of from scratch, and a re-negotiated protocol is the human's to
+write, **verify lines included**: replace or remove the old ones, or the next autopilot Phase 5 fails on them again.
+
+---
+
 ## Promotion to Regression Test
 
 When the loop exits successfully, the agent proposes:
@@ -227,3 +308,4 @@ If absent, defaults apply.
 | LOOP | Autonomous but logged. Max 5 attempts. No protocol mutation. |
 | ESCALATION | Present options, never pre-pick. |
 | PROMOTION | Always offer regression-test promotion on success. |
+| AUTOPILOT | Two agents freeze, the helper judges, the human gets the end stop. (Autonomous Mode) |

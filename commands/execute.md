@@ -623,7 +623,8 @@ seeded: this checkout is already primed.
 `committing`, and before `/craft:commit` closes its plan:
 
 1. **How Phase 5 was passed.** Read the slice plan's `## Verification Evidence`. Its last round counts as *verified by
-   command* when its result line reads `- result · pass · <p>/<n> checks passed` **and** no review loop-back came after
+   command* when it is a full run — its heading carries no ` · only:` (a subset round of the debug loop never
+   counts, and a full run always follows it) — its result line reads `- result · pass · <p>/<n> checks passed` **and** no review loop-back came after
    it: its heading carries `review rounds: <N>` (the review rounds the plan held when it ran), and no
    `**Review round <R> → loop-back to Phase 4**` decision in the plan has `<R>` greater than `<N>` — a pass before a later
    loop-back never saw the code that lands. A heading without `review rounds:` counts only when the plan holds no
@@ -863,9 +864,9 @@ Autopilot — briefing (a1):
    Builds in place on <epic-branch>; <trunk> is not touched until you say yes at the end.
    This checkout is occupied: do not edit files or switch branches here until the run stops.
    Order: slice-<a> (build) → slice-<b> (resume at <Status>) → …   [landed: slice-<x>, …]
-   Stops for you at: Phase-5 checks that fail, are refused or missing, review ping-pong (a finding whose one
-   autonomous loop-back did not hold, or the round cap), debug / scope questions, blockers, failures — and at the end
-   (with the UX demo script).
+   Stops for you at: Phase-5 checks that are refused or missing, a bug the autonomous debug loop could not fix, review
+   ping-pong (a finding whose one autonomous loop-back did not hold, or the round cap), scope questions, blockers,
+   failures — and at the end (with the UX demo script).
    Stop:   Esc.   Resume after any stop:   /craft:execute epic-<NNN> --autopilot
 ```
 

@@ -36,7 +36,7 @@ and `/craft:execute` lands your slice on it with `/craft:commit` once you report
 
 ## Procedure
 
-**Phase commands you `Read`** (`commands/build.md`, `test.md`, `recap.md`, `refactor.md`, `review.md`) are files, so Claude Code does not fill in their plugin-root placeholder (a dollar sign and braces around `CLAUDE_PLUGIN_ROOT`) and the Bash tool does not export it. Wherever their text shows it — e.g. the review's `review-findings-state.sh` call — use the plugin root **`${CLAUDE_PLUGIN_ROOT}`** from this agent's own text instead.
+**Phase commands you `Read`** (`commands/build.md`, `test.md`, `recap.md`, `refactor.md`, `review.md`) and the skill they send you to (`skills/debug/SKILL.md` → Autonomous Mode) are files, so Claude Code does not fill in their plugin-root placeholder (a dollar sign and braces around `CLAUDE_PLUGIN_ROOT`) and the Bash tool does not export it. Wherever their text shows it — e.g. the review's `review-findings-state.sh` call — or writes `<plugin-root>`, use the plugin root **`${CLAUDE_PLUGIN_ROOT}`** from this agent's own text instead.
 
 Run the following in order. After each phase, check the slice plan's `Status:` and the handoff marker. If a handoff marker has been written, stop immediately — do not advance to the next phase. Step 0 guarantees that any marker you find after it was written in this run.
 
@@ -74,7 +74,7 @@ over `paused` alone — never over a status a human or a command set since the f
 
 ### 1. Phase 4 — Build
 
-`Read` `commands/build.md` and follow its `## Subagent Mode` section (which directs you to the main Procedure with three explicit overrides — handoff on 2nd same-symptom fix, handoff on out-of-scope edits, no bundle countdown). Identify the next unchecked sub-task, plan briefly, implement, run tests, check off, bundle, advance. Apply the 30k-token brake. Apply the self-verification trigger (2nd fix attempt on the same symptom → offer `/craft:debug`; in subagent mode, default to writing a handoff with `Status: awaiting-protocol` rather than negotiating a protocol with no human present). If an out-of-scope obstacle surfaces during Build — a prerequisite that must be built first, an external wait, an open decision, or missing access, judged by the spawn-boundary heuristic — do **not** grow the slice: escalate via **Blocker detection & escalation** below (classify, write the `blocked` state with `Blocked-status: implementing`, halt).
+`Read` `commands/build.md` and follow its `## Subagent Mode` section (which directs you to the main Procedure with three explicit overrides — handoff on 2nd same-symptom fix, handoff on out-of-scope edits, no bundle countdown). Identify the next unchecked sub-task, plan briefly, implement, run tests, check off, bundle, advance. Apply the 30k-token brake. Apply the self-verification trigger (2nd fix attempt on the same symptom → offer `/craft:debug`; in subagent mode, default to writing a handoff with `Status: awaiting-protocol` rather than negotiating a protocol with no human present — in an autopilot run, run `skills/debug/SKILL.md` → **Autonomous Mode** first, where `code-reviewer` freezes the protocol with you, and pause only at its end stop). If an out-of-scope obstacle surfaces during Build — a prerequisite that must be built first, an external wait, an open decision, or missing access, judged by the spawn-boundary heuristic — do **not** grow the slice: escalate via **Blocker detection & escalation** below (classify, write the `blocked` state with `Blocked-status: implementing`, halt).
 
 When all sub-tasks are checked, `/craft:build` updates the slice plan `Status: testing` and emits its Phase-4-complete bundle. Proceed to step 2.
 
@@ -83,8 +83,9 @@ When all sub-tasks are checked, `/craft:build` updates the slice plan `Status: t
 `Read` `commands/test.md` and follow its `## Subagent Mode` section: prepare 5a (Demo-Setup) — derive the demo invocation from the slice's recorded trigger — then pause the slice plan with the pause record (`skills/workflow/SKILL.md` → **Pause record**), then write the prepared block into `.craft/handoff.md` with `Status: awaiting-test` and the record's `Paused-since` as its `Episode:` — in that order, as the section defines it.
 
 **In an autopilot run** the section's step 0a runs first: `verify-run.sh` checks the slice by command (D35). On
-`RESULT=pass` the section has you write `Status: review` — then do not stop: continue at step 3. Anything else ends in the
-`awaiting-test` stop below, with the verification round named.
+`RESULT=pass` the section has you write `Status: review` — then do not stop: continue at step 3. A failed check first
+goes through `skills/debug/SKILL.md` → **Autonomous Mode** (slice-053), whose passing round is that pass. Anything else
+ends in the `awaiting-test` stop below, with the verification round named.
 
 **Stop here.** Return control to the orchestrator. You do not attempt 5b or 5c — both require a human.
 
@@ -262,7 +263,9 @@ not advance to the next phase.
 - **Never** delete or move the slice plan file. Status updates are in-place edits only.
 - **Never** fabricate a human answer to a `[W]/[B]/[U]`, `[K]/[I]/[R]/[D]`, or any lettered-choice prompt. Write a handoff instead.
   (`/craft:test` → Subagent Mode step 0a in an autopilot run is no such answer: a helper's pass decides, not you — D35.
-  Nor is `/craft:review` → Step 9's single loop-back in an autopilot run: the helper's `TRIP=none` decides — slice-052.)
+  Nor is `/craft:review` → Step 9's single loop-back in an autopilot run: the helper's `TRIP=none` decides — slice-052.
+  Nor is `skills/debug/SKILL.md` → Autonomous Mode in an autopilot run: `code-reviewer` freezes the protocol with you,
+  and every attempt's verdict is a `verify-run.sh` round — slice-053.)
 - **Never** choose a blocker's **spawn / park / descope** resolution (nor create the prerequisite slice/epic). You classify the blocker *type* — an observable property — and write the `blocked` state; the resolution fork is a human direction decision, recorded in the `awaiting-block-decision` handoff for the human to act on via `/craft:unblock`.
 - **Always** keep handoff markers atomic and complete — `Status:`, `Phase:`, `Written:` timestamp, `Episode:` (every status but `failure` — `skills/workflow/SKILL.md` → **Handoff marker lifecycle**), a one-line title, a short body, and a suggested next action.
 
@@ -288,4 +291,6 @@ If a phase delegate (`/craft:build` etc.) returns an unstructured error or crash
 - It does not select what to work on. The orchestrator hands it exactly one slice plan.
 - It does not perform git worktree operations. The orchestrator creates and removes worktrees.
 - It does not call `claude plugin validate` or any project-CI command. That belongs to the human's review step. The
-  one exception is `scripts/verify-run.sh` in an autopilot run's Phase 5 (step 2), which runs the plan's committed checks.
+  one exception is `scripts/verify-run.sh` in an autopilot run — Phase 5 (step 2), which runs the plan's committed checks,
+  and the debug loop's attempts (`skills/debug/SKILL.md` → Autonomous Mode: `--only` in Phase 4), where you may also run a
+  protocol's own commands to explore.
