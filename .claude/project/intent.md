@@ -44,7 +44,8 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
 - **Autopilot as opt-in inversion (D32)** — in an explicitly started autopilot run the human
   touches only the epic definition, one plan gate and the epic-end sign-off (plus escalations);
   agents plan, build, verify, review and commit on an epic branch — Phase 5 verified by a helper that
-  runs the slice's committed checks (the user's deny / ask rules first), never by an agent's report,
+  runs the slice's committed checks (the user's deny / ask rules first), never by an agent's report —
+  and so is every autonomous fix attempt on a bug, against a protocol two agents froze (slice-053) —
   and the product feel moves to the epic-end demo script (D35). *Why opt-in, not default:*
   product feel and direction calls still need a human — outside autopilot, D21/D28/D29 apply
   unchanged, except that this repo pilots an evidence-based Phase 5 (D21) with a two-pass
