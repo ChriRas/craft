@@ -245,8 +245,14 @@ no_removal() { # file — true when no non-comment line runs rm / unlink (the pr
   ! grep -v '^[[:space:]]*#' "$1" | grep -v 'DELETE_CMD=rm -- ' \
     | grep -Eq '(^|[;&|(`[:space:]])(rm|unlink)([[:space:]]|$)'
 }
-no_removal "$CLOSE_HELPER" && no_removal "$MODE_HELPER" \
-  && ok "close-file.sh and delete-mode.sh hold no removal command (only the printed DELETE_CMD)" \
+# The rule semantics are defined once, in permission-rule-match.sh (shared with verify-run.sh, D35):
+# delete-mode.sh calls it and carries no matcher of its own.
+{ grep -q 'permission-rule-match.sh' "$MODE_HELPER" && ! grep -q 'spec_regex\|fnmatch' "$MODE_HELPER" \
+  && grep -q 'def spec_regex' "$SCRIPT_DIR/permission-rule-match.sh"; } \
+  && ok "delete-mode.sh asks the one shared matcher (permission-rule-match.sh) and holds no copy of it" \
+  || bad "the rule matcher is not defined once"
+no_removal "$CLOSE_HELPER" && no_removal "$MODE_HELPER" && no_removal "$SCRIPT_DIR/permission-rule-match.sh" \
+  && ok "close-file.sh, delete-mode.sh and permission-rule-match.sh hold no removal command (only the printed DELETE_CMD)" \
   || bad "a helper issues a removal of its own"
 
 echo "== 3. execute lock as state (execute-lock.sh)"
