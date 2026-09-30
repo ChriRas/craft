@@ -23,7 +23,7 @@
   `/bin/bash` 3.2 runs that fail on shell error text. `bash -n` is no evidence — it accepts
   bash-4 constructs, and a 3.2 run skips a failing command and carries on green.
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate .`. Fourteen standalone Bash harnesses cover what is
+  `claude plugin validate .`. Fifteen standalone Bash harnesses cover what is
   mechanically checkable; keep all green:
   `bash scripts/test-readonly-context.sh` (read-only guard + sync helper, incl.
   the guard↔helper normalizer agreement),
@@ -53,13 +53,16 @@
   positive control. Finally
   `bash scripts/test-example-regions.sh` — the case table for
   `scripts/example-regions.sh`, the single definition of "example, not content" that the four
-  scripts above now share instead of each deciding it with its own parity toggle. It was written
+  scripts above (and, since slice-051, `verify-run.sh`) share instead of each deciding it with its own parity toggle. It was written
   **before** the helper existed, against `scripts/epic-entry-link.sh`'s parser as the reference,
   and it is the contract the helper is judged by.
   Plus `bash scripts/test-delete-safe.sh` (B19, D34) — delete-safe closing:
   the rule detection (`delete-mode.sh`), the close and lock helpers
   (`close-file.sh`, `execute-lock.sh`), the guard's read block on
   `.claude/plans/.closed/`, and the pinned close sites.
+  Plus `bash scripts/test-verify-run.sh` (D35) — the autopilot's Phase 5 by command:
+  `verify-run.sh` (the verify block, evidence rounds) and the shared, subcommand-aware
+  rule matcher `permission-rule-match.sh` that refuses a check before anything runs.
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.

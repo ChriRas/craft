@@ -12,7 +12,7 @@ through the CRAFT workflow.
 
 ## Design Records
 
-- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — the full decision log (D1–D34).
+- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — the full decision log (D1–D35).
 - [`plugin-architecture.md`](./plugin-architecture.md) — the build blueprint.
 - [`README.md`](./README.md) — plugin overview and command reference.
 
@@ -126,7 +126,7 @@ bash scripts/test-epic-entry-link.sh
 
 # Example regions — scripts/example-regions.sh is the ONE answer to "is this line an example
 # rather than content?", shared by epic-entry-link.sh, review-findings-state.sh,
-# test-workflow-status-graph.sh and test-model-enum.sh. Four scripts used to decide it separately
+# test-workflow-status-graph.sh, test-model-enum.sh and verify-run.sh. Four scripts used to decide it separately
 # with naive parity toggles and demonstrably disagreed. It PARSES the constructs instead of
 # counting them: fenced blocks (nested, indented, blockquoted, unclosed), multi-line HTML comment
 # blocks, and <pre> in the one binding site that is not Markdown (docs/index.html). The CALLER
@@ -179,18 +179,28 @@ bash scripts/test-model-enum.sh
 # agent-issued rm left in the prose, and prime's cleanup hint (run for real on a fixture). Keep green.
 bash scripts/test-delete-safe.sh
 
+# Autopilot verification — D35: inside an autopilot run, Phase 5 is verified by command, not by the builder's report.
+# scripts/verify-run.sh parses a slice plan's <!-- craft:verify --> block (a single-line marker inside ## Test
+# Strategy, never a fence — example-regions.sh decides what is an example), judges EVERY check command against the
+# user's deny / ask rules before anything runs (scripts/permission-rule-match.sh — the one matcher, shared with
+# delete-mode.sh, subcommand-aware like Claude Code: compound commands, substitutions, wrappers, assignments), runs
+# the checks with a timeout and appends the evidence round to the plan itself. Covers pass / fail / none / malformed /
+# refused (a subcommand rule, an ask rule, every settings level, doubt — and that nothing ran), timeouts, append-only
+# rounds and the no-python3 path. Keep green.
+bash scripts/test-verify-run.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The fourteen harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The fifteen harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
 the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the single declaration of the allowed model values, the
-single definition of what counts as an example rather than content, and delete-safe closing.
+single definition of what counts as an example rather than content, delete-safe closing, and the autopilot's verification by command.
 
 ## Dogfooding Is Not Self-Verification
 

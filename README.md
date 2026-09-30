@@ -150,15 +150,17 @@ When you have an epic with multiple slices that can run in parallel, hand the bu
 
 # Or hands-off, per run (start the session with CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1):
 /craft:execute epic-001 --autopilot   # in place on epic-001-<slug>: builds, commits and logs each slice with
-                                      # no halt between them; stops only where a human is needed (re-run to
-                                      # resume); at the end a digest and "merge into main?" — main is untouched until yes
+                                      # no halt between them; Phase 5 is verified by command from the plan's
+                                      # <!-- craft:verify --> block (your deny/ask rules checked first); stops only where
+                                      # a human is needed (re-run to resume); at the end a digest with the UX demo
+                                      # script and "merge into main?" — main is untouched until yes
 
 # Side tools:
 /craft:worktree-status            # overview of all active worktrees
 /craft:worktree-clean             # remove orphaned worktrees after manual aborts
 ```
 
-Phase 5 (UX feedback), refactor decisions, and Heavy + needs-rethinking review findings always pause autonomous runs via a `.craft/handoff.md` marker — agents never fabricate human judgment. To answer one, run `/craft:checkout <slice-id>`, open a session in the worktree it names, and run `/craft:continue`: a paused slice is resumed there (the only time it writes the plan) and routed to the command that takes your answer; a review handoff stays at `reviewing` and is routed to `/craft:review`; a blocked slice goes to `/craft:unblock`. An answered marker stops counting on its own — nothing needs deleting — except a `failure` marker, which counts until the retry.
+Phase 5 (UX feedback), refactor decisions, and Heavy + needs-rethinking review findings always pause autonomous runs via a `.craft/handoff.md` marker — agents never fabricate human judgment. The one exception is an autopilot run whose slice passes its committed `<!-- craft:verify -->` checks by command (D35); its product feel comes to you in the epic-end UX demo script. To answer one, run `/craft:checkout <slice-id>`, open a session in the worktree it names, and run `/craft:continue`: a paused slice is resumed there (the only time it writes the plan) and routed to the command that takes your answer; a review handoff stays at `reviewing` and is routed to `/craft:review`; a blocked slice goes to `/craft:unblock`. An answered marker stops counting on its own — nothing needs deleting — except a `failure` marker, which counts until the retry.
 
 #### Stuck on a bug
 
