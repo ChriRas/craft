@@ -343,10 +343,14 @@ touch `commands/` cannot be verified end-to-end in the session that writes them.
 
 - ~~**Q5** Subagent cache TTL `1h` vs. `5m`~~ — **resolved by slice-044**: per agent, by the break-even in §6.
 - **Q6** Threshold defaults (85 / 95 / 90) and whether they live in `craft-profile.md` (new `## Autopilot` block).
-- **Master / judgment line** (from §4): which decisions the Sonnet master may take from helper output alone, and which go
-  to the human or a short-lived Opus agent — epic planning. **Moved to epic-003's `planning-pipeline`** by slice-053: until then every master decision is read off a
-  helper (plan status, `TRIP=`, `RESULT=`, marker state), and the first judgment-heavy agents it orchestrates are the
-  planners and the architect.
+- ~~**Master / judgment line** (from §4): which decisions the Sonnet master may take from helper output alone, and which go
+  to the human or a short-lived Opus agent~~ — **resolved by slice-054** (`planning-pipeline`): a table in
+  `commands/execute.md` → Autopilot run → *Who decides what in an autopilot run*. The master decides only what a helper
+  reports (entry state, resume state, `.next-id`, `plan-gate-state.sh`, `verify-run.sh`, `TRIP=`); a plan's content is
+  `slice-planner`'s (Opus), the package the human's at the plan gate, and anything the table does not list stops the run.
+  Stage A as built: planners fan out behind master-allocated IDs, the plan gate (`[Y] / [R] / [N]`) is derived by
+  `plan-gate-state.sh` from a `Planned-by:` marker and the log's approval line; the architect review is epic-003's
+  `plan-architect-review`.
 - **Open after slice-044:**
   - ~~foreground builders: whether `CLAUDE_CODE_FORK_SUBAGENT=0` / `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` give the master
     a foreground return, the statusline cadence, hook events and duplicate hand-back in that case, and which wait path a
