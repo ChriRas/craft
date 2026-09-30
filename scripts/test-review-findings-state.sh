@@ -85,10 +85,11 @@ P="$(plan <<'EOF'
 
 - R2-1 · Light · Local · j · fixed in-phase: renamed the variable
 - R2-2 · Heavy · Rethink · k · escalated → Phase 4 loop-back (user: build pauses too)
+- R2-3 · Heavy · Local · l · accepted → known limit: needs adversarial input
 EOF
 )"
 out="$(run "$P")"
-want_open="R1-5 R1-7 R1-8"; want_closed="R1-1 R1-2 R1-3 R1-4 R1-6 R1-9 R2-1 R2-2"; wrong=""
+want_open="R1-5 R1-7 R1-8"; want_closed="R1-1 R1-2 R1-3 R1-4 R1-6 R1-9 R2-1 R2-2 R2-3"; wrong=""
 for id in $want_open;   do [[ "$(line_for "$out" "$id")" == *"OPEN=yes"* ]] || wrong="$wrong $id"; done
 for id in $want_closed; do [[ "$(line_for "$out" "$id")" == *"OPEN=no"* ]]  || wrong="$wrong $id"; done
 { [[ -z "$wrong" ]] && has "$out" "OPEN_COUNT=3" && has "$out" "ROUNDS=2" && has "$out" "NEXT_ROUND=3" && has "$out" "LEGACY=no" \
@@ -187,11 +188,14 @@ P="$(plan <<'EOF'
 - R1-3 · Light · Rethink · second · with a dot · follow-up → slice archive: roadmap B8
 - R1-4 · Light · Rethink · a mention of follow-up → slice archive · fixed in-phase
 - R1-5 · Lite · Rethink · a broken follow-up line · follow-up → slice archive
+- R1-6 · Heavy · Rethink · accepted at the round cap · accepted → known limit: needs a hostile author
+- R1-7 · Heavy · Local · accepted without a reason · accepted → known limit
+- R1-8 · Heavy · Nope · a broken known-limit line · accepted → known limit
 EOF
 )"
 out="$(run "$P" --followups)"
-[[ "$out" == $'FOLLOWUP=R1-1 Light · Rethink · first follow-up\nFOLLOWUP=R1-3 Light · Rethink · second · with a dot — roadmap B8\nFOLLOWUP_MALFORMED=R1-5 LINE=9' ]] \
-  && ok "--followups keeps severity, fix-nature and the resolution note, and reports a malformed follow-up line" || bad "followups (out=$out)"
+[[ "$out" == $'FOLLOWUP=R1-1 Light · Rethink · first follow-up\nFOLLOWUP=R1-3 Light · Rethink · second · with a dot — roadmap B8\nFOLLOWUP_MALFORMED=R1-5 LINE=9\nFOLLOWUP=R1-6 Heavy · Rethink · accepted at the round cap — known limit: needs a hostile author\nFOLLOWUP=R1-7 Heavy · Local · accepted without a reason — known limit\nFOLLOWUP_MALFORMED=R1-8 LINE=12' ]] \
+  && ok "--followups keeps severity, fix-nature and the resolution note, carries accepted known limits (slice-052), and reports malformed lines" || bad "followups (out=$out)"
 
 # --- near-format lines, fences, headings, IDs (review round 1: R1-3, R1-5) ---------------------------------------
 P="$(plan <<'EOF'
@@ -294,6 +298,224 @@ out="$(run "$P" --followups)"
 [[ "$out" == $'FOLLOWUP_MALFORMED=R1-2 LINE=6\nFOLLOWUP_MALFORMED=R1-1 LINE=5' || "$out" == $'FOLLOWUP_MALFORMED=R1-1 LINE=5\nFOLLOWUP_MALFORMED=R1-2 LINE=6' ]] \
   && ok "a near-format or capitalised follow-up line that cannot be read is still reported" || bad "followup malformed variants (out=$out)"
 
+# --- ping-pong breaker (slice-052) -----------------------------------------------------------------------------------
+# The breaker's counters are DERIVED from the record, never stored: rounds from the round headings, reopens from a
+# finding whose description starts `reopens <ID>:` (agents/code-reviewer.md → 2). A reopen trips only in the LATEST
+# Phase-8 round — the record is append-only, so an old reopen the human has already answered must not trip again.
+
+P="$(plan <<'EOF'
+## Review Findings
+
+### Round 1 — 2026-09-30 (Phase-8)
+
+- R1-1 · Heavy · Rethink · wrong gate · escalated → Phase 4 loop-back
+
+### Round 2 — 2026-09-30 (Phase-8)
+
+- R2-1 · Light · Local · a new nit · fixed in-phase
+EOF
+)"
+out="$(run "$P")"
+{ has "$out" "TRIP=none" && has "$out" "PHASE8_ROUNDS=2" && has "$out" "ROUND_CAP=3" && has "$out" "OPEN_HEAVY=0" \
+  && ! printf '%s' "$out" | grep -q '^REOPEN='; } \
+  && ok "breaker: a loop-back that held (no reopen) → TRIP=none, PHASE8_ROUNDS=2, ROUND_CAP=3" || bad "breaker no trip (out=$out)"
+
+P="$(plan <<'EOF'
+## Review Findings
+
+### Round 1 — 2026-09-30 (Phase-8)
+
+- R1-1 · Heavy · Rethink · wrong gate · escalated → Phase 4 loop-back
+
+### Round 2 — 2026-09-30 (Phase-8)
+
+- R2-1 · Heavy · Rethink · reopens R1-1: the gate still reads the wrong field · escalated → route pending
+EOF
+)"
+out="$(run "$P")"
+{ has "$out" "REOPEN=R2-1 OF=R1-1 SEV=Heavy KNOWN=yes" && has "$out" "TRIP=reopen:R1-1" && has "$out" "OPEN_HEAVY=1"; } \
+  && ok "breaker: a Heavy reopen in the latest round trips on the first reopen → TRIP=reopen:R1-1" || bad "breaker reopen trip (out=$out)"
+
+P="$(plan <<'EOF'
+## Review Findings
+
+### Round 1 — 2026-09-30 (Phase-8)
+
+- R1-1 · Heavy · Local · off-by-one · fixed in-phase
+
+### Round 2 — 2026-09-30 (Phase-8)
+
+- R2-1 · Light · Local · Reopens R1-1 : the comment still names the old bound · fixed in-phase
+EOF
+)"
+out="$(run "$P")"
+{ has "$out" "REOPEN=R2-1 OF=R1-1 SEV=Light KNOWN=yes" && has "$out" "TRIP=none"; } \
+  && ok "breaker: a Light reopen is reported but does not trip (case and a space before ':' tolerated)" || bad "breaker light reopen (out=$out)"
+
+P="$(plan <<'EOF'
+## Review Findings
+
+### Round 1 — 2026-09-30 (Phase-8)
+
+- R1-1 · Heavy · Local · off-by-one · fixed in-phase
+
+### Round 2 — 2026-09-30 (Phase-8)
+
+- R2-1 · Heavy · Local · reopens R1-1: still off by one · fixed in-phase
+EOF
+)"
+out="$(run "$P")"
+{ has "$out" "REOPEN=R2-1 OF=R1-1 SEV=Heavy KNOWN=yes" && has "$out" "TRIP=none" && has "$out" "OPEN_COUNT=0"; } \
+  && ok "breaker: a Heavy reopen of a line fixed in-phase (never looped back) does not trip (slice-052 R1-3)" || bad "breaker in-phase reopen (out=$out)"
+
+P="$(plan <<'EOF'
+## Review Findings
+
+### Round 1 — 2026-09-30 (Phase-8)
+
+- R1-1 · Heavy · Rethink · wrong gate · escalated → Phase 4 loop-back
+
+### Round 2 — 2026-09-30 (Phase-8)
+
+- R2-1 · Heavy · Rethink · reopens R1-1: still wrong · escalated → Phase 4 loop-back (user: one more try)
+
+### Round 3 — 2026-09-30 (Phase-8)
+
+- R3-1 · Light · Local · a nit · fixed in-phase
+EOF
+)"
+out="$(run "$P")"
+{ has "$out" "REOPEN=R2-1 OF=R1-1 SEV=Heavy KNOWN=yes" && has "$out" "TRIP=none"; } \
+  && ok "breaker: an answered reopen in an earlier round does not trip again (only the latest round counts)" || bad "breaker old reopen (out=$out)"
+
+P="$(plan <<'EOF'
+## Review Findings
+
+### Round 1 — 2026-09-30 (Phase-8)
+
+- R1-1 · Heavy · Rethink · a · escalated → Phase 4 loop-back
+
+### Round 2 — 2026-09-30 (Phase-8)
+
+- R2-1 · Light · Local · reopens R9-9: points nowhere · fixed in-phase
+- R2-2 · Light · Local · reopens R2-1: points into its own round · fixed in-phase
+EOF
+)"
+out="$(run "$P")"
+{ has "$out" "REOPEN=R2-1 OF=R9-9 SEV=Light KNOWN=no" && has "$out" "REOPEN=R2-2 OF=R2-1 SEV=Light KNOWN=no" \
+  && has "$out" "TRIP=reopen:R9-9"; } \
+  && ok "breaker: a reopen of an unknown or not-earlier ID is doubt → it trips even when Light" || bad "breaker unknown reopen (out=$out)"
+
+P="$(plan <<'EOF'
+## Review Findings
+
+### Round 1 — 2026-09-30 (Phase-8)
+
+- R1-1 · Heavy · Rethink · a · escalated → Phase 4 loop-back
+
+### Round 2 — 2026-09-30 (Phase-8)
+
+- R2-1 · Heavy · Rethink · b · escalated → Phase 4 loop-back
+
+### Round 3 — 2026-09-30 (Phase-8)
+
+- R3-1 · Heavy · Rethink · c, a new one again · escalated → route pending
+- R3-2 · Light · Rethink · d · follow-up → slice archive
+EOF
+)"
+out="$(run "$P")"
+{ has "$out" "PHASE8_ROUNDS=3" && has "$out" "OPEN_HEAVY=1" && has "$out" "TRIP=round-cap"; } \
+  && ok "breaker: round 3 closes with a Heavy open → TRIP=round-cap" || bad "breaker round cap (out=$out)"
+
+P="$(plan <<'EOF'
+## Review Findings
+
+### Round 1 — 2026-09-30 (Phase-8)
+
+- R1-1 · Heavy · Rethink · a · escalated → Phase 4 loop-back
+
+### Round 2 — 2026-09-30 (advisory)
+
+- R2-1 · Heavy · Rethink · reopens R1-1: advisory only · advisory — no route
+
+### Round 3 — 2026-09-30 (Phase-8)
+
+- R3-1 · Light · Local · e · open — fix cap, awaiting decision
+EOF
+)"
+out="$(run "$P")"
+{ has "$out" "PHASE8_ROUNDS=2" && has "$out" "TRIP=none" && ! printf '%s' "$out" | grep -q '^REOPEN='; } \
+  && ok "breaker: advisory rounds count neither as Phase-8 rounds nor as reopens; an open Light never trips" || bad "breaker advisory (out=$out)"
+
+P="$(plan <<'EOF'
+## Review Findings
+
+### Round 1 — 2026-09-30 (Phase-8)
+
+- R1-1 · Heavy · Rethink · a · escalated → Phase 4 loop-back
+
+### Round 2 — 2026-09-30 (Phase-8)
+
+- R2-1 · Heavy · Rethink · b · escalated → Phase 4 loop-back
+
+### Round 3 — 2026-09-30 (Phase-8)
+
+- R3-1 · Heavy · Rethink · c · escalated → Phase 4 loop-back
+- note · extra round granted: the user wants one more try at c
+EOF
+)"
+out="$(run "$P")"
+{ has "$out" "ROUND_CAP=4" && has "$out" "TRIP=none"; } \
+  && ok "breaker: a '- note · extra round granted' line raises the cap by one" || bad "breaker grant (out=$out)"
+
+# Each note counts, so /craft:review writes it ONCE per run (review.md cap route, slice-052 R2-2); two notes = two rounds.
+P="$(printf '## Review Findings\n\n### Round 1 — 2026-09-30 (Phase-8)\n\n- R1-1 · Light · Local · a · fixed in-phase\n- note · extra round granted: one\n- note · extra round granted: two\n' | plan)"
+out="$(run "$P")"
+has "$out" "ROUND_CAP=5" && ok "breaker: every grant note counts (two notes → ROUND_CAP=5) — hence one note per run" || bad "breaker two grants (out=$out)"
+
+P="$(plan <<'EOF'
+## Review Findings
+
+### Round 1 — 2026-09-30 (Phase-8)
+
+- R1-1 · Heavy · Rethink · a · escalated → Phase 4 loop-back
+
+### Round 2 — 2026-09-30 (Phase-8)
+
+- R2-1 · Heavy · Rethink · b · escalated → Phase 4 loop-back
+
+### Round 3 — 2026-09-30 (Phase-8)
+
+- R3-1 · Heavy · Rethink · reopens R2-1: b again · escalated → route pending
+EOF
+)"
+out="$(run "$P")"
+has "$out" "TRIP=reopen:R2-1" && ok "breaker: reopen and round cap together → the reopen names the trip" || bad "breaker both (out=$out)"
+
+P="$(plan <<'EOF'
+## Review Findings
+
+### Round 1 — 2026-09-30 (Phase-8)
+
+- R1-1 · Heavy · Rethink · a · escalated → Phase 4 loop-back
+
+### Round 2 — 2026-09-30 (Phase-8)
+
+- R2-1 · Heavy · Rethink · b · escalated → Phase 4 loop-back
+
+### Round 3 — 2026-09-30 (Phase-8)
+
+- R3-1 · Heavy · Wrong · unreadable · escalated → route pending
+EOF
+)"
+out="$(run "$P")"
+has "$out" "TRIP=round-cap" && ok "breaker: a MALFORMED line open at the cap is doubt → TRIP=round-cap" || bad "breaker malformed at cap (out=$out)"
+
+P="$(printf '# Slice\n\n## Sub-Tasks\n\n- [x] done\n' | plan)"
+out="$(run "$P")"
+{ has "$out" "TRIP=none" && has "$out" "PHASE8_ROUNDS=0" && has "$out" "ROUND_CAP=3"; } \
+  && ok "breaker: no record → TRIP=none" || bad "breaker no record (out=$out)"
+
 # --- arguments ------------------------------------------------------------------------------------------------------
 run >/dev/null; rc=$?; [[ $rc -eq 2 ]] && ok "missing plan argument → exit 2" || bad "missing arg (rc=$rc)"
 run "$ROOT/nope.md" >/dev/null; rc=$?; [[ $rc -eq 4 ]] && ok "unreadable plan → exit 4" || bad "unreadable (rc=$rc)"
@@ -333,6 +555,10 @@ if [[ -x /bin/bash ]] && [[ "$(/bin/bash -c 'echo ${BASH_VERSINFO[0]}')" -lt 4 ]
   P="$(printf '## Review Findings\n\n- Heavy · Rethink · x · escalated → route pending\n- Light · Local · y · fixed in-phase\n\n### Round 2 — 2026-09-14 (Phase-8)\n\n- R2-1 · Heavy · Rethink · z · escalated → new slice (pending)\n' | plan)"
   out="$(/bin/bash "$HELPER" "$P" 2>&1)"
   { has "$out" "OPEN_COUNT=2" && [[ "$out" != *"line "*": "* ]]; } && ok "under /bin/bash 3.2: same answer, no shell errors" || bad "bash 3.2 (out=$out)"
+  P="$(printf '## Review Findings\n\n### Round 1 — 2026-09-30 (Phase-8)\n\n- R1-1 · Heavy · Rethink · a · escalated → Phase 4 loop-back\n\n### Round 2 — 2026-09-30 (Phase-8)\n\n- R2-1 · Heavy · Rethink · reopens R1-1: again · escalated → route pending\n' | plan)"
+  out="$(/bin/bash "$HELPER" "$P" 2>&1)"
+  { has "$out" "TRIP=reopen:R1-1" && has "$out" "REOPEN=R2-1 OF=R1-1 SEV=Heavy KNOWN=yes" && [[ "$out" != *"line "*": "* ]]; } \
+    && ok "under /bin/bash 3.2: the breaker trips the same, no shell errors" || bad "bash 3.2 breaker (out=$out)"
 else
   echo "  SKIP  no bash < 4 at /bin/bash — old-bash run not exercised"
 fi
