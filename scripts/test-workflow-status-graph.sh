@@ -396,14 +396,16 @@ done <<< "$(awk -F'\t' '!seen[$2 FS $3]++' <<< "$rows")"   # dedup by (status, c
 # prescription from a prohibition — the same lesson the markers exist for, applied one level up.
 # The same shape now binds /craft:review (slice-034, roadmap B3): its Subagent Mode must not
 # restate the review loop-back — the one Step-8 definition writes `implementing` — and must
-# point at it with a token.
+# point at it with a token. So is /craft:plan's (slice-054): the autopilot's slice-planner writes
+# the plan file step 7 defines — status included — and its section only lists what differs.
 # The token's TARGET is resolved too: a token pointing at a heading that no longer carries the
 # rule's write marker is a pointer into nothing (a reviewer renamed Step 8, and separately moved
 # its marker into Step 5 — both stayed green before this check). Each entry:
 #   file | token rule | token target | target heading | marker attrs the target must carry |
 #   what the token hands to | what is lost if the token goes
 DELEGATIONS='refactor.md|phase7-dropped|preflight|Pre-flight|status=reviewing when=phase7-dropped|the Pre-flight Phase-7 gate|strips the Phase-7 drop from /craft:execute'"'"'s chain
-review.md|loop-back|step-8|Step 8|status=implementing|the Step-8 review loop-back|leaves the autonomous handoff with no pointer to the one loop-back definition — behavior is unchanged, but nothing stops the next edit from restating Step 8 there'
+review.md|loop-back|step-8|Step 8|status=implementing|the Step-8 review loop-back|leaves the autonomous handoff with no pointer to the one loop-back definition — behavior is unchanged, but nothing stops the next edit from restating Step 8 there
+plan.md|plan-file|step-7|7. Generate the plan file|status=planning|step 7'"'"'s plan-file definition|leaves the autopilot'"'"'s slice-planner with no pointer to the one plan-file definition — nothing stops the next edit from restating the template substitution (and its Status) there'
 echo "DELEGATION:"
 while IFS='|' read -r dfile drule dto dhead dattrs dgate dloss; do
 [[ -n "$dfile" ]] || continue

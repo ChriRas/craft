@@ -224,7 +224,8 @@ print it with the plugin root resolved to its absolute path — their shell has 
     damaged: `<file>` holds its complete new content — restore the epic plan from it.
   - any other `epic_plan_unwritable` (or a helper that cannot run) — nothing was changed; re-run the same command.
 
-  Until linked, `/craft:execute` A6 rejects the entry. Do not edit an entry's slice-ID by hand around the helper.
+  Until linked, `/craft:execute` A6 rejects the entry — outside an autopilot run; in one, **ap** would plan the entry
+  again and first asks about this plan as an `ORPHAN`. Do not edit an entry's slice-ID by hand around the helper.
 
 ### 9. Durable Capture — close the loop before finishing
 
@@ -357,6 +358,43 @@ Partial (post-assertion failure):
 | P4 fails (counter not incremented) | Warn loudly; user fixes `.next-id` manually before the next /craft:plan. |
 | Step 8b `link` fails or P6 fails (epic entry not linked) | Warn loudly; the slice plan stands. Give step 8b's guidance for the helper's `ERROR=` reason; never hand-edit an entry's slice-ID. |
 | P5 fails (Durable Capture skipped) | Warn loudly; the dialog's material insight may live only in chat. Capture it to the Decisions section (or `.claude/project/design/`) before /craft:build. |
+
+---
+
+## Subagent Mode (when called by `/craft:execute`)
+
+In an autopilot run's planning stage (`/craft:execute` → Autopilot run → **ap**) a `slice-planner` agent plans one epic
+entry with no human present. The brief hands it the epic plan, the entry, the **slice-ID and plan path the master already
+allocated**, and — on an `[R]` round — the human's revision note and the plan to revise. The plan file is the
+interactive procedure's: <!-- craft:delegates rule=plan-file to=step-7 --> write it exactly as **7. Generate the plan
+file** defines it, from the template, with its status and frontmatter — this section only lists what differs.
+
+- **No dialog.** Steps 1–5b are answered, not asked: from the epic plan's `## Vision` and the entry's intent, the design
+  records under `.claude/project/design/` the epic names, `intent.md` / `rules.md`, the prior slice archives and the
+  codebase. Step 5's sketch is skipped. `Depends-On:` names only slice-IDs that exist (5b's rule) — a sibling entry
+  planned in the same round has its ID in the brief.
+- **An answer you cannot give is a question, not a guess.** When the trigger, the effect or the test strategy cannot be
+  stated from those sources, write the section anyway with one line `NEEDS-HUMAN: <the question, in one sentence>` —
+  never an empty section, never an invented answer. `scripts/plan-gate-state.sh` counts these lines, and the plan gate
+  withholds `[Y]` until none is left. The same holds for a decision the plan depends on that only the human can take.
+- **The verify block is required.** `## Test Strategy` carries a `<!-- craft:verify -->` block (grammar: the header of
+  `scripts/verify-run.sh`) with at least one check that exercises the trigger and asserts the effect — it is how an
+  autopilot run passes Phase 5 without a human (D35). A slice whose effect no command can check gets a `NEEDS-HUMAN:`
+  line saying so.
+- **The pipeline marker.** Add the frontmatter line `> Planned-by: autopilot` directly below `> Depends-On:`. It is what
+  makes the plan await the gate (`scripts/plan-gate-state.sh`); a hand-planned slice never carries it.
+- **Steps 6, 8 and 8b are the master's.** Use the ID and path from the brief; never read or write `.claude/plans/.next-id`
+  and never run `epic-entry-link.sh link` — parallel planners would race on both.
+- **Step 9 and the post-assertions** run as written, except P4 and P6 (the master's). P5's decisions include every
+  judgment call the plan rests on that the sources did not settle, so the human sees them at the gate.
+- **An `[R]` round** rewrites the named plan in place, same ID and path, taking the note as the human's answer — a
+  `NEEDS-HUMAN:` line the note answers is replaced by the answer. Record the revision as a decision line. An entry whose
+  first planning failed has no plan file yet: plan it fresh at the given ID and path, the note as context.
+- **Write `NEEDS-HUMAN:` plainly** — at the start of its own line, or as a list item; `scripts/plan-gate-state.sh` also
+  reads a checkbox, a number or bold around the marker, never a mention mid-sentence.
+
+Return one line — `PLANNED slice-<NNN> <path> NEEDS_HUMAN=<n>`, or `FAILED slice-<NNN> <reason>` when no plan file
+could be written — and nothing else the master would have to read.
 
 ---
 

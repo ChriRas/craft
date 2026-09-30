@@ -318,7 +318,8 @@ rules exist because each was, at some point, the hole a reviewer walked through:
 - a command must not restate another's rule. `/craft:refactor`'s Subagent-Mode section **delegates**
   to the single Phase-7 gate instead of carrying its own copy, and marks that with a
   `<!-- craft:delegates rule=<r> to=<target> -->` token. `/craft:review`'s Subagent-Mode section
-  does the same for the review loop-back (`rule=loop-back to=step-8`). The harness asserts the token is present,
+  does the same for the review loop-back (`rule=loop-back to=step-8`), and `/craft:plan`'s for the plan file
+  the autopilot's `slice-planner` writes (`rule=plan-file to=step-7`). The harness asserts the token is present,
   that the delegating section declares no status write of its own — neither a `craft:writes`
   marker nor a `Status: <x>` literal in its prose — **and** that the token's target resolves: the named
   heading exists and carries the rule's write marker. Every token in `commands/` must also have an entry
