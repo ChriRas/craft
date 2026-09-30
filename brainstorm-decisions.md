@@ -1240,6 +1240,38 @@ Decision:
 - **Scope** — tiering the user's own settings (recursive removal denied, single-file on ask) is the
   user's work, not CRAFT's.
 
+### D35 — Autopilot Verifies by Command, Not by Report; the User's Rules Govern the Checks
+
+> Decided 2026-09-30 while planning slice-051 (epic-003 entry `autonomous-verification`, design
+> record Q2). Scope: Phase 5 inside an autopilot run only; outside it, D21 / D33 apply unchanged.
+
+Q2 replaced the autopilot's Phase-5 stop with an agent-run end-to-end check. slice-045 and slice-049
+showed that an agent's report is no evidence — a worker misreported its wait, probed masters reported
+complete runs that the files contradicted — and `rules.md` already makes files, not reports, decide a
+probe verdict.
+
+Decision:
+
+- **A helper runs the checks and writes the evidence.** A slice's `## Test Strategy` carries a
+  machine-readable `<!-- craft:verify -->` block; `scripts/verify-run.sh` executes it and appends the
+  evidence round to the plan itself. The builder never judges its own verification. *Why not* the
+  builder running the prose Test Strategy: the verdict would be its own report.
+- **Only a clean pass replaces the stop.** A failing check, a missing block or a refused one is
+  today's Phase-5 stop (`awaiting-test`, the run stops), with the evidence named for the human's
+  `[W]/[B]/[U]`. A debug loop before the stop belongs to the ping-pong breaker.
+- **The user's rules govern the checks too.** A command run inside `bash verify-run.sh` never reaches
+  Claude Code's permission check, so every check command is matched against the deny / ask rules of
+  every settings level a script can read — the matcher D34's `delete-mode.sh` uses, one shared
+  definition — before any check runs; a match or doubt refuses the whole block. The matcher splits and
+  unwraps a command the way Claude Code does (subcommands, substitutions, wrappers, assignments) and
+  goes further where that only adds refusals (a program's basename, `env` / `sudo`, the string of
+  `bash -c`). *Unlike D34 there is no backstop:* a form the matcher does not see simply runs. Known
+  limits: commands inside a script or file a check calls, `eval`, aliases and functions, interpreters
+  other than the shells (`python -c`, `perl -e`). The checks are the plan's committed Test Strategy,
+  written before the code and read by the human at planning.
+- **The human keeps the product feel.** Each slice's demo block is collected into the epic plan's
+  `## UX Demo Script`, walked by the human at the epic-end sign-off.
+
 ---
 
 ## 7. Carry-Over to Next Clusters
