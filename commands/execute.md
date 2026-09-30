@@ -1,5 +1,5 @@
 ---
-description: Autonomously execute an epic or single slice. Parallel worktree mode (default) creates parallel git worktrees and delegates Phase 4–7 to subagents per slice, merging into an epic-branch; in-place mode builds a single slice on a branch in the main checkout, halts before Phase 5 for IDE review (resumed via /craft:release); sequential epic mode runs an epic's slices one-by-one in place, landing each per slice — committed directly on the trunk (direct) or via an approved PR (pull-request/protected-main) — with a review halt between; `--autopilot` runs an epic's slices one-by-one in place on its epic branch with foreground slice-builders and no halt between them, stopping only where a human is needed and asking at the end whether to merge into main.
+description: Autonomously execute an epic or single slice. Parallel worktree mode (default) creates parallel git worktrees and delegates Phase 4–7 to subagents per slice, merging into an epic-branch; in-place mode builds a single slice on a branch in the main checkout, halts before Phase 5 for IDE review (resumed via /craft:release); sequential epic mode runs an epic's slices one-by-one in place, landing each per slice — committed directly on the trunk (direct) or via an approved PR (pull-request/protected-main) — with a review halt between; `--autopilot` runs an epic's slices one-by-one in place on its epic branch with foreground slice-builders and no halt between them — planning unplanned entries with slice-planner agents behind one plan gate first — stopping only where a human is needed and asking at the end whether to merge into main.
 argument-hint: "<epic-NNN [--autopilot] | slice-NNN>"
 allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "Task"]
 ---
@@ -115,6 +115,10 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/epic-entry-link.sh" resolve "<epic-plan>"
 - `ambiguous` → *"several plans carry `<SLICE>` — remove the stray plan"*.
 
 A helper that cannot run rejects too. Then read each resolved plan's `Depends-On:` frontmatter, build the dependency graph and reject a cycle.
+
+**In an autopilot run, `unlinked` and `missing` do not reject:** those entries are the planning stage's work (Autopilot
+run → **ap**, after the lock), which plans them and runs this assertion again once the human has approved the plans.
+Every other rejection above stands, and the dependency graph here covers the entries that already resolve.
 
 For a single slice target: trivially one-node graph. If the slice has `Depends-On: [...]` entries that are not yet committed (not present in `.claude/project/slices/`), abort: *"`slice-NNN` depends on slices that have not yet been committed: `<list>`. Either commit them, run them as an epic, or remove the dependency."* Note: lone-slice mode performs only a depth-1 dependency check; transitive cycles via already-archived slices are not re-validated because archived slices were cycle-checked at their own execute time.
 
@@ -546,7 +550,9 @@ human says yes at the end (a5).
 failure all stop the run (a2), and so does Phase 5's `[W]/[B]/[U]` — unless the slice's committed checks pass by command
 (`/craft:test` → Subagent Mode step 0a, D35); the product feel then goes to the human at a5 through `## UX Demo Script`.
 What the run takes over is only what needs no judgment: the order, the resume, the spawn, the commit split and the `[K]`
-default. Removing further stops is the work of later epic-003 slices.
+default. Planning an entry nobody planned is no longer a rejection either: `slice-planner` agents plan it and the
+human approves the package once, at the plan gate (**ap**) — the run's one stop before it builds. Removing further
+stops is the work of later epic-003 slices.
 
 ### a0 — Preconditions and the epic branch (after A4, before A6 and before the lock)
 
@@ -570,18 +576,16 @@ relaunch its message asks for does not trip A4.
      status is most likely that slice's work, carried along when the human left the epic branch: name
      `git checkout <epic-branch>` as the fix, which carries it back — never "commit or stash", which would put slice
      work on the trunk. Name commit or stash only when no slice of the epic is in flight.
-4. **Then** A6–A7 run, the lock is taken (Procedure step 1), and step 1c runs with the epic branch as the trunk (step
-   1c, *autopilot run*). A `wrong_branch` or `dirty_without_open_slice` there aborts as step 1c says.
+4. **Then** A6–A7 run, the lock is taken (Procedure step 1), **ap** plans what A6 left unplanned, and step 1c runs with
+   the epic branch as the trunk (step 1c, *autopilot run*). A `wrong_branch` or `dirty_without_open_slice` there aborts
+   as step 1c says.
 
-### a1 — Run-start briefing (once per invocation, before the first spawn)
+### The Autopilot Log — before the first line any step writes
 
-Emit the briefing block (Output Format → *Autopilot — briefing*): builds in place on `<epic-branch>`, `main` untouched
-until the end; the checkout is occupied — do not edit files or switch branches in it while the run lasts; the slice
-order with what step 1c found (to build, to resume, landed); where it stops for you; how to stop (Esc — a re-run of
-the same command resumes from disk) and that a stopped run is resumed the same way. If the epic plan has no
-`## Autopilot Log` (an epic planned before the template carried it), insert the section directly above `## Recap
-Draft` — its place in the template — or at the end of the file when that heading is absent. Drop its `(no autopilot
-run yet)` line if present, and log `▶ · <epic-id> · run started`.
+Every step from ap on logs to the epic plan's `## Autopilot Log`. Before the first line of an invocation: if the epic
+plan has no `## Autopilot Log` (an epic planned before the template carried it), insert the section directly above
+`## Recap Draft` — its place in the template — or at the end of the file when that heading is absent. Whether inserted
+or already there, drop its `(no autopilot run yet)` line if present. `plan-gate-state.sh` reads the gate's approval only from that section.
 
 **The log.** One line per event in the epic plan's `## Autopilot Log`, appended as the **last line of that section** —
 directly above the next `## ` heading, or at the end of the file when the section is the file's last — never below
@@ -591,6 +595,101 @@ another section's heading (a human test's first line landed below `## Recap Draf
 minutes for a run of two and a half (slice-049). **Write the log line first, then print it** — every `▶ / ✓ / ⛔ / ■` the master prints has its line, on every invocation, a resume included
 (a probe's re-run printed its `✓` and logged nothing, slice-049). It is the run's durable record: a new session
 re-reads it instead of any chat history.
+
+### ap — Plan the unplanned entries, then the plan gate (after the lock, before step 1c)
+
+The one human stop an autopilot run keeps before it builds (design record §9 Q1): agents plan, the human approves the
+package once. Whether the gate is still owed is derived, never stored —
+
+```
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/plan-gate-state.sh" "<epic-plan>"
+```
+
+— run from the project root; its output lines and what each state means are defined in its header. **Skip ap** when A6
+found no `unlinked` or `missing` entry **and** the helper prints `RESULT=clear`: a hand-planned epic, or one whose plans
+the human already approved, runs as before. A helper that cannot run stops the run `⛔` (release the lock): without
+it, nothing can say the gate was passed.
+
+0. **Plans no entry links — ask first.** Only when A6 found an `unlinked` or `missing` entry and the helper reports
+   `ORPHAN_COUNT` above 0: an active plan no epic entry links may already plan one of those entries (a hand re-plan, a
+   failed link, a planner cut off by Esc), and planning the entry again would build it twice. Whether it does is a
+   content call, so ask — Level 0, before any planner runs — listing each `ORPHAN` line with the plan's title:
+   `[P]` plan the unplanned entries anyway (the orphans are unrelated) · `[N]` stop, release the lock, and link or
+   abort them first (`bash "<plugin-root>/scripts/epic-entry-link.sh" link "<epic-plan>" "<entry>" <slice-id>`, or
+   `/craft:abort <slice-id>`). Log `▶ · <epic-id> · orphan plans: plan anyway — <slice-ids>` for `[P]`, or
+   `■ · <epic-id> · orphan plans: stopped — <slice-ids>` for `[N]`.
+   **No `unlinked` or `missing` entry** (a re-run that owes only the gate) → skip 0–3 and go to 4.
+1. **Allocate.** For every `unlinked` or `missing` entry, in decomposition order: take the next slice-ID from
+   `.claude/plans/.next-id` (its A4 rule in `/craft:plan`: a missing file means `001`, a non-integer stops the run) and
+   the plan path `.claude/plans/slice-<NNN>-<short-name>.md` (a taken path gets `/craft:plan`'s `-2`, `-3` suffix). Write
+   `.next-id` **once**, past the last ID. Log `▶ · <epic-id> · planning <k> entries: <slice-id> (<entry>), …`.
+2. **Spawn the planners.** Settle the model: follow `model-defaults.md` → **Spawn-Reachable Values** → *What a spawn site
+   must do*, for the agent `slice-planner` — defined once, there. **If that file cannot be resolved** — neither
+   `${CLAUDE_PLUGIN_ROOT}/model-defaults.md` nor `<project-root>/model-defaults.md` exists — spawn `slice-planner` with
+   **no** `model` parameter, and emit `⚠ Could not read model-defaults.md — spawning slice-planner without a model; a
+   project override, if any, was dropped.` (stated here because the pointer cannot deliver it, B-R7-1). Then spawn one
+   `slice-planner` per entry via `Task`, all in one message, each with: the epic plan path, its entry (short-name and
+   intent), its slice-ID and plan path, the other entries' IDs, and the plugin root `${CLAUDE_PLUGIN_ROOT}` resolved to
+   its absolute path. Each spawn must return in the foreground, as a2's does. Correctness does not depend on the spawns
+   running side by side: every file they write was allocated to them in 1.
+3. **Link.** For each `PLANNED slice-<NNN> <path>` line, link its entry —
+   `bash "${CLAUDE_PLUGIN_ROOT}/scripts/epic-entry-link.sh" link "<epic-plan>" "<entry>" slice-<NNN>` — and log
+   `▶ · <slice-id> · planned from entry <entry>`. A `FAILED` line, a missing line, or a link `ERROR=` leaves that entry
+   **failed**: log it `⛔`, keep its ID reserved (IDs are never handed out twice), and carry it to the gate.
+4. **Check the package.** Per awaiting plan: `/craft:plan`'s P1–P3 on the file, and a `<!-- craft:verify -->` block in
+   `## Test Strategy`. Over all the epic's plans: A6's dependency rule — every `Depends-On:` ID resolves, and the graph
+   has no cycle; a violation is a failed check on the plans it names. Then run `plan-gate-state.sh` again; its `PLAN … GATE=awaiting` lines are the package, its
+   `NEEDS_HUMAN=` counts are the open questions.
+5. **The gate** — Level 0. Log `▶ · <epic-id> · plan gate shown: <slice-id>, …`, then emit *Autopilot — plan gate*
+   (Output Format): per awaiting plan its title, the `## Goal` sentence, Trigger / Effect / Test in one line each, the
+   sub-task count, `Depends-On`, the verify-check count, every `NEEDS-HUMAN:` line as written and every failed check;
+   every failed entry with its reserved ID; then how the run will go (a1's briefing lines, with the order from `Depends-On`). Offer `[Y]` only
+   when no plan failed a check, no entry failed, and `NEEDS_HUMAN_COUNT=0`:
+   - **`[Y]`** → log `✓ · <epic-id> · plan gate approved: <every awaiting slice-id, comma-separated>` — the line
+     `plan-gate-state.sh` reads, so it names every plan the human saw — then run A6 again (every entry must resolve
+     now, the dependency graph over all plans) and go on with step 1c.
+   - **`[R] <slice-id>[, …] — <note>`** — a failed entry is named by the reserved ID the gate shows on its line → log `▶ · <epic-id> · plan gate revise: <slice-ids> — <note>`, spawn
+     `slice-planner` again for each named slice with the note and the plan to revise — a failed entry that has no plan
+     file is planned fresh at its reserved ID and path, the note as context (step 2's model rule) — link a failed entry
+     that now returns `PLANNED` (3), then back to 4.
+   - **`[N]`** → log `■ · <epic-id> · plan gate: stopped, plans kept`, release the lock, and name the plan paths: edit
+     them by hand, then `/craft:execute <epic-NNN> --autopilot` shows the gate again.
+
+The master judges none of the plans' content — see *Who decides what* below. Esc during ap leaves what was written:
+allocated IDs stay spent, linked plans await the gate, and a re-run plans only the entries still unlinked. A plan
+written but not yet linked when Esc came has no entry: the re-run reports it as an `ORPHAN` and step 0 asks.
+
+### Who decides what in an autopilot run
+
+The master and `slice-builder` run on the execute tier (a0 item 2, `model-defaults.md`) and decide **only what a helper
+reports**; judgment goes to a
+deep-reason agent or to the human (design record §4, the master's condition). A decision this table does not list is
+not the master's: it stops the run and asks.
+
+| Decision | Made by | Read off |
+|---|---|---|
+| Which entries need planning, which slice runs next, resume or create | master | `epic-entry-link.sh resolve`, `execute-resume-state.sh` |
+| Which slice-IDs to use | master | `.claude/plans/.next-id` |
+| What a plan says — trigger, effect, test, sub-tasks, dependencies | `slice-planner` (deep-reason) | its sources; open questions as `NEEDS-HUMAN:` |
+| Whether the gate is owed | master | `plan-gate-state.sh` |
+| Whether the package is right | **the human**, at the gate | the gate block |
+| Whether Phase 5 passed | `slice-builder` (execute tier), in its spawn | `verify-run.sh`'s result line (`/craft:test` → Subagent Mode 0a) |
+| What a review finds, whether a fix holds | `code-reviewer` (deep-reason) | the diff and the plan |
+| Loop back or escalate after a review | `slice-builder` (execute tier), in its spawn | `review-findings-state.sh` (`TRIP=`, `/craft:review` → Step 9) |
+| Whether a debug attempt fixed it | `slice-builder` (execute tier), in its spawn | `verify-run.sh` against the frozen protocol |
+| How the slice passed Phase 5, for the landed line | master, at a3 | the plan's `## Verification Evidence` |
+| Scope, blockers, direction | **the human** | the `⛔` stop |
+| Merge into the trunk | **the human**, at a5 | the digest |
+
+### a1 — Run-start briefing (once per invocation, before the first `slice-builder` spawn)
+
+Emit the briefing block (Output Format → *Autopilot — briefing*): builds in place on `<epic-branch>`, `main` untouched
+until the end; the checkout is occupied — do not edit files or switch branches in it while the run lasts; the slice
+order with what step 1c found (to build, to resume, landed); where it stops for you; how to stop (Esc — a re-run of
+the same command resumes from disk) and that a stopped run is resumed the same way. When ap showed the plan gate in
+this invocation, the human has just read those lines there: print only the order line. Then log
+`▶ · <epic-id> · run started`.
+
 
 ### a2 — Build a slice: s2 with a foreground builder
 
@@ -756,9 +855,12 @@ and the current slice landed, cleanly-halted, or awaiting-approval on its PR bra
 
 `git worktree list --porcelain` shows only the main worktree; the trunk points where it pointed before the run, unless
 a5 merged on the human's yes; the epic plan's `## Autopilot Log` and the epic branch agree **in both directions** —
-every `✓` names a slice whose archive exists and whose `Slice:` commits are on the epic branch (`git log <epic-branch>
+every `✓` on a slice-ID names a slice whose archive exists and whose `Slice:` commits are on the epic branch (`git log <epic-branch>
 --grep "Slice: <slice-id>"`), and every slice landed in this invocation has its `✓` line; and the run ended
-at a `⛔` stop (the checkout on the epic branch, the stopped slice's plan at the status it stopped at) or at a5.
+at a `⛔` stop (the checkout on the epic branch, the stopped slice's plan at the status it stopped at), at ap step 0's
+or the plan gate's `[N]`, or at a5. When **ap** ran in this invocation: `.next-id` lies past every ID its `planning` line allocated, every `planned from
+entry` line this invocation wrote names a plan that `epic-entry-link.sh resolve` reports `STATE=plan` or `landed`, and a slice was built only
+after a `plan gate approved` line that `plan-gate-state.sh` reads as covering every pipeline plan (`RESULT=clear`).
 
 Failure → *"⚠ Autopilot run in an unexpected state — inspect `git log <epic-branch>`, the trunk, `## Autopilot Log`
 and the slice plans."*
@@ -857,6 +959,22 @@ Sequential epic — complete:
    Recommended next: /craft:prime to refresh, or /craft:plan for the next epic.
 ```
 
+Autopilot — plan gate (ap):
+
+```
+▶ Autopilot plan gate — epic-<NNN> "<title>": <k> slice(s) planned by agents, awaiting your approval
+   slice-<a> "<title>" — <## Goal sentence>
+      Trigger: <one line>   Effect: <one line>   Test: <one line>
+      Sub-tasks: <n>   Depends-On: <ids or none>   Checks: <n verify checks>
+      NEEDS-HUMAN: <the question, as written>          (only when open)
+      ⚠ <failed check>                                 (only when one failed)
+   …
+   ⛔ slice-<NNN> (entry `<entry>`) could not be planned: <reason>   (only for a failed entry — its reserved ID)
+   How the run will go: <a1's briefing lines — branch, occupied checkout, order from Depends-On, stops, Esc / resume>
+   [Y] approve and run   [R] <slice-id>[, …] — <note>: revise these   [N] stop, keep the plans
+   ([Y] is offered only when nothing above is open or failed.)
+```
+
 Autopilot — briefing (a1):
 
 ```
@@ -941,6 +1059,9 @@ Review checkpoint reached:
 | User interrupts (signal, `/craft:pause`) | Drop into pause: <!-- craft:writes status=paused --> pause every slice whose `slice-builder` is still running (not yet collected as Success, Handoff, Held or Failure) and that is not `blocked` — `Status: paused` with the pause record (`skills/workflow/SKILL.md` → **Pause record**) and a Pause Note — in the plan copy that slice is built from: the slice worktree's in parallel mode, the main checkout's in in-place and sequential mode. Slices already stopped keep their plan and marker untouched. Release the lock, stop. |
 | P1–P4 fail | Warn loudly. The user reconciles manually. Do not retry automatically. |
 | Autopilot (a0): background tasks not disabled, or the checkout is on neither the epic branch nor a clean trunk | Stop before anything is created — a0 runs before the lock, so none is held — with the launch command or the branch to fix (for a dirty trunk while a slice is in flight: `git checkout <epic-branch>`, a0 item 3). |
+| Autopilot (ap): `plan-gate-state.sh` cannot run, `.next-id` is not an integer, or the second A6 after `[Y]` rejects | Stop `⛔` and release the lock; nothing is built. The gate is never assumed passed. |
+| Autopilot (ap): a planner returns `FAILED`, returns nothing, or its entry cannot be linked | The entry is *failed*: logged `⛔`, its ID stays reserved, and the gate lists it and withholds `[Y]` — `[R]` re-plans it, `[N]` leaves it to the human. A link that failed leaves its written plan behind unlinked: the next run reports it as an `ORPHAN` (ap step 0) — link it by hand or `/craft:abort` it. |
+| Autopilot (ap): active plans no entry links while entries are unplanned | Step 0 asks before any planner runs: `[P]` plan anyway, `[N]` stop and link or abort them first. The master never decides that a plan refines an entry. |
 | Autopilot (a2): a spawn came back in the background | Wait for that builder's report, then stop the run (`⛔`); start nothing else. |
 | Autopilot: the human presses Esc during a spawn | The exception to the interrupt row above: the run ends where it was, and nothing is paused or rewritten for it — a paused slice would be `held` and need a `/craft:continue` before the re-run, where a slice left at its execution status simply resumes: the slice plan keeps the status the builder last wrote and the lock stays held — a re-run from the same Claude Code session finds it `DECISION=confirm` (`REASON=own_process`) and A4 asks whether the run ended — it did, so answer `[N]` — from another one A4 names it; re-run `/craft:execute epic-<NNN> --autopilot`; step 1c reads the slice as `ACTION=resume`. |
 | Autopilot (a5): the merge into the trunk conflicts | Stop; surface the conflict and release the lock. Never resolve it; the epic branch is intact. |
@@ -949,9 +1070,9 @@ Review checkpoint reached:
 
 ## What This Command Does NOT Do
 
-- It does **not** plan. Run `/craft:plan` (slice) or `/craft:epic` (epic) first.
+- It does **not** plan — outside an autopilot run. Run `/craft:plan` (slice) or `/craft:epic` (epic) first. (An autopilot run plans an epic's unplanned entries in **ap**, behind the plan gate.)
 - It does **not** merge the epic-branch (or lone-slice-branch) into `main`. `/craft:commit` does that, after user review. The one exception is an autopilot run's a5, and only on the human's `[Y]`.
-- In an **autopilot run** it does **not** remove a human stop, run the phase commands in the master, write `intent.md` / `rules.md`, push anything but the epic branch on a5's `[Y]` under protected main, or close the epic plan.
+- In an **autopilot run** it does **not** remove a human stop, run the phase commands in the master, judge a plan's content (the planners and the human at the gate do — *Who decides what*), build anything the plan gate has not approved, write `intent.md` / `rules.md`, push anything but the epic branch on a5's `[Y]` under protected main, or close the epic plan.
 - It does **not** clean up worktrees. `/craft:archive` (Phase 9) does that after the user has confirmed merge-to-main.
 - It does **not** auto-resolve Heavy + needs-rethinking findings. Those escalate to the user via Handoff.
 - It does **not** modify `intent.md` or `rules.md`. Architectural decisions surfaced inside a slice live in that slice's `## Decisions Made During This Slice` for Phase 9 promotion.

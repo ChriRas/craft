@@ -16,7 +16,7 @@
 
 > Initial decomposition into vertical slices. Each entry is a candidate `/craft:plan`
 > invocation later; treat the list as a roadmap, not a contract. Update as slices land.
-> `/craft:plan` writes the slice-ID into an entry when it plans it — do not add or change it by hand. The entry
+> `/craft:plan` (or an autopilot run's planning stage) writes the slice-ID into an entry when it plans it — do not add or change it by hand. The entry
 > format is defined by the CRAFT plugin's `scripts/epic-entry-link.sh`; `/craft:execute` A6 resolves entries through it.
 
 - [ ] {{slice_1_short_name}} — {{slice_1_one_line_intent}}
@@ -53,8 +53,9 @@
 
 ## Autopilot Log
 
-> Appended by `/craft:execute <epic> --autopilot`, one line per event (`▶` run or slice started, `✓` landed on the epic
-> branch, `⛔` stopped for a human, `■` run ended). The run's durable record; never rewritten.
+> Appended by `/craft:execute <epic> --autopilot`, one line per event (`▶` run, planning or slice started, `✓` landed on
+> the epic branch or plan gate approved, `⛔` stopped for a human, `■` run ended). The run's durable record; never
+> rewritten — `scripts/plan-gate-state.sh` reads the plan gate's approval line from it.
 
 (no autopilot run yet)
 
