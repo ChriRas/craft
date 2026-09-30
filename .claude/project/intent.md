@@ -81,6 +81,8 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
   stamp, or its review round — so a status re-entered for another reason never revives it; the human's
   answer moves the plan off `paused` in one place (`/craft:continue`), and a value the helper cannot
   confirm still means live.
+  So do the review ping-pong breaker's counters (slice-052): rounds and reopens are read from the findings record by
+  `review-findings-state.sh`, never stored — a counter a writer forgets to bump cannot exist.
 - **CRAFT's own files are not the human's work (slice-039)** — which paths count as uncommitted
   work is decided once, by `scripts/tree-dirt-state.sh`: plans, ID counters and local state never
   block `/craft:execute` or `/craft:commit`. The flip side is that a command commits only what it
