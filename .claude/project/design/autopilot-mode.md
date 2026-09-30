@@ -159,6 +159,15 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
 
 ## 5. Ping-pong breaker
 
+> **Built by slice-052 (2026-09-30), narrower than drafted below.** Finding IDs are `R<round>-<n>` (slice-034/037), and
+> the reviewer's prior-round verdicts are `holds | partial | broken | out of scope | worse` (slice-037). The counters are
+> **derived** from `## Review Findings` by `scripts/review-findings-state.sh` (`TRIP=`, `REOPEN=`, `ROUND_CAP=`), never
+> stored. **Trip rules as built:** a Heavy reopen (`reopens <ID>:`) of a looped-back line in the latest Phase-8 round — each Heavy + Rethink
+> finding gets **one** autonomous loop-back (§3) — or round 3 closing with a Heavy still open; the "builder disputes
+> twice" rule was dropped (no dispute record; the Heavy threshold "needs a realistic failure" does its job). On a trip:
+> `blocked` (`decision`) with a ≤15-line package — `commands/review.md` → Step 9. The protocol freeze and the debug loop
+> below moved to epic-003's `autonomous-debug-loop` entry. The draft is kept for history.
+
 - Every review finding gets a stable ID (`F<round>-<n>`). From round 2 on, the reviewer receives
   the previous findings and must mark each `resolved | still-open | disputed` before adding new ones.
 - **Deterministic trip rules** (counters written to the slice plan, not held in prose):
