@@ -321,6 +321,7 @@ sites would have started raising `InputValidationError`.
 | Phase | Phase Command | Delegating Subagent | Model |
 |---|---|---|---|
 | 3 — Plan | `/craft:plan` | — (dialogic, runs in main session) | session |
+| 3 — Plan (autopilot run) | `/craft:execute` | `slice-planner` | `opus` |
 | 4 — Execute | `/craft:execute` | `slice-builder` | `sonnet` |
 | 5 — Test | `/craft:test` | — (user-driven, no delegation) | session |
 | 6 — Recap | `/craft:recap` | — (user-driven dialog) | session |
@@ -329,7 +330,7 @@ sites would have started raising `InputValidationError`.
 | 9 — Commit | `/craft:commit` | — (mechanical, no delegation) | session |
 | Debug (escalated) | `/craft:debug` step 3 | — (interactive loop, session) | session |
 
-Phase 3 and Debug stay on the session model because their value is interactive: the
+Outside an autopilot run, Phase 3 and Debug stay on the session model because their value is interactive: the
 three universal planning questions and the AUTONOMOUS LOOP's per-attempt
 streaming + user-pause UX, respectively. A subagent reports back through a single
 hand-back message — it cannot stream incremental bundles or honour a mid-loop user
@@ -337,6 +338,10 @@ pause, whether it runs in the foreground or (the default) in the background.
 Delegating either phase would either break the interaction or require routing every
 turn through a subagent boundary, which is fragile. Users who want a deep-reason model
 for these phases switch the session model before invoking the command.
+
+Inside an autopilot run there is no one to ask, so the planning stage delegates Phase 3 per epic entry
+to `slice-planner` (`/craft:plan` → Subagent Mode, slice-054); what it cannot answer it leaves as a
+question for the human's plan gate. The debug loop there runs inside `slice-builder` (slice-053).
 
 > **Note on delivery.** Subagents do not block their parent by default: a spawn is
 > backgrounded, the parent's turn ends, and the **same** report can arrive repeatedly — three
@@ -443,7 +448,7 @@ So the choice follows the agent's shape, not its tier:
 - **1h** — an agent that waits: long test suites, external services, anything that idles
   inside a tool call. `slice-builder`, E2E verification.
 - **5m (default, no `experimental` block)** — a short-burst agent that reads, reasons and
-  reports without waiting. `code-reviewer`, planners, digests.
+  reports without waiting. `code-reviewer`, `slice-planner`, digests.
 
 How cache writes count against the 5h / 7d rate windows is not documented, so the
 break-even above is list price only; calibration decides the real figure. The setting
