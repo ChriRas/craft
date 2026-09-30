@@ -286,6 +286,51 @@ out="$(run "$F")"
 { [[ -n "$ex" ]] && [[ "$(field RESULT "$out")" == pass ]]; } \
   && ok "the slice-plan template's example line ('$ex') is valid grammar" || bad "template example (ex=$ex, out=$out)"
 
+echo "== 7d. --only runs a named subset (slice-053: the Phase-4 debug loop's verdict)"
+run_only() { # fixture names — verify-run.sh --only <names> on the fixture's plan
+  HOME="$1/home" CRAFT_TEST_MANAGED_DIR="$1/managed" bash "$VERIFY" --project "$1/proj" --only "$2" plan.md 2>&1
+}
+F="$(new_fixture)"; plan "$F" <<'EOF'
+<!-- craft:verify -->
+- check aa :: exit=0 :: touch RAN-AA
+- check bb :: exit=0 :: touch RAN-BB
+- check cc :: exit=0 :: touch RAN-CC; exit 1
+EOF
+out="$(run_only "$F" aa,bb)"
+{ [[ "$(field RESULT "$out")" == pass ]] && [[ "$(field CHECKS "$out")" == 2 ]] && [[ "$(field ONLY "$out")" == "aa,bb" ]] \
+  && [[ -e "$F/proj/RAN-AA" && -e "$F/proj/RAN-BB" && ! -e "$F/proj/RAN-CC" ]]; } \
+  && ok "--only aa,bb runs exactly those two (cc, which would fail, never ran): RESULT=pass, CHECKS=2, ONLY=aa,bb" \
+  || bad "--only subset (out=$out)"
+{ grep -q '^### Run 1 — .* · review rounds: 0 · only: aa,bb$' "$F/proj/plan.md" \
+  && grep -q '^- result · pass · 2/2 selected checks passed$' "$F/proj/plan.md" \
+  && ! grep -q '^- result · pass · [0-9]*/[0-9]* checks passed' "$F/proj/plan.md"; } \
+  && ok "a subset round says so in its heading and result line — it never reads as a Phase-5 pass" || bad "--only evidence round"
+out="$(run "$F")"
+{ [[ "$(field RESULT "$out")" == fail ]] && [[ "$(field ONLY "$out")" == - ]] && [[ "$(field FAILED "$out")" == cc ]]; } \
+  && ok "without --only the whole block runs, as before (ONLY=-)" || bad "full run after --only (out=$out)"
+
+F="$(new_fixture)"; plan "$F" <<'EOF'
+<!-- craft:verify -->
+- check aa :: exit=0 :: touch RAN-AA
+EOF
+out="$(run_only "$F" aa,zz)"
+{ [[ "$(field RESULT "$out")" == fail ]] && [[ "$(field REASON "$out")" == "malformed:unknown_only_zz" ]] && [[ ! -e "$F/proj/RAN-AA" ]]; } \
+  && ok "an --only name the block does not have: malformed, nothing ran" || bad "--only unknown (out=$out)"
+out="$(HOME="$F/home" CRAFT_TEST_MANAGED_DIR="$F/managed" bash "$VERIFY" --project "$F/proj" --only "" plan.md 2>&1)"; rc=$?
+{ [[ $rc -eq 2 ]] && [[ "$out" == *"ERROR=empty_only"* ]]; } && ok "an empty --only is a usage error (exit 2)" || bad "--only empty (rc=$rc out=$out)"
+
+F="$(new_fixture)"; rules "$F" deny "Bash(touch RAN-BB:*)"; plan "$F" <<'EOF'
+<!-- craft:verify -->
+- check aa :: exit=0 :: touch RAN-AA
+- check bb :: exit=0 :: touch RAN-BB
+EOF
+out="$(run_only "$F" bb)"
+{ [[ "$(field RESULT "$out")" == refused ]] && [[ ! -e "$F/proj/RAN-AA" && ! -e "$F/proj/RAN-BB" ]]; } \
+  && ok "a selected check a deny rule matches: refused, nothing ran" || bad "--only refused (out=$out)"
+out="$(run_only "$F" aa)"
+{ [[ "$(field RESULT "$out")" == pass ]] && [[ -e "$F/proj/RAN-AA" && ! -e "$F/proj/RAN-BB" ]]; } \
+  && ok "an unselected check is neither judged nor run — the full Phase-5 run judges it" || bad "--only unselected rule (out=$out)"
+
 echo "== 8. no removal, no python3"
 body="$(awk '/python3 -c '"'"'$/{f=1;next} f&&/^'"'"' "\$COMMAND"\)"$/{exit} f' "$MATCHER")"
 { [[ -n "$body" ]] && [[ "$body" != *"'"* ]]; } \
