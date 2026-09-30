@@ -13,7 +13,13 @@
 # refuses the whole block before anything runs.
 #
 # WHAT -----------------------------------------------------------------------
-#   verify-run.sh --project <dir> <plan>
+#   verify-run.sh --project <dir> [--only <name,…>] <plan>
+#
+#   --only  run just the named checks (slice-053: the autopilot's Phase-4 debug loop judges its frozen
+#           protocol while the rest of the slice is unfinished). Only they are judged against the rules
+#           and run; an unknown name makes the block malformed and nothing runs. The round's heading ends
+#           ` · only: <names>` and its result line says `selected checks`, so it never reads as the
+#           full Phase-5 run /craft:execute a3 credits.
 #
 # The block, inside the plan's `## Test Strategy` (a single-line marker, never a fence — a fenced
 # block is an example to scripts/example-regions.sh and would never be found):
@@ -40,13 +46,13 @@
 #     fail     a check did not, timed out, or the block is malformed (REASON=malformed:<why>)
 #     refused  a check command matches a deny / ask rule, or the matcher is in doubt — nothing ran
 #     none     no verify block in `## Test Strategy`
-#   CHECKS=<n>  PASSED=<n>  FAILED=<name,…|->  ROUND=<n>
+#   CHECKS=<n>  PASSED=<n>  FAILED=<name,…|->  ROUND=<n>  ONLY=<name,…|->  (CHECKS counts the checks run)
 #   REASON=<why> (refused / malformed), RULE= / RULE_SOURCE= (refused by a rule; the first one)
-# Each round's heading is `### Run <r> — <UTC datetime> · review rounds: <N>` — N is the number of
+# Each round's heading is `### Run <r> — <UTC datetime> · review rounds: <N>[ · only: <names>]` — N is the number of
 # `### Round` headings in the plan's `## Review Findings` when it ran (read by /craft:execute a3).
 # Every run appends one round under `## Verification Evidence` (the section is added at the end of
 # the plan when missing); the rest of the plan stays byte-identical, earlier rounds are never rewritten.
-# Exit 2: usage error; 3: plan not found or not writable (no RESULT=).
+# Exit 2: usage error (ERROR=empty_only for an empty --only); 3: plan not found or not writable (no RESULT=).
 #
 # It never removes a file (D34): the plan is rewritten through a temp file and an atomic rename.
 
@@ -56,9 +62,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 PROJECT=""
 PLAN=""
+ONLY=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --project) PROJECT="${2:-}"; shift 2 ;;
+    --only) [[ -n "${2:-}" ]] || { echo "ERROR=empty_only" >&2; exit 2; }; ONLY="$2"; shift 2 ;;
     --*) echo "ERROR=unknown_argument:$1" >&2; exit 2 ;;
     *) [[ -z "$PLAN" ]] || { echo "ERROR=one_plan_only" >&2; exit 2; }; PLAN="$1"; shift ;;
   esac
@@ -70,7 +78,7 @@ case "$PLAN" in /*) ;; *) PLAN="$PROJECT/$PLAN" ;; esac
 
 if ! command -v python3 >/dev/null 2>&1; then
   # No parser, no runner: nothing runs, and doubt is a refusal, never a pass.
-  echo "RESULT=refused"; echo "CHECKS=0"; echo "PASSED=0"; echo "FAILED=-"; echo "ROUND=-"
+  echo "RESULT=refused"; echo "CHECKS=0"; echo "PASSED=0"; echo "FAILED=-"; echo "ROUND=-"; echo "ONLY=${ONLY:--}"
   echo "REASON=python3_not_found"
   exit 0
 fi
@@ -79,16 +87,17 @@ fi
 BLANKED="$(mktemp)"
 trap 'rm -f "$BLANKED"' EXIT
 if ! bash "$SCRIPT_DIR/example-regions.sh" blank markdown "$PLAN" > "$BLANKED" 2>/dev/null; then
-  echo "RESULT=fail"; echo "CHECKS=0"; echo "PASSED=0"; echo "FAILED=-"; echo "ROUND=-"
+  echo "RESULT=fail"; echo "CHECKS=0"; echo "PASSED=0"; echo "FAILED=-"; echo "ROUND=-"; echo "ONLY=${ONLY:--}"
   echo "REASON=malformed:example_regions_unavailable"
   exit 0
 fi
 
 PROJECT="$(cd "$PROJECT" && pwd -P)"
-python3 - "$PLAN" "$BLANKED" "$PROJECT" "$SCRIPT_DIR/permission-rule-match.sh" <<'PY'
+python3 - "$PLAN" "$BLANKED" "$PROJECT" "$SCRIPT_DIR/permission-rule-match.sh" "$ONLY" <<'PY'
 import datetime, os, re, signal, subprocess, sys, tempfile
 
-plan, blanked, project, matcher = sys.argv[1:5]
+plan, blanked, project, matcher, only_arg = sys.argv[1:6]
+ONLY = [n for n in dict.fromkeys(x.strip() for x in only_arg.split(",")) if n] if only_arg else []
 DEFAULT_TIMEOUT = 600
 MARKER = "<!-- craft:verify -->"
 LINE_RE = re.compile(r"- check ([a-z0-9][a-z0-9-]*) :: (exit=(\d+)|contains=(.+?))(?: timeout=(\d+))? :: (.+)")
@@ -103,6 +112,7 @@ def emit(result, checks=0, passed=0, failed=(), rnd="-", extra=()):
     print("PASSED=%d" % passed)
     print("FAILED=" + (",".join(failed) if failed else "-"))
     print("ROUND=%s" % rnd)
+    print("ONLY=" + (",".join(ONLY) if ONLY else "-"))
     for e in extra:
         print(e)
 
@@ -148,6 +158,12 @@ elif markers:
         j += 1
     if not checks and not reasons:
         reasons.append("malformed:no_checks")
+    # --only: a named subset (slice-053) — an unknown name is doubt, and nothing runs.
+    for n in ONLY:
+        if n not in names:
+            reasons.append("malformed:unknown_only_%s" % n)
+    if ONLY and not reasons:
+        checks = [c for c in checks if c["name"] in ONLY]
     # A check line outside the block — above the marker, or after a blank line, a note or a typo — would
     # silently never run: every check-shaped line (a bullet "check …" carrying " :: ") anywhere else in
     # ## Test Strategy makes the block malformed — doubt, never a pass. Prose bullets carry no " :: ".
@@ -182,7 +198,11 @@ def append_round(body_lines):
         section = text[m.end():end]
         rounds = len(re.findall(r"(?m)^### Run \d+ — ", section))
     rnd = rounds + 1
-    block = nl.join(["### Run %d — %s · review rounds: %d" % (rnd, stamp, REVIEW_ROUNDS), ""] + body_lines) + nl
+    heading = "### Run %d — %s · review rounds: %d" % (rnd, stamp, REVIEW_ROUNDS)
+    if ONLY:
+        # a subset round must never read as a Phase-5 pass (/craft:execute a3 reads the last round)
+        heading += " · only: " + ",".join(ONLY)
+    block = nl.join([heading, ""] + body_lines) + nl
     if m:
         # a template placeholder "(none yet)" is replaced by the first round
         if not rounds:
@@ -282,7 +302,7 @@ for c in checks:
         body.append("  > " + neutral(l[:200]))
 
 result = "pass" if not failed else "fail"
-body.append("- result · %s · %d/%d checks passed" % (result, passed, len(checks)))
+body.append("- result · %s · %d/%d %schecks passed" % (result, passed, len(checks), "selected " if ONLY else ""))
 rnd = append_round(body)
 emit(result, len(checks), passed, failed, rnd)
 PY
