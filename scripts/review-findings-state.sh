@@ -35,7 +35,8 @@
 # number is not its position.
 #
 #   <plan>               Report rounds and every finding.
-#   <plan> --followups   Report only the `follow-up → slice archive` lines (for the archive).
+#   <plan> --followups   Report only the lines the archive's `## Follow-ups` carries: every
+#                        `follow-up → slice archive` and `accepted → known limit` line.
 #   --print-resolutions  Print the resolution table as `<open>|<legacy>|<resolution>`.
 #
 # Output is line-oriented key=value; free text comes last on its line:
@@ -45,9 +46,28 @@
 #   FINDING=<id> ROUND=<r> MODE=phase8|advisory OPEN=yes|no RESOLUTION=<canonical>
 #   MALFORMED=<id> LINE=<n> MODE=<m>  an unreadable finding line or round heading (open in phase8)
 #   OPEN_COUNT=<n>               open lines across all Phase-8 rounds
-#   FOLLOWUP=<id> <sev> · <fix> · <description>[ — <note>]   (--followups only)
+#   OPEN_HEAVY=<n>               of those, the readable Heavy lines
+#   PHASE8_ROUNDS=<n>            Phase-8 rounds in the record (legacy round included, advisory ones not)
+#   ROUND_CAP=<n>                ROUND_CAP_BASE below, plus one per `- note · extra round granted…` line
+#   REOPEN=<id> OF=<id> SEV=<Heavy|Light> KNOWN=yes|no   a Phase-8 finding whose description starts
+#                                `reopens <ID>:` (agents/code-reviewer.md → 2); KNOWN=no when <ID> is not
+#                                a finding of an earlier round
+#   TRIP=none|reopen:<id>|round-cap   the ping-pong breaker (slice-052), below
+#   FOLLOWUP=<id> <sev> · <fix> · <description>[ — <note>]   (--followups only; an accepted known
+#                                limit ends `— known limit[: <note>]`)
 #   FOLLOWUP_MALFORMED=<id> LINE=<n>   (--followups) a line naming a follow-up that could not be read
 #   ERROR=<reason>               on failure (stderr), with a non-zero exit code
+#
+# The ping-pong breaker (slice-052) is derived from the record, never stored: a counter a writer
+# forgets to bump cannot exist. It trips on
+#   reopen:<id>  the LATEST Phase-8 round holds a Heavy reopen of <id> whose line was resolved
+#                `escalated → Phase 4 loop-back` — each Heavy finding gets one loop-back, and a reopen
+#                says it did not hold — or a reopen with KNOWN=no (doubt). A reopened line that was
+#                fixed in-phase is no ping-pong; it meets the next round and the cap.
+#                Only the latest round counts: the record is append-only, and a reopen the human
+#                has since answered must not trip the next round again;
+#   round-cap    PHASE8_ROUNDS has reached ROUND_CAP and an open Heavy or MALFORMED line remains.
+# The reopen wins when both hold. `/craft:review` reads TRIP and ROUND_CAP; it decides nothing here.
 #
 # Exit codes: 0 success · 2 bad arguments · 4 plan unreadable.
 # Bash-3.2-compatible on purpose — handoff-marker-state.sh, which a SessionStart hook runs, calls it
@@ -66,7 +86,12 @@ yes|no|escalated → route pending
 yes|no|open — fix cap, awaiting decision
 no|no|resolved in round <R>
 no|no|advisory — no route
+no|no|accepted → known limit
 yes|yes|escalated → new slice"
+
+# Phase-8 rounds per slice before the breaker trips (rules.md's calibration, slice-052). Defined here
+# only; `/craft:review` reads the effective cap from ROUND_CAP=.
+ROUND_CAP_BASE=3
 
 MODE="report"
 PLAN=""
@@ -113,7 +138,8 @@ case "${_rep}" in
   UNCLOSED=*) UNCLOSED_LINE="${_rep#UNCLOSED=}"; UNCLOSED_LINE="${UNCLOSED_LINE%% *}" ;;
 esac
 
-CRAFT_RESOLUTIONS="${RESOLUTIONS}" CRAFT_MODE="${MODE}" CRAFT_UNCLOSED_LINE="${UNCLOSED_LINE}" awk '
+CRAFT_RESOLUTIONS="${RESOLUTIONS}" CRAFT_MODE="${MODE}" CRAFT_UNCLOSED_LINE="${UNCLOSED_LINE}" \
+CRAFT_ROUND_CAP_BASE="${ROUND_CAP_BASE}" awk '
 function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t]+$/, "", s); return s }
 
 # Length of the canonical resolution c matched at the start of v, or 0.
@@ -157,7 +183,21 @@ function resolve(v,    k, best, l, tail) {
 
 function malformed(id, lineno) {
   MAL[++NMAL] = "MALFORMED=" id " LINE=" lineno " MODE=" MODEOF[ROUND]
-  if (MODEOF[ROUND] != "advisory") OPENC++
+  if (MODEOF[ROUND] != "advisory") { OPENC++; OPENDOUBT++ }
+}
+
+# A Phase-8 finding whose description starts `reopens <ID>:` (case-insensitive, a space before the
+# colon tolerated). KNOWN only when <ID> is a finding of an EARLIER round.
+function reopen(id, sev, desc,    of, known) {
+  if (MODEOF[ROUND] == "advisory") return
+  if (tolower(desc) !~ /^reopens[ \t]+r[0-9]+-[0-9]+[ \t]*:/) return
+  of = desc; sub(/^[A-Za-z]+[ \t]+/, "", of); sub(/[ \t]*:.*$/, "", of); of = toupper(of)
+  known = ((of in ROUNDOF) && ROUNDOF[of] < ROUND) ? "yes" : "no"
+  REO[++NREO] = "REOPEN=" id " OF=" of " SEV=" sev " KNOWN=" known
+  REO_ROUND[NREO] = ROUND; REO_OF[NREO] = of
+  # Only a loop-back that did not hold is ping-pong; a line fixed in-phase and reopened meets the
+  # next round (and the cap) like any other finding (slice-052 R1-3).
+  REO_TRIPS[NREO] = (known == "no" || (sev == "Heavy" && RESOF[of] ~ /^escalated → Phase 4 loop-back/))
 }
 
 function flush(    n, f, i, id, sev, fix, desc, res, ok, open, rid) {
@@ -177,18 +217,25 @@ function flush(    n, f, i, id, sev, fix, desc, res, ok, open, rid) {
   if (i == 2) { rid = substr(id, 2); sub(/-.*/, "", rid); if (rid + 0 != ROUND) ok = 0 }
   if (id in SEEN) ok = 0
   SEEN[id] = 1
+  if (!(id in ROUNDOF)) ROUNDOF[id] = ROUND
   if (ok && !resolve(res)) ok = 0
   if (!ok) {
     malformed(id, lineno)
     OUT[++NOUT] = "FINDING=" id " ROUND=" ROUND " MODE=" MODEOF[ROUND] " OPEN=" (MODEOF[ROUND] == "advisory" ? "no" : "yes") " RESOLUTION=unknown"
-    if (tolower(line) ~ /follow-up/) FU[++NFU] = "FOLLOWUP_MALFORMED=" id " LINE=" lineno
+    if (tolower(line) ~ /follow-up|known limit/) FU[++NFU] = "FOLLOWUP_MALFORMED=" id " LINE=" lineno
     return
   }
+  RESOF[id] = R_CANON
   open = (MODEOF[ROUND] == "advisory") ? "no" : R_OPEN
   if (open == "yes") OPENC++
+  if (open == "yes" && sev == "Heavy") OPENH++
+  reopen(id, sev, desc)
   OUT[++NOUT] = "FINDING=" id " ROUND=" ROUND " MODE=" MODEOF[ROUND] " OPEN=" open " RESOLUTION=" R_CANON
   if (R_CANON == "follow-up → slice archive")
     FU[++NFU] = "FOLLOWUP=" id " " sev " · " fix " · " desc (R_NOTE == "" ? "" : " — " R_NOTE)
+  # An accepted known limit (the round cap, slice-052) is no to-do, but it must reach the archive.
+  if (R_CANON == "accepted → known limit")
+    FU[++NFU] = "FOLLOWUP=" id " " sev " · " fix " · " desc " — known limit" (R_NOTE == "" ? "" : ": " R_NOTE)
 }
 
 BEGIN {
@@ -197,6 +244,7 @@ BEGIN {
     split(rows[k], p, "|"); RES_O[k] = p[1]; RES_C[k] = substr(rows[k], length(p[1]) + length(p[2]) + 3)
   }
   insec = 0; ROUND = 0; LEGACY = "no"; OPENC = 0; PENDING = ""
+  OPENH = 0; OPENDOUBT = 0; NREO = 0; GRANTS = 0
 }
 {
   sub(/\r$/, "")
@@ -221,6 +269,7 @@ BEGIN {
   bullet = ($0 ~ /^[ \t]*([-*]|[0-9]+[.)])[ \t]/)
   if ($0 ~ /^[ \t]+[^ \t]/ && PENDING != "" && !bullet) { PENDING = PENDING " " trim($0); next }
   flush()
+  if (tolower($0) ~ /^- note[ \t]*·[ \t]*extra round granted/) GRANTS++
   if ($0 ~ /^- note([ \t]*·|:)/) next
   if ($0 ~ /^- /) {
     if (ROUND == 0) { ROUND = 1; MODEOF[1] = "phase8"; LEGACY = "yes" }
@@ -240,7 +289,7 @@ END {
   if (ENVIRON["CRAFT_UNCLOSED_LINE"] != "") {
     fence_line = ENVIRON["CRAFT_UNCLOSED_LINE"] + 0
     if (ROUND == 0) MODEOF[0] = "phase8"
-    MAL[++NMAL] = "MALFORMED=fence-unclosed LINE=" fence_line " MODE=phase8"; OPENC++
+    MAL[++NMAL] = "MALFORMED=fence-unclosed LINE=" fence_line " MODE=phase8"; OPENC++; OPENDOUBT++
     FU[++NFU] = "FOLLOWUP_MALFORMED=fence-unclosed LINE=" fence_line
   }
   if (ENVIRON["CRAFT_MODE"] == "followups") {
@@ -253,6 +302,17 @@ END {
   for (k = 1; k <= NOUT; k++) print OUT[k]
   for (k = 1; k <= NMAL; k++) print MAL[k]
   print "OPEN_COUNT=" OPENC
+  p8 = 0; last8 = 0
+  for (r = 1; r <= ROUND; r++) if (MODEOF[r] != "advisory") { p8++; last8 = r }
+  cap = ENVIRON["CRAFT_ROUND_CAP_BASE"] + GRANTS
+  trip = "none"
+  for (k = 1; k <= NREO; k++) if (REO_ROUND[k] == last8 && REO_TRIPS[k]) { trip = "reopen:" REO_OF[k]; break }
+  if (trip == "none" && p8 >= cap && OPENH + OPENDOUBT > 0) trip = "round-cap"
+  print "OPEN_HEAVY=" OPENH
+  print "PHASE8_ROUNDS=" p8
+  print "ROUND_CAP=" cap
+  for (k = 1; k <= NREO; k++) print REO[k]
+  print "TRIP=" trip
 }
 ' "${BLANKED}"
 _rc=$?
