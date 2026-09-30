@@ -179,6 +179,12 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
   Still red → slice `blocked` (`decision`), master escalates with a ≤15-line package
   (finding, attempts, hypotheses ruled out, options).
 - Same path for Phase 4: 2nd same-symptom fix → autonomous protocol instead of `awaiting-protocol`.
+- **Built by slice-053 (2026-09-30), differently from the lines above.** The debug loop does **not** follow a breaker
+  trip — review findings are often design or prose issues with no command to verify, and a trip already means one
+  autonomous attempt failed. It runs for Phase 4's 2nd same-symptom fix (protocol drafted by the builder, frozen by
+  `code-reviewer`'s Protocol Freeze brief) and for a failed committed check in Phase 5 (the check is the protocol);
+  every attempt is judged by `verify-run.sh` (`--only` for the Phase-4 protocol), and the end stops are the existing
+  `awaiting-protocol` / `awaiting-test` pauses — `skills/debug/SKILL.md` → Autonomous Mode.
 
 ## 6. Budget guard (5h / 7d window)
 
@@ -338,7 +344,9 @@ touch `commands/` cannot be verified end-to-end in the session that writes them.
 - ~~**Q5** Subagent cache TTL `1h` vs. `5m`~~ — **resolved by slice-044**: per agent, by the break-even in §6.
 - **Q6** Threshold defaults (85 / 95 / 90) and whether they live in `craft-profile.md` (new `## Autopilot` block).
 - **Master / judgment line** (from §4): which decisions the Sonnet master may take from helper output alone, and which go
-  to the human or a short-lived Opus agent — epic planning.
+  to the human or a short-lived Opus agent — epic planning. **Moved to epic-003's `planning-pipeline`** by slice-053: until then every master decision is read off a
+  helper (plan status, `TRIP=`, `RESULT=`, marker state), and the first judgment-heavy agents it orchestrates are the
+  planners and the architect.
 - **Open after slice-044:**
   - ~~foreground builders: whether `CLAUDE_CODE_FORK_SUBAGENT=0` / `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` give the master
     a foreground return, the statusline cadence, hook events and duplicate hand-back in that case, and which wait path a

@@ -1152,6 +1152,11 @@ D21/D28/D29 apply unchanged.
   reviewer** (replacing D19's human freeze) and the `/craft:debug` loop runs (max 5 attempts);
   still red → slice `blocked` (`decision`) → master escalates with a compact package. Counters
   live in the slice plan, not in prose — per the slice-031 lesson, prose is not checkable.
+  *Built differently (2026-09-30):* slice-052 derives the counters from the findings record and trips on the first
+  reopen of a looped-back finding or at the round cap, blocking with a ≤15-line package; slice-053 **drops the debug
+  loop after a trip** (review findings are often not command-verifiable, and a trip already means one autonomous
+  attempt failed) and runs the jointly frozen protocol + `/craft:debug` loop for Phase 4's 2nd same-symptom fix and
+  a failed Phase-5 check instead, each attempt judged by `verify-run.sh` (D35).
 - **Human-only decisions survive** — blocker direction calls (spawn/park/descope), `intent.md` /
   `rules.md` mutations (Level 0), push and merge to `main`. Phase-9 promotions default to `[K]`;
   `[I]`/`[R]` candidates are collected for the epic-end sign-off.
