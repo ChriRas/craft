@@ -322,6 +322,7 @@ sites would have started raising `InputValidationError`.
 |---|---|---|---|
 | 3 — Plan | `/craft:plan` | — (dialogic, runs in main session) | session |
 | 3 — Plan (autopilot run) | `/craft:execute` | `slice-planner` | `opus` |
+| 3 — Plan review (autopilot run) | `/craft:execute` | `plan-architect` | `opus` |
 | 4 — Execute | `/craft:execute` | `slice-builder` | `sonnet` |
 | 5 — Test | `/craft:test` | — (user-driven, no delegation) | session |
 | 6 — Recap | `/craft:recap` | — (user-driven dialog) | session |
@@ -340,8 +341,8 @@ turn through a subagent boundary, which is fragile. Users who want a deep-reason
 for these phases switch the session model before invoking the command.
 
 Inside an autopilot run there is no one to ask, so the planning stage delegates Phase 3 per epic entry
-to `slice-planner` (`/craft:plan` → Subagent Mode, slice-054); what it cannot answer it leaves as a
-question for the human's plan gate. The debug loop there runs inside `slice-builder` (slice-053).
+to `slice-planner` (`/craft:plan` → Subagent Mode, slice-054), and `plan-architect` reviews the package
+before the gate (slice-055); what they cannot settle they leave as a question for the human's plan gate. The debug loop there runs inside `slice-builder` (slice-053).
 
 > **Note on delivery.** Subagents do not block their parent by default: a spawn is
 > backgrounded, the parent's turn ends, and the **same** report can arrive repeatedly — three
@@ -448,7 +449,7 @@ So the choice follows the agent's shape, not its tier:
 - **1h** — an agent that waits: long test suites, external services, anything that idles
   inside a tool call. `slice-builder`, E2E verification.
 - **5m (default, no `experimental` block)** — a short-burst agent that reads, reasons and
-  reports without waiting. `code-reviewer`, `slice-planner`, digests.
+  reports without waiting. `code-reviewer`, `slice-planner`, `plan-architect`, digests.
 
 How cache writes count against the 5h / 7d rate windows is not documented, so the
 break-even above is list price only; calibration decides the real figure. The setting
