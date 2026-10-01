@@ -19,6 +19,7 @@ HELPER="$SCRIPT_DIR/plan-gate-state.sh"
 EXECUTE="$REPO_ROOT/commands/execute.md"
 PLAN_CMD="$REPO_ROOT/commands/plan.md"
 AGENT="$REPO_ROOT/agents/slice-planner.md"
+TEMPLATE="$REPO_ROOT/templates/epic-plan.md.template"
 for f in "$HELPER" "$EXECUTE" "$PLAN_CMD" "$AGENT" "$SCRIPT_DIR/epic-entry-link.sh" "$SCRIPT_DIR/example-regions.sh"; do
   [[ -f "$f" ]] || { echo "FATAL: not found: $f" >&2; exit 2; }
 done
@@ -211,6 +212,119 @@ reset; epic "$APPROVE_BOTH"; plan slice-101 alpha yes; plan slice-102 beta yes
 out="$(run "$EPIC")"
 expect "no orphan: ORPHAN_COUNT=0" "$(val "$out" ORPHAN_COUNT)" "0"
 
+# --- ## Plan Review — the plan-architect's rounds (slice-055) -------------------------------
+# epic_r <review-body> — a two-entry epic with both plans, whose ## Plan Review holds the body
+epic_r() {
+  reset; epic '(no autopilot run yet)'; plan slice-101 alpha yes; plan slice-102 beta yes
+  local body="$1"
+  python3 - "$P/$EPIC" "$body" <<'PY'
+import sys
+p, body = sys.argv[1], sys.argv[2]
+s = open(p).read()
+s = s.replace("## Autopilot Log", "## Plan Review\n\n" + body + "\n\n## Autopilot Log", 1)
+open(p, "w").write(s)
+PY
+}
+arch() { printf '%s\n' "$1" | grep "^ARCH FINDING=$2 " | sed -n "s/.* $3=\([^ ]*\).*/\1/p"; }
+R1='### Round 1 — 2026-10-01T10:00:00Z (first)'
+F_REV='- P1-1 · slice-101, slice-102 · overlap · revise · both change the greeting line · open'
+F_NOTE='- P1-2 · slice-102 · sizing · note · large but buildable · resolved in round 2'
+
+# A1. no section
+reset; epic '(no autopilot run yet)'; plan slice-101 alpha yes; plan slice-102 beta yes
+out="$(run "$EPIC")"
+expect "no ## Plan Review: no rounds, 2 autonomous rounds left, nothing open" \
+  "$(val "$out" ARCH_ROUNDS)/$(val "$out" ARCH_NEXT_ROUND)/$(val "$out" ARCH_LAST_KIND)/$(val "$out" ARCH_AUTO_LEFT)/$(val "$out" ARCH_OPEN_COUNT)" "0/1/-/2/0"
+
+# A2. one first round, one open revise finding and one resolved note
+epic_r "$R1
+$F_REV
+$F_NOTE
+- note · P0-9 was never raised — a note line is no finding"
+out="$(run "$EPIC")"
+expect "a first round: rounds, kind, findings and their state" \
+  "$(val "$out" ARCH_ROUNDS)/$(val "$out" ARCH_LAST_KIND)/$(val "$out" ARCH_OPEN_COUNT)/$(arch "$out" P1-1 OPEN)/$(arch "$out" P1-2 OPEN)" "1/first/1/yes/no"
+expect "a finding carries its route, kind and slices" \
+  "$(arch "$out" P1-1 ROUTE)/$(arch "$out" P1-1 KIND)/$(arch "$out" P1-1 SLICES)" "revise/overlap/slice-101,slice-102"
+expect "a note line is no finding" "$(printf '%s\n' "$out" | grep -c '^ARCH FINDING=')" "2"
+expect "after the first round 2 autonomous rounds are left" "$(val "$out" ARCH_AUTO_LEFT)" "2"
+
+# A3. the autonomous-round budget per planning pass
+a3() { # <kinds...> -> AUTO_LEFT/LAST_KIND
+  local body="" n=0 k
+  for k in "$@"; do n=$((n + 1)); body="$body### Round $n — 2026-10-01T10:0$n:00Z ($k)
+"; done
+  epic_r "$body"; out="$(run "$EPIC")"; echo "$(val "$out" ARCH_AUTO_LEFT)/$(val "$out" ARCH_LAST_KIND)"
+}
+expect "first + auto: 1 left" "$(a3 first auto)" "1/auto"
+expect "first + auto + auto: exhausted" "$(a3 first auto auto)" "0/auto"
+expect "a review-only round spends nothing, and the budget stays spent" "$(a3 first auto auto review-only)" "0/review-only"
+expect "a new first round opens a new planning pass" "$(a3 first auto auto review-only first)" "2/first"
+expect "review-only rounds alone spend nothing" "$(a3 first review-only review-only)" "2/review-only"
+
+# A4. malformed finding lines count open and stop autonomy (doubt)
+for bad_line in \
+  '- P1-1 · slice-101 · overlap · revise · no resolution field' \
+  '- P1-1 · slice-101 · naming · revise · unknown kind · open' \
+  '- P1-1 · slice-101 · overlap · fix · unknown route · open' \
+  '- P1-1 · slice-101 · overlap · revise · resolution garbage · done' \
+  '- P2-1 · slice-101 · overlap · revise · ID of another round · open' \
+  '- P1-1 · sl101 · overlap · revise · not a slice-ID · open' \
+  '- **P1-1** · slice-101 · overlap · revise · a bold ID · open' \
+  '* P1-1 · slice-101 · overlap · revise · another bullet · open' \
+  '-  P1-1 · slice-101 · overlap · revise · two spaces after the bullet · open' \
+  '1. P1-1 · slice-101 · overlap · revise · a numbered item · open' \
+  '- `P1-1` · slice-101 · overlap · revise · a backticked ID · open' \
+  '- [ ] P1-1 · slice-101 · overlap · revise · a checkbox · open' \
+  '> - P1-1 · slice-101 · overlap · revise · a blockquote · open' \
+  'P1-1 · slice-101 · overlap · revise · no bullet at all · open'; do
+  epic_r "$R1
+$bad_line"
+  out="$(run "$EPIC")"
+  expect "malformed finding line counts open, autonomy 0: ${bad_line:0:50}" \
+    "$(val "$out" ARCH_OPEN_COUNT)/$(val "$out" ARCH_AUTO_LEFT)/$(printf '%s\n' "$out" | grep -c '^ARCH_MALFORMED ')" "1/0/1"
+done
+
+# A5. a round heading out of position is malformed
+epic_r '### Round 2 — 2026-10-01T10:00:00Z (first)'
+out="$(run "$EPIC")"
+expect "a heading numbered off its position: malformed, autonomy 0" \
+  "$(val "$out" ARCH_AUTO_LEFT)/$(printf '%s\n' "$out" | grep -c '^ARCH_MALFORMED ')" "0/1"
+epic_r '### Round 1 — 2026-10-01T10:00:00Z (sideways)'
+out="$(run "$EPIC")"
+expect "an unknown round kind: malformed, autonomy 0" \
+  "$(val "$out" ARCH_AUTO_LEFT)/$(printf '%s\n' "$out" | grep -c '^ARCH_MALFORMED ')" "0/1"
+epic_r "$R1
+#### a sub-heading is no round
+$F_REV"
+out="$(run "$EPIC")"
+expect "a #### sub-heading is no round heading" \
+  "$(val "$out" ARCH_ROUNDS)/$(arch "$out" P1-1 OPEN)/$(printf '%s\n' "$out" | grep -c '^ARCH_MALFORMED ')" "1/yes/0"
+
+# A5b. a finding the human approved open at the gate is accepted, not open
+epic_r "$R1
+- P1-1 · slice-101, slice-102 · overlap · note · both change the greeting line · accepted at gate
+$F_NOTE"
+out="$(run "$EPIC")"
+expect "'accepted at gate' is no open finding and reads well-formed" \
+  "$(arch "$out" P1-1 OPEN)/$(val "$out" ARCH_OPEN_COUNT)/$(val "$out" ARCH_AUTO_LEFT)/$(printf '%s\n' "$out" | grep -c '^ARCH_MALFORMED ')" "no/0/2/0"
+
+# A6. fenced lines and lines outside the section do not count
+epic_r "$R1
+\`\`\`
+$F_REV
+\`\`\`"
+printf '%s\n' "$F_REV" >> "$P/$EPIC"
+out="$(run "$EPIC")"
+expect "a fenced finding and one below another heading count for nothing" "$(val "$out" ARCH_OPEN_COUNT)/$(printf '%s\n' "$out" | grep -c '^ARCH FINDING=')" "0/0"
+
+# A7. CRLF
+epic_r "$R1
+$F_REV"
+sed -i.bak 's/$/\r/' "$P/$EPIC" && rm -f "$P/$EPIC.bak"
+out="$(run "$EPIC")"
+expect "a CRLF plan review still reads" "$(val "$out" ARCH_ROUNDS)/$(arch "$out" P1-1 OPEN)" "1/yes"
+
 # 14. errors
 reset
 out="$(run)"; rc=$?
@@ -231,6 +345,22 @@ grep -q 'slice-planner' "$EXECUTE" && ok "execute.md spawns slice-planner" || ba
 for needle in 'NEEDS-HUMAN: ' '> Planned-by: autopilot'; do
   grep -qF -- "$needle" "$PLAN_CMD" && ok "plan.md's Subagent Mode defines '$needle'" || bad "plan.md no longer defines '$needle' — the helper reads it"
 done
+for needle in 'plan-architect' '## Plan Review' 'review-only'; do
+  grep -qF -- "$needle" "$EXECUTE" && ok "execute.md's ap names '$needle'" || bad "execute.md's ap no longer names '$needle'"
+done
+grep -q '^## Plan Review' "$TEMPLATE" && ok "the epic template carries ## Plan Review" || bad "the epic template has no ## Plan Review section"
+# The record's format is the helper header's alone (slice-055 review R1-3): the template and 4b point at it.
+grep -q 'plan-gate-state.sh' "$TEMPLATE" && ok "the epic template points at plan-gate-state.sh for ## Plan Review" || bad "the epic template no longer points at plan-gate-state.sh"
+for f in "$TEMPLATE" "$EXECUTE"; do
+  grep -qF -- '<overlap|contract|order|sizing> · <revise|note>' "$f" && bad "$(basename "$f") repeats the finding-line format" || ok "$(basename "$f") does not repeat the finding-line format"
+  grep -qF -- '### Round <n> — <' "$f" && bad "$(basename "$f") repeats the round-heading format" || ok "$(basename "$f") does not repeat the round-heading format"
+done
+# Only plans that still await the gate are revised autonomously (R1-1); an architect note never answers for the human (R1-2).
+grep -qF -- 'only a `GATE=awaiting` plan is revised autonomously' "$EXECUTE" && ok "execute.md's 4b revises awaiting plans only" || bad "execute.md's 4b no longer limits autonomous revision to GATE=awaiting plans"
+grep -qF -- 'never two planners on one plan' "$EXECUTE" && ok "execute.md's 4b sends one planner per plan, all its notes" || bad "execute.md's 4b may send two planners to one plan (R2-3)"
+grep -qF -- 'is not awaiting this gate' "$EXECUTE" && ok "execute.md's [R] refuses a plan that does not await the gate" || bad "execute.md's [R] could revise an approved plan unseen (R2-4)"
+grep -qF -- 'accepted at gate' "$EXECUTE" && ok "execute.md's [Y] writes 'accepted at gate'" || bad "execute.md never writes 'accepted at gate' — an approved-open finding would stay open forever"
+grep -qF -- 'never replaces or removes a `NEEDS-HUMAN:` line' "$PLAN_CMD" && ok "plan.md: an architect note never answers a NEEDS-HUMAN question" || bad "plan.md lets an architect note answer a NEEDS-HUMAN question"
 grep -q "commands/plan.md" "$AGENT" && ok "slice-planner follows commands/plan.md" || bad "slice-planner no longer points at commands/plan.md"
 
 echo

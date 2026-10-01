@@ -43,6 +43,13 @@
 
 - (none yet)
 
+## Plan Review
+
+> Appended by `/craft:execute <epic> --autopilot` (ap step 4b), one round per `plan-architect` review, one line per
+> finding. Format and reader: `scripts/plan-gate-state.sh`'s header. Never rewritten but for a resolution.
+
+(no plan review yet)
+
 ## UX Demo Script
 
 > Appended by `/craft:execute <epic> --autopilot` (a3; the block format is defined there), one block per slice that

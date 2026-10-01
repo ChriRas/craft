@@ -40,9 +40,27 @@
 # Fenced blocks and multi-line HTML comments are examples, not content: both files are read through
 # example-regions.sh. A trailing CR is ignored.
 #
+# The plan review — the plan-architect's rounds (slice-055), in the epic plan's `## Plan Review`:
+#   ### Round <n> — <ISO datetime> (<first | auto | review-only>)
+#   - P<n>-<k> · <slice-id>[, <slice-id>…] · <overlap|contract|order|sizing> · <revise|note> · <text> · <resolution>
+#   - note · <free text>                                      (never a finding)
+#   <n> is the heading's position; a finding's <n> is its round's. The resolution is the last ` · `
+#   field: `open`, `resolved in round <m>` (the architect's `holds`), or `accepted at gate` (the human's
+#   [Y] with the finding open) — only `open` is open. Anything else — a field missing, an unknown kind,
+#   route or round kind, a heading off its position, a line naming P<n> in any other shape (bold, a
+#   backtick, another bullet, a number, a checkbox, a quote, no bullet) — is ARCH_MALFORMED: an
+#   unreadable finding counts open, and any malformed
+#   line sets ARCH_AUTO_LEFT=0 (doubt means the gate, never another autonomous round). A `#### ` or
+#   deeper heading is no round heading.
+#   `first` opens a planning pass; each `auto` round after the last `first` spends one of its two
+#   autonomous revision rounds; `review-only` spends nothing. Open findings never withhold [Y].
+#
 # Output (free text last on its line):
 #   PLAN SLICE=<id> GATE=hand|approved|awaiting NEEDS_HUMAN=<n> PATH=<path>     one per plan
 #   ORPHAN SLICE=<id> PIPELINE=yes|no PATH=<path>                                 one per orphan
+#   ARCH FINDING=<id> OPEN=yes|no ROUTE=<route> KIND=<kind> SLICES=<id,id>         one per plan-review finding
+#   ARCH_MALFORMED LINE=<n> TEXT=<line>                                           one per unreadable line
+#   ARCH_ROUNDS=<n>  ARCH_NEXT_ROUND=<n+1>  ARCH_LAST_KIND=<kind|->  ARCH_AUTO_LEFT=<0..2>  ARCH_OPEN_COUNT=<n>
 #   PLAN_COUNT=<n>  AWAITING_COUNT=<n>  NEEDS_HUMAN_COUNT=<n, over awaiting plans only>  ORPHAN_COUNT=<n>
 #   RESULT=gate|clear   (gate: at least one plan awaits)
 #   ERROR=<reason>      on failure (stderr), with a non-zero exit code
@@ -148,8 +166,51 @@ for pf in .claude/plans/slice-*.md; do
   echo "ORPHAN SLICE=$sid PIPELINE=$pipe PATH=$pf"
 done
 
+# The plan review.
+arch_rounds=0 arch_open=0 arch_malformed=0 arch_last=- arch_auto=0 in_rev=0 lineno=0
+HEAD_RE='^### Round ([0-9]+) — [^ ]+ \((first|auto|review-only)\)[[:space:]]*$'
+FIND_RE='^- (P([0-9]+)-[0-9]+) · (slice-[0-9]+(, slice-[0-9]+)*) · (overlap|contract|order|sizing) · (revise|note) · (.+) · (open|resolved in round [0-9]+|accepted at gate)[[:space:]]*$'
+# any line whose text starts with P<digit> — after indent, `>`, a bullet or number, a checkbox, bold or a
+# backtick — is a finding attempt: the well-formed shape, or malformed
+ATTEMPT_RE='^[[:space:]>]*(([-*+]|[0-9]+[.)])[[:space:]]+)?(\[[ xX]\][[:space:]]+)?(\*\*|__|`)?P[0-9]'
+while IFS= read -r line; do
+  lineno=$((lineno + 1))
+  if [[ "$line" =~ ^##\  ]]; then
+    [[ "$line" =~ ^##\ Plan\ Review[[:space:]]*$ ]] && in_rev=1 || in_rev=0
+    continue
+  fi
+  (( in_rev )) || continue
+  if [[ "$line" =~ ^###[[:space:]] ]]; then
+    arch_rounds=$((arch_rounds + 1))
+    if [[ "$line" =~ $HEAD_RE ]] && (( BASH_REMATCH[1] == arch_rounds )); then
+      arch_last="${BASH_REMATCH[2]}"
+      case "$arch_last" in first) arch_auto=0 ;; auto) arch_auto=$((arch_auto + 1)) ;; esac
+    else
+      arch_malformed=$((arch_malformed + 1)); echo "ARCH_MALFORMED LINE=$lineno TEXT=$line"
+    fi
+    continue
+  fi
+  [[ "$line" =~ $ATTEMPT_RE ]] || continue
+  if [[ "$line" =~ $FIND_RE ]] && (( BASH_REMATCH[2] == arch_rounds )); then
+    id="${BASH_REMATCH[1]}" slices="${BASH_REMATCH[3]// /}" kind="${BASH_REMATCH[5]}" route="${BASH_REMATCH[6]}"
+    res="${BASH_REMATCH[8]}" open=no
+    [[ "$res" == open ]] && { open=yes; arch_open=$((arch_open + 1)); }
+    echo "ARCH FINDING=$id OPEN=$open ROUTE=$route KIND=$kind SLICES=$slices"
+  else
+    arch_malformed=$((arch_malformed + 1)) arch_open=$((arch_open + 1))
+    echo "ARCH_MALFORMED LINE=$lineno TEXT=$line"
+  fi
+done <<< "$EPIC_TEXT"
+arch_left=$((2 - arch_auto)); (( arch_left < 0 )) && arch_left=0
+(( arch_malformed > 0 )) && arch_left=0
+
 echo "PLAN_COUNT=$plan_count"
 echo "AWAITING_COUNT=$awaiting"
 echo "NEEDS_HUMAN_COUNT=$nh_total"
 echo "ORPHAN_COUNT=$orphans"
+echo "ARCH_ROUNDS=$arch_rounds"
+echo "ARCH_NEXT_ROUND=$((arch_rounds + 1))"
+echo "ARCH_LAST_KIND=$arch_last"
+echo "ARCH_AUTO_LEFT=$arch_left"
+echo "ARCH_OPEN_COUNT=$arch_open"
 (( awaiting > 0 )) && echo "RESULT=gate" || echo "RESULT=clear"
