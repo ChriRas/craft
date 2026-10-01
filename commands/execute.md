@@ -640,18 +640,60 @@ it, nothing can say the gate was passed.
    `## Test Strategy`. Over all the epic's plans: A6's dependency rule — every `Depends-On:` ID resolves, and the graph
    has no cycle; a violation is a failed check on the plans it names. Then run `plan-gate-state.sh` again; its `PLAN … GATE=awaiting` lines are the package, its
    `NEEDS_HUMAN=` counts are the open questions.
+4b. **The plan review** — one `plan-architect` spawn per round (slice-055). The round's kind: `first` right after
+   steps 1–3 ran in this invocation, `auto` right after an autonomous revision (below), `review-only` otherwise (after
+   `[R]`, or when steps 0–3 were skipped). Settle the model: follow `model-defaults.md` → **Spawn-Reachable Values** →
+   *What a spawn site must do*, for the agent `plan-architect` — defined once, there. **If that file cannot be
+   resolved** — neither `${CLAUDE_PLUGIN_ROOT}/model-defaults.md` nor `<project-root>/model-defaults.md` exists — spawn
+   `plan-architect` with **no** `model` parameter, and emit `⚠ Could not read model-defaults.md — spawning
+   plan-architect without a model; a project override, if any, was dropped.` (the pointer cannot deliver it, B-R7-1).
+   Spawn it in the foreground with: the epic plan path; every plan of the epic the helper lists, each marked
+   **revisable** (`GATE=awaiting`) or **not** (`GATE=hand` — hand-planned — or `GATE=approved` — passed an earlier gate,
+   perhaps already building): only a `GATE=awaiting` plan is revised autonomously; the round number (`ARCH_NEXT_ROUND`)
+   and kind; the earlier findings (their `P<n>-<k>` lines in `## Plan Review`, each with its resolution); the plugin
+   root resolved to its absolute path. Record its
+   answer in the epic plan's `## Plan Review`, in the format `plan-gate-state.sh`'s header defines (a missing section
+   goes directly above `## UX Demo Script`, else above `## Autopilot Log`; drop its `(no plan review yet)` line): this
+   round's heading, one finding line per `FINDING` numbered `P<n>-1`, `P<n>-2`, … with the resolution `open`, and a
+   `- note · <ID> still open: <text>` line per `VERDICT … open`. A `VERDICT <ID> holds` sets that earlier line's
+   resolution to `resolved in round <n>` in place — besides the gate's `accepted at gate` (5, `[Y]`), the only change
+   ever made to an earlier line. Log
+   `▶ · <epic-id> · plan review round <n> (<kind>): <f> finding(s), <r> to revise`. A spawn that returns no `RESULT`
+   line is retried once; failing again, log `⛔ · <epic-id> · plan review failed` and go to 5, where the gate says the
+   review did not run.
+   **Autonomous revision** — only when this round is `first` or `auto`, the helper (run again) reports
+   `ARCH_AUTO_LEFT` above 0, and a `revise` finding **raised in this round** names a `GATE=awaiting` plan: log
+   `▶ · <epic-id> · plan review → revise: <slice-ids>`, spawn **one** `slice-planner` per awaiting plan a `revise`
+   finding names — its slice list names exactly the plans that must change — with the notes and IDs of **every** such
+   finding that names that plan, never two planners on one plan (step 2's model rule;
+   `/craft:plan` → Subagent Mode, *An `[R]` round*, the note coming from the architect), then back to 4 and 4b as an
+   `auto` round. Otherwise go to 5. To the gate go: a `revise` finding on a plan that is not revisable; an earlier
+   `revise` finding this round's `VERDICT` keeps open — its planner already applied the note or recorded why not, and
+   asking again is the human's call; a `review-only` round's findings; and those left when the two autonomous rounds
+   are spent.
 5. **The gate** — Level 0. Log `▶ · <epic-id> · plan gate shown: <slice-id>, …`, then emit *Autopilot — plan gate*
    (Output Format): per awaiting plan its title, the `## Goal` sentence, Trigger / Effect / Test in one line each, the
    sub-task count, `Depends-On`, the verify-check count, every `NEEDS-HUMAN:` line as written and every failed check;
-   every failed entry with its reserved ID; then how the run will go (a1's briefing lines, with the order from `Depends-On`). Offer `[Y]` only
-   when no plan failed a check, no entry failed, and `NEEDS_HUMAN_COUNT=0`:
+   every failed entry with its reserved ID; the plan review — its rounds, and every open finding (`ARCH FINDING=… OPEN=yes`
+   and `ARCH_MALFORMED` lines) as written in `## Plan Review`, or that the review did not run; an `ARCH_MALFORMED` line
+   with *"⚠ unreadable plan-review line <n> — correct it by hand in `## Plan Review`; autonomous revision stays off
+   until then"*; then how the run will go (a1's briefing lines, with the order from `Depends-On`). Offer `[Y]` only
+   when no plan failed a check, no entry failed, and `NEEDS_HUMAN_COUNT=0` — open plan-review findings do not withhold it:
+   whether the package is right is the human's call:
    - **`[Y]`** → log `✓ · <epic-id> · plan gate approved: <every awaiting slice-id, comma-separated>` — the line
-     `plan-gate-state.sh` reads, so it names every plan the human saw — then run A6 again (every entry must resolve
-     now, the dependency graph over all plans) and go on with step 1c.
-   - **`[R] <slice-id>[, …] — <note>`** — a failed entry is named by the reserved ID the gate shows on its line → log `▶ · <epic-id> · plan gate revise: <slice-ids> — <note>`, spawn
+     `plan-gate-state.sh` reads, so it names every plan the human saw. With open plan-review findings, log next
+     `▶ · <epic-id> · approved with open plan-review findings: <IDs>` — a line of its own, so the approval line keeps
+     the one shape `plan-gate-state.sh` reads — and set each of those findings' resolution to `accepted at gate` in
+     place, so a later planning pass of the epic neither shows nor re-checks them (an `ARCH_MALFORMED` line has no ID
+     and stays as it is). Then run A6 again (every entry must resolve now, the dependency graph over all plans) and go
+     on with step 1c.
+   - **`[R] <slice-id>[, …] — <note>`** — a failed entry is named by the reserved ID the gate shows on its line; a plan
+     that is not `GATE=awaiting` (hand-planned, or approved at an earlier gate and perhaps building) is refused with
+     *"<slice-id> is not awaiting this gate — edit it by hand, or `[N]`"* and the gate shown again, since a revised
+     approved plan would keep its approval unseen → log `▶ · <epic-id> · plan gate revise: <slice-ids> — <note>`, spawn
      `slice-planner` again for each named slice with the note and the plan to revise — a failed entry that has no plan
      file is planned fresh at its reserved ID and path, the note as context (step 2's model rule) — link a failed entry
-     that now returns `PLANNED` (3), then back to 4.
+     that now returns `PLANNED` (3), then back to 4 — whose 4b runs a `review-only` round.
    - **`[N]`** → log `■ · <epic-id> · plan gate: stopped, plans kept`, release the lock, and name the plan paths: edit
      them by hand, then `/craft:execute <epic-NNN> --autopilot` shows the gate again.
 
@@ -672,7 +714,9 @@ not the master's: it stops the run and asks.
 | Which slice-IDs to use | master | `.claude/plans/.next-id` |
 | What a plan says — trigger, effect, test, sub-tasks, dependencies | `slice-planner` (deep-reason) | its sources; open questions as `NEEDS-HUMAN:` |
 | Whether the gate is owed | master | `plan-gate-state.sh` |
-| Whether the package is right | **the human**, at the gate | the gate block |
+| Whether the package holds together — overlaps, contracts, order, sizing | `plan-architect` (deep-reason) | the epic's open plans, its design record and archives |
+| Whether to revise autonomously | master | the finding's route and round, the plan's `GATE=`, `plan-gate-state.sh` (`ARCH_AUTO_LEFT`) |
+| Whether the package is right | **the human**, at the gate | the gate block, open plan-review findings included |
 | Whether Phase 5 passed | `slice-builder` (execute tier), in its spawn | `verify-run.sh`'s result line (`/craft:test` → Subagent Mode 0a) |
 | What a review finds, whether a fix holds | `code-reviewer` (deep-reason) | the diff and the plan |
 | Loop back or escalate after a review | `slice-builder` (execute tier), in its spawn | `review-findings-state.sh` (`TRIP=`, `/craft:review` → Step 9) |
@@ -861,6 +905,9 @@ at a `⛔` stop (the checkout on the epic branch, the stopped slice's plan at th
 or the plan gate's `[N]`, or at a5. When **ap** ran in this invocation: `.next-id` lies past every ID its `planning` line allocated, every `planned from
 entry` line this invocation wrote names a plan that `epic-entry-link.sh resolve` reports `STATE=plan` or `landed`, and a slice was built only
 after a `plan gate approved` line that `plan-gate-state.sh` reads as covering every pipeline plan (`RESULT=clear`).
+When **4b** ran: every `plan review round <n>` log line has its `### Round <n>` in `## Plan Review`, the `auto` rounds
+after the last `first` round number at most two, and no `ARCH_MALFORMED` line `plan-gate-state.sh` reports lies in a
+round this invocation wrote (an older one the gate already showed the human).
 
 Failure → *"⚠ Autopilot run in an unexpected state — inspect `git log <epic-branch>`, the trunk, `## Autopilot Log`
 and the slice plans."*
@@ -970,9 +1017,12 @@ Autopilot — plan gate (ap):
       ⚠ <failed check>                                 (only when one failed)
    …
    ⛔ slice-<NNN> (entry `<entry>`) could not be planned: <reason>   (only for a failed entry — its reserved ID)
+   Plan review: <ARCH_ROUNDS> round(s), <ARCH_AUTO_LEFT> autonomous revision(s) left   (or: ⚠ the plan review did not run)
+      P<n>-<k> · <slice-ids> · <kind> · <revise|note> · <text>   (every open finding — they do not withhold [Y])
+      ⚠ unreadable plan-review line <n> — correct it by hand in `## Plan Review`; autonomous revision stays off until then
    How the run will go: <a1's briefing lines — branch, occupied checkout, order from Depends-On, stops, Esc / resume>
    [Y] approve and run   [R] <slice-id>[, …] — <note>: revise these   [N] stop, keep the plans
-   ([Y] is offered only when nothing above is open or failed.)
+   ([Y] is offered only when no check, entry or NEEDS-HUMAN above is open or failed — plan-review findings do not withhold it.)
 ```
 
 Autopilot — briefing (a1):
@@ -1061,6 +1111,7 @@ Review checkpoint reached:
 | Autopilot (a0): background tasks not disabled, or the checkout is on neither the epic branch nor a clean trunk | Stop before anything is created — a0 runs before the lock, so none is held — with the launch command or the branch to fix (for a dirty trunk while a slice is in flight: `git checkout <epic-branch>`, a0 item 3). |
 | Autopilot (ap): `plan-gate-state.sh` cannot run, `.next-id` is not an integer, or the second A6 after `[Y]` rejects | Stop `⛔` and release the lock; nothing is built. The gate is never assumed passed. |
 | Autopilot (ap): a planner returns `FAILED`, returns nothing, or its entry cannot be linked | The entry is *failed*: logged `⛔`, its ID stays reserved, and the gate lists it and withholds `[Y]` — `[R]` re-plans it, `[N]` leaves it to the human. A link that failed leaves its written plan behind unlinked: the next run reports it as an `ORPHAN` (ap step 0) — link it by hand or `/craft:abort` it. |
+| Autopilot (ap 4b): `plan-architect` returns no `RESULT` line twice | Log `⛔ · <epic-id> · plan review failed`; the gate shows that the review did not run and still offers `[Y]` when nothing else withholds it — the human decides whether to run without it. |
 | Autopilot (ap): active plans no entry links while entries are unplanned | Step 0 asks before any planner runs: `[P]` plan anyway, `[N]` stop and link or abort them first. The master never decides that a plan refines an entry. |
 | Autopilot (a2): a spawn came back in the background | Wait for that builder's report, then stop the run (`⛔`); start nothing else. |
 | Autopilot: the human presses Esc during a spawn | The exception to the interrupt row above: the run ends where it was, and nothing is paused or rewritten for it — a paused slice would be `held` and need a `/craft:continue` before the re-run, where a slice left at its execution status simply resumes: the slice plan keeps the status the builder last wrote and the lock stays held — a re-run from the same Claude Code session finds it `DECISION=confirm` (`REASON=own_process`) and A4 asks whether the run ended — it did, so answer `[N]` — from another one A4 names it; re-run `/craft:execute epic-<NNN> --autopilot`; step 1c reads the slice as `ACTION=resume`. |
