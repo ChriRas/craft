@@ -86,6 +86,9 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
   `review-findings-state.sh`, never stored — a counter a writer forgets to bump cannot exist.
   So does the autopilot's plan gate (slice-054): whether it is still owed is read by `plan-gate-state.sh` from the
   plans' `Planned-by:` marker and the log's approval line — it returns after `[N]` or a crash and never after `[Y]`.
+  So does the plan review's budget (slice-055): the architect's rounds, the open findings and the autonomous revision
+  rounds left in a planning pass are read by `plan-gate-state.sh` from the epic plan's `## Plan Review` — an unreadable
+  line counts open and ends the autonomy.
 - **CRAFT's own files are not the human's work (slice-039)** — which paths count as uncommitted
   work is decided once, by `scripts/tree-dirt-state.sh`: plans, ID counters and local state never
   block `/craft:execute` or `/craft:commit`. The flip side is that a command commits only what it
