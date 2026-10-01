@@ -349,8 +349,12 @@ touch `commands/` cannot be verified end-to-end in the session that writes them.
   reports (entry state, resume state, `.next-id`, `plan-gate-state.sh`, `verify-run.sh`, `TRIP=`); a plan's content is
   `slice-planner`'s (Opus), the package the human's at the plan gate, and anything the table does not list stops the run.
   Stage A as built: planners fan out behind master-allocated IDs, the plan gate (`[Y] / [R] / [N]`) is derived by
-  `plan-gate-state.sh` from a `Planned-by:` marker and the log's approval line; the architect review is epic-003's
-  `plan-architect-review`.
+  `plan-gate-state.sh` from a `Planned-by:` marker and the log's approval line. The architect review (slice-055,
+  `plan-architect-review`): one `plan-architect` (Opus, effort high) per round between the package check and the gate;
+  `revise` findings on plans still awaiting the gate go back to the planners at most twice per planning pass (a finding
+  a planner already answered goes to the gate), one review-only round follows a human `[R]`, and every open finding is
+  shown at the gate without withholding `[Y]`, which marks it `accepted at gate` — rounds in the epic plan's
+  `## Plan Review`, derived by `plan-gate-state.sh`.
 - **Open after slice-044:**
   - ~~foreground builders: whether `CLAUDE_CODE_FORK_SUBAGENT=0` / `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` give the master
     a foreground return, the statusline cadence, hook events and duplicate hand-back in that case, and which wait path a
