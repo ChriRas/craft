@@ -150,7 +150,8 @@ When you have an epic with multiple slices that can run in parallel, hand the bu
 
 # Or hands-off, per run (start the session with CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1):
 /craft:execute epic-001 --autopilot   # unplanned entries first: slice-planner agents plan them, you approve the
-                                      # package once at the plan gate ([Y] run / [R] revise / [N] stop); then,
+                                      # package once at the plan gate after a plan-architect review
+                                      # ([Y] run / [R] revise / [N] stop); then,
                                       # in place on epic-001-<slug>: builds, commits and logs each slice with
                                       # no halt between them; Phase 5 is verified by command from the plan's
                                       # <!-- craft:verify --> block (your deny/ask rules checked first); stops only where
@@ -196,10 +197,11 @@ The cognitively heaviest phases delegate to named subagents pinned at the right 
 | Execute (Phase 4 via `/craft:execute` orchestrator) | `slice-builder` | `sonnet` |
 | Review (Phase 8) | `code-reviewer` | `opus` |
 | Plan (Phase 3, autopilot run only) | `slice-planner` | `opus` |
+| Plan review (autopilot run only) | `plan-architect` | `opus` |
 
 The single-slice command `/craft:build` runs in-session and is **not** routed through a subagent — only the orchestrator path (`/craft:execute`, which spawns one `slice-builder` per slice in its own worktree) pins Sonnet.
 
-Dialogic phases — Plan (Phase 3) and the Debug autonomous loop — stay on the active session model because their value lives in the interaction with you. Switch the session model yourself if you want Opus for those. Inside an autopilot run there is no one to ask: `slice-planner` plans each unplanned epic entry, and you approve the package once at the plan gate.
+Dialogic phases — Plan (Phase 3) and the Debug autonomous loop — stay on the active session model because their value lives in the interaction with you. Switch the session model yourself if you want Opus for those. Inside an autopilot run there is no one to ask: `slice-planner` plans each unplanned epic entry, `plan-architect` reviews the package as a whole, and you approve it once at the plan gate.
 
 Projects can override any agent's model in `.claude/project/craft-profile.md` under `## Agent Model Overrides`:
 

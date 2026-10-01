@@ -200,7 +200,8 @@ bash scripts/test-verify-run.sh
 # hand-planned epics (no gate), partial and foreign-epic approvals, malformed approval lines (approve nothing), lines
 # outside the log or in a fence, CRLF, NEEDS-HUMAN: counting (bold, checkbox, numbered forms too), ORPHAN plans — active
 # plans no entry of any epic links, which /craft:execute → ap asks about before planning — and pins that execute.md /
-# plan.md / the agent use it.
+# plan.md / the agent use it. Since slice-055 it also parses the epic plan's ## Plan Review (the plan-architect's rounds):
+# open findings, malformed lines (counted open, autonomy 0) and the autonomous revision rounds left per planning pass.
 # Keep green.
 bash scripts/test-plan-gate-state.sh
 
