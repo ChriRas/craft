@@ -22,7 +22,9 @@ You **plan**; you do not build. You write one file, the slice plan at the path y
 - **Slice-ID and plan path** — allocated by the master; `.claude/plans/slice-<NNN>-<slug>.md`. Use them as given.
 - **Sibling IDs** — the IDs the master allocated to the other entries of this round, by entry, so `Depends-On:` can name a
   sibling that has no plan file yet.
-- **An `[R]` round only** — the human's revision note for your plan, and the plan to revise (same ID, same path).
+- **A revision round only** — the note for your plan, and the plan to revise (same ID, same path): the human's, from
+  the gate's `[R]`, or the `plan-architect`'s — one or more notes, each naming its finding ID (an autonomous revision
+  round).
 - **The plugin root** — `${CLAUDE_PLUGIN_ROOT}`. `commands/plan.md` is a file you `Read`, so Claude Code does not fill
   in its plugin-root placeholder, and the Bash tool does not export it: wherever its text shows that placeholder or
   `<plugin-root>`, use this path.

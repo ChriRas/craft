@@ -390,6 +390,12 @@ file** defines it, from the template, with its status and frontmatter — this s
 - **An `[R]` round** rewrites the named plan in place, same ID and path, taking the note as the human's answer — a
   `NEEDS-HUMAN:` line the note answers is replaced by the answer. Record the revision as a decision line. An entry whose
   first planning failed has no plan file yet: plan it fresh at the given ID and path, the note as context.
+  **A note from the `plan-architect`** (an autonomous revision round, slice-055; one plan may get several) names its
+  finding ID: apply it, or —
+  when applying it would break the plan's own entry or a source the plan rests on — leave the plan as it is and record
+  why as a decision line naming that ID. The architect's next round judges the result; never skip a note silently.
+  An architect's note is never the human's answer: it never replaces or removes a `NEEDS-HUMAN:` line — a question the
+  note touches stays for the gate.
 - **Write `NEEDS-HUMAN:` plainly** — at the start of its own line, or as a list item; `scripts/plan-gate-state.sh` also
   reads a checkbox, a number or bold around the marker, never a mention mid-sentence.
 
