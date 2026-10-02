@@ -103,7 +103,9 @@ If, on a subsequent execute-run, you find the slice plan already at `Status: rev
 
 Read `.claude/project/rules.md`. If a line in `## Workflow Rules` declares Phase 7 dropped, append `Phase 7 skipped (project rule)` to `## Decisions Made During This Slice` and advance `Status: reviewing`. Done with step 4.
 
-Otherwise `Read` `commands/refactor.md` and follow its `## Subagent Mode` section: survey for up to 2 Thorstensen-aligned candidates, **do not apply**, pause the slice (`Status: paused` with the pause record), write the candidate list to `.craft/handoff.md` with `Status: awaiting-refactor-decision` and the record's `Paused-since` as its `Episode:`. Stop, return to orchestrator.
+Otherwise `Read` `commands/refactor.md` and follow its `## Subagent Mode` section — the one definition of Phase 7
+without a human. **In an autopilot run** its autopilot bullet applies: candidates recorded, none applied, no pause —
+continue with step 5. Outside one it pauses the slice for the human's pick; then stop and return to the orchestrator.
 
 If the slice plan is already at `Status: reviewing` on a subsequent run (refactor decision made by human), skip step 4.
 

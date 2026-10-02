@@ -128,7 +128,7 @@ Append to the slice plan's `## Decisions Made During This Slice` (so Phase 9 can
 ### 5. Advance to Phase 8 (Review)
 
 <!-- craft:writes status=reviewing when=phase7-kept -->
-After the chosen items are done and tests are green, update `Status: reviewing` and emit:
+After the chosen items are done and tests are green (an autopilot run applies none — Subagent Mode), update `Status: reviewing` and emit:
 
 ```
 ✓ Phase 7 complete (<N> refactor items).
@@ -175,9 +175,21 @@ When invoked by the `slice-builder` subagent during an autonomous run:
   descriptions of one contract, with only one of them maintained, is exactly the defect this slice
   exists to fix (it is how B1 survived — the subagent path handled the drop while the interactive
   path did not). One route, one marker, one row.
+- **In an autopilot run** (`/craft:execute <epic-NNN> --autopilot`; the `slice-builder` was told so at spawn) there is no
+  one to pick, and the run must not stop here (slice-056, B21): run the **Pre-flight above** first, as every Phase-7 run
+  does — its status update included — then survey the slice's code change for the three
+  Thorstensen prompts on your own, find at most 2 candidates, and **apply none**. Append each to the plan's
+  `## Decisions Made During This Slice` as one line,
+  `- **Refactor candidate (autopilot, not applied):** <the change, one sentence> — <why it would help>`, written that
+  way so the epic-end digest finds it (`/craft:execute` → a5); with none, append
+  `- **Phase 7 (autopilot): no refactor candidate**`. A later pass through Phase 7 — a review loop-back, a re-run —
+  **replaces** the lines an earlier pass wrote (both forms) instead of adding to them: the plan holds at most 2
+  candidate lines, or the one no-candidate line, never both. Then end Phase 7 by **Step 5 above**, with no item applied —
+  <!-- craft:delegates rule=phase7-end to=step-5 --> the one Phase-7 end, its status write included. The human sees
+  the candidates at the epic end and decides there whether one becomes a later slice.
 - Otherwise, the subagent surveys the slice's code change for the three Thorstensen prompts on its own (no user dialog), proposes up to 2 candidates, and **does not apply them**. <!-- craft:handoff status=awaiting-refactor-decision plan=paused --> It pauses the slice, pause record included (`skills/workflow/SKILL.md` → **Pause record**), and writes the candidate list to `.craft/handoff.md` with `Status: awaiting-refactor-decision` and the record's `Paused-since` as its `Episode:`. The human picks at `/craft:checkout` time: resume with `/craft:continue` (the plan is paused), then run `/craft:refactor` interactively (or skip with a Decision-log note).
 
-Refactor must never be silently applied without human judgment — it changes structure, and unsupervised structural change is a known failure mode of agent-driven development.
+Refactor must never be silently applied without human judgment — it changes structure, and unsupervised structural change is a known failure mode of agent-driven development. The autopilot path keeps that line: it records candidates, never applies them.
 
 ---
 
