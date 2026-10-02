@@ -105,6 +105,10 @@
   fixture counts, check counts, diff sizes — and every place that ships it is corrected in one
   pass. Five recurrences in slice-046, the last of them on the published docs page in both
   languages, in the very entry claiming the number had been "corrected by counting".
+- **What an agent must carry or read out verbatim is checked by command, not asked for in prose** —
+  a copy into an archive, a list read into a digest. "As written" and "read it with `grep`" did not
+  bind the agent: slice-056's probes dropped a carried line (probe 1) and skipped a prescribed read
+  twice (probes 3, 4). The command matches at the line start, so a mere mention never counts.
 - **A slice's verify block names `test-model-enum.sh` only when the slice touches what it binds** —
   `model-defaults.md`, `agents/`, or a file carrying a `craft:model-enum` / `craft:spawn-enum` marker. It runs
   8–10 min (57 mutation fixtures, each a full repo copy) and then needs `timeout=1200`; every other harness
