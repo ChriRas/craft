@@ -405,7 +405,8 @@ done <<< "$(awk -F'\t' '!seen[$2 FS $3]++' <<< "$rows")"   # dedup by (status, c
 #   what the token hands to | what is lost if the token goes
 DELEGATIONS='refactor.md|phase7-dropped|preflight|Pre-flight|status=reviewing when=phase7-dropped|the Pre-flight Phase-7 gate|strips the Phase-7 drop from /craft:execute'"'"'s chain
 review.md|loop-back|step-8|Step 8|status=implementing|the Step-8 review loop-back|leaves the autonomous handoff with no pointer to the one loop-back definition — behavior is unchanged, but nothing stops the next edit from restating Step 8 there
-plan.md|plan-file|step-7|7. Generate the plan file|status=planning|step 7'"'"'s plan-file definition|leaves the autopilot'"'"'s slice-planner with no pointer to the one plan-file definition — nothing stops the next edit from restating the template substitution (and its Status) there'
+plan.md|plan-file|step-7|7. Generate the plan file|status=planning|step 7'"'"'s plan-file definition|leaves the autopilot'"'"'s slice-planner with no pointer to the one plan-file definition — nothing stops the next edit from restating the template substitution (and its Status) there
+refactor.md|phase7-end|step-5|5. Advance to Phase 8|status=reviewing when=phase7-kept|Step 5'"'"'s Phase-7 end|leaves the autopilot'"'"'s Phase 7 (slice-056, B21) with no pointer to the one Phase-7 end — the slice-builder would pause at awaiting-refactor-decision again, or write reviewing itself'
 echo "DELEGATION:"
 while IFS='|' read -r dfile drule dto dhead dattrs dgate dloss; do
 [[ -n "$dfile" ]] || continue
@@ -501,6 +502,82 @@ else
     esac
   done <<< "$coverage"
 fi
+
+# --- AUTOPILOT PHASE 7: candidates, never a stop (slice-056, B21) -------------
+# In an autopilot run a Phase-7-keeping project used to stop at awaiting-refactor-decision: the
+# slice-builder had only the drop and the pause. The autopilot path surveys, applies nothing, writes
+# each candidate as a decision line with ONE prefix, and ends Phase 7 through Step 5 (the token above).
+# The a5 digest finds the candidates by that prefix — so writer and reader must name the same one.
+echo "AUTOPILOT PHASE 7:"
+CAND_PREFIX='Refactor candidate (autopilot, not applied):'
+autopilot_p7="$(python3 - "$BLANKED_COMMANDS/refactor.md" "$BLANKED_COMMANDS/execute.md" "$ROOT/agents/slice-builder.md" "$CAND_PREFIX" <<'PY' 2>&1
+import re, sys
+refactor, execute, builder, prefix = (open(sys.argv[1], encoding="utf-8").read(),
+    open(sys.argv[2], encoding="utf-8").read(), open(sys.argv[3], encoding="utf-8").read(), sys.argv[4])
+def section(text, head_re):
+    m = re.search(head_re + r".*?$(.*?)(?=^#{1,3}\s|\Z)", text, re.S | re.M)
+    return m.group(1) if m else None
+sub = section(refactor, r"^##\s+Subagent Mode\b")
+# the bullet carrying the phase7-end token: from its "- " start to the next bullet or blank line
+bullet = None
+if sub:
+    for b in re.split(r"\n(?=- )|\n\s*\n", sub):
+        if re.search(r"craft:delegates\s+rule=phase7-end\b", b):
+            bullet = b
+print("BULLET " + ("missing" if bullet is None else "ok"))
+if bullet is not None:
+    # the gate itself, not the word: the prefix and the no-candidate line both contain "autopilot" (R1-2)
+    print("AUTOPILOT " + ("ok" if re.match(r"-\s+\*\*In an autopilot run\*\*", bullet.lstrip()) else "missing"))
+    # a later pass (review loop-back, re-run) replaces the earlier lines instead of adding to them (R1-5)
+    print("REPLACES " + ("ok" if re.search(r"\*\*replaces\*\*\s+the\s+lines\s+an\s+earlier\s+pass\s+wrote", bullet) else "missing"))
+    print("HANDOFF " + ("present" if "craft:handoff" in bullet else "none"))
+    print("PREFIX_W " + ("ok" if prefix in bullet else "missing"))
+a5 = section(execute, r"^###\s+a5\b")
+print("PREFIX_R " + ("ok" if a5 and prefix in a5 else "missing"))
+# probe 3: the digest paraphrased the candidates from context — a5 reads them by command
+# anchored at the line start: an archive that merely mentions the prefix must list nothing (R1-1)
+print("DIGEST_CMD " + ("ok" if a5 and ("grep -h '^- \\*\\*" + prefix + "\\*\\*'") in a5 else "missing"))
+commit = open(sys.argv[1].replace("refactor.md", "commit.md"), encoding="utf-8").read()
+cap = section(commit, r"^##\s+Autopilot Mode\b")
+print("VERBATIM " + ("ok" if cap and re.search(r"carries each decision line into the archive's `## Decisions` as\s+written", cap) else "missing"))
+# prose alone did not bind the commit master (probe run 1 rewrote the decisions from memory) — the carry is checked by command
+# anchored, both forms (R1-1, R1-6), and the repair inserts only what the archive lacks (R1-4)
+carry_re = "grep -cE '^- \\*\\*(Refactor candidate \\(autopilot, not applied\\):|Phase 7 \\(autopilot\\): no refactor candidate)\\*\\*'"
+print("CARRY_CHECK " + ("ok" if cap and carry_re in cap and "grep -Fxv -f <archive>" in cap else "missing"))
+if bullet is not None:
+    print("PREFLIGHT " + ("ok" if re.search(r"run the \*\*Pre-flight above\*\* first", bullet) else "missing"))
+step4 = section(builder, r"^###\s+4\.\s+Phase 7\b")
+print("B_STEP4 " + ("missing" if step4 is None else "ok"))
+if step4 is not None:
+    print("B_AUTOPILOT " + ("ok" if re.search(r"autopilot", step4, re.I) else "missing"))
+    print("B_RESTATES " + ("yes" if "awaiting-refactor-decision" in step4 else "no"))
+PY
+)"
+ap7() { printf '%s\n' "$autopilot_p7" | awk -v k="$1" '$1 == k { print $2 }'; }
+[[ "$(ap7 BULLET)" == ok ]] && ok "refactor.md's Subagent Mode has a bullet carrying the phase7-end delegation" \
+  || bad "refactor.md's Subagent Mode has no bullet carrying <!-- craft:delegates rule=phase7-end to=step-5 --> — an autopilot slice-builder has no path past Phase 7 but the pause (B21)"
+[[ "$(ap7 AUTOPILOT)" == ok ]] && ok "that bullet opens with the autopilot gate (**In an autopilot run**)" \
+  || bad "the phase7-end bullet does not open with **In an autopilot run** — ungated, it would override the pause outside autopilot"
+[[ "$(ap7 REPLACES)" == ok ]] && ok "a later Phase-7 pass replaces the earlier candidate lines instead of adding to them" \
+  || bad "the autopilot bullet does not say a later pass replaces the earlier lines — a loop-back or re-run would duplicate candidates"
+[[ "$(ap7 HANDOFF)" == none ]] && ok "the autopilot bullet writes no handoff marker (no stop)" \
+  || bad "the autopilot bullet carries a craft:handoff marker — the autopilot run would stop at Phase 7 again (B21)"
+[[ "$(ap7 PREFIX_W)" == ok ]] && ok "the autopilot bullet writes candidates with the prefix '$CAND_PREFIX'" \
+  || bad "the autopilot bullet does not name the candidate prefix '$CAND_PREFIX' — the a5 digest could not find the candidates"
+[[ "$(ap7 PREFIX_R)" == ok ]] && ok "execute.md's a5 digest reads the candidate prefix" \
+  || bad "execute.md's a5 does not read '$CAND_PREFIX' — the candidates never reach the human (design record §3)"
+[[ "$(ap7 DIGEST_CMD)" == ok ]] && ok "execute.md's a5 reads the candidate lines by command (grep -h, anchored at the line start)" \
+  || bad "execute.md's a5 does not read the candidates by command — probe 3's digest paraphrased them from context"
+[[ "$(ap7 VERBATIM)" == ok ]] && ok "commit.md's Autopilot Mode carries decision lines into the archive as written (the prefix survives)" \
+  || bad "commit.md's Autopilot Mode does not keep decision lines as written — Step 5 may reword a refactor candidate and a5 would miss it"
+[[ "$(ap7 CARRY_CHECK)" == ok ]] && ok "commit.md's Autopilot Mode checks the carried Phase-7 lines by command (grep -cE anchored, both forms, plan = archive; repair inserts only missing lines)" \
+  || bad "commit.md's Autopilot Mode does not check the candidate lines by command — probe run 1 showed the archive rewritten from memory"
+[[ "$(ap7 PREFLIGHT)" == ok ]] && ok "the autopilot bullet runs refactor.md's Pre-flight first (its refactoring status included)" \
+  || bad "the autopilot bullet does not send the builder through Pre-flight — probe run 1 skipped the refactoring status"
+[[ "$(ap7 B_STEP4)" == ok && "$(ap7 B_AUTOPILOT)" == ok ]] && ok "slice-builder step 4 names the autopilot path" \
+  || bad "slice-builder step 4 does not name the autopilot path — the builder would follow the pause"
+[[ "$(ap7 B_RESTATES)" == no ]] && ok "slice-builder step 4 does not restate the refactor pause — refactor.md's Subagent Mode defines it" \
+  || bad "slice-builder step 4 restates the awaiting-refactor-decision pause — a second description beside refactor.md's Subagent Mode"
 
 # --- DETECTION: the Phase-7-dropped rule is a checked contract ----------------
 # The rule is prose four commands must agree on. Assert this project's rules.md
