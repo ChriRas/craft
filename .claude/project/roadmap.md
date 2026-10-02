@@ -10,7 +10,7 @@
 | # | ID | Type | Size | Item |
 |---|----|------|------|------|
 | 1 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
-| 2 | B21 | Fix | slice | Autopilot stops at Phase 7: a `slice-builder` in an autopilot run still pauses at `awaiting-refactor-decision` (slice-054 T1, fixture run) — design §3 says skip Phase 7 in autopilot and send the candidates to the epic digest, and no epic-003 entry builds it; the same stop left no `⛔` line in `## Autopilot Log` (possibly cut by the user's Esc — confirm first) |
+| 2 | B22 | Fix | slice | Autopilot epic end (a5) and start (a1) drift from the prose (slice-056 probe 3, headless): the lock is released **before** the merge question (a later `[Y]` merges unlocked), an unanswered question logs a `▶` line a5 does not define (no `■`), the a1 briefing block is not printed on a re-run, the digest misdates the verification (`2021-…`) and paraphrases the UX demo script instead of showing it as written, and the master writes helper files to `/tmp` outside the project; probe 4 also logged `■ … complete, not merged` for a question nobody answered. **The digest is written from memory**, ignoring its Output Format — probe 4 skipped the prescribed `grep -hF` read of the candidates, so prose does not bind it: generate the digest (candidates, follow-ups, UX demo as written) with a helper whose output a5 only relays |
 | 3 | B18 | Fix | small | Handoff-answer record (slice-042 R1-15): a resume records no answer to the handoff's question, so a subagent re-run — an autopilot re-run in particular — meets it again. Deferred by slice-049: build it when a real autopilot run shows a question that repeats (Phase-5 answers already live in `Status:`) |
 | 4 | B15 | Fix | slice | Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
 | 5 | B20 | Fix | small | Parallel worktree mode removes its checkpoint record once a slice is merged (`commands/execute.md` step 9: "delete its lines, and the file and an empty `.craft/` with them") — a user rule that denies or asks on removing files refuses it too (D34); keep it as state or close it through `close-file.sh` (slice-050 follow-up) |
@@ -50,6 +50,11 @@ and a test.
 **B15, B17 — follow-ups from slice-039** (B16 shipped with slice-040). Details in
 `.claude/project/slices/slice-039-b9-b10-b13-b14-tree-hygiene.md` → Follow-ups and Known limits. B15 is what parallel
 worktree mode needs before anyone relies on it — no longer an F6 prerequisite, since the autopilot builder works in place.
+
+**B21 — slice-056 (2026-10-01).** The autopilot no longer stops at Phase 7: candidates become fixed-prefix decision lines,
+carried into the archive and read into the a5 digest by command. The missing `⛔` line did **not** reproduce (probe run 2
+logged its stop) — most likely the user's Esc. The other a5 / a1 drift probes 3 and 4 showed is **B22** — the digest itself included: it lists the candidates correct in
+content but from memory, and a prose `grep -hF` instruction did not bind it.
 
 **F6 — Autopilot mode.** Banked as D32 (2026-09-12); design record with verified facts, touchpoint
 matrix and open spike items in `.claude/project/design/autopilot-mode.md`. F4 shipped (slice-033):
