@@ -317,7 +317,8 @@ rules exist because each was, at some point, the hole a reviewer walked through:
   row, either can be deleted and the other covers for it, so the row binds neither;
 - a command must not restate another's rule. `/craft:refactor`'s Subagent-Mode section **delegates**
   to the single Phase-7 gate instead of carrying its own copy, and marks that with a
-  `<!-- craft:delegates rule=<r> to=<target> -->` token. `/craft:review`'s Subagent-Mode section
+  `<!-- craft:delegates rule=<r> to=<target> -->` token; its autopilot path delegates the Phase-7 end to Step 5
+  the same way (`rule=phase7-end to=step-5`). `/craft:review`'s Subagent-Mode section
   does the same for the review loop-back (`rule=loop-back to=step-8`), and `/craft:plan`'s for the plan file
   the autopilot's `slice-planner` writes (`rule=plan-file to=step-7`). The harness asserts the token is present,
   that the delegating section declares no status write of its own — neither a `craft:writes`
@@ -768,7 +769,7 @@ When `/craft:execute <epic-or-slice>` is used, the 9-phase loop runs across para
 | 4 (Implementation) | slice-worktree | `/craft:execute` creates `../<repo>-worktrees/<slice-id>-<slug>/` on branch `<slice-id>-<slug>` from the epic-branch (or `main` for a lone slice). The `slice-builder` subagent runs `/craft:build` here. |
 | 5 (Testing) | slice-worktree | Subagent-callable mode of `/craft:test` writes `.craft/handoff.md` and pauses — Phase 5 requires a human. The one exception: in an autopilot run a helper's pass of the committed checks (`/craft:test` → Subagent Mode step 0a, D35); the product feel then goes to the human at the epic end. |
 | 6 (Recap) | slice-worktree | Subagent-callable mode of `/craft:recap` auto-drafts the What/Why/Walk-through. Flagged for human review at checkout. |
-| 7 (Refactor) | slice-worktree | Subagent-callable mode of `/craft:refactor` skips if `rules.md` declares Phase 7 dropped; otherwise writes handoff candidates without applying. |
+| 7 (Refactor) | slice-worktree | Subagent-callable mode of `/craft:refactor` skips if `rules.md` declares Phase 7 dropped; otherwise writes handoff candidates without applying. In an autopilot run it records its candidates as decision lines, applies none and goes on to Phase 8 — the epic-end digest shows them (`/craft:refactor` → Subagent Mode defines it). |
 | 8 (Review) | slice-worktree | Subagent-callable mode of `/craft:review` applies in-phase fixes automatically; open findings write a handoff and stop — the plan is not paused (`/craft:review` → Subagent Mode defines the outcome). |
 | 8 → epic-merge | epic-worktree | When a slice clears review, the orchestrator merges its branch into `epic-<NNN>-<slug>` with `--no-ff`. For a lone slice, this step is skipped — the slice-branch stays parked until Phase 9. |
 | 9 (Commit) | main | `/craft:commit` runs from main, detects the mode (Standard / Slice-finalize / Epic-finalize), merges with `--no-ff`, walks decisions across every included slice, writes archive entries, closes plan files (deleted, or moved into `.claude/plans/.closed/`), and removes worktrees + branches. |
@@ -779,7 +780,7 @@ Phase commands `/craft:build`, `/craft:test`, `/craft:recap`, `/craft:refactor`,
 
 The contract has two rules:
 
-1. **Never fabricate human judgment.** UX feedback (W/B/U), refactor candidate selection, escalation routing, decision promotions, commit-message edits — all stay human-only. Subagent mode either auto-drafts (Recap) and flags it for review, or writes a handoff marker and stops (Test/Refactor pause the plan; Review leaves it as its Subagent Mode defines).
+1. **Never fabricate human judgment.** UX feedback (W/B/U), refactor candidate selection, escalation routing, decision promotions, commit-message edits — all stay human-only. Subagent mode either auto-drafts (Recap) and flags it for review, or writes a handoff marker and stops (Test/Refactor pause the plan; Review leaves it as its Subagent Mode defines). In an autopilot run Refactor neither selects nor stops: it records its candidates, applies none, and the human selects at the epic end (`/craft:refactor` → Subagent Mode).
 2. **Always surface state via `.craft/handoff.md`.** The marker file is the universal "human needed" signal. Hooks watch for it; `/craft:execute` collects it; `/craft:checkout` shows it.
 
 ### Handoff marker format

@@ -17,6 +17,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 - **Phase 8 is calibrated to real risk, plugin-wide** (slice-052) — a finding is Heavy only with a realistic failure (reproduced, or reachable through normal use), and a slice gets at most 3 review rounds: at the cap open Light findings become follow-ups and an open Heavy goes to you — accept it as a known limit (new resolution `accepted → known limit`, archived with the follow-ups), grant one extra round, or spin off a slice.
 - **`example-regions.sh`** (slice-047) — one definition of "an example, not content" for the findings parser, the epic link helper and two harnesses; a consumer without it fails closed.
 
+### Fixed
+- **Autopilot no longer stops at Phase 7** (F6, slice-056, roadmap B21) — in a project that keeps Phase 7, an autopilot `slice-builder` paused at `awaiting-refactor-decision`. It now records up to two refactor candidates as `Refactor candidate (autopilot, not applied):` decision lines, applies none and goes on to Phase 8; the epic-end digest lists them, and `/craft:commit` carries decision lines into the archive as written. Outside an autopilot run the pause stays.
+
 ## [1.5.0] - 2026-09-15
 
 > **Upgrade note — read before updating.**

@@ -912,7 +912,8 @@ pre,.figwrap,.hero .install{
           der Rest steht am Gate (ohne <code>[Y]</code> zu sperren). Dann baut er die Slices nacheinander in place auf
           <code>epic-&lt;NNN&gt;-&lt;slug&gt;</code> — je ein <code>slice-builder</code> im Vordergrund, dann
           <code>/craft:commit</code> auf Level 2 (Split ohne Rückfrage, Entscheidungen <code>[K]</code>) — und macht ohne
-          Halt weiter; jedes Ereignis landet im <code>## Autopilot Log</code> des Epic-Plans. Phase 5 prüft
+          Halt weiter, auch an Phase 7: bis zu zwei Refactoring-Kandidaten werden notiert, nicht angewendet, und stehen
+          im Epic-Digest; jedes Ereignis landet im <code>## Autopilot Log</code> des Epic-Plans. Phase 5 prüft
           <code>scripts/verify-run.sh</code> per Befehl aus dem <code>&lt;!-- craft:verify --&gt;</code>-Block der Test Strategy
           (jeder Befehl vorher gegen deine deny-/ask-Regeln geprüft); nur ein sauberer Pass ersetzt deine Prüfung. Ein
           Bug (ein fehlgeschlagener Check, oder der 2. Fix am selben Symptom in Phase 4) bekommt zuerst einen autonomen
@@ -969,7 +970,8 @@ pre,.figwrap,.hero .install{
           shown at the gate (without withholding <code>[Y]</code>). Then it builds the slices one by one in place on
           <code>epic-&lt;NNN&gt;-&lt;slug&gt;</code> — a foreground <code>slice-builder</code> each, then
           <code>/craft:commit</code> at Level 2 (split without questions, decisions <code>[K]</code>) — and moves on without
-          a halt; every event goes to the epic plan's <code>## Autopilot Log</code>. Phase 5 is checked
+          a halt, Phase 7 included: up to two refactor candidates are recorded, none applied, and listed in the epic
+          digest; every event goes to the epic plan's <code>## Autopilot Log</code>. Phase 5 is checked
           by <code>scripts/verify-run.sh</code>, by command, from the Test Strategy's <code>&lt;!-- craft:verify --&gt;</code>
           block (each command judged against your deny / ask rules first); only a clean pass replaces your check. A bug
           (a failed check, or a 2nd fix on the same symptom in Phase 4) first gets an autonomous <code>/craft:debug</code> loop
