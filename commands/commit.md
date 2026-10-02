@@ -664,7 +664,17 @@ differences.
   than the one this run closes enters the split** — Step 1 leaves them to a human, and there is none here; the epic
   plan's `## Autopilot Log` lines stay uncommitted.
 - **Step 4 records every decision as `[K]`**, without the dialog. Nothing is written to `intent.md` / `rules.md`: a
-  promotion stays a human's Level-0 act.
+  promotion stays a human's Level-0 act. Step 5 carries each decision line into the archive's `## Decisions` as
+  written — the epic-end digest finds a `Refactor candidate (autopilot, not applied):` line by its prefix
+  (`/craft:refactor` → Subagent Mode, `/craft:execute` → a5). **Check the Phase-7 lines by command before Step 5b**,
+  the plan still in place. They are the decision bullets in either of refactor.md's two forms, matched at the line
+  start so that a plan or archive that merely *mentions* the prefix (in its Goal, recap or diagram) counts nothing:
+  `grep -cE '^- \*\*(Refactor candidate \(autopilot, not applied\):|Phase 7 \(autopilot\): no refactor candidate)\*\*'`
+  on the plan and the same on the archive must print the same count. When the archive has fewer, insert the plan's
+  lines it does not already hold verbatim — `grep -E '<the same pattern>' <plan> | grep -Fxv -f <archive>` prints
+  them — unchanged, at the end of the archive's `## Decisions`, and count again; still unequal → stop, a failed
+  assertion. A slice-056 probe wrote the archive's decisions from memory and dropped the plan's line — read off the
+  files, not recalled.
 
 A failing pre- or post-assertion stops the command as it always does; `/craft:execute` then stops the run (a3).
 
