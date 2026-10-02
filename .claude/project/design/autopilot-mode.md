@@ -59,7 +59,7 @@ Autopilot must decide, per touchpoint, **agent-resolves** or **escalate to maste
 | Epic → slice planning | `/craft:epic` + manual `/craft:plan` | planner fan-out |
 | Phase 5 human exercise `[W]/[B]/[U]` ("cannot be skipped") | `/craft:test` → `awaiting-test` | **intent conflict** — agent-run E2E verification from the committed Test Strategy (+ agent-browser for UI); human UX check batched at epic end (open question Q2) |
 | Phase 6 recap dialog | `/craft:recap` | subagent draft already exists; becomes the per-slice digest source |
-| Phase 7 candidates never applied unsupervised | `/craft:refactor` → `awaiting-refactor-decision` | skip in autopilot; candidates → epic digest |
+| Phase 7 candidates never applied unsupervised | `/craft:refactor` → `awaiting-refactor-decision` | skip in autopilot; candidates → epic digest — **as built (slice-056):** ≤ 2 `Refactor candidate (autopilot, not applied):` decision lines, Phase 7 ends through `/craft:refactor` Step 5, a5 lists them |
 | Phase 8 Heavy+Rethink → human routing | `/craft:review` → `awaiting-rethink-decision` | one autonomous loop-back to build; ping-pong breaker (§5) before escalation |
 | 2nd same-symptom fix → debug protocol negotiated with human | `/craft:build` → `awaiting-protocol` | protocol drafted by builder, **frozen by the reviewer agent** (two-agent freeze replaces human freeze) |
 | Out-of-scope blocker | `awaiting-block-decision` | always escalate (direction call stays human) |
