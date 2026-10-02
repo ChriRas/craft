@@ -805,8 +805,13 @@ does not apply: an autopilot slice never waits on a PR.) s1's stop on a held sli
 ### a5 — Epic end: digest and sign-off
 
 Replaces s5. For every slice of the epic — all now `ACTION=skip` — read its archive under `.claude/project/slices/`:
-the first sentence of `## What`, and the bullets of `## Follow-ups` if it has any. Emit *Autopilot — epic complete*
-with those and the epic plan's `## UX Demo Script` — the product-feel check the verification did not replace: walk it
+the first sentence of `## What`, the bullets of `## Follow-ups` if it has any, and the Phase-7 candidates the run
+recorded instead of stopping (`/craft:refactor` → Subagent Mode) — read them by command, matched at the line start
+so that an archive merely *mentioning* the prefix lists nothing,
+`grep -h '^- \*\*Refactor candidate (autopilot, not applied):\*\*' <archive>`, and show each line it prints without
+the `- **…:**` prefix, otherwise unchanged (a slice-056 probe paraphrased them from memory and dropped the *why*); the
+human decides here whether one becomes a later slice. Emit *Autopilot — epic complete* with those and the epic plan's
+`## UX Demo Script` — the product-feel check the verification did not replace: walk it
 before you answer — then ask, Level 0:
 
 ```
@@ -1054,6 +1059,7 @@ Autopilot — epic complete (a5):
 ✓ Autopilot — epic-<NNN> complete: <M> slices on <epic-branch>
    slice-<id> — <first sentence of ## What>
       follow-up: <bullet>            (only when the archive has follow-ups)
+      refactor candidate: <the line grep -h printed, prefix dropped>   (only when the run recorded one — not applied)
    …
    UX demo script — walk it before you answer (the epic plan's ## UX Demo Script):
       <the section's blocks, as written>
