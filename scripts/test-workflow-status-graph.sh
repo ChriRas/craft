@@ -510,10 +510,11 @@ fi
 # The a5 digest finds the candidates by that prefix — so writer and reader must name the same one.
 echo "AUTOPILOT PHASE 7:"
 CAND_PREFIX='Refactor candidate (autopilot, not applied):'
-autopilot_p7="$(python3 - "$BLANKED_COMMANDS/refactor.md" "$BLANKED_COMMANDS/execute.md" "$ROOT/agents/slice-builder.md" "$CAND_PREFIX" <<'PY' 2>&1
-import re, sys
+autopilot_p7="$(python3 - "$BLANKED_COMMANDS/refactor.md" "$BLANKED_COMMANDS/execute.md" "$ROOT/agents/slice-builder.md" "$CAND_PREFIX" "$ROOT/scripts/epic-digest.sh" <<'PY' 2>&1
+import os, re, sys
 refactor, execute, builder, prefix = (open(sys.argv[1], encoding="utf-8").read(),
     open(sys.argv[2], encoding="utf-8").read(), open(sys.argv[3], encoding="utf-8").read(), sys.argv[4])
+digest = open(sys.argv[5], encoding="utf-8").read() if os.path.isfile(sys.argv[5]) else ""
 def section(text, head_re):
     m = re.search(head_re + r".*?$(.*?)(?=^#{1,3}\s|\Z)", text, re.S | re.M)
     return m.group(1) if m else None
@@ -533,10 +534,10 @@ if bullet is not None:
     print("HANDOFF " + ("present" if "craft:handoff" in bullet else "none"))
     print("PREFIX_W " + ("ok" if prefix in bullet else "missing"))
 a5 = section(execute, r"^###\s+a5\b")
-print("PREFIX_R " + ("ok" if a5 and prefix in a5 else "missing"))
-# probe 3: the digest paraphrased the candidates from context — a5 reads them by command
-# anchored at the line start: an archive that merely mentions the prefix must list nothing (R1-1)
-print("DIGEST_CMD " + ("ok" if a5 and ("grep -h '^- \\*\\*" + prefix + "\\*\\*'") in a5 else "missing"))
+# the reader is the digest helper (slice-057): it matches the candidate line at the line start, prefix escaped
+print("PREFIX_R " + ("ok" if ("^- \\*\\*" + prefix.replace("(", "\\(").replace(")", "\\)") + "\\*\\*") in digest else "missing"))
+# probes 3 and 4: the digest was written from context — a5 runs the helper and relays its output
+print("DIGEST_CMD " + ("ok" if a5 and "`scripts/epic-digest.sh`" in a5 and re.search(r"print its stdout \*\*unchanged\*\*", a5) else "missing"))
 commit = open(sys.argv[1].replace("refactor.md", "commit.md"), encoding="utf-8").read()
 cap = section(commit, r"^##\s+Autopilot Mode\b")
 print("VERBATIM " + ("ok" if cap and re.search(r"carries each decision line into the archive's `## Decisions` as\s+written", cap) else "missing"))
@@ -564,10 +565,10 @@ ap7() { printf '%s\n' "$autopilot_p7" | awk -v k="$1" '$1 == k { print $2 }'; }
   || bad "the autopilot bullet carries a craft:handoff marker — the autopilot run would stop at Phase 7 again (B21)"
 [[ "$(ap7 PREFIX_W)" == ok ]] && ok "the autopilot bullet writes candidates with the prefix '$CAND_PREFIX'" \
   || bad "the autopilot bullet does not name the candidate prefix '$CAND_PREFIX' — the a5 digest could not find the candidates"
-[[ "$(ap7 PREFIX_R)" == ok ]] && ok "execute.md's a5 digest reads the candidate prefix" \
-  || bad "execute.md's a5 does not read '$CAND_PREFIX' — the candidates never reach the human (design record §3)"
-[[ "$(ap7 DIGEST_CMD)" == ok ]] && ok "execute.md's a5 reads the candidate lines by command (grep -h, anchored at the line start)" \
-  || bad "execute.md's a5 does not read the candidates by command — probe 3's digest paraphrased them from context"
+[[ "$(ap7 PREFIX_R)" == ok ]] && ok "the digest helper (epic-digest.sh) reads the candidate prefix at the line start" \
+  || bad "scripts/epic-digest.sh does not match '$CAND_PREFIX' at the line start — the candidates never reach the human (design record §3)"
+[[ "$(ap7 DIGEST_CMD)" == ok ]] && ok "execute.md's a5 runs epic-digest.sh and relays its stdout unchanged" \
+  || bad "execute.md's a5 does not relay epic-digest.sh's output — probes 3 and 4 wrote the digest from context"
 [[ "$(ap7 VERBATIM)" == ok ]] && ok "commit.md's Autopilot Mode carries decision lines into the archive as written (the prefix survives)" \
   || bad "commit.md's Autopilot Mode does not keep decision lines as written — Step 5 may reword a refactor candidate and a5 would miss it"
 [[ "$(ap7 CARRY_CHECK)" == ok ]] && ok "commit.md's Autopilot Mode checks the carried Phase-7 lines by command (grep -cE anchored, both forms, plan = archive; repair inserts only missing lines)" \
@@ -578,6 +579,105 @@ ap7() { printf '%s\n' "$autopilot_p7" | awk -v k="$1" '$1 == k { print $2 }'; }
   || bad "slice-builder step 4 does not name the autopilot path — the builder would follow the pause"
 [[ "$(ap7 B_RESTATES)" == no ]] && ok "slice-builder step 4 does not restate the refactor pause — refactor.md's Subagent Mode defines it" \
   || bad "slice-builder step 4 restates the awaiting-refactor-decision pause — a second description beside refactor.md's Subagent Mode"
+
+# --- AUTOPILOT EPIC END: a relayed digest, the lock until the answer (slice-057, B22) --
+# slice-056's probes 3 and 4: the master wrote the epic-end digest from context, released the lock
+# before the merge question (a later [Y] merged unlocked) and logged `■ … complete, not merged` for a
+# question nobody answered. a5 relays scripts/epic-digest.sh, keeps the lock until [Y]/[N], and names
+# the unanswered state. Each pin was proved red on a scratch mutation of execute.md.
+echo "AUTOPILOT EPIC END:"
+epic_end="$(python3 - "$BLANKED_COMMANDS/execute.md" <<'PY' 2>&1
+import re, sys
+execute = open(sys.argv[1], encoding="utf-8").read()
+m = re.search(r"^###\s+a5\b.*?$(.*?)(?=^#{1,3}\s|\Z)", execute, re.S | re.M)
+a5 = m.group(1) if m else ""
+print("A5 " + ("ok" if a5 else "missing"))
+asked = a5.find("`▶ · <epic-id> · sign-off asked`")
+print("SIGNOFF " + ("ok" if asked >= 0 else "missing"))
+# before the question the lock is released exactly once, in the digest's ERROR= stop sentence — any
+# other release there, in any case, lets a later [Y] merge unlocked
+pre = a5[:asked] if asked >= 0 else a5
+releases = re.findall(r"release the lock", pre, re.I)
+in_error = re.findall(r"digest failed: <reason>` and release the lock", pre)
+print("LOCK_EARLY " + ("none" if len(releases) == 1 and len(in_error) == 1 else "yes"))
+post = a5[asked:] if asked >= 0 else ""
+# every answer writes its ■ line, then releases the lock — three bullets, each in that order
+answers = re.findall(r"^- \*\*\[(?:Y|N)\][^\n]*(?:\n(?!- |\n)[^\n]*)*", post, re.M)
+ordered = [b for b in answers if re.search(r"`■ [^`]*`, then release the lock", b)]
+print("ANSWER_ORDER " + ("ok" if len(answers) == 3 and len(ordered) == 3 else "bad:%d/%d" % (len(ordered), len(answers))))
+print("NO_ANSWER " + ("ok" if re.search(r"\*\*No answer is no answer\.\*\*", post)
+      and re.search(r"no `■` line, the lock stays `held`", post)
+      and re.search(r"Never log `■` for a question\s+nobody answered", post) else "missing"))
+# BUG-1 (human test): a refused log append went unnoticed — the question was asked without its ▶ line, and [Y]
+# merged and released the lock with no ■ line. a5 checks each of its own lines by command (the exact line, -Fx).
+# The check drops CR first: epic-digest.sh reads a CRLF plan, so a5 must not lock itself out of one (R1-4).
+print("SIGNOFF_CHECK " + ("ok" if re.search(r"\*\*check it by command\*\* before you ask:\s+`tr -d '\\r' < \"<epic-plan>\" \| grep -cFx -- '<the line exactly as written", post)
+      and re.search(r"sign-off not logged: <reason>` — printed only, the log is what failed — and release the\s+lock — nothing was asked", post) else "missing"))
+print("ANSWER_CHECK " + ("ok" if re.search(r"Each answer writes its `■` line, \*\*checks it by command\*\*[^.]*?`tr -d '\\r' \| grep -cFx`[^.]*?\*\*then\*\* releases the lock", post) else "missing"))
+print("UNLOGGED_HELD " + ("ok" if re.search(r"A `■` or `⛔` line\s+that did not land stops the run with the lock \*\*held\*\*", post)
+      and re.search(r"· not logged — add this line to ## Autopilot Log by hand:", post)
+      and re.search(r"A4's\s+`release --force` command", post) else "missing"))
+# R1-1: an answer whose action failed (conflict, push, gh pr create) logs a checked ⛔ line — never a ■ "merged", never
+# no line at all, which would read as "unanswered"
+print("FAILED_ACTION " + ("ok" if re.search(r"An answer whose action\s+failed writes the `⛔` line its bullet names instead, checked the same way", post)
+      and re.search(r"log `⛔ · <epic-id> · merge into <trunk> conflicted`;(?:(?!\n- ).)*?Otherwise log\s+`■ <epic-id> merged into <trunk>`", post, re.S)
+      and re.search(r"log\s+`⛔ · <epic-id> · PR not opened: <reason>`\. Otherwise log `■ <epic-id> PR #<N> opened`", post) else "missing"))
+# R1-2: the held lock is named as the one exception to step 1's release on an abort — in a5 and at step 1
+step1 = re.search(r"^###\s+1\. Acquire the lock\b(.*?)(?=^###\s)", execute, re.S | re.M)
+print("HELD_EXCEPTION " + ("ok" if re.search(r"the one exception to step 1's release on an abort", post)
+      and step1 and re.search(r"one exception: a5's closing log line that did not land keeps it held", step1.group(1)) else "missing"))
+# R1-3: the PR body is the helper's output generated again — a second copy is never retyped by the master
+# — fenced, so GitHub keeps its lines and indents (R2-1)
+print("PR_BODY " + ("ok" if '''--body "$(printf '~~~~~~\\n'; bash "${CLAUDE_PLUGIN_ROOT}/scripts/epic-digest.sh" "<epic-plan>"; printf '~~~~~~\\n')"''' in post else "missing"))
+# R2-2: a <reason> with a quote or a second line would make the single-quoted exact-line check miss a line that landed
+print("REASON_ONE_LINE " + ("ok" if re.search(r"Every `<reason>` in an a5 line is one line with no quote\s+character", post) else "missing"))
+# R2-4: the two ⛔ lines a5 cannot log are marked print-only — the general log rule would have them logged
+print("PRINT_ONLY " + ("ok" if len(re.findall(r"printed only, the log is what failed", post)) == 2 else "missing"))
+# R2-5: a conflicted merge leaves the trunk mid-merge — a5 names it and both ways out
+print("CONFLICT_EXIT " + ("ok" if re.search(r"left on `<trunk>` mid-merge", post) and "`git merge --abort`" in post else "missing"))
+# R1-5: a5 does not restate the digest's fields beside "defined once, in the helper's header"
+print("A5_NO_FIELDS " + ("ok" if not re.search(r"first sentence of|follow-ups and the Phase-7 candidates", a5) else "restated"))
+# a5 reads no archive itself — the helper is the one reader (a second reading is how the paraphrase came back)
+# — a grep that reads an archive, that is; a5's own log check (BUG-1) greps the epic plan and is no second reader
+reads_archive = [s for s in re.findall(r"`([^`]*\bgrep\b[^`]*)`", a5) if re.search(r"archive|\.claude/project/slices", s)]
+print("A5_NO_GREP " + ("ok" if not reads_archive else "grep"))
+fmt = re.search(r"^Autopilot — epic complete \(a5\):(.*?)(?=^Aborted:|\Z)", execute, re.S | re.M)
+print("FORMAT_POINTS " + ("ok" if fmt and "`scripts/epic-digest.sh`, relayed unchanged" in fmt.group(1) else "missing"))
+PY
+)"
+ee() { printf '%s\n' "$epic_end" | awk -v k="$1" '$1 == k { print $2 }'; }
+[[ "$(ee A5)" == ok && "$(ee SIGNOFF)" == ok ]] && ok "a5 logs ▶ · <epic-id> · sign-off asked before the merge question" \
+  || bad "a5 does not define the ▶ … sign-off asked line — an unanswered question has no log state (B22 #5)"
+[[ "$(ee LOCK_EARLY)" == none ]] && ok "a5 releases the lock before the question only on the digest's ERROR= stop" \
+  || bad "a5 releases the lock before the merge question — a later [Y] would merge unlocked (B22 #4)"
+[[ "$(ee ANSWER_ORDER)" == ok ]] && ok "each of a5's three answers writes its ■ line, then releases the lock" \
+  || bad "a5's answers do not each log ■ and then release the lock ($(ee ANSWER_ORDER) bullets)"
+[[ "$(ee NO_ANSWER)" == ok ]] && ok "a5 defines the unanswered question: no ■ line, the lock stays held" \
+  || bad "a5 does not define the unanswered question — probe 4 logged '■ … complete, not merged' for it (B22 #5)"
+[[ "$(ee SIGNOFF_CHECK)" == ok ]] && ok "a5 checks its ▶ … sign-off asked line by command before asking; not there → ⛔, lock released, no question" \
+  || bad "a5 does not check its sign-off line by command — a refused log append went unnoticed (BUG-1)"
+[[ "$(ee ANSWER_CHECK)" == ok ]] && ok "each a5 answer checks its ■ line by command before releasing the lock" \
+  || bad "a5's answers do not check their ■ line by command before the release — [Y] merged with no ■ line (BUG-1)"
+[[ "$(ee UNLOGGED_HELD)" == ok ]] && ok "an unlogged ■ line stops a5 with the lock held, the line to add and the release --force pointer" \
+  || bad "a5 does not define an unlogged ■ line — the lock would be released with the log reading 'unanswered' (BUG-1)"
+[[ "$(ee FAILED_ACTION)" == ok ]] && ok "a failed a5 action (conflict, push, gh pr create) logs a checked ⛔ line instead of ■" \
+  || bad "a5 does not log a failed action — the log reads 'unanswered' or 'merged' after a conflict (R1-1)"
+[[ "$(ee HELD_EXCEPTION)" == ok ]] && ok "a5's held lock is named as the one exception to step 1's release on an abort (a5 and step 1)" \
+  || bad "a5's held lock is not marked as step 1's exception — step 1 and P4 contradict it (R1-2)"
+[[ "$(ee PR_BODY)" == ok ]] && ok "a5's PR body is epic-digest.sh's output, generated again and fenced in --body" \
+  || bad "a5's PR body is left to the master — a second verbatim copy retyped from context (R1-3), or unfenced (R2-1)"
+[[ "$(ee REASON_ONE_LINE)" == ok ]] && ok "a5's <reason> is one line with no quote character — the exact-line check can match it" \
+  || bad "a5 does not constrain <reason> — a quote or a second line makes a landed line read as missing (R2-2)"
+[[ "$(ee PRINT_ONLY)" == ok ]] && ok "a5's two unloggable ⛔ lines are marked printed only" \
+  || bad "a5 does not mark its unloggable ⛔ lines as printed only — the general log rule would log them (R2-4)"
+[[ "$(ee CONFLICT_EXIT)" == ok ]] && ok "a5 names the mid-merge trunk after a conflict and the git merge --abort way out" \
+  || bad "a5 leaves a conflicted merge without a way out — a0 would say commit or stash, which git refuses (R2-5)"
+[[ "$(ee A5_NO_FIELDS)" == ok ]] && ok "a5 does not restate the digest's fields — the helper's header defines them" \
+  || bad "a5 restates the digest's fields beside 'defined once, in the helper's header' (R1-5)"
+[[ "$(ee A5_NO_GREP)" == ok ]] && ok "a5 reads no archive itself — epic-digest.sh is the one reader" \
+  || bad "a5 greps the archives itself — a second reader beside epic-digest.sh"
+[[ "$(ee FORMAT_POINTS)" == ok ]] && ok "the epic-complete Output Format points to epic-digest.sh instead of restating the block" \
+  || bad "the epic-complete Output Format does not point to scripts/epic-digest.sh — a second description of the digest"
 
 # --- DETECTION: the Phase-7-dropped rule is a checked contract ----------------
 # The rule is prose four commands must agree on. Assert this project's rules.md

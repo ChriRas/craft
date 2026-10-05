@@ -155,7 +155,7 @@ that could only be released by removal was never released — slice-049): its co
   `release --force`.
 
 Release only a lock **this invocation** took (step 1 `RESULT=acquired` or `taken_over`): at the release points of its
-path, and on any abort after step 1. An abort in A4 or at step 1's refusal releases nothing — in this session a plain
+path, and on any abort after step 1 (one exception: a5's closing log line that did not land keeps it held). An abort in A4 or at step 1's refusal releases nothing — in this session a plain
 release would succeed on a running run's lock (both share `CLAUDE_PID`) and free it.
 
 ### 1b. Branch on mode
@@ -804,15 +804,27 @@ does not apply: an autopilot slice never waits on a PR.) s1's stop on a held sli
 
 ### a5 — Epic end: digest and sign-off
 
-Replaces s5. For every slice of the epic — all now `ACTION=skip` — read its archive under `.claude/project/slices/`:
-the first sentence of `## What`, the bullets of `## Follow-ups` if it has any, and the Phase-7 candidates the run
-recorded instead of stopping (`/craft:refactor` → Subagent Mode) — read them by command, matched at the line start
-so that an archive merely *mentioning* the prefix lists nothing,
-`grep -h '^- \*\*Refactor candidate (autopilot, not applied):\*\*' <archive>`, and show each line it prints without
-the `- **…:**` prefix, otherwise unchanged (a slice-056 probe paraphrased them from memory and dropped the *why*); the
-human decides here whether one becomes a later slice. Emit *Autopilot — epic complete* with those and the epic plan's
-`## UX Demo Script` — the product-feel check the verification did not replace: walk it
-before you answer — then ask, Level 0:
+Replaces s5. Every slice of the epic now reads `ACTION=skip`. **The digest is generated, never written** — run the
+helper `scripts/epic-digest.sh` from the project root,
+
+```
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/epic-digest.sh" "<epic-plan>"
+```
+
+and print its stdout **unchanged**: every line, in order, nothing added inside it, nothing left out, no summary in its
+place. That output is the *Autopilot — epic complete* block; what it holds is defined once, in the helper's header.
+slice-056's probes wrote this block from context: the candidates paraphrased, the demo script retold, a verification
+dated `2021-…`. The human decides here whether a candidate becomes a later slice. An `ERROR=` (a
+non-zero exit) stops the run instead: print and log `⛔ · <epic-id> · digest failed: <reason>` and release the lock —
+nothing was asked, nothing merged.
+
+Then — **the lock still held** — log `▶ · <epic-id> · sign-off asked` and **check it by command** before you ask:
+`tr -d '\r' < "<epic-plan>" | grep -cFx -- '<the line exactly as written, its datetime included>'` must print `1` (the
+datetime tells it from an earlier run's line; the CR is dropped because the plan may be CRLF). Anything else — the
+write was refused or never landed (a human test's auto-mode classifier denied it, slice-057 BUG-1) — stops the run
+instead: print `⛔ · <epic-id> · sign-off not logged: <reason>` — printed only, the log is what failed — and release the
+lock — nothing was asked, nothing merged. Otherwise ask, Level 0. The UX demo script is the product-feel check the
+verification did not replace: walk it before you answer.
 
 ```
 Merge <epic-branch> into <trunk>?
@@ -821,14 +833,37 @@ Merge <epic-branch> into <trunk>?
   [N] no  — leave <epic-branch> as it is; nothing else changes
 ```
 
-- **[Y], `direct`** → `git checkout <trunk>` then `git merge --no-ff <epic-branch> -m "Merge <epic-NNN>: <epic title>"`.
-  A conflict stops the run: surface it, never resolve it, release the lock (step 1) and stop. Log
-  `■ <epic-id> merged into <trunk>`.
-- **[Y], `pull-request` + `Protected-main: yes`** → `git push -u origin <epic-branch>`, then
-  `gh pr create --base <trunk> --head <epic-branch>` with the digest as its body. Log `■ <epic-id> PR #<N> opened`.
-- **[N]** → log `■ <epic-id> complete, not merged`.
+Only the human's answer ends the run. Each answer writes its `■` line, **checks it by command** — the same
+`tr -d '\r' | grep -cFx` check, which must print `1` — and **then** releases the lock (step 1). An answer whose action
+failed writes the `⛔` line its bullet names instead, checked the same way, and the run stops there. A `■` or `⛔` line
+that did not land stops the run with the lock **held** — the one exception to step 1's release on an abort: print
+`⛔ · <epic-id> · not logged — add this line to ## Autopilot Log by hand:` — printed only, the log is what failed —
+then the finished line, then A4's `release --force` command as its own code block, both paths resolved — the answer it
+records has been acted on or attempted, and the log must say so before the lock is released. P4 then reports the held
+lock; that is expected, and the line above is the remedy. Every `<reason>` in an a5 line is one line with no quote
+character — the error's first line, its `'` and `"` dropped — so the single-quoted check matches what was written.
 
-Release the lock. The epic plan stays in `.claude/plans/`: closing an epic is not part of an autopilot run.
+- **[Y], `direct`** → `git checkout <trunk>` then `git merge --no-ff <epic-branch> -m "Merge <epic-NNN>: <epic title>"`.
+  A conflict: surface it, never resolve it, and log `⛔ · <epic-id> · merge into <trunk> conflicted`; the checkout is
+  left on `<trunk>` mid-merge, and the human chooses the way out — `git merge --abort`, then a re-run asks again; or
+  resolve, `git commit`, and add `■ <epic-id> merged into <trunk>` to the log by hand. Otherwise log
+  `■ <epic-id> merged into <trunk>`, then release the lock.
+- **[Y], `pull-request` + `Protected-main: yes`** → `git push -u origin <epic-branch>`, then
+  `gh pr create --base <trunk> --head <epic-branch> --title "Merge <epic-NNN>: <epic title>" --body "$(printf '~~~~~~\n'; bash "${CLAUDE_PLUGIN_ROOT}/scripts/epic-digest.sh" "<epic-plan>"; printf '~~~~~~\n')"`
+  — the body is the helper's output, generated again and never retyped, fenced so that GitHub keeps its lines and
+  indents. A failed push or `gh pr create`: log
+  `⛔ · <epic-id> · PR not opened: <reason>`. Otherwise log `■ <epic-id> PR #<N> opened`, then release the lock.
+- **[N]** → log `■ <epic-id> complete, not merged`, then release the lock.
+
+**No answer is no answer.** When the session ends at the question — the human closes it, a `-p` run is over — nothing
+more is written: no `■` line, the lock stays `held`, and the Post-Assertions have not run (they follow an answer). A
+`▶ … sign-off asked` line with no `■` or `⛔` line after it is exactly that state. A re-run of `/craft:execute <epic-NNN>
+--autopilot` finds every slice `ACTION=skip`, comes straight back here and asks again; its lock step takes the ended
+session's lock over (`execute-lock.sh`'s takeover rule — the owner no longer runs). Never log `■` for a question
+nobody answered, and never release the lock before the answer: a later `[Y]` would merge unlocked (slice-056's probes 3
+and 4 did both).
+
+The epic plan stays in `.claude/plans/`: closing an epic is not part of an autopilot run.
 
 ---
 
@@ -1053,17 +1088,12 @@ Autopilot — stopped (a2):
    Then:   /craft:execute epic-<NNN> --autopilot    (resumes this slice)
 ```
 
-Autopilot — epic complete (a5):
+Autopilot — epic complete (a5): the stdout of `scripts/epic-digest.sh`, relayed unchanged — its header defines the
+block, so it is not restated here — followed by a5's merge question:
 
 ```
-✓ Autopilot — epic-<NNN> complete: <M> slices on <epic-branch>
-   slice-<id> — <first sentence of ## What>
-      follow-up: <bullet>            (only when the archive has follow-ups)
-      refactor candidate: <the line grep -h printed, prefix dropped>   (only when the run recorded one — not applied)
-   …
-   UX demo script — walk it before you answer (the epic plan's ## UX Demo Script):
-      <the section's blocks, as written>
-   Merge <epic-branch> into <trunk>?   [Y] yes   [N] no
+<epic-digest.sh's output, every line as printed>
+Merge <epic-branch> into <trunk>?   [Y] yes   [N] no
 ```
 
 Aborted:
@@ -1121,7 +1151,9 @@ Review checkpoint reached:
 | Autopilot (ap): active plans no entry links while entries are unplanned | Step 0 asks before any planner runs: `[P]` plan anyway, `[N]` stop and link or abort them first. The master never decides that a plan refines an entry. |
 | Autopilot (a2): a spawn came back in the background | Wait for that builder's report, then stop the run (`⛔`); start nothing else. |
 | Autopilot: the human presses Esc during a spawn | The exception to the interrupt row above: the run ends where it was, and nothing is paused or rewritten for it — a paused slice would be `held` and need a `/craft:continue` before the re-run, where a slice left at its execution status simply resumes: the slice plan keeps the status the builder last wrote and the lock stays held — a re-run from the same Claude Code session finds it `DECISION=confirm` (`REASON=own_process`) and A4 asks whether the run ended — it did, so answer `[N]` — from another one A4 names it; re-run `/craft:execute epic-<NNN> --autopilot`; step 1c reads the slice as `ACTION=resume`. |
-| Autopilot (a5): the merge into the trunk conflicts | Stop; surface the conflict and release the lock. Never resolve it; the epic branch is intact. |
+| Autopilot (a5): the merge into the trunk conflicts, or the push / `gh pr create` fails | Stop; surface it, log and check its `⛔` line, then release the lock (a5). Never resolve a conflict; the epic branch is intact, the checkout stays on the trunk mid-merge — `git merge --abort` and re-run, or resolve, commit and log `■` by hand (a5). |
+| Autopilot (a5): `epic-digest.sh` reports `ERROR=` | Stop `⛔` and release the lock before anything is asked; the `ERROR=` names the slice, archive or section to fix. Never write the digest by hand instead. |
+| Autopilot (a5): the session ends before the merge question is answered | Nothing more is written — no `■` line, the lock stays held. A re-run asks again and takes the lock over (a5, *No answer is no answer*). |
 
 ---
 
