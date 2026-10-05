@@ -155,8 +155,9 @@ When you have an epic with multiple slices that can run in parallel, hand the bu
                                       # in place on epic-001-<slug>: builds, commits and logs each slice with
                                       # no halt between them; Phase 5 is verified by command from the plan's
                                       # <!-- craft:verify --> block (your deny/ask rules checked first); stops only where
-                                      # a human is needed (re-run to resume); at the end a digest with the UX demo
-                                      # script and "merge into main?" — main is untouched until yes
+                                      # a human is needed (re-run to resume); at the end a generated digest
+                                      # (scripts/epic-digest.sh) with the UX demo script as written and
+                                      # "merge into main?" — main is untouched and the run locked until you answer
 
 # Side tools:
 /craft:worktree-status            # overview of all active worktrees

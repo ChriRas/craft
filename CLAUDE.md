@@ -205,17 +205,25 @@ bash scripts/test-verify-run.sh
 # Keep green.
 bash scripts/test-plan-gate-state.sh
 
+# Autopilot epic-end digest — scripts/epic-digest.sh prints the whole "Autopilot — epic complete" block that
+# /craft:execute a5 relays unchanged (slice-057, B22): per slice the first sentence of ## What, its follow-ups and its
+# Phase-7 candidates (matched at the line start), then the epic plan's ## UX Demo Script byte-equal. The master wrote
+# this block from memory before (slice-056 probes 3 and 4). Covers the exact block, the demo script byte-equal, CRLF,
+# first-sentence rules, fenced decoys, and named errors that print nothing on stdout (a slice not landed, an archive
+# missing or doubled, no ## What, no demo script). Keep green.
+bash scripts/test-epic-digest.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The sixteen harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The seventeen harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the single declaration of the allowed model values, the
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's epic-end digest, the single declaration of the allowed model values, the
 single definition of what counts as an example rather than content, delete-safe closing, and the autopilot's verification by command.
 
 ## Dogfooding Is Not Self-Verification
