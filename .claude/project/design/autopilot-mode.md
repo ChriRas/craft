@@ -89,6 +89,9 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
                                               follow-ups, promotion candidates, UX demo script, token spend
 ```
 
+- **The epic digest is generated, as built** (slice-057, B22) — `scripts/epic-digest.sh` prints Stage C's block (per-slice
+  summary, follow-ups, Phase-7 candidates, the UX demo script as written) and a5 relays it unchanged; the master wrote it
+  from memory before (slice-056 probes 3 and 4). Not in it yet: heavy findings fixed, promotion candidates, token spend.
 - **Master keeps only digests**, never raw diffs or logs. State lives on disk
   (`epic plan → ## Autopilot Log`), so a restart costs ≈ prime + log, not the whole history.
 - **Reuse, don't duplicate** (D31, "a rule is never described twice"): phase commands keep their
