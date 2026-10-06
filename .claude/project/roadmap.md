@@ -24,6 +24,12 @@
 
 ## Notes per item
 
+**F6 complete, release held (user, 2026-10-06).** epic-003 landed on `main` with slice-060 (`ae0875c Merge epic-003:
+Autopilot Mode`); every decomposition entry has a slice. The 2.0.0 release (rules.md → Deployment: autopilot ships as
+2.0.0) is **deliberately not cut yet** — the user has a few more things to do first. No version bump, push or tag until
+the user says so; nothing is pushed yet. Still owed from slice-060: human test (c) part B (real idle ≥ 1 h) and the
+follow-ups R1-1 / R1-2 (archive → Follow-ups).
+
 **F9 shipped with slice-059 (2026-10-06).** `/craft:prime` step 4h and `/craft:onboard` offer to wire the statusline tap
 the budget guard reads (`scripts/ensure-statusline-tap.sh`, D36: only on a yes, with a backup, reversible). Its follow-up
 R1-10 — a fail-open wired form, so the user's statusline survives an uninstalled CRAFT — is in
