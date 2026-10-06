@@ -23,7 +23,7 @@ design record in `.claude/project/design/autopilot-mode.md`, to be built as an e
 
 ## Architectural Decisions
 
-The full decision log (D1–D37, with reasoning) lives in `brainstorm-decisions.md`;
+The full decision log (D1–D38, with reasoning) lives in `brainstorm-decisions.md`;
 the build blueprint in `plugin-architecture.md`. Headline decisions:
 
 - **Two-tier model** — the plugin ships the universal shell; projects keep
@@ -89,9 +89,9 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
   So does the plan review's budget (slice-055): the architect's rounds, the open findings and the autonomous revision
   rounds left in a planning pass are read by `plan-gate-state.sh` from the epic plan's `## Plan Review` — an unreadable
   line counts open and ends the autonomy.
-  So does an autopilot epic's close (slice-061): whether `/craft:commit` may close it is read by `epic-close-state.sh`
-  from the epic plan's `## Autopilot Log` and git — only a merge commit holding the branch tip counts as merged, never
-  "is an ancestor".
+  So does an epic's close (slice-061, slice-062): whether `/craft:commit` may close it is read by `epic-close-state.sh`
+  from the epic plan and git — an autopilot epic needs a5's merge line, a sequential or hand-worked one only every entry
+  landed; either way only a merge commit holding the branch tip counts as merged, never "is an ancestor".
 - **CRAFT's own files are not the human's work (slice-039)** — which paths count as uncommitted
   work is decided once, by `scripts/tree-dirt-state.sh`: plans, ID counters and local state never
   block `/craft:execute` or `/craft:commit`. The flip side is that a command commits only what it
