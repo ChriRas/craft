@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-06
+
+> **Upgrade note — read before updating.**
+> - **An autopilot run now watches your plan's usage windows:** without the statusline tap it has no reading and stops after every slice (re-run to continue). Accept the offer of `/craft:prime` (step 4h) to wire the tap — it shows the change to your user settings' `statusLine` and writes it only on your yes, with a backup.
+> - **`/craft:prime` may now offer to write your user settings:** the statusline tap is the only change it ever proposes there, never without your yes; `ensure-statusline-tap.sh --remove` takes it out again — run that before you uninstall CRAFT, or your statusline stays empty.
+
+An interim release on the way to autopilot mode (planned as 2.0.0): the autopilot budget guard and the statusline tap it reads, wired on a yes. Slices 058–059.
+
 ### Added
 - **Autopilot budget guard** (F6, slice-058) — an autopilot run no longer starts a slice that would push your plan's 5-hour window past 85 % (usage plus the forecast, the mean of the slices landed so far), stops a running slice at the builder's next boundary (a sub-task, a phase, a debug attempt) at 95 % or when overage shows (a window at 99 % with the cache TTL at 5 minutes), and starts no further slice at 90 % weekly — each stop logged `⛔ … budget:` with the reset time, and a plain re-run resumes. The new `scripts/usage-state.sh` judges, the master and `slice-builder` act on its verdict only; its input is `scripts/statusline-tap.sh`, a wrapper you wire into your `statusLine` once (README → Requirements → *Usage tap for autopilot runs*). Without the tap the run stops after every slice. The limits live in a new `## Autopilot` block of `craft-profile.md`; `/craft:prime` reports them with the current usage.
 - **Statusline tap wiring on a yes** (F9, slice-059) — a plugin cannot wire the usage tap on install, so `/craft:prime` (new step 4h) and `/craft:onboard` now offer it: the new `scripts/ensure-statusline-tap.sh` shows the change to `statusLine` in your user settings, backs the file up and writes it only after your yes — your own command chained behind the tap (wrapped in `sh -c '…'` when it is more than one command), `refreshInterval` added. A tap wired to a working tree or a versioned plugin cache is re-routed to the marketplace clone; `--remove` takes the tap out and restores your command. Nothing is offered while the marketplace clone predates the tap or a project / local settings file sets its own `statusLine` (D36).
