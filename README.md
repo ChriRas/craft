@@ -64,6 +64,39 @@ may not see your shell's `PATH` and pick up an older bash even though a current 
 `/craft:prime` detects that and names the fix instead of an install command (start from a terminal,
 or set `env.PATH` in `~/.claude/settings.json`).
 
+#### Usage tap for autopilot runs (optional)
+
+An autopilot run (`/craft:execute <epic> --autopilot`) watches your plan's 5-hour and weekly usage windows so it
+does not start a slice it cannot finish, and stops a running one before the window runs out. The only place a
+session can read those windows is the JSON Claude Code pipes into your statusline, so CRAFT ships a small wrapper
+that keeps a copy of it and hands the same input on to your own statusline command. Wire it once in
+`~/.claude/settings.json` — CRAFT never writes this setting for you:
+
+```json
+"statusLine": {
+  "type": "command",
+  "refreshInterval": 30,
+  "command": "sh ~/.claude/plugins/marketplaces/craft/scripts/statusline-tap.sh <your current statusline command>"
+}
+```
+
+- Use the marketplace clone's path shown above, not the installed plugin cache: the cache directory is named by
+  version and moves with every release.
+- Keep `refreshInterval`: without it the statusline goes quiet while the run waits on a builder, and the reading
+  goes stale.
+- Without a statusline command of your own, end the line after `statusline-tap.sh` — the statusline then stays
+  empty.
+- If your current command is more than a single command — `a; b`, `a && b`, a pipe, `$(cat)` — wrap it as
+  `… statusline-tap.sh sh -c '<your command>'`, or move it into a script file first: otherwise the outer shell runs
+  part of it before the tap and your statusline breaks.
+- The copy lives in `~/.claude/craft/usage-tap.json` (or under `CLAUDE_CONFIG_DIR`); `/craft:prime` reports
+  the reading as *Autopilot budget*.
+
+Without the tap an autopilot run still works, but blind: it stops after every slice and you re-run it. The limits
+(one for the 5-hour window before a slice, one within a slice, one for the weekly window) and their defaults live in
+`craft-profile.md` → `## Autopilot`. The strongest
+protection against usage-credit billing stays outside CRAFT: turn off extra usage in your account settings.
+
 All plugin commands are invoked through the `craft:` namespace — `/craft:onboard`, `/craft:plan`, `/craft:commit`, etc. The full namespace form is required: internal cross-references between commands rely on it to avoid collisions with Claude Code reserved names (e.g. `/plan` would otherwise collide with Plan-Mode) and with project-local `commands/<name>.md` overrides.
 
 ---
@@ -155,7 +188,8 @@ When you have an epic with multiple slices that can run in parallel, hand the bu
                                       # in place on epic-001-<slug>: builds, commits and logs each slice with
                                       # no halt between them; Phase 5 is verified by command from the plan's
                                       # <!-- craft:verify --> block (your deny/ask rules checked first); stops only where
-                                      # a human is needed (re-run to resume); at the end a generated digest
+                                      # a human is needed (re-run to resume) — and before your usage windows
+                                      # run out (usage tap, see Requirements); at the end a generated digest
                                       # (scripts/epic-digest.sh) with the UX demo script as written and
                                       # "merge into main?" — main is untouched and the run locked until you answer
 

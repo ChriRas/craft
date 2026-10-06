@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+### Added
+- **Autopilot budget guard** (F6, slice-058) — an autopilot run no longer starts a slice that would push your plan's 5-hour window past 85 % (usage plus the forecast, the mean of the slices landed so far), stops a running slice at the builder's next boundary (a sub-task, a phase, a debug attempt) at 95 % or when overage shows (a window at 99 % with the cache TTL at 5 minutes), and starts no further slice at 90 % weekly — each stop logged `⛔ … budget:` with the reset time, and a plain re-run resumes. The new `scripts/usage-state.sh` judges, the master and `slice-builder` act on its verdict only; its input is `scripts/statusline-tap.sh`, a wrapper you wire into your `statusLine` once (README → Requirements → *Usage tap for autopilot runs*). Without the tap the run stops after every slice. The limits live in a new `## Autopilot` block of `craft-profile.md`; `/craft:prime` reports them with the current usage.
+
 ## [1.6.0] - 2026-10-05
 
 > **Upgrade note — read before updating.**
