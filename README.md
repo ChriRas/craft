@@ -206,6 +206,7 @@ When you have an epic with multiple slices that can run in parallel, hand the bu
 # Or, on a profile with Epic Mode: sequential (slices one-by-one, in place):
 /craft:execute epic-001           # runs the next slice in-place, commits it, halts for review
 /craft:execute epic-001           # re-run continues at the next slice … until the epic is complete
+/craft:commit                     # then: closes the epic — decisions walk, epic archive, epic plan closed
 
 # Or hands-off, per run (start the session with CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1):
 /craft:execute epic-001 --autopilot   # unplanned entries first: slice-planner agents plan them, you approve the
@@ -218,8 +219,8 @@ When you have an epic with multiple slices that can run in parallel, hand the bu
                                       # run out (usage tap, see Requirements); at the end a generated digest
                                       # (scripts/epic-digest.sh) with the UX demo script as written and
                                       # "merge into main?" — main is untouched and the run locked until you answer
-/craft:commit                         # after the [Y] merge (direct): closes the epic — decisions walk, epic archive,
-                                      # epic plan closed, epic branch deleted (git branch -d)
+/craft:commit                         # after the [Y] merge (direct): closes the epic — decisions walk, epic archive
+                                      # (templates/epic-archive.md.template), epic plan closed, epic branch deleted (-d)
 
 # Side tools:
 /craft:worktree-status            # overview of all active worktrees

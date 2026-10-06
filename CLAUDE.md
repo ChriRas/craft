@@ -246,13 +246,17 @@ bash scripts/test-statusline-wiring.sh
 # stale age), the hooks.json registration, and the sites in commands/execute.md that arm and disarm (markers). Keep green.
 bash scripts/test-cache-guard.sh
 
-# Autopilot epic close — scripts/epic-close-state.sh (slice-061, B24, D37) decides whether /craft:commit's Autopilot-epic-close
-# mode can close an epic now: its ## Autopilot Log's last ■ line is a5's `merged into <trunk>`, every decomposition entry
-# landed (epic-entry-link.sh resolve), and the epic branch is merged — a merge commit on the trunk with the branch tip as a
-# non-first parent (the ancestor trap: a branch without own commits is no merge), or, the branch gone, a5's merge subject.
-# Covers real git fixtures for every STATE (closable, not-autopilot, not-signed-off, not-merged incl. another trunk, pr-path,
-# entries-open, branch-unmerged, malformed), the last answer winning, ■ lines in a fence / outside the log / of another epic,
-# CRLF, scan mode, errors, that it writes nothing, and the pinned sites in commands/commit.md and execute.md a5. Keep green.
+# Epic close — scripts/epic-close-state.sh (slice-061 / slice-062, B24 / B26, D37 / D38) decides whether /craft:commit's
+# Epic-close mode can close an epic now. KIND=autopilot: its ## Autopilot Log's last ■ line is a5's `merged into <trunk>`;
+# KIND=sequential (no autopilot log — a sequential run or a hand-worked epic): no a5 answer needed. Both: every
+# decomposition entry landed (epic-entry-link.sh resolve), and an epic branch, if any, is merged — a merge commit on the
+# trunk with the branch tip as a non-first parent (the ancestor trap: a branch without own commits is no merge), or, an
+# autopilot branch gone, a5's merge subject. Covers real git fixtures for every STATE (closable, not-signed-off incl.
+# run_stopped, not-merged incl. another trunk, pr-path, entries-open, branch-unmerged, malformed) in both kinds, the last
+# answer winning, ■ lines in a fence / outside the log / of another epic, CRLF, scan mode, errors, that it writes nothing,
+# the epic archive template (templates/epic-archive.md.template: its sections and frontmatter keys, no ## Commits), and the
+# pinned sites in commands/commit.md (the template in Step 5, Epic-close and P3) and execute.md a5 and s5 — and that no
+# shipped file still names the mode by its slice-061 name. Keep green.
 bash scripts/test-epic-close-state.sh
 
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
@@ -265,7 +269,7 @@ commands/skills, JSON manifests, and Bash hooks. The twenty-one harnesses above 
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's epic-end digest, the autopilot epic's close, the autopilot's budget guard, the autopilot's cache guard, the statusline tap's wiring, the single declaration of the allowed model values, the
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's epic-end digest, the epic close and its archive template, the autopilot's budget guard, the autopilot's cache guard, the statusline tap's wiring, the single declaration of the allowed model values, the
 single definition of what counts as an example rather than content, delete-safe closing, and the autopilot's verification by command.
 
 ## Dogfooding Is Not Self-Verification
