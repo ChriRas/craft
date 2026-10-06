@@ -30,6 +30,7 @@ This file documents the default values, the resolution rules, and the validation
 | Autopilot | Budget-before-slice | `85` | An autopilot run starts no slice while the 5-hour usage plus the forecast is above it. |
 | Autopilot | Budget-in-slice | `95` | A builder in an autopilot run stops at the next boundary of its spawn — a sub-task, a phase, a debug attempt — at or above it (5-hour usage). |
 | Autopilot | Budget-seven-day | `90` | An autopilot run starts no further slice at or above it (weekly usage). |
+| Autopilot | Cache-guard-recache-tokens | `100000` | Not a budget — the cache guard's threshold (`hooks/cache-guard.sh`): while an autopilot session waits on the human, a prompt that arrives after its prompt cache expired is blocked, with the restart instruction, when re-writing the cache would cost at least this many tokens. |
 | Operational Language | Chat | system language | The language `/craft:prime` adopts for the session. |
 | Operational Language | Commits | `English` | Commit-message language (`/craft:commit`). |
 | Operational Language | Comments | `English` | Code-comment language (`/craft:build`, `/craft:review`). |
@@ -115,8 +116,8 @@ never corrected, per the rules.md Tabu on silent drift correction):
 - ⚠ A drift-style warning when the profile is malformed:
   - an unknown block or field key;
   - a value outside its enum (e.g. `Mode: parallel`);
-  - an `## Autopilot` budget value that is not an integer 1–100 — reported by
-    `scripts/usage-state.sh`, which also falls back to the default for it;
+  - an `## Autopilot` budget value that is not an integer 1–100, or a `Cache-guard-recache-tokens` value that is not a
+    positive integer — reported by `scripts/usage-state.sh`, which also falls back to the default for it;
   - the invalid combination `Auto-commit: off` with `Mode: worktree` (auto-commit can
     only be disabled on the in-place path — the worktree merge model requires commits).
 

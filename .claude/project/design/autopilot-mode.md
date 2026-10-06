@@ -48,6 +48,7 @@ Probe recipes: §12; raw numbers: the slice-044 and slice-045 archives. "docs" =
 | Why: fork mode is on by default in interactive sessions, and then every Agent-tool subagent runs in the background ("Claude can't ask for the foreground"); it is off in `-p` / the SDK. `CLAUDE_CODE_FORK_SUBAGENT=0` turns it off (Claude then picks foreground when it needs the result), `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` forces foreground everywhere (and also removes Bash `run_in_background`) | sub-agents.md + slice-045 runs 2, 3 | **documented + primary evidence** (rows above; `FORK_SUBAGENT=0`'s choice was not deterministic — resumes went to the background) |
 | Claude Code blocks a standalone `sleep` and `sleep N; …` in subagent Bash calls (the message points to Monitor / `run_in_background` and says not to chain shorter sleeps); other loop forms failed the headless permission check; `for n in $(seq 1 70); do sleep 5; done` passed — a workaround the block message discourages, which an update may close | probe 5 (runs a, a2, b, a3) | **primary evidence** |
 | Workflow tool exists; plugins may ship `workflows/`; resume only same-session | workflows.md + tool description | docs (not re-checked) |
+| **Re-probe for the cache guard (slice-060, 2026-10-06, Claude Code 2.1.291)** — what the `UserPromptSubmit` hook sees. **Headless `-p` run (direct):** the payload carries exactly `session_id`, `transcript_path`, `cwd`, `prompt_id`, `permission_mode`, `hook_event_name`, `prompt` — no source / kind field; one delegation to a plugin agent produced **one** `UserPromptSubmit` (the human prompt) and no hand-back (as before: no `SubagentHandback` in `-p`). The statusline / tap JSON carries `session_id`, `prompt_cache.{warm, ttl, expires_at, requests, recache_tokens_if_cold, …}` (read off the live tap, 2.1.290). **Interactive hand-back and `/clear` (indirect — not driven):** the agent running this slice cannot answer the trust dialog of an interactive fixture (an attempt to automate it was refused by the permission classifier), so recipe 6 was not re-run interactively. Local transcripts of the user's own sessions (2.1.269 – 2.1.289, `~/.claude/projects/…`) show (1) the hand-back's queued content still starts with `<agent-message from="<agent_id>">` + `[Subagent hand-back]` (65 queue-operation records; the model-facing rendering prepends `Another Claude session sent a message:` — added after the hook, not in the hook's prompt, as in the 2.1.272 probes) and `<task-notification>` still opens a notification record; (2) in 22 of 22 transcripts that contain `/clear`, the command sits at the head of its own file and the file holds a single `sessionId` — a `/clear` starts a **new** session with a new `session_id`. `SessionStart` fires after `/clear` with `source: "clear"` (hooks.md). **Documented (env-vars.md, 2026-10-06):** `CLAUDE_CODE_SESSION_ID` is set in Bash tool and hook subprocesses, "matches the `session_id` field in the hook JSON input and is updated on `/clear`" — the master reads its own `session_id` there (verified live: it equals the tap's `session_id` of this session). | headless probe 2026-10-06 + live tap + local transcripts | **headless direct; interactive facts indirect** — the real-human test (slice-060 Test Strategy (c)) is the direct check of the hand-back prompt and of a fresh `session_id` after `/clear`; the hook fails open on both |
 
 ## 3. Where CRAFT today deliberately stops for a human
 
@@ -282,6 +283,21 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
   hand-back format that drops the leading markup would be blocked while the marker is armed; §12 recipe 6 re-checks the
   format on each Claude Code update. With foreground builders (§4) the pass-through **is still needed** — the hand-back
   arrives as a `UserPromptSubmit` there too (slice-045 run 3), though no task notification does.
+
+- **As built (slice-060, 2026-10-06).** `hooks/cache-guard.sh` (bash 3.2, python3 for the JSON, fail open on every doubt)
+  blocks with `{"decision":"block","reason":…}` when the arming marker `.claude/plans/.cache-guard` says `armed` for the
+  prompt's `session_id`, the tap of the **same** session says `prompt_cache.expires_at < now`, and
+  `recache_tokens_if_cold` reaches the threshold (`## Autopilot` key `Cache-guard-recache-tokens`, default 100000).
+  Differences from the sketch above: the handoff written first is the Autopilot Log line (every stop logs before it
+  arms); the restart is `/clear`, then `/craft:execute epic-NNN --autopilot` (a
+  `/craft:autopilot resume` never existed — the re-run resumes the epic); the marker is **bound to the session** —
+  `/clear` yields a new `session_id` (§2, env-vars.md), so a marker left armed blocks nothing after the restart; the
+  master arms and disarms it only through `scripts/cache-guard-marker.sh` (it carries the session id and computes the
+  expiry line from the tap, never from memory) — armed at the orphan question, the plan gate, every `⛔` stop and the a5
+  sign-off, disarmed at the start of each invocation, at each answer and before a builder spawn; the hook also passes
+  `/clear`, `/exit` and `/quit` (the block names `/clear` as the way out). The restart text has one definition,
+  `cache-guard.sh --restart`. Every human stop prints `Cache warm until HH:MM — answer later → <restart>`, or
+  `Cache expiry unknown …` when the tap does not belong to this session. The non-autopilot idle guard stays roadmap F7.
 
 ## 8. Candidate epic decomposition (rough)
 

@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+### Added
+- **Autopilot cache guard** (F6, slice-060) — a session that waits on you at the plan gate, a `⛔` stop or the end-of-epic sign-off keeps a prompt cache that expires after an hour, and an answer that arrives later re-writes the whole context at the full input price. Every such stop now first says `Cache warm until HH:MM — answer later → /clear, then /craft:execute <epic> --autopilot`, and a new `UserPromptSubmit` hook (`hooks/cache-guard.sh`, bash 3.2, fail open) blocks a prompt of that session that arrives after the cache expired — before any request is sent — when a re-write would cost at least `Cache-guard-recache-tokens` tokens (new `## Autopilot` profile key, default 100000) and names the restart; a builder's hand-back, a task notification, `/clear`, a prompt of another session and anything it cannot judge pass. It judges from the usage tap, so it needs the tap with `refreshInterval`; new local state `.claude/plans/.cache-guard` (gitignored by the usual `# CRAFT local state` block).
+
 ## [1.7.0] - 2026-10-06
 
 > **Upgrade note — read before updating.**
