@@ -23,7 +23,7 @@ design record in `.claude/project/design/autopilot-mode.md`, to be built as an e
 
 ## Architectural Decisions
 
-The full decision log (D1–D35, with reasoning) lives in `brainstorm-decisions.md`;
+The full decision log (D1–D36, with reasoning) lives in `brainstorm-decisions.md`;
 the build blueprint in `plugin-architecture.md`. Headline decisions:
 
 - **Two-tier model** — the plugin ships the universal shell; projects keep
