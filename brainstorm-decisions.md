@@ -1328,6 +1328,28 @@ Decision:
   the trunk directly; that path needs Epic-finalize's two passes and stops with a clear line until a
   roadmap entry builds it.
 
+### D38 — Every Finished Epic Closes Through `/craft:commit`, Its Archive From One Template
+
+> Decided 2026-10-06 while planning slice-062 (roadmap B26). Amends D37: the mode is renamed Epic-close and widened.
+
+Two gaps, one cause. The epic archive was defined in one sentence of `/craft:commit` Step 5 and had no template, so
+each run invented its layout (slice-061: one archive without `## Commits`, the next with its commits twice). And a
+sequential epic (`/craft:execute` s5) had no close path at all — s5 reports "Epic complete" and releases the lock;
+epic-001 and epic-002 were archived by hand, like epic-003 before D37.
+
+Decision:
+
+- **One template.** `templates/epic-archive.md.template` is the one definition of an epic archive; Epic-finalize and
+  Epic-close write from it, and their post-assertion checks the archive against the template's own headings — no
+  copy of the list. The commits appear once, in the frontmatter (`> Merge:`); the per-slice commits stay in the slice
+  archives, and so do their follow-ups — the epic archive points to them instead of copying them.
+- **Every finished epic closes through Epic-close.** D37's Autopilot-epic-close becomes Epic-close, for an autopilot
+  epic (merged on a5's `[Y]`) and for an epic without an autopilot log: closable when every entry landed and no
+  unmerged epic branch exists — a sequential run, or an epic worked slice by slice by hand. s5 hands over with
+  `Recommended next: /craft:commit`, as a5 does.
+- **The close is asked for.** Without a5's `[Y]` there is no explicit human signal, and "every entry landed" can be
+  true of an epic the human still means to extend; the mode asks `Close <epic> now?` before it writes anything.
+
 ---
 
 ## 7. Carry-Over to Next Clusters
