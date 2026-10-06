@@ -210,13 +210,13 @@ config (autonomy, commit, merge, language, model settings). Like the drift and
 stack-pack checks, this is **reported, never corrected**.
 
 1. **Detect** — `Read` `.claude/project/craft-profile.md`.
-   - **Absent** → emit the defaults line and stop this step:
+   - **Absent** → emit the defaults line, skip items 2 and 3, and go on with item 4 (the budget has defaults too):
      `✓ CRAFT profile: none — plugin defaults (balanced: execution=worktree, commit=on, merge=direct, epic=parallel, permissions=standard)`.
      The defaults are documented in `craft-profile-defaults.md`.
    - **Present** → parse the `> Preset:` line and the block fields below.
 
 2. **Validate** (warnings only, never abort). Emit a `⚠` line for each issue found:
-   - **Unknown block or field key** — `⚠ CRAFT profile: unknown key '<key>' — ignored.` The `## Operational Language` and `## Agent Model Overrides` blocks are expected profile members (their values are validated/reported by steps 4c/4b) — never flag them as unknown.
+   - **Unknown block or field key** — `⚠ CRAFT profile: unknown key '<key>' — ignored.` The `## Operational Language`, `## Agent Model Overrides` and `## Autopilot` blocks are expected profile members (their values are validated/reported by steps 4c/4b and item 4 below) — never flag them as unknown.
    - **Value outside its enum:**
      - `Execution → Mode` ∈ `worktree | in-place`
      - `Commit Policy → Auto-commit` ∈ `on | off`
@@ -235,6 +235,20 @@ stack-pack checks, this is **reported, never corrected**.
    The profile's `## Operational Language` and `## Agent Model Overrides` are read and
    reported by steps 4c/4b respectively — this report line covers the autonomy/commit/
    merge/epic/permissions settings only, to avoid double-reporting.
+
+4. **Autopilot budget** — runs whether or not the profile exists (the budget has defaults). Its values and the
+   rule for them are `scripts/usage-state.sh`'s (its header) — prime keeps no copy. Resolve the helper like step 4f
+   (`${CLAUDE_PLUGIN_ROOT}/scripts/`; else `<project-root>/scripts/` only in CRAFT's own source repo) and run it via
+   Bash: `CLAUDE_PROJECT_DIR="<project-root>" bash "<helper>" --gate before`. Then:
+   - one `⚠ CRAFT profile: <text>` line per `WARN=` line (an invalid or unknown `## Autopilot` key; the helper kept the default);
+   - `MODE=normal`, `VERDICT=go` → `✓ Autopilot budget: <LIMIT_BEFORE>/<LIMIT_DURING>/<LIMIT_SEVEN_DAY> — five_hour <FIVE_HOUR> %, seven_day <SEVEN_DAY> %`;
+   - `MODE=normal`, `VERDICT=stop` → `⚠ Autopilot budget: <LIMIT_BEFORE>/<LIMIT_DURING>/<LIMIT_SEVEN_DAY> — an autopilot run would not start a slice now: <REASON>`;
+   - `MODE=conservative` → `· Autopilot budget: <LIMIT_BEFORE>/<LIMIT_DURING>/<LIMIT_SEVEN_DAY> — no usage reading: <UNKNOWN>; <hint>`,
+     `<UNKNOWN>` verbatim. `<hint>`: when `UNKNOWN` starts with `no tap at` → `an autopilot run would stop after every slice — wire the statusline tap (CRAFT README → Requirements)`;
+     otherwise → `the tap is wired — a session's statusline refreshes it`. At session start an old tap is the normal
+     case, not a missing one. A `·` line, not a `⚠`: a project that never runs the autopilot has nothing to fix;
+   - the helper not found, or no `VERDICT=` line → `⚠ Autopilot budget check incomplete: <ERROR= or a one-line cause>`.
+   Reported, never corrected; the helper writes nothing. Never abort prime.
 
 ### 4e. Read-only context sources sync
 
@@ -484,6 +498,7 @@ The full status block — emit exactly this shape:
 ✓ Language: chat=<lang>, commits=<lang>, comments=<lang>  (see step 4c)
 ✓ CRAFT profile: <preset — effective settings | none — plugin defaults>  (see step 4d)
   ⚠ <profile warning(s), if any>
+✓ Autopilot budget: <limits> — <usage>   (or · … no usage reading …, or ⚠ … check incomplete — see step 4d item 4)
 <read-only-context line — only when connected projects are declared; ✓ if all trusted, ⚠ if some not readable (see step 4e)>
 ✓ Local state gitignored   (or ⚠ Local state not gitignored: <paths> + the --apply offer, or ⚠ … check incomplete — see step 4f)
   ⚠ <tracked-file warning(s), if any>
@@ -534,6 +549,7 @@ After emitting the block, prime prints step 4g's cleanup command as its own code
 | `check-plugin-cache-drift.sh` reports `STATUS=unknown`, exits 2, prints nothing, cannot be found, or `${CLAUDE_PLUGIN_ROOT}` is unresolved | In the CRAFT source repo (`.claude-plugin/plugin.json` `name` = `craft`) emit `⚠ Plugin runtime drift check incomplete: <reason>`; anywhere else emit nothing. Continue either way. Never abort. |
 | `craft-profile.md` absent | Report `✓ CRAFT profile: none — plugin defaults`. Not an error (step 4d). |
 | `craft-profile.md` malformed (unknown key, out-of-enum value, or `Auto-commit: off`+`Mode: worktree`) | Emit the `⚠ CRAFT profile: …` warning(s) from step 4d and continue. Never a blocker. |
+| `usage-state.sh` not found or prints no `VERDICT=` (step 4d item 4) | Emit `⚠ Autopilot budget check incomplete: <reason>` and continue. Never abort. |
 | Declared connected project not yet in `additionalDirectories` (step 4e) | Emit the `⚠ Read-only context …` line and offer `--apply` (confirmation-gated). Not a blocker. |
 | `ensure-readonly-context.sh` errors (python3 missing / settings unparseable) | Emit `⚠ Read-only context check incomplete: <reason>` and continue. Never abort. |
 | CRAFT local state not gitignored (step 4f) | Emit the `⚠ Local state not gitignored …` line and offer `--apply` (confirmation-gated). Not a blocker. |
