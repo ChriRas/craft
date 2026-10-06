@@ -944,7 +944,8 @@ character — the error's first line, its `'` and `"` dropped — so the single-
   A conflict: surface it, never resolve it, and log `⛔ · <epic-id> · merge into <trunk> conflicted`; the checkout is
   left on `<trunk>` mid-merge, and the human chooses the way out — `git merge --abort`, then a re-run asks again; or
   resolve, `git commit`, and add `■ <epic-id> merged into <trunk>` to the log by hand. Otherwise log
-  `■ <epic-id> merged into <trunk>`, then release the lock.
+  `■ <epic-id> merged into <trunk>`, then release the lock, and end with `Recommended next: /craft:commit` — it closes
+  the epic (its Autopilot-epic-close mode, D37).
 - **[Y], `pull-request` + `Protected-main: yes`** → `git push -u origin <epic-branch>`, then
   `gh pr create --base <trunk> --head <epic-branch> --title "Merge <epic-NNN>: <epic title>" --body "$(printf '~~~~~~\n'; bash "${CLAUDE_PLUGIN_ROOT}/scripts/epic-digest.sh" "<epic-plan>"; printf '~~~~~~\n')"`
   — the body is the helper's output, generated again and never retyped, fenced so that GitHub keeps its lines and
@@ -960,7 +961,9 @@ session's lock over (`execute-lock.sh`'s takeover rule — the owner no longer r
 nobody answered, and never release the lock before the answer: a later `[Y]` would merge unlocked (slice-056's probes 3
 and 4 did both).
 
-The epic plan stays in `.claude/plans/`: closing an epic is not part of an autopilot run.
+The epic plan stays in `.claude/plans/` when the run ends — the run itself never closes the epic. After a `direct`
+merge, `/craft:commit` does (its Autopilot-epic-close mode, D37): the epic's decisions, its archive, its plan and its
+branch. After `[N]` or a PR it does not.
 
 ---
 
