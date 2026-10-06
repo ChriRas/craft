@@ -428,6 +428,59 @@ git -C "$P" checkout -q epic-001-ep
 out="$(run --mode sequential "$S2")"
 expect "control: the same run without --trunk <epic-branch> → wrong_branch" "$out" "" RESULT_REASON wrong_branch
 
+echo "── autopilot: --slices-from the epic plan (slice-063) ───────────────"
+# a4's step-1c re-run used to rebuild the slice list by hand — a probe's master passed the epic plan itself as a
+# slice, read RESULT=conflict (plan_unreadable) and went on to a5 (slice-057 probe 1, B23). --slices-from reads the
+# list off the epic plan's entries (epic-entry-link.sh resolve), so the caller passes none.
+
+ep_entries() { # the epic plan with its decomposition entries (one argument per line)
+  { printf '# Epic — fixture\n\n> Status: active\n> Epic-ID: epic-001\n> Epic-Slug: ep\n\n## Slice Decomposition\n\n'
+    printf '%s\n' "$@"; printf '\n## Recap Draft\n'; } > "$P/$EPIC"
+}
+fixture; git -C "$P" checkout -q -b epic-001-ep
+splan slice-001 a planning; splan slice-002 b planning
+ep_entries '- [ ] slice-001 — a — first' '- [ ] slice-002 — b — second'
+[[ "$(run "${AP[@]}" --slices-from "$EPIC")" == "$(run "${AP[@]}" "$S1" "$S2")" ]] \
+  && ok "--slices-from: a fresh run reads exactly as the explicit list" \
+  || bad "--slices-from: a fresh run differs from the explicit list"
+out="$(run "${AP[@]}" "$EPIC" "$S2")"
+expect "control: the epic plan passed as a slice → plan_unreadable (B23's mistake)" "$out" "" RESULT conflict
+(cd "$P" && printf 'archive\n' > .claude/project/slices/slice-001-a.md && git add -A && git commit -q -m "slice-001")
+rm "$P/.claude/plans/slice-001-a.md"
+out="$(run "${AP[@]}" --slices-from "$EPIC")"
+expect "--slices-from: the landed slice → skip"            "$out" "SLICE=slice-001" ACTION skip
+expect "  … the next slice → create"                      "$out" "SLICE=slice-002" ACTION create
+expect "  … RESULT ok"                                    "$out" "" RESULT ok
+[[ "$out" == "$(run "${AP[@]}" slice-001 "$S2")" ]] \
+  && ok "  … and reads exactly as the explicit list after the landing" \
+  || bad "  … differs from the explicit list after the landing"
+
+errof() { (cd "$P" && bash "$HELPER" "$@" 2>&1 >/dev/null; printf ' rc=%s' "$?"); }
+ep_entries '- [ ] slice-002 — b — second' '- [ ] c — not planned yet'
+expect_err() { if [[ "$2" == *"ERROR=$3"*" rc=$4" ]]; then ok "$1"; else bad "$1 — got '$2'"; fi; }
+expect_err "--slices-from: an unlinked entry → exit 4, named" "$(errof "${AP[@]}" --slices-from "$EPIC")" "slices_from:unresolved:c:unlinked" 4
+ep_entries '- [ ] slice-002 — b — second' '- [ ] slice-007 — d — aborted'
+expect_err "--slices-from: a dead link (aborted slice) → exit 4" "$(errof "${AP[@]}" --slices-from "$EPIC")" "slices_from:unresolved:d:missing" 4
+ep_entries '- [ ] slice-002 — b — second' '  - [ ] slice-003 — e — indented'
+expect_err "--slices-from: an ignored line → exit 4" "$(errof "${AP[@]}" --slices-from "$EPIC")" "slices_from:ignored_line:" 4
+ep_entries
+expect_err "--slices-from: no entries → exit 4" "$(errof "${AP[@]}" --slices-from "$EPIC")" "slices_from:no_entries" 4
+expect_err "--slices-from: an unreadable epic plan → exit 4" "$(errof "${AP[@]}" --slices-from .claude/plans/nope.md)" "slices_from:unreadable" 4
+expect_err "--slices-from with a slice as well → exit 2" "$(errof "${AP[@]}" --slices-from "$EPIC" "$S2")" "slices_from_with_slices" 2
+
+# the autopilot reads its slice list through --slices-from at step 1c and at a4's re-run, and stops on a conflict there
+EXEC="$(cd "$(dirname "$HELPER")/.." && pwd)/commands/execute.md"
+c1="$(awk '/^### 1c\./{f=1; next} f && /^### /{exit} f' "$EXEC")"
+a4="$(awk '/^### a4 /{f=1; next} f && /^### /{exit} f' "$EXEC")"
+[[ "$c1" == *'- autopilot run — `--mode sequential --landing direct --trunk <epic-branch> --slices-from <epic-plan>` and **no**'* ]] \
+  && ok "step 1c: the autopilot run passes --slices-from and no slice list" \
+  || bad "step 1c: the autopilot run still builds its slice list by hand (B23)"
+[[ "$a4" == *'the same command, `--slices-from <epic-plan>` and no slice'* ]] \
+  && ok "a4: the re-run uses --slices-from" || bad "a4: the re-run does not use --slices-from (B23)"
+[[ "$a4" == *'**A `RESULT=conflict`'* && "$a4" == *'stops the run here**'* && "$a4" == *'never'*'goes on to a5'* ]] \
+  && ok "a4: a conflict on the re-run stops the run ⛔ and never reaches a5" \
+  || bad "a4: a conflict on the re-run does not stop before a5 (slice-057 probe 1)"
+
 echo "── tree dirt: CRAFT's own files are not the human's work (B14) ──────"
 
 DIRT="$SCRIPT_DIR/tree-dirt-state.sh"

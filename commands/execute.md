@@ -189,9 +189,10 @@ Each `<slice>` is what A6 resolved it to — its plan path, or its slice-ID once
 - worktree path, lone slice — its plan;
 - sequential epic path — `--mode sequential --landing <direct|pull-request>` and every slice of the
   epic;
-- autopilot run — `--mode sequential --landing direct --trunk <epic-branch>` and every slice of the epic: the epic
-  branch is where each slice lands, so to the helper it is the trunk (a `wrong_branch` then means the checkout is not
-  on the epic branch);
+- autopilot run — `--mode sequential --landing direct --trunk <epic-branch> --slices-from <epic-plan>` and **no**
+  slice list: the helper reads the epic's slices off its entries, so the master cannot pass a wrong one (slice-057's
+  probe 1 passed the epic plan itself as a slice, B23). The epic branch is where each slice lands, so to the helper it
+  is the trunk (a `wrong_branch` then means the checkout is not on the epic branch);
 - `--branch-pattern '<p>'` / `--path-pattern '<p>'` when `rules.md` `## Worktree Settings` overrides them.
 
 Which `ACTION=` / `REASON=` a situation yields is defined in the script's header, not here. Act on
@@ -583,21 +584,46 @@ relaunch its message asks for does not trip A4.
    the epic branch as the trunk (step 1c, *autopilot run*). A `wrong_branch` or `dirty_without_open_slice` there aborts
    as step 1c says.
 
-### The Autopilot Log — before the first line any step writes
+### The Autopilot Log — every line through the helper
 
-Every step from ap on logs to the epic plan's `## Autopilot Log`. Before the first line of an invocation: if the epic
-plan has no `## Autopilot Log` (an epic planned before the template carried it), insert the section directly above
-`## Recap Draft` — its place in the template — or at the end of the file when that heading is absent. Whether inserted
-or already there, drop its `(no autopilot run yet)` line if present. `plan-gate-state.sh` reads the gate's approval only from that section.
+Every step from ap on logs to the epic plan's `## Autopilot Log` — one line per event, never rewritten. It is the run's
+durable record: a new session re-reads it instead of any chat history, and `plan-gate-state.sh`, `usage-state.sh` and
+`epic-close-state.sh` read it. **The master never writes a log line itself** — the helper does, run from the project root:
 
-**The log.** One line per event in the epic plan's `## Autopilot Log`, appended as the **last line of that section** —
-directly above the next `## ` heading, or at the end of the file when the section is the file's last — never below
-another section's heading (a human test's first line landed below `## Recap Draft`, slice-049) — and never rewritten:
-`- <ISO datetime> · <▶ | ✓ | ⛔ | ■> · <slice-id or epic-id> · <text>`, the datetime read off the clock for each line
-(`date -u +%Y-%m-%dT%H:%M:%SZ`), never written from memory — a probe's master logged round, invented times spanning six
-minutes for a run of two and a half (slice-049). **Write the log line first, then print it** — every `▶ / ✓ / ⛔ / ■` the master prints has its line, on every invocation, a resume included
-(a probe's re-run printed its `✓` and logged nothing, slice-049). It is the run's durable record: a new session
-re-reads it instead of any chat history.
+```
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/autopilot-log.sh" append "<epic-plan>" <glyph> <id> '<text>'
+```
+
+It reads the clock, places the line as the section's last line (inserting a missing section, dropping its
+`(no autopilot run yet)` line) and checks that it landed; the line's format and its placement are defined once, in its
+header. Wherever this command says *log `<glyph> · <id> · <text>`*, it means this call with those three arguments —
+`<text>` single-quoted, each `'` in it written `'\''`, and one line — fold a line break (a human's note, an error's
+later lines) into a space; the helper refuses a text with one. slice-049's master logged round, invented times; slice-057's probe
+1 stamped a line five seconds after the file was last written — the clock is the helper's, not the master's.
+
+- **Exit 0** → print the `LINE=` value — **write the log line first, then print it**: every `▶ / ✓ / ⛔ / ■` the master
+  prints has its line, on every invocation, a resume included (a probe's re-run printed its `✓` and logged nothing,
+  slice-049).
+- **`ERROR=gate:no_run_started`** → a1 was skipped in this invocation: run a1 now, then the refused call again (a1).
+- **No `LINE=` line** — any other non-zero exit, a call the permission check denied (slice-057's BUG-1: no exit code
+  at all), no output. Where a step names its own handling (a5), that holds; everywhere else the run stops: print
+  `⛔ · <epic-id> · not logged: <ERROR=, or a one-line cause>` — printed only, the log is what failed — release the
+  lock, and tell the human what the line needs, by its kind:
+  - an epic-ID line, or any `⛔` / `■` line (the gate never holds them) → print the refused call as its own code
+    block, the plugin root resolved, to run once the cause is fixed;
+  - a2's `▶` line → nothing: the re-run writes a fresh one;
+  - a3's `✓` line → it is lost: the slice has landed, a re-run reads it `skip` and never writes it again — say so; only
+    the budget forecast misses this slice's sample.
+  After `ERROR=not_landed` the plan was written but the line did not check out: name the log section for the human to
+  look at before anything is run again — a second call could write the line twice.
+
+### The master's own files
+
+The master writes no file outside the project. A file it needs for itself — a brief for a spawn, a command's output kept
+for a later step — goes to `.craft/tmp/` in the project root: CRAFT local state, gitignored with `.craft/` and never
+tree dirt (`scripts/tree-dirt-state.sh`). Never `/tmp`, `$TMPDIR` or another path outside the project (slice-056's
+probe 3 left helper files there). Files in `.craft/tmp/` are left in place — the master issues no removal command, which
+a user's rule on removing files would refuse (D34); helpers keep and remove their own temp files.
 
 ### ap — Plan the unplanned entries, then the plan gate (after the lock, before step 1c)
 
@@ -762,7 +788,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-state.sh" --gate <before|after> --epic
   - `start` → *Autopilot — stopped* for that slice. No correction is needed: the re-run writes a fresh `▶` line, and an
     earlier invocation's line never feeds a Δ. The human re-runs (after fixing the helper, when it gave no line).
   - `landed` → the slice has landed: *Autopilot — stopped after a landed slice*, or — after the epic's last slice —
-    a5 runs as usual. The human corrects the `✓` line by hand (the helper's header shows its shape) so its Δ counts.
+    a5 runs as usual. The human corrects the `✓` line by hand (`usage-state.sh`'s header shows its shape) so its Δ counts.
   - When the gate before it gave no `VERDICT=` (the helper is broken), the line was never the cause: log the gate's
     `budget check failed: …` instead, as above.
 - `WARN=` lines are printed, not logged; they never change what the master does.
@@ -813,6 +839,12 @@ the same command resumes from disk) and that a stopped run is resumed the same w
 this invocation, the human has just read those lines there: print only the order line. Then log
 `▶ · <epic-id> · run started`.
 
+**Every invocation, a re-run included** — slice-056's probe 3 re-ran without the briefing. The log helper holds it: a
+slice step (a2's `▶` line, a3's `✓` line) is refused with `ERROR=gate:no_run_started` until the log holds this
+invocation's `run started` — one at or after the lock's `SINCE=`. A refusal means a1 was skipped: emit the briefing,
+log `run started`, then write the refused line again. Any other `gate:` error (the lock not held for this epic) stops the
+run as *The Autopilot Log* says.
+
 
 ### a2 — Build a slice: s2 with a foreground builder
 
@@ -820,8 +852,8 @@ Replaces s2's *Delegate Phase 4–8* bullet — the master never runs the phase 
 budget guard's `before` gate (above); a stop ends the run there. A `go` with `MODE=conservative` → print its `REASON`
 once, before the spawn, so the human knows this run stops after this slice (the `▶` line's `usage unknown` is the
 record). Otherwise — and then — log
-`- <datetime> · ▶ · <slice-id> · slice <k>/<n> "<title>" — <create | resume at <Status>> · <LOG_FIELD>` — the slice-ID
-in the line's ID field, the helper's `LOG_FIELD=` verbatim as its **last** ` · ` field (`five_hour <p> % until
+`▶ · <slice-id> · slice <k>/<n> "<title>" — <create | resume at <Status>> · <LOG_FIELD>` — the slice-ID
+as its ID, the budget helper's `LOG_FIELD=` verbatim as the text's **last** ` · ` field (`five_hour <p> % until
 <HH:MM>`, or `usage unknown`): a3's `after` gate reads the slice's Δ five_hour from it — then run the budget guard's
 log check (`start`), and only then print the line. For `ACTION=create` nothing is set up: the checkout is already on
 the epic branch.
@@ -837,11 +869,11 @@ seeded: this checkout is already primed.
 - **Classify the outcome** as step 6 does — its four states, the live marker read with `handoff-marker-state.sh .`
   in the main checkout. **A budget stop** is Held: the builder's paused line carries `reason=budget` and the guard's
   `REASON`, no marker was written and the plan is still at its execution status → print and log
-  `⛔ <slice-id> stopped: budget — <REASON>` — this one `⛔` line, not the Handoff line below — then release the lock
+  `⛔ · <slice-id> · stopped: budget — <REASON>` — this one `⛔` line, not the Handoff line below — then release the lock
   and emit *Autopilot — stopped* with status `budget`. The human's step is only the re-run, as the budget guard's
   stop bullet says (step 1c resumes the slice, its work still uncommitted in this checkout). **Success** (`Status: committing`) → a3.
   **Handoff, Failure, Held at start** → stop the run:
-  print and log `⛔ <slice-id> stopped: <marker Status or plan Status> — <what the human does>`, release the lock and
+  print and log `⛔ · <slice-id> · stopped: <marker Status or plan Status> — <what the human does>`, release the lock and
   emit *Autopilot — stopped*. What the human does is what step 8 says for a stopped slice, run in the main checkout
   (no `/craft:checkout`: the slice is built here). A slice stopped at `blocked` shows its plan's `## Blocker` below the
   `⛔` line, as written — for a review the ping-pong breaker tripped (`commands/review.md` → Step 9) that is the
@@ -884,9 +916,9 @@ every decision `[K]`, the commits and the archive on the epic branch, the plan c
 branch **is** the landing. **Any** `/craft:commit` stop — a pre- or post-assertion, a failing `git commit` (a
 pre-commit hook), a Step-7 failure — stops the run like a Handoff (a2). Only when `/craft:commit` completed, run the
 budget guard's `after` gate with `--slice <slice-id>`, then log
-`- <datetime> · ✓ · <slice-id> · landed on <epic-branch> (<first>..<last>) · <the phrase from 1> · <LOG_FIELD>` — one
-`✓` per landed slice, the slice-ID in its ID field, the helper's `LOG_FIELD=` (`Δ five_hour <+n|?> %`) verbatim as the
-**last** field: the forecast of every later `before` gate is the mean of these. No `LOG_FIELD=` line → write
+`✓ · <slice-id> · landed on <epic-branch> (<first>..<last>) · <the phrase from 1> · <LOG_FIELD>` — one
+`✓` per landed slice, the slice-ID as its ID, the budget helper's `LOG_FIELD=` (`Δ five_hour <+n|?> %`) verbatim as the
+text's **last** field: the forecast of every later `before` gate is the mean of these. No `LOG_FIELD=` line → write
 `Δ five_hour ? %`, and check against that. Run the budget guard's log check (`landed`), then print the line. Hold the
 `after` gate's `VERDICT=` for a4.
 
@@ -895,9 +927,13 @@ budget guard's `after` gate with `--slice <slice-id>`, then log
 Replaces s4. **First the budget:** when a slice of the epic is still to build, a3's `after` verdict `stop` (or no
 `VERDICT=` line) stops the run as the budget guard says — with the *stopped after a landed slice* block — without a reading the run stops after every slice
 (conservative mode), and the human's re-run is the answer. After the epic's last slice it does not stop: a5 follows.
-Without a halt, **run the step-1c helper once more** with the same arguments — the slice just landed now
-reads `ACTION=skip` — and act on it exactly as step 1c does: a conflict or a helper that cannot run stops the run `⛔`.
-Then go back to s1 with those fresh lines; the step-1c lines from before the landing still name the landed slice
+Without a halt, **run the step-1c helper once more** — the same command, `--slices-from <epic-plan>` and no slice
+list — the slice just landed now reads `ACTION=skip` — and act on it exactly as step 1c does. **A `RESULT=conflict`
+or a helper that cannot run stops the run here** — log `⛔ · <epic-id> · re-run state: <each conflict's SLICE and REASON,
+or RESULT_REASON, or the ERROR=>`, release the lock and emit *Autopilot — stopped after a landed slice* with status
+`re-run state` and step 1c's fix for each REASON — it replaces step 1c's abort message here — and never
+goes on to a5: a5 is reached only from s1, over lines that read `RESULT=ok` (slice-057's probe 1 read a conflict and
+went on to a5). Then go back to s1 with those fresh lines; the step-1c lines from before the landing still name the landed slice
 `resume`, and s1 would pick it again (slice-049 review R1). s1 sends the run to a5 once every slice has landed. (s0
 does not apply: an autopilot slice never waits on a PR.) s1's stop on a held slice is a stop like a2's: log it `⛔`.
 
@@ -917,12 +953,11 @@ dated `2021-…`. The human decides here whether a candidate becomes a later sli
 non-zero exit) stops the run instead: print and log `⛔ · <epic-id> · digest failed: <reason>` and release the lock —
 nothing was asked, nothing merged.
 
-Then — **the lock still held** — log `▶ · <epic-id> · sign-off asked` and **check it by command** before you ask:
-`tr -d '\r' < "<epic-plan>" | grep -cFx -- '<the line exactly as written, its datetime included>'` must print `1` (the
-datetime tells it from an earlier run's line; the CR is dropped because the plan may be CRLF). Anything else — the
-write was refused or never landed (a human test's auto-mode classifier denied it, slice-057 BUG-1) — stops the run
-instead: print `⛔ · <epic-id> · sign-off not logged: <reason>` — printed only, the log is what failed — and release the
-lock — nothing was asked, nothing merged. Otherwise arm the cache guard <!-- craft:cache-guard arm --> (*The cache guard*) and ask, Level 0 — the question's last
+Then — **the lock still held** — log `▶ · <epic-id> · sign-off asked`. The log helper checks that the line landed, so
+its exit 0 **is the check by command** before you ask. Any other exit — the write was refused or never landed (a human
+test's auto-mode classifier denied it, slice-057 BUG-1) — stops the run instead: print
+`⛔ · <epic-id> · sign-off not logged: <ERROR=>` — printed only, the log is what failed — and release the lock —
+nothing was asked, nothing merged. Otherwise arm the cache guard <!-- craft:cache-guard arm --> (*The cache guard*) and ask, Level 0 — the question's last
 line is the helper's `LINE=`. The UX demo script is the product-feel check the verification did not replace: walk it
 before you answer.
 
@@ -933,28 +968,29 @@ Merge <epic-branch> into <trunk>?
   [N] no  — leave <epic-branch> as it is; nothing else changes
 ```
 
-Only the human's answer ends the run, and it disarms the cache guard first <!-- craft:cache-guard disarm -->. Each answer writes its `■` line, **checks it by command** — the same
-`tr -d '\r' | grep -cFx` check, which must print `1` — and **then** releases the lock (step 1). An answer whose action
+Only the human's answer ends the run, and it disarms the cache guard first <!-- craft:cache-guard disarm -->. Each answer writes its `■` line, **checks it by command** — the
+log helper's exit 0 — and **then** releases the lock (step 1). An answer whose action
 failed writes the `⛔` line its bullet names instead, checked the same way, and the run stops there. A `■` or `⛔` line
 that did not land stops the run with the lock **held** — the one exception to step 1's release on an abort: print
-`⛔ · <epic-id> · not logged — add this line to ## Autopilot Log by hand:` — printed only, the log is what failed —
-then the finished line, then A4's `release --force` command as its own code block, both paths resolved — the answer it
-records has been acted on or attempted, and the log must say so before the lock is released. P4 then reports the held
-lock; that is expected, and the line above is the remedy. Every `<reason>` in an a5 line is one line with no quote
-character — the error's first line, its `'` and `"` dropped — so the single-quoted check matches what was written.
+`⛔ · <epic-id> · not logged — run this once the cause is fixed:` — printed only, the log is what failed —
+then the refused log call, then A4's `release --force` command, each as its own code block, both paths resolved — the
+answer it records has been acted on or attempted, and the log must say so before the lock is released. P4 then reports
+the held lock; that is expected, and the calls above are the remedy. Every `<reason>` in an a5 line is one line — the
+error's first line — since the log helper refuses a text with a line break (*The Autopilot Log*).
 
 - **[Y], `direct`** → `git checkout <trunk>` then `git merge --no-ff <epic-branch> -m "Merge <epic-NNN>: <epic title>"`.
   A conflict: surface it, never resolve it, and log `⛔ · <epic-id> · merge into <trunk> conflicted`; the checkout is
   left on `<trunk>` mid-merge, and the human chooses the way out — `git merge --abort`, then a re-run asks again; or
-  resolve, `git commit`, and add `■ <epic-id> merged into <trunk>` to the log by hand. Otherwise log
-  `■ <epic-id> merged into <trunk>`, then release the lock, and end with `Recommended next: /craft:commit` — it closes
+  resolve, `git commit`, and log `■ · <epic-id> · merged into <trunk>` with the log helper's call — print that call as its
+  own code block, the plugin root resolved, since the human's shell has no `${CLAUDE_PLUGIN_ROOT}`. Otherwise log
+  `■ · <epic-id> · merged into <trunk>`, then release the lock, and end with `Recommended next: /craft:commit` — it closes
   the epic (its Epic-close mode, D37).
 - **[Y], `pull-request` + `Protected-main: yes`** → `git push -u origin <epic-branch>`, then
   `gh pr create --base <trunk> --head <epic-branch> --title "Merge <epic-NNN>: <epic title>" --body "$(printf '~~~~~~\n'; bash "${CLAUDE_PLUGIN_ROOT}/scripts/epic-digest.sh" "<epic-plan>"; printf '~~~~~~\n')"`
   — the body is the helper's output, generated again and never retyped, fenced so that GitHub keeps its lines and
   indents. A failed push or `gh pr create`: log
-  `⛔ · <epic-id> · PR not opened: <reason>`. Otherwise log `■ <epic-id> PR #<N> opened`, then release the lock.
-- **[N]** → log `■ <epic-id> complete, not merged`, then release the lock.
+  `⛔ · <epic-id> · PR not opened: <reason>`. Otherwise log `■ · <epic-id> · PR #<N> opened`, then release the lock.
+- **[N]** → log `■ · <epic-id> · complete, not merged`, then release the lock.
 
 **No answer is no answer.** When the session ends at the question — the human closes it, a `-p` run is over — nothing
 more is written: no `■` line, the lock stays `held`, and the Post-Assertions have not run (they follow an answer). A
@@ -1198,13 +1234,13 @@ Autopilot — stopped (a2):
    <the cache guard's LINE=, verbatim>
 ```
 
-Autopilot — stopped after a landed slice (a4, budget only):
+Autopilot — stopped after a landed slice (a4: budget, or re-run state):
 
 ```
-⛔ Autopilot stopped after slice-<id> "<title>" landed — budget
-   <the REASON, then when to re-run, as above>
+⛔ Autopilot stopped after slice-<id> "<title>" landed — <budget | re-run state>
+   <budget: the REASON, then when to re-run, as above · re-run state: each conflict with step 1c's fix for its REASON>
    Landed so far on <epic-branch>: <N> of <M>
-   Then:   /craft:execute epic-<NNN> --autopilot    (starts the next slice)
+   Then:   /craft:execute epic-<NNN> --autopilot    (resumes the run)
    <the cache guard's LINE=, verbatim>
 ```
 
@@ -1272,7 +1308,7 @@ Review checkpoint reached:
 | Autopilot (ap): active plans no entry links while entries are unplanned | Step 0 asks before any planner runs: `[P]` plan anyway, `[N]` stop and link or abort them first. The master never decides that a plan refines an entry. |
 | Autopilot (a2): a spawn came back in the background | Wait for that builder's report, then stop the run (`⛔`); start nothing else. |
 | Autopilot: the human presses Esc during a spawn | The exception to the interrupt row above: the run ends where it was, and nothing is paused or rewritten for it — a paused slice would be `held` and need a `/craft:continue` before the re-run, where a slice left at its execution status simply resumes: the slice plan keeps the status the builder last wrote and the lock stays held — a re-run from the same Claude Code session finds it `DECISION=confirm` (`REASON=own_process`) and A4 asks whether the run ended — it did, so answer `[N]` — from another one A4 names it; re-run `/craft:execute epic-<NNN> --autopilot`; step 1c reads the slice as `ACTION=resume`. |
-| Autopilot (a5): the merge into the trunk conflicts, or the push / `gh pr create` fails | Stop; surface it, log and check its `⛔` line, then release the lock (a5). Never resolve a conflict; the epic branch is intact, the checkout stays on the trunk mid-merge — `git merge --abort` and re-run, or resolve, commit and log `■` by hand (a5). |
+| Autopilot (a5): the merge into the trunk conflicts, or the push / `gh pr create` fails | Stop; surface it, log and check its `⛔` line, then release the lock (a5). Never resolve a conflict; the epic branch is intact, the checkout stays on the trunk mid-merge — `git merge --abort` and re-run, or resolve, commit and log `■` through the log helper's call a5 prints (a5). |
 | Autopilot (a5): `epic-digest.sh` reports `ERROR=` | Stop `⛔` and release the lock before anything is asked; the `ERROR=` names the slice, archive or section to fix. Never write the digest by hand instead. |
 | Autopilot (a5): the session ends before the merge question is answered | Nothing more is written — no `■` line, the lock stays held. A re-run asks again and takes the lock over (a5, *No answer is no answer*). |
 

@@ -609,19 +609,20 @@ print("NO_ANSWER " + ("ok" if re.search(r"\*\*No answer is no answer\.\*\*", pos
       and re.search(r"no `■` line, the lock stays `held`", post)
       and re.search(r"Never log `■` for a question\s+nobody answered", post) else "missing"))
 # BUG-1 (human test): a refused log append went unnoticed — the question was asked without its ▶ line, and [Y]
-# merged and released the lock with no ■ line. a5 checks each of its own lines by command (the exact line, -Fx).
-# The check drops CR first: epic-digest.sh reads a CRLF plan, so a5 must not lock itself out of one (R1-4).
-print("SIGNOFF_CHECK " + ("ok" if re.search(r"\*\*check it by command\*\* before you ask:\s+`tr -d '\\r' < \"<epic-plan>\" \| grep -cFx -- '<the line exactly as written", post)
-      and re.search(r"sign-off not logged: <reason>` — printed only, the log is what failed — and release the\s+lock — nothing was asked", post) else "missing"))
-print("ANSWER_CHECK " + ("ok" if re.search(r"Each answer writes its `■` line, \*\*checks it by command\*\*[^.]*?`tr -d '\\r' \| grep -cFx`[^.]*?\*\*then\*\* releases the lock", post) else "missing"))
+# merged and released the lock with no ■ line. a5 checks each of its own lines by command — since slice-063 the log
+# helper's exit 0, which re-reads the plan (CR dropped) for the exact line it wrote (scripts/autopilot-log.sh).
+print("SIGNOFF_CHECK " + ("ok" if re.search(r"its exit 0 \*\*is the check by command\*\* before you ask", post)
+      and re.search(r"sign-off not logged: <ERROR=>` — printed only, the log is what failed — and release the lock —\s+nothing was asked", post) else "missing"))
+print("ANSWER_CHECK " + ("ok" if re.search(r"Each answer writes its `■` line, \*\*checks it by command\*\* — the\s+log helper's exit 0 — and \*\*then\*\* releases the lock", post) else "missing"))
+# the remedy for a line that did not land is the refused helper call — never a line the human stamps by hand (B23)
 print("UNLOGGED_HELD " + ("ok" if re.search(r"A `■` or `⛔` line\s+that did not land stops the run with the lock \*\*held\*\*", post)
-      and re.search(r"· not logged — add this line to ## Autopilot Log by hand:", post)
+      and re.search(r"· not logged — run this once the cause is fixed:` — printed only, the log is what failed —\s+then the refused log call", post)
       and re.search(r"A4's\s+`release --force` command", post) else "missing"))
 # R1-1: an answer whose action failed (conflict, push, gh pr create) logs a checked ⛔ line — never a ■ "merged", never
 # no line at all, which would read as "unanswered"
 print("FAILED_ACTION " + ("ok" if re.search(r"An answer whose action\s+failed writes the `⛔` line its bullet names instead, checked the same way", post)
-      and re.search(r"log `⛔ · <epic-id> · merge into <trunk> conflicted`;(?:(?!\n- ).)*?Otherwise log\s+`■ <epic-id> merged into <trunk>`", post, re.S)
-      and re.search(r"log\s+`⛔ · <epic-id> · PR not opened: <reason>`\. Otherwise log `■ <epic-id> PR #<N> opened`", post) else "missing"))
+      and re.search(r"log `⛔ · <epic-id> · merge into <trunk> conflicted`;(?:(?!\n- ).)*?Otherwise log\s+`■ · <epic-id> · merged into <trunk>`", post, re.S)
+      and re.search(r"log\s+`⛔ · <epic-id> · PR not opened: <reason>`\. Otherwise log `■ · <epic-id> · PR #<N> opened`", post) else "missing"))
 # R1-2: the held lock is named as the one exception to step 1's release on an abort — in a5 and at step 1
 step1 = re.search(r"^###\s+1\. Acquire the lock\b(.*?)(?=^###\s)", execute, re.S | re.M)
 print("HELD_EXCEPTION " + ("ok" if re.search(r"the one exception to step 1's release on an abort", post)
@@ -629,8 +630,8 @@ print("HELD_EXCEPTION " + ("ok" if re.search(r"the one exception to step 1's rel
 # R1-3: the PR body is the helper's output generated again — a second copy is never retyped by the master
 # — fenced, so GitHub keeps its lines and indents (R2-1)
 print("PR_BODY " + ("ok" if '''--body "$(printf '~~~~~~\\n'; bash "${CLAUDE_PLUGIN_ROOT}/scripts/epic-digest.sh" "<epic-plan>"; printf '~~~~~~\\n')"''' in post else "missing"))
-# R2-2: a <reason> with a quote or a second line would make the single-quoted exact-line check miss a line that landed
-print("REASON_ONE_LINE " + ("ok" if re.search(r"Every `<reason>` in an a5 line is one line with no quote\s+character", post) else "missing"))
+# R2-2: a <reason> with a second line would be refused by the log helper (a text is one line) — a5 says so
+print("REASON_ONE_LINE " + ("ok" if re.search(r"Every `<reason>` in an a5 line is one line — the\s+error's first line — since the log helper refuses a text with a line break", post) else "missing"))
 # R2-4: the two ⛔ lines a5 cannot log are marked print-only — the general log rule would have them logged
 print("PRINT_ONLY " + ("ok" if len(re.findall(r"printed only, the log is what failed", post)) == 2 else "missing"))
 # R2-5: a conflicted merge leaves the trunk mid-merge — a5 names it and both ways out
@@ -658,7 +659,7 @@ ee() { printf '%s\n' "$epic_end" | awk -v k="$1" '$1 == k { print $2 }'; }
   || bad "a5 does not check its sign-off line by command — a refused log append went unnoticed (BUG-1)"
 [[ "$(ee ANSWER_CHECK)" == ok ]] && ok "each a5 answer checks its ■ line by command before releasing the lock" \
   || bad "a5's answers do not check their ■ line by command before the release — [Y] merged with no ■ line (BUG-1)"
-[[ "$(ee UNLOGGED_HELD)" == ok ]] && ok "an unlogged ■ line stops a5 with the lock held, the line to add and the release --force pointer" \
+[[ "$(ee UNLOGGED_HELD)" == ok ]] && ok "an unlogged ■ line stops a5 with the lock held, the refused log call and the release --force pointer" \
   || bad "a5 does not define an unlogged ■ line — the lock would be released with the log reading 'unanswered' (BUG-1)"
 [[ "$(ee FAILED_ACTION)" == ok ]] && ok "a failed a5 action (conflict, push, gh pr create) logs a checked ⛔ line instead of ■" \
   || bad "a5 does not log a failed action — the log reads 'unanswered' or 'merged' after a conflict (R1-1)"
@@ -666,7 +667,7 @@ ee() { printf '%s\n' "$epic_end" | awk -v k="$1" '$1 == k { print $2 }'; }
   || bad "a5's held lock is not marked as step 1's exception — step 1 and P4 contradict it (R1-2)"
 [[ "$(ee PR_BODY)" == ok ]] && ok "a5's PR body is epic-digest.sh's output, generated again and fenced in --body" \
   || bad "a5's PR body is left to the master — a second verbatim copy retyped from context (R1-3), or unfenced (R2-1)"
-[[ "$(ee REASON_ONE_LINE)" == ok ]] && ok "a5's <reason> is one line with no quote character — the exact-line check can match it" \
+[[ "$(ee REASON_ONE_LINE)" == ok ]] && ok "a5's <reason> is one line — the log helper refuses a line break" \
   || bad "a5 does not constrain <reason> — a quote or a second line makes a landed line read as missing (R2-2)"
 [[ "$(ee PRINT_ONLY)" == ok ]] && ok "a5's two unloggable ⛔ lines are marked printed only" \
   || bad "a5 does not mark its unloggable ⛔ lines as printed only — the general log rule would log them (R2-4)"

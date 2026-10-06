@@ -69,6 +69,12 @@
 #   reason is added — the tree's changes may be that slice's, and its line names the fix.
 #
 #   <slice-plan | slice-ID>...     One or more slices.
+#   --slices-from <epic-plan>      Instead of the slices: every decomposition entry of that epic plan, in its
+#                                  order, read through `epic-entry-link.sh resolve` — a plan path for STATE=plan,
+#                                  the slice-ID for STATE=landed. The caller passes no list, so it cannot pass a
+#                                  wrong one (an autopilot master passed the epic plan as a slice, slice-063 / B23).
+#                                  Every entry must resolve; otherwise exit 4, ERROR=slices_from:<why> —
+#                                  unreadable · unresolved:<entry>:<state> · ignored_line:<n> · no_entries.
 #   --mode parallel|sequential     Default parallel.
 #   --epic <epic-plan>             Parallel epic target: adds the epic line and merges are
 #                                  looked up in the epic branch.
@@ -92,7 +98,8 @@
 #   ERROR=<reason>                 on failure (stderr), with a non-zero exit code
 #
 # Exit codes: 0 success (any RESULT) · 2 bad arguments · 3 project dir unreachable or not in a git repository ·
-# 4 a slice has neither a plan nor an archive, or its slice-ID matches several plans.
+# 4 a slice has neither a plan nor an archive, or its slice-ID matches several plans, or --slices-from
+# cannot resolve every entry.
 
 set -uo pipefail
 
@@ -133,6 +140,7 @@ LANDING="direct"
 BRANCH_PATTERN='<slice-id>-<slug>'
 PATH_PATTERN='../<repo>-worktrees/<slice-id>-<slug>/'
 REFS=()
+SLICES_FROM=""
 
 need_value() { [[ $# -ge 2 && -n "$2" ]] || { echo "ERROR=missing_value:$1" >&2; exit 2; }; }
 
@@ -141,6 +149,7 @@ while [[ $# -gt 0 ]]; do
     --print-actions) printf '%s\n' "${ACTIONS}"; exit 0 ;;
     --mode) need_value "$@"; MODE="$2"; shift 2 ;;
     --epic) need_value "$@"; EPIC_PLAN="$2"; shift 2 ;;
+    --slices-from) need_value "$@"; SLICES_FROM="$2"; shift 2 ;;
     --trunk) need_value "$@"; TRUNK="$2"; shift 2 ;;
     --landing) need_value "$@"; LANDING="$2"; shift 2 ;;
     --branch-pattern) need_value "$@"; BRANCH_PATTERN="$2"; shift 2 ;;
@@ -152,7 +161,11 @@ done
 
 [[ "${MODE}" == "parallel" || "${MODE}" == "sequential" ]] || { echo "ERROR=invalid_mode:${MODE}" >&2; exit 2; }
 [[ "${LANDING}" == "direct" || "${LANDING}" == "pull-request" ]] || { echo "ERROR=invalid_landing:${LANDING}" >&2; exit 2; }
-(( ${#REFS[@]} > 0 )) || { echo "ERROR=missing_argument:<slice-plan|slice-ID>" >&2; exit 2; }
+if [[ -n "${SLICES_FROM}" ]]; then
+  (( ${#REFS[@]} == 0 )) || { echo "ERROR=slices_from_with_slices" >&2; exit 2; }
+else
+  (( ${#REFS[@]} > 0 )) || { echo "ERROR=missing_argument:<slice-plan|slice-ID>" >&2; exit 2; }
+fi
 [[ -z "${EPIC_PLAN}" || "${MODE}" == "parallel" ]] || { echo "ERROR=epic_requires_parallel" >&2; exit 2; }
 
 PROJECT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
@@ -161,6 +174,29 @@ PROJECT="$(pwd -P)"
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "ERROR=not_a_git_repository" >&2; exit 3; }
 REL="$(git rev-parse --show-prefix 2>/dev/null)"   # the project dir below the repository root, `/`-terminated or empty
 [[ -z "${EPIC_PLAN}" || -f "${EPIC_PLAN}" ]] || { echo "ERROR=plan_not_found:${EPIC_PLAN}" >&2; exit 4; }
+
+# --slices-from: the epic's entries, in decomposition order, become the slice arguments
+if [[ -n "${SLICES_FROM}" ]]; then
+  resolved="$(CLAUDE_PROJECT_DIR="${PROJECT}" bash "${SCRIPT_DIR}/epic-entry-link.sh" resolve "${SLICES_FROM}" 2>/dev/null)" \
+    && grep -q '^RESULT=' <<<"${resolved}" || { echo "ERROR=slices_from:unreadable" >&2; exit 4; }
+  while IFS= read -r line; do
+    case "${line}" in
+      SLICE=*)
+        id="${line#SLICE=}"; id="${id%% *}"
+        state="${line#* STATE=}"; state="${state%% *}"
+        plan="${line#* PLAN=}"; plan="${plan%% ENTRY=*}"
+        entry="${line#* ENTRY=}"
+        case "${state}" in
+          plan) REFS+=("${plan}") ;;
+          landed) REFS+=("${id}") ;;
+          *) echo "ERROR=slices_from:unresolved:${entry}:${state}" >&2; exit 4 ;;
+        esac ;;
+      IGNORED\ LINE=*)
+        n="${line#IGNORED LINE=}"; echo "ERROR=slices_from:ignored_line:${n%% *}" >&2; exit 4 ;;
+    esac
+  done <<<"${resolved}"
+  (( ${#REFS[@]} > 0 )) || { echo "ERROR=slices_from:no_entries" >&2; exit 4; }
+fi
 
 archive_of() { compgen -G "${PROJECT}/.claude/project/slices/$1-*.md" >/dev/null; }
 
