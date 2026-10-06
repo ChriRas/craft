@@ -69,8 +69,20 @@ or set `env.PATH` in `~/.claude/settings.json`).
 An autopilot run (`/craft:execute <epic> --autopilot`) watches your plan's 5-hour and weekly usage windows so it
 does not start a slice it cannot finish, and stops a running one before the window runs out. The only place a
 session can read those windows is the JSON Claude Code pipes into your statusline, so CRAFT ships a small wrapper
-that keeps a copy of it and hands the same input on to your own statusline command. Wire it once in
-`~/.claude/settings.json` — CRAFT never writes this setting for you:
+that keeps a copy of it and hands the same input on to your own statusline command.
+
+A plugin cannot wire it on install, so `/craft:prime` (and `/craft:onboard`) does it for you when you say yes: it
+shows the change to `statusLine` in your user settings, backs the file up and only then writes it — your own command
+chained behind the tap, wrapped in `sh -c '…'` when it is more than one command, `refreshInterval` added. A tap wired
+to a working tree or a versioned plugin cache is re-routed the same way. To take it out again, run
+`scripts/ensure-statusline-tap.sh --remove` from your CRAFT marketplace clone (by default
+`bash ~/.claude/plugins/marketplaces/craft/scripts/ensure-statusline-tap.sh --remove`) — it backs the file up too and
+restores your own command. **Run it before you uninstall CRAFT or remove its marketplace:** the wired line points into
+that clone, and once the clone is gone your statusline stays empty. Prime offers
+nothing while your marketplace clone predates the tap (run `/craft:upgrade` first) or a project / local settings file
+sets its own `statusLine`.
+
+To wire it by hand instead, in `~/.claude/settings.json`:
 
 ```json
 "statusLine": {
