@@ -12,7 +12,7 @@ through the CRAFT workflow.
 
 ## Design Records
 
-- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — the full decision log (D1–D35).
+- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — the full decision log (D1–D36).
 - [`plugin-architecture.md`](./plugin-architecture.md) — the build blueprint.
 - [`README.md`](./README.md) — plugin overview and command reference.
 
@@ -224,17 +224,28 @@ bash scripts/test-epic-digest.sh
 # the profile copies bound to the helper's DEFAULTS. Keep green.
 bash scripts/test-usage-state.sh
 
+# Statusline tap wiring — scripts/ensure-statusline-tap.sh (slice-059, D36) wires the usage tap the budget guard reads into
+# the USER's statusLine, only on a yes: /craft:prime step 4h and /craft:onboard offer --apply; --remove takes it out again.
+# The marketplace clone is found through known_marketplaces.json and never wired while its tap does not exist; a project /
+# local / managed statusLine wins and is only reported. Covers every --check state (absent, misrouted working tree / cache,
+# no-refresh, overridden at each level, tap-missing, unrecognized) and that --check never writes, --apply for plain and
+# compound commands (sh -c wrap), re-routes, key / indent / symlink / mode preservation, idempotency and the byte-equal
+# backup, refusals that write nothing, the --apply → --remove round trip, the written command actually executed against
+# the original, a foreign script that carries the tap's name (BUG-1), the clone chosen among several marketplaces, hidden
+# and double taps, a failed write (exit 7), and the pinned prime / onboard sites. Keep green.
+bash scripts/test-statusline-wiring.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The eighteen harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The nineteen harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's epic-end digest, the autopilot's budget guard, the single declaration of the allowed model values, the
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's epic-end digest, the autopilot's budget guard, the statusline tap's wiring, the single declaration of the allowed model values, the
 single definition of what counts as an example rather than content, delete-safe closing, and the autopilot's verification by command.
 
 ## Dogfooding Is Not Self-Verification
