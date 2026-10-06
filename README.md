@@ -218,6 +218,8 @@ When you have an epic with multiple slices that can run in parallel, hand the bu
                                       # run out (usage tap, see Requirements); at the end a generated digest
                                       # (scripts/epic-digest.sh) with the UX demo script as written and
                                       # "merge into main?" — main is untouched and the run locked until you answer
+/craft:commit                         # after the [Y] merge (direct): closes the epic — decisions walk, epic archive,
+                                      # epic plan closed, epic branch deleted (git branch -d)
 
 # Side tools:
 /craft:worktree-status            # overview of all active worktrees

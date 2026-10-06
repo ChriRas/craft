@@ -12,7 +12,7 @@ through the CRAFT workflow.
 
 ## Design Records
 
-- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — the full decision log (D1–D36).
+- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — the full decision log (D1–D37).
 - [`plugin-architecture.md`](./plugin-architecture.md) — the build blueprint.
 - [`README.md`](./README.md) — plugin overview and command reference.
 
@@ -246,17 +246,26 @@ bash scripts/test-statusline-wiring.sh
 # stale age), the hooks.json registration, and the sites in commands/execute.md that arm and disarm (markers). Keep green.
 bash scripts/test-cache-guard.sh
 
+# Autopilot epic close — scripts/epic-close-state.sh (slice-061, B24, D37) decides whether /craft:commit's Autopilot-epic-close
+# mode can close an epic now: its ## Autopilot Log's last ■ line is a5's `merged into <trunk>`, every decomposition entry
+# landed (epic-entry-link.sh resolve), and the epic branch is merged — a merge commit on the trunk with the branch tip as a
+# non-first parent (the ancestor trap: a branch without own commits is no merge), or, the branch gone, a5's merge subject.
+# Covers real git fixtures for every STATE (closable, not-autopilot, not-signed-off, not-merged incl. another trunk, pr-path,
+# entries-open, branch-unmerged, malformed), the last answer winning, ■ lines in a fence / outside the log / of another epic,
+# CRLF, scan mode, errors, that it writes nothing, and the pinned sites in commands/commit.md and execute.md a5. Keep green.
+bash scripts/test-epic-close-state.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The twenty harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The twenty-one harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's epic-end digest, the autopilot's budget guard, the autopilot's cache guard, the statusline tap's wiring, the single declaration of the allowed model values, the
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's epic-end digest, the autopilot epic's close, the autopilot's budget guard, the autopilot's cache guard, the statusline tap's wiring, the single declaration of the allowed model values, the
 single definition of what counts as an example rather than content, delete-safe closing, and the autopilot's verification by command.
 
 ## Dogfooding Is Not Self-Verification
