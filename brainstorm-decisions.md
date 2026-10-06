@@ -1302,6 +1302,32 @@ Decision:
 - **The user level only.** A project or local `statusLine` wins over the user's; the helper names it and
   writes nothing there — wiring the user level under it would change nothing visible.
 
+### D37 — Closing an Autopilot Epic Is a `/craft:commit` Mode, Not Part of the Run
+
+> Decided 2026-10-06 while planning slice-061 (roadmap B24). epic-003, the first epic an autopilot run
+> finished, had to be archived and closed by hand.
+
+After a5's `[Y]` no CRAFT command wrote the epic archive or closed the epic plan: `/craft:commit` closes an
+epic only in Epic-finalize mode, which it detects by an epic worktree an autopilot run never creates, and
+`commands/execute.md` said closing is not part of the run.
+
+Decision:
+
+- **The close is a mode of `/craft:commit`, run on the trunk after the merge.** *Why not* a5 after `[Y]`:
+  under `pull-request` the merge happens on GitHub after a5, so a5 cannot close in every case; and a
+  commit mode reuses Epic-finalize's decisions walk, epic archive and plan closing by delegation instead of
+  describing them a second time. a5's `[Y]` hands over with `Recommended next: /craft:commit`.
+- **Closability is derived, never stored.** One helper, `scripts/epic-close-state.sh`, decides from git and
+  the epic plan whether the epic is merged into the trunk and every decomposition entry has landed. "Is an
+  ancestor" alone is no proof of a merge — a branch without own commits is an ancestor of every trunk.
+- **The walk covers the epic's own decisions only.** The slices' decisions were recorded `[K]` by the run
+  and stay in their archives; promoting one stays open to the human by hand.
+- **The merged epic branch is deleted with `git branch -d`,** as Epic-finalize does — `-d` refuses a branch
+  that is not merged.
+- **`direct` only, for now.** Under `pull-request` + `Protected-main: yes` the archive commit may not land on
+  the trunk directly; that path needs Epic-finalize's two passes and stops with a clear line until a
+  roadmap entry builds it.
+
 ---
 
 ## 7. Carry-Over to Next Clusters
