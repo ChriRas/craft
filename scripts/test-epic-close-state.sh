@@ -13,6 +13,9 @@
 # It writes nothing outside its own mktemp directory (removed on exit).
 
 set -uo pipefail
+# the helper prefers CLAUDE_PROJECT_DIR over the cwd; an inherited one (a context-mode sandbox, a hook) points every
+# fixture call at the wrong project — slice-063's verify-run went 34 red that way. Each case runs from its fixture.
+unset CLAUDE_PROJECT_DIR
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
