@@ -213,17 +213,28 @@ bash scripts/test-plan-gate-state.sh
 # missing or doubled, no ## What, no demo script). Keep green.
 bash scripts/test-epic-digest.sh
 
+# Autopilot budget guard — scripts/usage-state.sh is the one judge of whether the plan's usage windows allow an autopilot
+# run to start a slice (before), go on within one (during, the slice-builder at every boundary of its spawn) or go on after one
+# (after); the master and the builder act on VERDICT= only (slice-058, design record §6). Its input is the tap
+# scripts/statusline-tap.sh (POSIX sh, wired by the user into statusLine) writes; limits come from craft-profile.md →
+# ## Autopilot, the forecast is derived from the Δ five_hour fields of the epic's ## Autopilot Log. Covers missing / stale /
+# malformed taps (conservative mode), every limit at its edge, the fixed overage heuristic, profile overrides and invalid
+# values, forecast samples (fenced, CRLF, another section), the per-slice delta (reset, resume, negative), the tap's
+# byte-equal pass-through and fail-open path, the pinned call sites in execute.md / build.md / slice-builder / prime.md and
+# the profile copies bound to the helper's DEFAULTS. Keep green.
+bash scripts/test-usage-state.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The seventeen harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The eighteen harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's epic-end digest, the single declaration of the allowed model values, the
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's epic-end digest, the autopilot's budget guard, the single declaration of the allowed model values, the
 single definition of what counts as an example rather than content, delete-safe closing, and the autopilot's verification by command.
 
 ## Dogfooding Is Not Self-Verification
