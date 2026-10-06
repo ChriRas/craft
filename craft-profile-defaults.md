@@ -27,6 +27,9 @@ This file documents the default values, the resolution rules, and the validation
 | Merge Workflow | Approval-granularity | `auto` | Sequential epic → per slice; parallel epic → once at epic end. |
 | Epic Mode | Default | `parallel` | `/craft:execute <epic>` runs independent slices concurrently in worktrees. |
 | Permissions | Scope | `standard` | A moderate permission allowlist (the actual entries live in `settings.local.json`). |
+| Autopilot | Budget-before-slice | `85` | An autopilot run starts no slice while the 5-hour usage plus the forecast is above it. |
+| Autopilot | Budget-in-slice | `95` | A builder in an autopilot run stops at the next boundary of its spawn — a sub-task, a phase, a debug attempt — at or above it (5-hour usage). |
+| Autopilot | Budget-seven-day | `90` | An autopilot run starts no further slice at or above it (weekly usage). |
 | Operational Language | Chat | system language | The language `/craft:prime` adopts for the session. |
 | Operational Language | Commits | `English` | Commit-message language (`/craft:commit`). |
 | Operational Language | Comments | `English` | Code-comment language (`/craft:build`, `/craft:review`). |
@@ -112,6 +115,8 @@ never corrected, per the rules.md Tabu on silent drift correction):
 - ⚠ A drift-style warning when the profile is malformed:
   - an unknown block or field key;
   - a value outside its enum (e.g. `Mode: parallel`);
+  - an `## Autopilot` budget value that is not an integer 1–100 — reported by
+    `scripts/usage-state.sh`, which also falls back to the default for it;
   - the invalid combination `Auto-commit: off` with `Mode: worktree` (auto-commit can
     only be disabled on the in-place path — the worktree merge model requires commits).
 

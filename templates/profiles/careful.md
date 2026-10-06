@@ -61,6 +61,22 @@
 
 - **Scope:** minimal
 
+## Autopilot
+
+> The budget guard of an autopilot run (`/craft:execute <epic> --autopilot`): limits on your plan's
+> 5-hour and weekly usage windows, in percent. Before a slice, the 5-hour usage plus the forecast (the
+> mean of the slices landed so far) above `Budget-before-slice` → the slice does not start. During one,
+> the 5-hour usage at or above `Budget-in-slice` → the builder stops at the next boundary of
+> its run (a sub-task, a phase, a debug attempt). The
+> weekly usage at or above `Budget-seven-day` → no further slice. An integer 1–100 each. Judged by the
+> CRAFT plugin's `scripts/usage-state.sh` from the statusline tap you wire once (README → Requirements);
+> without a tap the run stops after every slice. A window at 99 % while the cache TTL is 5 minutes
+> (overage) always stops — not configurable.
+
+- **Budget-before-slice:** 85
+- **Budget-in-slice:** 95
+- **Budget-seven-day:** 90
+
 ## Operational Language
 
 > Three independent language settings. Consumed by `/craft:prime` (reports them),
