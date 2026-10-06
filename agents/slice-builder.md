@@ -72,9 +72,35 @@ A marker left by an earlier run may already be resolved. Whether it still counts
 Only the retry rows and the `STALE`-continue row rename, and only after the decision. A restore writes
 over `paused` alone — never over a status a human or a command set since the failure.
 
+### The budget guard (autopilot run only)
+
+The master cannot watch the usage windows while it waits on you (design record §9, Q8), so you ask the helper yourself —
+this section is the one definition of the in-slice budget stop; `commands/build.md` and `skills/debug/SKILL.md` point
+here. Ask it at every boundary of your spawn:
+
+- at each Phase-4 sub-task boundary, after the bundle, while a sub-task is still unchecked (`commands/build.md` →
+  Subagent Mode → *Budget guard*);
+- before each phase step after step 1 — before steps 2, 3, 4, 5 and 6, so before every review round and before you
+  report `committing` (a stop there leaves the plan at `committing`; the re-run lands it at a3) — and before step 1
+  again when a review loop-back sends you back there;
+- before each attempt of `skills/debug/SKILL.md` → **Autonomous Mode**, in Phase 4 and in Phase 5.
+
+From the checkout root: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-state.sh" --gate during`. Act on `VERDICT=` only —
+never judge the percentages yourself:
+
+- `VERDICT=go` (a `MODE=conservative` one too: the master's `after` gate stops the run then) → go on.
+- `VERDICT=stop` → **stop**: change nothing more — no status write, no marker; finished work stays uncommitted in the
+  checkout — and emit the paused line (§6) with `reason=budget — <REASON>`.
+- **no `VERDICT=` line** (the helper not found, a non-zero exit) → the same stop, with
+  `reason=budget — budget check failed: <ERROR= or a one-line cause>`. A guard that cannot judge stops, as the master's
+  does; going on would switch the in-slice guard off unnoticed.
+
+The master logs the stop; a re-run after the reset resumes you where the plan's status says. D32's "stops immediately on
+the overage signal" means the next of these boundaries: nothing interrupts a tool call already running.
+
 ### 1. Phase 4 — Build
 
-`Read` `commands/build.md` and follow its `## Subagent Mode` section (which directs you to the main Procedure with three explicit overrides — handoff on 2nd same-symptom fix, handoff on out-of-scope edits, no bundle countdown). Identify the next unchecked sub-task, plan briefly, implement, run tests, check off, bundle, advance. Apply the 30k-token brake. Apply the self-verification trigger (2nd fix attempt on the same symptom → offer `/craft:debug`; in subagent mode, default to writing a handoff with `Status: awaiting-protocol` rather than negotiating a protocol with no human present — in an autopilot run, run `skills/debug/SKILL.md` → **Autonomous Mode** first, where `code-reviewer` freezes the protocol with you, and pause only at its end stop). If an out-of-scope obstacle surfaces during Build — a prerequisite that must be built first, an external wait, an open decision, or missing access, judged by the spawn-boundary heuristic — do **not** grow the slice: escalate via **Blocker detection & escalation** below (classify, write the `blocked` state with `Blocked-status: implementing`, halt).
+`Read` `commands/build.md` and follow its `## Subagent Mode` section (which directs you to the main Procedure with its overrides — handoff on 2nd same-symptom fix, handoff on out-of-scope edits, an out-of-scope blocker, no bundle countdown, and in an autopilot run the budget guard above). Identify the next unchecked sub-task, plan briefly, implement, run tests, check off, bundle, advance. Apply the 30k-token brake. Apply the self-verification trigger (2nd fix attempt on the same symptom → offer `/craft:debug`; in subagent mode, default to writing a handoff with `Status: awaiting-protocol` rather than negotiating a protocol with no human present — in an autopilot run, run `skills/debug/SKILL.md` → **Autonomous Mode** first, where `code-reviewer` freezes the protocol with you, and pause only at its end stop). If an out-of-scope obstacle surfaces during Build — a prerequisite that must be built first, an external wait, an open decision, or missing access, judged by the spawn-boundary heuristic — do **not** grow the slice: escalate via **Blocker detection & escalation** below (classify, write the `blocked` state with `Blocked-status: implementing`, halt).
 
 When all sub-tasks are checked, `/craft:build` updates the slice plan `Status: testing` and emits its Phase-4-complete bundle. Proceed to step 2.
 
@@ -134,6 +160,8 @@ If at any step you wrote `.craft/handoff.md` and stopped (paused, blocked, or �
 slice-builder paused: slice-NNN status=<awaiting-...|plan status> phase=<N> handoff=<.craft/handoff.md|none> [reason=<REASON>]
 ```
 
+A budget stop (*The budget guard*, autopilot run only) emits `status=<plan status> phase=<N> handoff=none reason=budget — <REASON>`,
+the guard's `REASON=` (or `budget check failed: …`) verbatim after the dash. Otherwise
 `reason=` appears only on a step-0 stop, and says why: a helper doubt reason (`plan_not_found`, `plan_ambiguous`,
 `plan_status_missing`, `no_slice_id`, `unknown_marker_status`, `episode_unknown`), `helper-unavailable`, `plan-held` or
 `retry-phase-unknown`. On such a stop `status=` is the marker's status when a marker exists, else the plan's, and

@@ -156,7 +156,7 @@ Update `Status: testing` in the slice plan.
 
 ## Subagent Mode (when called by `/craft:execute`)
 
-When the `slice-builder` subagent invokes `/craft:build` during an autonomous run, the main procedure runs unchanged — the build loop is mechanical and safe to automate. Four behavioral overrides apply.
+When the `slice-builder` subagent invokes `/craft:build` during an autonomous run, the main procedure runs unchanged — the build loop is mechanical and safe to automate. Five behavioral overrides apply.
 
 **Pausing for a human decision** — the two overrides that need a human answer (*Self-verification trigger*, *Outside-scope edits*) end the same way: <!-- craft:writes status=paused --> set the slice plan `Status: paused` with the pause record (`skills/workflow/SKILL.md` → **Pause record**) plus a Pause Note naming what the human must decide, write `.craft/handoff.md` in the worktree with the override's status (a handoff-file status, not a slice-plan one) and the record's `Paused-since` as its `Episode:`, and stop. The plan status matters: a marker counts as live only while the plan is at the status it pairs with, in the same episode (`skills/workflow/SKILL.md` → **Handoff marker lifecycle**), and both statuses pair with `paused`.
 
@@ -164,6 +164,9 @@ When the `slice-builder` subagent invokes `/craft:build` during an autonomous ru
 - **Outside-scope edits** (Procedure step 3 / Error Handling row 5) — instead of asking the human for approval at Level 1, <!-- craft:handoff status=awaiting-scope-decision plan=paused --> pause for a human decision with `Status: awaiting-scope-decision`; the Pause Note names the file or change outside the plan. The plan boundary is a contract; the subagent never expands scope unilaterally.
 - **Out-of-scope blocker** (Problem-Playbook: an unforeseen dependency that exceeds minimal in-slice work) — when a *whole prerequisite* is missing (infra/API/service), or a `decision` / `access` / `external` wait stands in the way per the spawn-boundary heuristic, this is a blocker, not a scope-spill: follow the slice-builder's **Blocker detection & escalation** — classify, write the first-class `blocked` state, write `.craft/handoff.md` with `Status: awaiting-block-decision`, and stop. (The distinction from *Outside-scope edits*: that is permission to touch an unnamed file; this is a missing unit of work or a direction call the subagent must never make.)
 - **Bundle countdowns** — the "[continuing in 3s — type 'pause' to stop]" line is omitted in subagent output. There is no human to type during the countdown.
+- **Budget guard** (autopilot run only — the spawn says so) — after Procedure step 6's bundle, while a sub-task is
+  still unchecked, run the slice-builder's budget guard (`agents/slice-builder.md` → *The budget guard* — defined
+  there once, its `reason=budget` stop included) before the next sub-task.
 
 On clean Phase-4 completion (all sub-tasks checked, tests green), Subagent Mode advances the slice plan `Status: testing` exactly as the main flow does — the slice-builder picks up at Phase 5 next.
 

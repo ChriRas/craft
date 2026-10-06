@@ -722,10 +722,48 @@ not the master's: it stops the run and asks.
 | Loop back or escalate after a review | `slice-builder` (execute tier), in its spawn | `review-findings-state.sh` (`TRIP=`, `/craft:review` → Step 9) |
 | Whether a debug attempt fixed it | `slice-builder` (execute tier), in its spawn | `verify-run.sh` against the frozen protocol |
 | How the slice passed Phase 5, for the landed line | master, at a3 | the plan's `## Verification Evidence` |
+| Whether the usage windows allow the next slice, or the next sub-task | master (a2, a3); `slice-builder`, in its spawn | `usage-state.sh` (`VERDICT=`) |
 | Scope, blockers, direction | **the human** | the `⛔` stop |
 | Merge into the trunk | **the human**, at a5 | the digest |
 
-### a1 — Run-start briefing (once per invocation, before the first `slice-builder` spawn)
+### The budget guard — `usage-state.sh` (a2, a3, a4)
+
+The run must not start a slice the plan's 5-hour window cannot carry, nor go on past the weekly limit (D32, design
+record §6). The master never judges the numbers: `scripts/usage-state.sh` reads them off the statusline tap and the
+profile's `## Autopilot` limits and prints `VERDICT=go|stop` — its header defines the gates, the limits, the forecast
+and the conservative mode, and is not restated here. Run it from the project root:
+
+```
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-state.sh" --gate <before|after> --epic-plan <epic plan> [--slice <slice-id>]
+```
+
+- **`go`** → the run goes on — a `MODE=conservative` one too: its `after` gate then stops the run.
+- **A `stop`** → print and log `⛔ · <epic-id> · budget: <REASON>` (the helper's `REASON=`, verbatim), release the lock
+  and emit *Autopilot — stopped* with `budget` as its status. Nothing is undone: a stop before a slice leaves it
+  unstarted, one after a slice leaves it landed. The human's step is the re-run — **when** depends on the stop, and
+  *Autopilot — stopped* names it: a limit or overage stop → after the reset time `REASON` names; a stop with no reading
+  (`MODE=conservative`, after a slice) → at once, or after wiring the tap when `UNKNOWN` starts with `no tap at`; a
+  check that failed (no `VERDICT=`, a log check) → after fixing what it names.
+- **No `VERDICT=` line** (the helper not found, a non-zero exit) → the same stop, logged
+  `⛔ · <epic-id> · budget check failed: <ERROR= or a one-line cause>` — a guard that cannot judge stops the run.
+- **The log check** — the forecast and every Δ are read from the `▶` and `✓` lines a2 and a3 write, so the master's
+  carry of `LOG_FIELD=` into them is checked by command, not trusted (rules.md: what an agent must carry verbatim is
+  checked by command). Right after writing either line run
+  `bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-state.sh" --check-line <start|landed> --epic-plan <epic plan> --slice <slice-id> --expect "<LOG_FIELD>"`.
+  `LINE_OK=yes` → go on. `LINE_OK=no`, or no `LINE_OK=` line → the same stop as a `stop`, logged
+  `⛔ · <epic-id> · budget: log line not readable — <REASON>` (no `LINE_OK=` line: `<ERROR=` or a one-line cause`>`).
+  Which block and what the human does depends on the check:
+  - `start` → *Autopilot — stopped* for that slice. No correction is needed: the re-run writes a fresh `▶` line, and an
+    earlier invocation's line never feeds a Δ. The human re-runs (after fixing the helper, when it gave no line).
+  - `landed` → the slice has landed: *Autopilot — stopped after a landed slice*, or — after the epic's last slice —
+    a5 runs as usual. The human corrects the `✓` line by hand (the helper's header shows its shape) so its Δ counts.
+  - When the gate before it gave no `VERDICT=` (the helper is broken), the line was never the cause: log the gate's
+    `budget check failed: …` instead, as above.
+- `WARN=` lines are printed, not logged; they never change what the master does.
+- The builder runs the `during` gate itself, at every boundary of its spawn (`agents/slice-builder.md` → *The budget
+  guard*); a2 reads its stop.
+
+### a1 — Run-start briefing (once per invocation, before its first slice step — a2's spawn, or a3 for a slice resumed at `committing`)
 
 Emit the briefing block (Output Format → *Autopilot — briefing*): builds in place on `<epic-branch>`, `main` untouched
 until the end; the checkout is occupied — do not edit files or switch branches in it while the run lasts; the slice
@@ -737,9 +775,15 @@ this invocation, the human has just read those lines there: print only the order
 
 ### a2 — Build a slice: s2 with a foreground builder
 
-Replaces s2's *Delegate Phase 4–8* bullet — the master never runs the phase commands itself. Before the spawn print and
-log `▶ slice <k>/<n> <slice-id> "<title>" — <create | resume at <Status>>`. For `ACTION=create` nothing is set up:
-the checkout is already on the epic branch.
+Replaces s2's *Delegate Phase 4–8* bullet — the master never runs the phase commands itself. Before the spawn run the
+budget guard's `before` gate (above); a stop ends the run there. A `go` with `MODE=conservative` → print its `REASON`
+once, before the spawn, so the human knows this run stops after this slice (the `▶` line's `usage unknown` is the
+record). Otherwise — and then — log
+`- <datetime> · ▶ · <slice-id> · slice <k>/<n> "<title>" — <create | resume at <Status>> · <LOG_FIELD>` — the slice-ID
+in the line's ID field, the helper's `LOG_FIELD=` verbatim as its **last** ` · ` field (`five_hour <p> % until
+<HH:MM>`, or `usage unknown`): a3's `after` gate reads the slice's Δ five_hour from it — then run the budget guard's
+log check (`start`), and only then print the line. For `ACTION=create` nothing is set up: the checkout is already on
+the epic branch.
 
 Spawn `slice-builder` via `Task` exactly as step 5 does — the model settled per step 5's model bullet, the slice plan as
 its target — with the **main checkout** as its working directory and the note that this is an autopilot run on
@@ -750,7 +794,12 @@ seeded: this checkout is already primed.
   the background instead, do not start anything else: wait for the builder's report, then stop the run as below with
   `⛔ … background spawn — check CLAUDE_CODE_DISABLE_BACKGROUND_TASKS`.
 - **Classify the outcome** as step 6 does — its four states, the live marker read with `handoff-marker-state.sh .`
-  in the main checkout. **Success** (`Status: committing`) → a3. **Handoff, Failure, Held at start** → stop the run:
+  in the main checkout. **A budget stop** is Held: the builder's paused line carries `reason=budget` and the guard's
+  `REASON`, no marker was written and the plan is still at its execution status → print and log
+  `⛔ <slice-id> stopped: budget — <REASON>` — this one `⛔` line, not the Handoff line below — then release the lock
+  and emit *Autopilot — stopped* with status `budget`. The human's step is only the re-run, as the budget guard's
+  stop bullet says (step 1c resumes the slice, its work still uncommitted in this checkout). **Success** (`Status: committing`) → a3.
+  **Handoff, Failure, Held at start** → stop the run:
   print and log `⛔ <slice-id> stopped: <marker Status or plan Status> — <what the human does>`, release the lock and
   emit *Autopilot — stopped*. What the human does is what step 8 says for a stopped slice, run in the main checkout
   (no `/craft:checkout`: the slice is built here). A slice stopped at `blocked` shows its plan's `## Blocker` below the
@@ -791,12 +840,20 @@ seeded: this checkout is already primed.
 Then land it. Run `/craft:commit` following its **Autopilot Mode** section: the split without confirmation,
 every decision `[K]`, the commits and the archive on the epic branch, the plan closed, and no landing step — the epic
 branch **is** the landing. **Any** `/craft:commit` stop — a pre- or post-assertion, a failing `git commit` (a
-pre-commit hook), a Step-7 failure — stops the run like a Handoff (a2). Only when `/craft:commit` completed, print and
-log `✓ <slice-id> landed on <epic-branch> (<first>..<last>) · <the phrase from 1>` — one `✓` per landed slice.
+pre-commit hook), a Step-7 failure — stops the run like a Handoff (a2). Only when `/craft:commit` completed, run the
+budget guard's `after` gate with `--slice <slice-id>`, then log
+`- <datetime> · ✓ · <slice-id> · landed on <epic-branch> (<first>..<last>) · <the phrase from 1> · <LOG_FIELD>` — one
+`✓` per landed slice, the slice-ID in its ID field, the helper's `LOG_FIELD=` (`Δ five_hour <+n|?> %`) verbatim as the
+**last** field: the forecast of every later `before` gate is the mean of these. No `LOG_FIELD=` line → write
+`Δ five_hour ? %`, and check against that. Run the budget guard's log check (`landed`), then print the line. Hold the
+`after` gate's `VERDICT=` for a4.
 
 ### a4 — No halt between slices: s4
 
-Replaces s4. Without a halt, **run the step-1c helper once more** with the same arguments — the slice just landed now
+Replaces s4. **First the budget:** when a slice of the epic is still to build, a3's `after` verdict `stop` (or no
+`VERDICT=` line) stops the run as the budget guard says — with the *stopped after a landed slice* block — without a reading the run stops after every slice
+(conservative mode), and the human's re-run is the answer. After the epic's last slice it does not stop: a5 follows.
+Without a halt, **run the step-1c helper once more** with the same arguments — the slice just landed now
 reads `ACTION=skip` — and act on it exactly as step 1c does: a conflict or a helper that cannot run stops the run `⛔`.
 Then go back to s1 with those fresh lines; the step-1c lines from before the landing still name the landed slice
 `resume`, and s1 would pick it again (slice-049 review R1). s1 sends the run to a5 once every slice has landed. (s0
@@ -881,7 +938,9 @@ Failure → *"⚠ Worktree accounting mismatch — expected `<list>`, found `<li
 
 ### P2 — Slice plans have correct Status
 
-Each succeeded slice's plan file has `Status: committing` (cleared review); each stopped slice has `Status: paused` with the Pause Note filled, **or** `Status: blocked` with the `## Blocker` section filled (a slice that escalated on `awaiting-block-decision`), **or** — for a slice stopped on `awaiting-rethink-decision` — the plan status `/craft:review` → Subagent Mode leaves it at, with open lines in `## Review Findings`. No slice is left with `Status: implementing`. In **in-place** mode the single slice ends at `Status: awaiting-release` (Phase 4 done, halted before Phase 5).
+Each succeeded slice's plan file has `Status: committing` (cleared review); each stopped slice has `Status: paused` with the Pause Note filled, **or** `Status: blocked` with the `## Blocker` section filled (a slice that escalated on `awaiting-block-decision`), **or** — for a slice stopped on `awaiting-rethink-decision` — the plan status `/craft:review` → Subagent Mode leaves it at, with open lines in `## Review Findings`. No slice is left with `Status: implementing` — except, in an autopilot run, a
+slice the budget guard stopped (`reason=budget`): it stays at the execution status it stopped at, which the re-run
+resumes, and P7 checks it. In **in-place** mode the single slice ends at `Status: awaiting-release` (Phase 4 done, halted before Phase 5).
 
 Failure → *"⚠ Slice `<id>` has Status `<X>` after execute — should be `<expected>`. Inspect `<path>`."*
 
@@ -940,7 +999,8 @@ and the current slice landed, cleanly-halted, or awaiting-approval on its PR bra
 `git worktree list --porcelain` shows only the main worktree; the trunk points where it pointed before the run, unless
 a5 merged on the human's yes; the epic plan's `## Autopilot Log` and the epic branch agree **in both directions** —
 every `✓` on a slice-ID names a slice whose archive exists and whose `Slice:` commits are on the epic branch (`git log <epic-branch>
---grep "Slice: <slice-id>"`), and every slice landed in this invocation has its `✓` line; and the run ended
+--grep "Slice: <slice-id>"`), and every slice landed in this invocation has its `✓` line, ending in a `Δ five_hour` field;
+every `▶ slice` line this invocation wrote ends in the `before` gate's `LOG_FIELD`; and the run ended
 at a `⛔` stop (the checkout on the epic branch, the stopped slice's plan at the status it stopped at), at ap step 0's
 or the plan gate's `[N]`, or at a5. When **ap** ran in this invocation: `.next-id` lies past every ID its `planning` line allocated, every `planned from
 entry` line this invocation wrote names a plan that `epic-entry-link.sh resolve` reports `STATE=plan` or `landed`, and a slice was built only
@@ -1074,18 +1134,29 @@ Autopilot — briefing (a1):
    Order: slice-<a> (build) → slice-<b> (resume at <Status>) → …   [landed: slice-<x>, …]
    Stops for you at: Phase-5 checks that are refused or missing, a bug the autonomous debug loop could not fix, review
    ping-pong (a finding whose one autonomous loop-back did not hold, or the round cap), scope questions, blockers,
-   failures — and at the end (with the UX demo script).
+   failures, the usage budget (the limits in craft-profile.md → ## Autopilot; without a usage reading after every
+   slice) — and at the end (with the UX demo script).
    Stop:   Esc.   Resume after any stop:   /craft:execute epic-<NNN> --autopilot
 ```
 
 Autopilot — stopped (a2):
 
 ```
-⛔ Autopilot stopped at slice-<id> "<title>" — <status>
+⛔ Autopilot stopped at slice-<id> "<title>" — <status | budget>
    <the plan's ## Blocker, as written — only for a blocked slice>
-   <what you do, from the marker or the plan — in this checkout, no /craft:checkout>
+   <what you do, from the marker or the plan — in this checkout, no /craft:checkout; for budget: the REASON, then
+    when to re-run — after <the reset time it names> | now (no usage reading) | after wiring the tap | after fixing <what failed>>
    Landed so far on <epic-branch>: <N> of <M>
    Then:   /craft:execute epic-<NNN> --autopilot    (resumes this slice)
+```
+
+Autopilot — stopped after a landed slice (a4, budget only):
+
+```
+⛔ Autopilot stopped after slice-<id> "<title>" landed — budget
+   <the REASON, then when to re-run, as above>
+   Landed so far on <epic-branch>: <N> of <M>
+   Then:   /craft:execute epic-<NNN> --autopilot    (starts the next slice)
 ```
 
 Autopilot — epic complete (a5): the stdout of `scripts/epic-digest.sh`, relayed unchanged — its header defines the

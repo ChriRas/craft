@@ -198,7 +198,11 @@ end stop (below): its Phase 5 stops anyway, and a block holding only bug checks 
    once with every protocol name, before any attempt. Its `FAILED=` must name exactly the `bug-…` checks and no
    `-neg-` check — a bug check that already passes would let any attempt "pass", and a failing negative check guards
    nothing. Anything else is the end stop, and the package names that round.
-3. **LOOP** — as Step 3, up to *Max attempts* (`rules.md` → Self-Verification Settings), token brake 15k. Between
+3. **LOOP** — as Step 3, up to *Max attempts* (`rules.md` → Self-Verification Settings), token brake 15k. Before each
+   attempt the builder runs its budget guard (`agents/slice-builder.md` → *The budget guard*); a budget stop leaves
+   the frozen protocol and the attempts so far in the plan. A re-spawned builder does **not** resume this loop: when
+   the symptom returns it enters this mode afresh, and *Max attempts* counts again from 1 — a known limit
+   (slice-058, follow-up). Between
    attempts the builder may run the protocol's commands itself to explore; only the helper ends an attempt:
    - Phase 4: `bash "<plugin-root>/scripts/verify-run.sh" --project "<project-root>" --only <protocol check names> <plan>`;
    - Phase 5: the same without `--only` — the whole block.
