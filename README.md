@@ -48,6 +48,8 @@ To move to a later release, run `/craft:upgrade` — it syncs the marketplace cl
 
 After install, open Claude Code in any project and run `/craft:onboard` to set the project up.
 
+All plugin commands are invoked through the `craft:` namespace — `/craft:onboard`, `/craft:plan`, `/craft:commit`, etc. The full namespace form is required: internal cross-references between commands rely on it to avoid collisions with Claude Code reserved names (e.g. `/plan` would otherwise collide with Plan-Mode) and with project-local `commands/<name>.md` overrides.
+
 #### Requirements
 
 `/craft:prime` checks these on every session start and stops with an install command for your OS
@@ -109,7 +111,19 @@ Without the tap an autopilot run still works, but blind: it stops after every sl
 `craft-profile.md` → `## Autopilot`. The strongest
 protection against usage-credit billing stays outside CRAFT: turn off extra usage in your account settings.
 
-All plugin commands are invoked through the `craft:` namespace — `/craft:onboard`, `/craft:plan`, `/craft:commit`, etc. The full namespace form is required: internal cross-references between commands rely on it to avoid collisions with Claude Code reserved names (e.g. `/plan` would otherwise collide with Plan-Mode) and with project-local `commands/<name>.md` overrides.
+#### Cache guard for autopilot runs
+
+A session that waits on you keeps a prompt cache that expires after an hour; an answer that arrives later makes
+Claude Code re-write the whole context at the full input price. So every stop of an autopilot run where it waits
+on you — the plan gate, a `⛔` stop, the end-of-epic sign-off — first says until when the cache is warm and how to
+restart if you answer later, and a `UserPromptSubmit` hook (`hooks/cache-guard.sh`) blocks a
+prompt of that session that arrives after the cache expired — before any request is sent — and names the restart
+instead (the re-run resumes the epic). It blocks only when re-writing would cost at least
+`Cache-guard-recache-tokens` tokens (its default lives in `craft-profile.md` → `## Autopilot`), and it lets everything else
+through: a builder's hand-back, a task notification, `/clear`, a prompt of another session, and anything it cannot
+judge (fail open). It judges from the usage tap above, so it needs the tap with `refreshInterval`; without a tap
+it never blocks, and the expiry line says `unknown`. The tap is shared by every open Claude Code session: when
+another session refreshes it, this one's guard cannot judge and passes your prompt (fail open).
 
 ---
 
@@ -301,7 +315,8 @@ When you run `/craft:onboard`, the plugin creates:
 
 CRAFT also writes local, per-clone state that must never be committed: the per-session prime
 marker `.claude/plans/.primed`, the hook's `.claude/plans/.hook-env`, the `/craft:execute` run lock
-`.claude/plans/.execute.lock` (never removed — its content says `held` or `released`), the closed-plans
+`.claude/plans/.execute.lock` (never removed — its content says `held` or `released`), the autopilot's
+cache-guard marker `.claude/plans/.cache-guard` (never removed either — `armed` or `disarmed`), the closed-plans
 directory `.claude/plans/.closed/`, `.claude/settings.local.json`, and the worktree handoff marker
 `.craft/`. `/craft:onboard` adds whichever of them your `.gitignore` files do not already cover to one
 `# CRAFT local state` block. In a project onboarded before that, `/craft:prime` reports the uncovered
