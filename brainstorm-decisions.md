@@ -1277,6 +1277,31 @@ Decision:
 - **The human keeps the product feel.** Each slice's demo block is collected into the epic plan's
   `## UX Demo Script`, walked by the human at the epic-end sign-off.
 
+### D36 — CRAFT May Wire the Statusline Tap, Only on a Yes and Reversibly
+
+> Decided 2026-10-06 while planning slice-059 (roadmap F9, a slice-058 follow-up). Amends slice-058's
+> decision "CRAFT never writes the user's `statusLine` setting".
+
+The budget guard (slice-058) reads the plan's usage windows only from the statusline JSON, through the
+tap `scripts/statusline-tap.sh` that must sit in the user's `statusLine` command. A plugin cannot put it
+there: a plugin's `settings.json` carries only `agent` and `subagentStatusLine`, and Claude Code runs no
+plugin install or update hook (plugin reference, read 2026-10-06). Left to a README recipe, the guard
+runs blind — conservative mode, a stop after every slice — for every user who never wires it.
+
+Decision:
+
+- **A helper may write the user's `statusLine` — only after a yes.** `scripts/ensure-statusline-tap.sh`
+  reports the wiring (`--check`), and `/craft:prime` / `/craft:onboard` offer `--apply` at Level 1 with
+  the diff shown first. *Why not* keep "never writes": the guard's protection would depend on a manual
+  step most users skip, and the compound-command quoting the recipe asks for is easy to get wrong.
+- **Every write is reversible.** `--apply` and `--remove` back the file up first; `--remove` restores the
+  user's own command. A wrapper CRAFT can put in it must also be able to take out.
+- **Never wire to a path that does not exist.** The target is the marketplace clone's tap, its location
+  read from `known_marketplaces.json`; while that clone is older than the release that ships the tap, the
+  helper refuses — `sh` on a missing file would break the user's statusline.
+- **The user level only.** A project or local `statusLine` wins over the user's; the helper names it and
+  writes nothing there — wiring the user level under it would change nothing visible.
+
 ---
 
 ## 7. Carry-Over to Next Clusters
