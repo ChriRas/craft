@@ -576,7 +576,7 @@ relaunch its message asks for does not trip A4.
      status is most likely that slice's work, carried along when the human left the epic branch: name
      `git checkout <epic-branch>` as the fix, which carries it back — never "commit or stash", which would put slice
      work on the trunk. Name commit or stash only when no slice of the epic is in flight.
-4. **Then** A6–A7 run, the lock is taken (Procedure step 1), **ap** plans what A6 left unplanned, and step 1c runs with
+4. **Then** A6–A7 run, the lock is taken (Procedure step 1; the cache guard is disarmed right after it — *The cache guard*), **ap** plans what A6 left unplanned, and step 1c runs with
    the epic branch as the trunk (step 1c, *autopilot run*). A `wrong_branch` or `dirty_without_open_slice` there aborts
    as step 1c says.
 
@@ -617,7 +617,8 @@ it, nothing can say the gate was passed.
    `[P]` plan the unplanned entries anyway (the orphans are unrelated) · `[N]` stop, release the lock, and link or
    abort them first (`bash "<plugin-root>/scripts/epic-entry-link.sh" link "<epic-plan>" "<entry>" <slice-id>`, or
    `/craft:abort <slice-id>`). Log `▶ · <epic-id> · orphan plans: plan anyway — <slice-ids>` for `[P]`, or
-   `■ · <epic-id> · orphan plans: stopped — <slice-ids>` for `[N]`.
+   `■ · <epic-id> · orphan plans: stopped — <slice-ids>` for `[N]`. Arm the cache guard before asking
+   <!-- craft:cache-guard arm --> and disarm it when the answer arrives <!-- craft:cache-guard disarm --> (*The cache guard*).
    **No `unlinked` or `missing` entry** (a re-run that owes only the gate) → skip 0–3 and go to 4.
 1. **Allocate.** For every `unlinked` or `missing` entry, in decomposition order: take the next slice-ID from
    `.claude/plans/.next-id` (its A4 rule in `/craft:plan`: a missing file means `001`, a non-integer stops the run) and
@@ -671,7 +672,9 @@ it, nothing can say the gate was passed.
    `revise` finding this round's `VERDICT` keeps open — its planner already applied the note or recorded why not, and
    asking again is the human's call; a `review-only` round's findings; and those left when the two autonomous rounds
    are spent.
-5. **The gate** — Level 0. Log `▶ · <epic-id> · plan gate shown: <slice-id>, …`, then emit *Autopilot — plan gate*
+5. **The gate** — Level 0, a stop that waits on the human. Log `▶ · <epic-id> · plan gate shown: <slice-id>, …`, arm the
+   cache guard <!-- craft:cache-guard arm --> (the last tool call before the block is printed; the human's answer
+   disarms it <!-- craft:cache-guard disarm -->, *The cache guard*), then emit *Autopilot — plan gate*
    (Output Format): per awaiting plan its title, the `## Goal` sentence, Trigger / Effect / Test in one line each, the
    sub-task count, `Depends-On`, the verify-check count, every `NEEDS-HUMAN:` line as written and every failed check;
    every failed entry with its reserved ID; the plan review — its rounds, and every open finding (`ARCH FINDING=… OPEN=yes`
@@ -763,6 +766,41 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-state.sh" --gate <before|after> --epic
 - The builder runs the `during` gate itself, at every boundary of its spawn (`agents/slice-builder.md` → *The budget
   guard*); a2 reads its stop.
 
+### The cache guard — `cache-guard-marker.sh` (every human stop)
+
+A session that waits on the human keeps a prompt cache that expires after an hour, and a prompt that arrives after that
+re-writes the whole context at the full input price (design record §7). The `UserPromptSubmit` hook
+`hooks/cache-guard.sh` blocks such a prompt before any request is sent and names the restart; this section is how the
+master arms it and what the stop prints. The hook's header defines when it blocks — the marker
+`.claude/plans/.cache-guard`, its format, the threshold (`craft-profile.md` → `## Autopilot`), what passes — and is not
+restated here. The master never writes the marker itself — the helper binds it to this session and reads the expiry off
+the statusline tap:
+
+```
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/cache-guard-marker.sh" arm <epic-NNN> --project "<project-root>"
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/cache-guard-marker.sh" disarm --project "<project-root>"
+```
+
+`<project-root>` resolved to the absolute path, as A4's lock calls do: a Bash call has no `CLAUDE_PROJECT_DIR` and its cwd
+can drift, while the hook reads the marker under the project the session started in.
+
+- **Arm** as the last tool call of every turn that ends waiting on the human, and print its `LINE=` verbatim as the last
+  line of that turn's message — `Cache warm until HH:MM — answer later → <the restart>`, or `Cache expiry unknown — …`
+  when the tap cannot say. The sites: the orphan question and the plan gate (ap), the a5 sign-off question, and every
+  `⛔` stop after the lock is taken (a0 and the Pre-Assertions stop before anything ran, and their message is the restart
+  already): <!-- craft:cache-guard arm --> write the log line first, as the log rule says, then arm, then print the stop's
+  block with the line last.
+- **Disarm** <!-- craft:cache-guard disarm --> at the start of every invocation, right after the lock is taken — an
+  earlier invocation's stop may have left it armed — and, in ap and a5, when the human's answer arrives. A builder
+  spawn disarms it too (a2): a hand-back that met an armed guard after an hour would read the stale expiry as cold. The
+  hook passes a hand-back by its markup as a second line of defence, not as the plan.
+- **The restart meets A4's own-process question.** `/clear` keeps the Claude Code process, so at a stop that still holds
+  the lock (the plan gate, a5) the re-run's A4 asks whether the run from this session still works — the human answers
+  `[N]`, it ended.
+- **A guard that cannot arm is never a stop.** `ARMED=no`, a non-zero exit or no output costs only a late re-write: print
+  one line `⚠ cache guard not armed: <REASON, or the ERROR=>` — and `LINE=` when the helper still gave it — and go on
+  with the stop as it was.
+
 ### a1 — Run-start briefing (once per invocation, before its first slice step — a2's spawn, or a3 for a slice resumed at `committing`)
 
 Emit the briefing block (Output Format → *Autopilot — briefing*): builds in place on `<epic-branch>`, `main` untouched
@@ -785,7 +823,7 @@ in the line's ID field, the helper's `LOG_FIELD=` verbatim as its **last** ` · 
 log check (`start`), and only then print the line. For `ACTION=create` nothing is set up: the checkout is already on
 the epic branch.
 
-Spawn `slice-builder` via `Task` exactly as step 5 does — the model settled per step 5's model bullet, the slice plan as
+Disarm the cache guard first <!-- craft:cache-guard disarm --> (*The cache guard*). Spawn `slice-builder` via `Task` exactly as step 5 does — the model settled per step 5's model bullet, the slice plan as
 its target — with the **main checkout** as its working directory and the note that this is an autopilot run on
 `<epic-branch>` (the agent's *In an autopilot run* paragraph). No worktree is created and no `.primed` marker is
 seeded: this checkout is already primed.
@@ -807,7 +845,8 @@ seeded: this checkout is already primed.
   escalation package, at most 15 lines. Name a file for the human to remove or edit only after checking,
   in this invocation, that it exists — slice-049's human test was sent to remove a file that was already gone — and
   never the lock: its only human path is A4's `release --force` line; afterwards `/craft:execute <epic-NNN> --autopilot` resumes it —
-  step 1c reads it as `ACTION=resume`.
+  step 1c reads it as `ACTION=resume`. Every stop this bullet classifies arms the cache guard <!-- craft:cache-guard arm -->
+  once its `⛔` line is logged, before the stopped block is printed (*The cache guard*).
 
 ### a3 — Land the slice on the epic branch: s3 at Level 2
 
@@ -880,8 +919,9 @@ Then — **the lock still held** — log `▶ · <epic-id> · sign-off asked` an
 datetime tells it from an earlier run's line; the CR is dropped because the plan may be CRLF). Anything else — the
 write was refused or never landed (a human test's auto-mode classifier denied it, slice-057 BUG-1) — stops the run
 instead: print `⛔ · <epic-id> · sign-off not logged: <reason>` — printed only, the log is what failed — and release the
-lock — nothing was asked, nothing merged. Otherwise ask, Level 0. The UX demo script is the product-feel check the
-verification did not replace: walk it before you answer.
+lock — nothing was asked, nothing merged. Otherwise arm the cache guard <!-- craft:cache-guard arm --> (*The cache guard*) and ask, Level 0 — the question's last
+line is the helper's `LINE=`. The UX demo script is the product-feel check the verification did not replace: walk it
+before you answer.
 
 ```
 Merge <epic-branch> into <trunk>?
@@ -890,7 +930,7 @@ Merge <epic-branch> into <trunk>?
   [N] no  — leave <epic-branch> as it is; nothing else changes
 ```
 
-Only the human's answer ends the run. Each answer writes its `■` line, **checks it by command** — the same
+Only the human's answer ends the run, and it disarms the cache guard first <!-- craft:cache-guard disarm -->. Each answer writes its `■` line, **checks it by command** — the same
 `tr -d '\r' | grep -cFx` check, which must print `1` — and **then** releases the lock (step 1). An answer whose action
 failed writes the `⛔` line its bullet names instead, checked the same way, and the run stops there. A `■` or `⛔` line
 that did not land stops the run with the lock **held** — the one exception to step 1's release on an abort: print
@@ -1123,6 +1163,7 @@ Autopilot — plan gate (ap):
    How the run will go: <a1's briefing lines — branch, occupied checkout, order from Depends-On, stops, Esc / resume>
    [Y] approve and run   [R] <slice-id>[, …] — <note>: revise these   [N] stop, keep the plans
    ([Y] is offered only when no check, entry or NEEDS-HUMAN above is open or failed — plan-review findings do not withhold it.)
+   <the cache guard's LINE=, verbatim — the block's last line>
 ```
 
 Autopilot — briefing (a1):
@@ -1148,6 +1189,7 @@ Autopilot — stopped (a2):
     when to re-run — after <the reset time it names> | now (no usage reading) | after wiring the tap | after fixing <what failed>>
    Landed so far on <epic-branch>: <N> of <M>
    Then:   /craft:execute epic-<NNN> --autopilot    (resumes this slice)
+   <the cache guard's LINE=, verbatim>
 ```
 
 Autopilot — stopped after a landed slice (a4, budget only):
@@ -1157,6 +1199,7 @@ Autopilot — stopped after a landed slice (a4, budget only):
    <the REASON, then when to re-run, as above>
    Landed so far on <epic-branch>: <N> of <M>
    Then:   /craft:execute epic-<NNN> --autopilot    (starts the next slice)
+   <the cache guard's LINE=, verbatim>
 ```
 
 Autopilot — epic complete (a5): the stdout of `scripts/epic-digest.sh`, relayed unchanged — its header defines the
@@ -1165,6 +1208,7 @@ block, so it is not restated here — followed by a5's merge question:
 ```
 <epic-digest.sh's output, every line as printed>
 Merge <epic-branch> into <trunk>?   [Y] yes   [N] no
+<the cache guard's LINE=, verbatim>
 ```
 
 Aborted:
