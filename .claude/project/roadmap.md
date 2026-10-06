@@ -11,18 +11,17 @@
 |---|----|------|------|------|
 | 1 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
 | 2 | B23 | Fix | small | Autopilot run-start and master drift (slice-056 probes 3 and 4, split off B22 by slice-057): the a1 briefing block is not printed on a re-run, and the master writes helper files to `/tmp` outside the project — both prose the master did not follow; check whether a helper or a pin can bind them, as `epic-digest.sh` did for a5. slice-057's probe 1 added two more: a4's step-1c re-run passed the epic plan as a slice argument, got `RESULT=conflict` (`plan_unreadable`) and went on to a5 instead of stopping `⛔`; and a log line was stamped with a datetime not read off the clock (`19:13:55`, the file last written `19:13:50`) — the slice-049 rule broken again |
-| 3 | B25 | Fix | small | Closing an autopilot epic on the PR path (slice-061, D37): under `pull-request` + `Protected-main: yes` a5 `[Y]` only opens the PR, and `/craft:commit`'s Autopilot-epic-close mode stops at `STATE=pr-path` / E3 — the archive commit may not land on the trunk directly. Needs Epic-finalize's two passes: archive + decisions into the open PR, then `plan-landing.sh sync` after the merge |
-| 4 | B26 | Fix | small | Epic archive format (slice-061 human test): `/craft:commit` Step 5 defines the epic archive in one sentence and no template exists, so each run invents its layout — probe 1 wrote no `## Commits`, the human test wrote the commits twice (`> Commits:` and `## Commits`). Add `templates/epic-archive.md.template` (Vision, slices, decisions, commits, follow-ups) and point Epic-finalize and Autopilot-epic-close at it |
-| 5 | B18 | Fix | small | Handoff-answer record (slice-042 R1-15): a resume records no answer to the handoff's question, so a subagent re-run — an autopilot re-run in particular — meets it again. Deferred by slice-049: build it when a real autopilot run shows a question that repeats (Phase-5 answers already live in `Status:`) |
-| 6 | B15 | Fix | slice | Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
-| 7 | B20 | Fix | small | Parallel worktree mode removes its checkpoint record once a slice is merged (`commands/execute.md` step 9: "delete its lines, and the file and an empty `.craft/` with them") — a user rule that denies or asks on removing files refuses it too (D34); keep it as state or close it through `close-file.sh` (slice-050 follow-up) |
-| 8 | B17 | Fix | small | Settings helpers in a subdirectory project write the repo-root `settings.local.json` but report the project-dir `GITIGNORED` verdict (slice-039 R1-13) |
-| 9 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
-| 10 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
-| 11 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
-| 12 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
-| 13 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
-| 14 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
+| 3 | B25 | Fix | small | Closing an epic on the PR path (slice-061 / slice-062, D37 / D38) — an autopilot epic, and since slice-062 a sequential one, whose archive commit E3 refuses under protected main: under `pull-request` + `Protected-main: yes` a5 `[Y]` only opens the PR, and `/craft:commit`'s Epic-close mode stops at `STATE=pr-path` / E3 — the archive commit may not land on the trunk directly. Needs Epic-finalize's two passes: archive + decisions into the open PR, then `plan-landing.sh sync` after the merge |
+| 4 | B18 | Fix | small | Handoff-answer record (slice-042 R1-15): a resume records no answer to the handoff's question, so a subagent re-run — an autopilot re-run in particular — meets it again. Deferred by slice-049: build it when a real autopilot run shows a question that repeats (Phase-5 answers already live in `Status:`) |
+| 5 | B15 | Fix | slice | Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
+| 6 | B20 | Fix | small | Parallel worktree mode removes its checkpoint record once a slice is merged (`commands/execute.md` step 9: "delete its lines, and the file and an empty `.craft/` with them") — a user rule that denies or asks on removing files refuses it too (D34); keep it as state or close it through `close-file.sh` (slice-050 follow-up) |
+| 7 | B17 | Fix | small | Settings helpers in a subdirectory project write the repo-root `settings.local.json` but report the project-dir `GITIGNORED` verdict (slice-039 R1-13) |
+| 8 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
+| 9 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
+| 10 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
+| 11 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
+| 12 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
+| 13 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
 
 ## Notes per item
 
@@ -32,7 +31,11 @@ Autopilot Mode`); every decomposition entry has a slice. The 2.0.0 release (rule
 the user says so; nothing is pushed yet. Still owed from slice-060: human test (c) part B (real idle ≥ 1 h) and the
 follow-ups R1-1 / R1-2 (archive → Follow-ups).
 
-**B24 shipped with slice-061 (2026-10-06)** — D37: after a5 `[Y]` (`direct`), `/craft:commit`'s Autopilot-epic-close mode
+**B26 shipped with slice-062 (2026-10-06)** — D38: every epic archive is written from `templates/epic-archive.md.template`
+(commits only in the frontmatter, slice follow-ups by reference), and the mode, renamed Epic-close, closes a sequential or
+hand-worked epic too — `/craft:execute` s5 hands over to `/craft:commit` like a5.
+
+**B24 shipped with slice-061 (2026-10-06)** — D37: after a5 `[Y]` (`direct`), `/craft:commit`'s Epic-close mode (named Autopilot-epic-close until slice-062)
 walks the epic decisions, writes and commits the epic archive, closes the epic plan and deletes the merged epic branch;
 `scripts/epic-close-state.sh` decides whether an epic is ready. The PR path is **B25**.
 
