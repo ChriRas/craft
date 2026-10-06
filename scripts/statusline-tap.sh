@@ -14,7 +14,8 @@
 # WHAT -----------------------------------------------------------------------
 #   statusline-tap.sh [--] [<statusline command> [args…]]
 #
-# Wired by the USER, never by CRAFT (CRAFT does not write a user's settings). In settings.json:
+# Wired by the user — by hand, or on a yes by scripts/ensure-statusline-tap.sh, which /craft:prime and
+# /craft:onboard offer (D36: only after confirmation, with a backup, reversible). In settings.json:
 #   "statusLine": { "type": "command", "refreshInterval": 30,
 #     "command": "sh ~/.claude/plugins/marketplaces/craft/scripts/statusline-tap.sh <your command>" }
 # The marketplace clone's path is stable; the installed plugin cache is named by version and moves on
