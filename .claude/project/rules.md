@@ -24,7 +24,7 @@
   bash-4 constructs, and a 3.2 run skips a failing command and carries on green.
   `scripts/statusline-tap.sh` is POSIX `sh` (the user's statusline runs it, like a hook).
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate .`. Twenty-one standalone Bash harnesses cover what is
+  `claude plugin validate .`. Twenty-two standalone Bash harnesses cover what is
   mechanically checkable; keep all green:
   `bash scripts/test-readonly-context.sh` (read-only guard + sync helper, incl.
   the guard↔helper normalizer agreement),
@@ -79,6 +79,9 @@
   Plus `bash scripts/test-epic-close-state.sh` (slice-061, slice-062) — whether `/craft:commit` may close a finished
   epic (autopilot or sequential): the helper `epic-close-state.sh` against real git fixtures, the epic archive
   template, and the sites in `commit.md` / `execute.md` a5 and s5.
+  Plus `bash scripts/test-autopilot-log.sh` (slice-063, B23) — the autopilot log: every
+  `## Autopilot Log` line is written by `autopilot-log.sh`, which reads the clock, places the
+  line and refuses a slice step before this invocation's `run started` (the lock's `SINCE=`).
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.
