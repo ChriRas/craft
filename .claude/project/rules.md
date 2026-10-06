@@ -24,7 +24,7 @@
   bash-4 constructs, and a 3.2 run skips a failing command and carries on green.
   `scripts/statusline-tap.sh` is POSIX `sh` (the user's statusline runs it, like a hook).
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate .`. Nineteen standalone Bash harnesses cover what is
+  `claude plugin validate .`. Twenty standalone Bash harnesses cover what is
   mechanically checkable; keep all green:
   `bash scripts/test-readonly-context.sh` (read-only guard + sync helper, incl.
   the guard↔helper normalizer agreement),
@@ -73,6 +73,9 @@
   helper `usage-state.sh`, the statusline tap `statusline-tap.sh` and the sites that act on `VERDICT=`.
   Plus `bash scripts/test-statusline-wiring.sh` (slice-059, D36) — the tap's wiring helper
   `ensure-statusline-tap.sh`: every state, the writes on a yes, the round trip, and that the wired command runs.
+  Plus `bash scripts/test-cache-guard.sh` (slice-060) — the autopilot's cache guard: the `UserPromptSubmit` hook
+  `hooks/cache-guard.sh` (every case under `/bin/bash` 3.2 too), the arm / disarm helper `cache-guard-marker.sh`, the
+  profile key, and the sites that arm and disarm it.
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.

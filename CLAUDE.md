@@ -235,17 +235,28 @@ bash scripts/test-usage-state.sh
 # and double taps, a failed write (exit 7), and the pinned prime / onboard sites. Keep green.
 bash scripts/test-statusline-wiring.sh
 
+# Autopilot cache guard — slice-060 (design record §7): while an autopilot session waits on the human, the UserPromptSubmit
+# hook hooks/cache-guard.sh blocks a prompt that arrives after the prompt cache expired (no request is sent) and names the
+# restart (/clear, then /craft:execute <epic> --autopilot); scripts/cache-guard-marker.sh arms / disarms it per session and
+# states the expiry line every human stop prints. Covers block / pass for every fixture (marker armed / absent / disarmed /
+# another session, tap warm / cold / missing / stale / another session, tokens below / at / above the threshold, profile
+# override and invalid values, hand-back and task-notification prompts, /clear, malformed payload / marker / tap, no
+# python3) under BOTH the running bash and a real /bin/bash 3.2 (any stderr text fails), the helper's round trip with the
+# hook, the profile key's warning, the copies bound to usage-state.sh / statusline-tap.sh (tap path, default threshold,
+# stale age), the hooks.json registration, and the sites in commands/execute.md that arm and disarm (markers). Keep green.
+bash scripts/test-cache-guard.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The nineteen harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The twenty harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's epic-end digest, the autopilot's budget guard, the statusline tap's wiring, the single declaration of the allowed model values, the
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's epic-end digest, the autopilot's budget guard, the autopilot's cache guard, the statusline tap's wiring, the single declaration of the allowed model values, the
 single definition of what counts as an example rather than content, delete-safe closing, and the autopilot's verification by command.
 
 ## Dogfooding Is Not Self-Verification
