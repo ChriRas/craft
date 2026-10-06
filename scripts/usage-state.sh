@@ -38,7 +38,11 @@
 #   - **Budget-before-slice:** 85   LIMIT_BEFORE    used + forecast above it → do not start
 #   - **Budget-in-slice:** 95       LIMIT_DURING    five_hour at or above it → stop at the boundary
 #   - **Budget-seven-day:** 90      LIMIT_SEVEN_DAY seven_day at or above it → do not start / go on
-#   An integer 1–100 each; a missing block or field takes the default, an invalid value the default plus
+#   - **Cache-guard-recache-tokens:** 100000   not a budget — the threshold of hooks/cache-guard.sh (slice-060): below
+#                                       that many tokens a cold-cache re-write is cheaper than a restart. A positive
+#                                       integer; this helper only validates it (hooks/cache-guard.sh reads it itself — it is
+#                                       bash 3.2 and cannot call this helper) and prints no LIMIT_ line for it.
+#   An integer 1–100 each (the budgets); a missing block or field takes the default, an invalid value the default plus
 #   a WARN= line, any other `- **<key>:**` in the block (a typo) a WARN= line and nothing else, and so does any
 #   other non-blank line that is not a `>` comment (a malformed one, review R2: a stricter limit must never
 #   be dropped silently). The overage heuristic is fixed: a window at 99 % or more while the cache TTL is 5m —
@@ -152,7 +156,7 @@ import json, math, os, re, sys, time
 gate, tap, profile, blanked, slice_id, now_arg, epic_warn, check, expect = sys.argv[1:10]
 now = int(now_arg) if now_arg else int(time.time())
 STALE_S = 300
-DEFAULTS = {"Budget-before-slice": 85, "Budget-in-slice": 95, "Budget-seven-day": 90}
+DEFAULTS = {"Budget-before-slice": 85, "Budget-in-slice": 95, "Budget-seven-day": 90, "Cache-guard-recache-tokens": 100000}
 OVERAGE_PCT = 99
 warns = [epic_warn] if epic_warn else []
 
@@ -183,7 +187,13 @@ if block:
         if key not in DEFAULTS:
             warns.append(f"Autopilot → unknown key '{key}' — ignored")
             continue
-        if re.fullmatch(r"\d+", val) and 1 <= int(val) <= 100:
+        if key == "Cache-guard-recache-tokens":
+            # Not a budget: the threshold of hooks/cache-guard.sh (slice-060), read there, only validated here.
+            if re.fullmatch(r"[0-9]+", val) and int(val) >= 1:
+                limits[key] = int(val)
+            else:
+                warns.append(f"Autopilot → {key}: '{val}' invalid — a positive integer; using {DEFAULTS[key]}")
+        elif re.fullmatch(r"\d+", val) and 1 <= int(val) <= 100:
             limits[key] = int(val)
         else:
             warns.append(f"Autopilot → {key}: '{val}' invalid — an integer 1–100; using {DEFAULTS[key]}")

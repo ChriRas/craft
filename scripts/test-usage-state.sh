@@ -410,7 +410,7 @@ pin "$EXECUTE" '- **A `stop`** → print and log' "handles VERDICT=stop in its o
 defaults="$(sed -n 's/^DEFAULTS = {\(.*\)}$/\1/p' "$HELPER" | tr -d '" ' | tr ',' '\n' | sort)"
 [[ -n "$defaults" ]] && ok "the helper declares DEFAULTS" || bad "the helper's DEFAULTS line is gone"
 for f in "$REPO_ROOT/templates/craft-profile.md.template" "$REPO_ROOT"/templates/profiles/*.md; do
-  copy="$(awk '/^## Autopilot[[:space:]]*$/{on=1;next} /^## /{on=0} on' "$f" | sed -n 's/^- \*\*\(Budget-[a-z-]*\):\*\* \([0-9]*\)$/\1:\2/p' | sort)"
+  copy="$(awk '/^## Autopilot[[:space:]]*$/{on=1;next} /^## /{on=0} on' "$f" | sed -n 's/^- \*\*\([A-Z][A-Za-z-]*\):\*\* \([0-9]*\)$/\1:\2/p' | sort)"
   expect "$(basename "$f"): the ## Autopilot block equals the helper's DEFAULTS" "$copy" "$defaults"
 done
 for kv in $defaults; do  # R1-5: the documented defaults are bound by value, not just by key
@@ -418,6 +418,7 @@ for kv in $defaults; do  # R1-5: the documented defaults are bound by value, not
 done
 dv() { printf '%s\n' "$defaults" | sed -n "s/^$1://p"; }
 pin "$REPO_ROOT/docs/index.html" "<strong><code>$(dv Budget-before-slice)</code></strong> / <strong><code>$(dv Budget-in-slice)</code></strong> / <strong><code>$(dv Budget-seven-day)</code></strong>" "states the helper's defaults in the config row"
+pin "$REPO_ROOT/docs/index.html" "<code>Autopilot → Cache-guard-recache-tokens</code></td><td><strong><code>$(dv Cache-guard-recache-tokens)</code></strong>" "states the cache guard's default in its config row"
 for f in "$REPO_ROOT/README.md" "$REPO_ROOT/docs/index.html"; do
   grep -qE '(85|95|90)(&nbsp;| )%' "$f" && bad "$(basename "$f") repeats a budget limit in prose (unbound copy)" || ok "$(basename "$f") points at the profile block instead of repeating the limits"
 done
