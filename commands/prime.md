@@ -244,7 +244,7 @@ stack-pack checks, this is **reported, never corrected**.
    - `MODE=normal`, `VERDICT=go` → `✓ Autopilot budget: <LIMIT_BEFORE>/<LIMIT_DURING>/<LIMIT_SEVEN_DAY> — five_hour <FIVE_HOUR> %, seven_day <SEVEN_DAY> %`;
    - `MODE=normal`, `VERDICT=stop` → `⚠ Autopilot budget: <LIMIT_BEFORE>/<LIMIT_DURING>/<LIMIT_SEVEN_DAY> — an autopilot run would not start a slice now: <REASON>`;
    - `MODE=conservative` → `· Autopilot budget: <LIMIT_BEFORE>/<LIMIT_DURING>/<LIMIT_SEVEN_DAY> — no usage reading: <UNKNOWN>; <hint>`,
-     `<UNKNOWN>` verbatim. `<hint>`: when `UNKNOWN` starts with `no tap at` → `an autopilot run would stop after every slice — wire the statusline tap (CRAFT README → Requirements)`;
+     `<UNKNOWN>` verbatim. `<hint>`: when `UNKNOWN` starts with `no tap at` → `an autopilot run would stop after every slice — step 4h offers to wire the statusline tap`;
      otherwise → `the tap is wired — a session's statusline refreshes it`. At session start an old tap is the normal
      case, not a missing one. A `·` line, not a `⚠`: a project that never runs the autopilot has nothing to fix;
    - the helper not found, or no `VERDICT=` line → `⚠ Autopilot budget check incomplete: <ERROR= or a one-line cause>`.
@@ -272,7 +272,7 @@ reports each as present/absent in `additionalDirectories`, plus an aggregate `ST
 - **Some absent** (`STATUS=absent`, exit 10) → status line
   `⚠ Read-only context: M of N connected project(s) not yet readable`, then **offer** to run
   `--apply` (Level 1 — ask before it writes). On a yes, run
-  `scripts/ensure-readonly-context.sh --apply` and report `CHANGED=`. This and step 4f are
+  `scripts/ensure-readonly-context.sh --apply` and report `CHANGED=`. This, step 4f and step 4h are
   the only prime steps that may mutate durable state, and only after explicit confirmation —
   never silently. On a no, leave the `⚠` line and continue.
 - **Helper error** (python3 missing, settings unparseable) → emit
@@ -348,6 +348,55 @@ bash "<helper>" --project "<project-root>" --report
 - **Helper not found, or no `MODE=` line** → `⚠ Delete-safe check incomplete: <reason>`.
 
 Reported, never corrected. Never abort prime.
+
+### 4h. Statusline tap (offer to wire)
+
+An autopilot run reads the plan's usage windows only through the statusline tap (step 4d item 4), and a plugin cannot
+put the tap into the user's `statusLine` itself — so prime offers it (D36). What counts as wired, which file is written,
+how the user's own command is chained behind the tap and when the helper refuses are defined once, in
+`scripts/ensure-statusline-tap.sh` (its header). Resolve it like step 4f (`${CLAUDE_PLUGIN_ROOT}/scripts/`; else
+`<project-root>/scripts/` only in CRAFT's own source repo) and run it via Bash:
+
+```
+bash "<helper>" --project "<project-root>" --check
+```
+
+- **`STATUS=wired`** (exit 0) → `✓ Statusline tap wired`.
+- **`STATUS=absent`** (exit 10) → `· Statusline tap absent: no tap in your statusline — an autopilot run would stop after
+  every slice`, then the offer below. A `·` line, as in step 4d: a project that never runs the autopilot has nothing to
+  fix.
+- **`STATUS=misrouted` or `no-refresh`** (exit 10) → `⚠ Statusline tap <STATUS>: <cause>` — misrouted: *the tap runs
+  from `<TAP_CURRENT>`, which moves or disappears — the marketplace clone's is the stable one* (name `TAP_CURRENT=`
+  exactly as printed: `CURRENT=` may hold a second `statusline-tap.sh` that is the user's own, BUG-1); no-refresh:
+  *`refreshInterval` is missing, the reading goes stale while a run waits on a builder*. Then the offer below.
+- **The offer** (absent, misrouted, no-refresh) — **offer** `--apply` (Level 1), showing the change before it:
+  `SETTINGS=` as the file, `CURRENT=` → `PROPOSED=` (an empty `CURRENT=` reads *(no statusLine yet)*; add
+  `+ refreshInterval: 30` when `REFRESH=no`), and that a backup is taken first when the file exists. On a yes, run the
+  same command with `--apply`: exit 0 with `STATUS=wired` → `✓ Statusline tap wired — backup at <BACKUP>` (with
+  `BACKUP=-`: `✓ Statusline tap wired — <SETTINGS> created`); the statusline picks the change up without a restart. On
+  a no, leave the line and continue — the user may wire it by hand (README → Requirements). A no is not remembered: the
+  next prime asks again.
+- **`STATUS=tap-missing`** (exit 11) → `· Statusline tap: <REASON> — run /craft:upgrade, then /craft:prime`. No offer:
+  wiring a file that does not exist would break the statusline.
+- **`STATUS=overridden`** (exit 11) — the first `OVERRIDDEN_BY=` is the file that wins. `OVERRIDE_WIRED=yes` →
+  `✓ Statusline tap wired in <that file>`; `OVERRIDE_WIRED=no` → `· Statusline tap: <that file> sets its own
+  statusLine, which wins over your user settings — wire the tap there by hand if you want it`. No offer either way.
+- **`STATUS=unrecognized`** (exit 11) → `⚠ Statusline tap: <REASON>`. No offer.
+- **`--apply` exits 6** → `⚠ Statusline tap: <SETTINGS> was written but did not check out — the previous content is in
+  <the backup the error names>`, then **offer** to put it back (Level 1): on a yes, copy the backup over the settings
+  file (`cp -p -- <backup> <SETTINGS>`) and report it. When the error names `backup: -`, the file did not exist
+  before: say it was created and offer no copy. **Exits 7** → `⚠ Statusline tap: the write failed — <ERROR>;
+  your settings are unchanged`. Any other error, or the helper not found → `⚠ Statusline tap check incomplete: <reason>`.
+
+**Removing the tap.** `--remove` takes the tap out again and restores the user's own command; prime never offers it —
+run it only when the user asks for it, with the same confirmation (show `CURRENT=` and what it restores: the command
+after `TAP_CURRENT=`, without a leading `--`, and a `sh -c '…'` the helper wrapped as its bare command). Its outcomes:
+`CHANGED=yes` → `✓ Statusline tap removed — your statusline runs <RESTORED> again (backup at <BACKUP>)` — the rest of
+`statusLine`, `refreshInterval` included, stays; `RESTORED=(none)` → the whole `statusLine` key is gone, the
+statusline is empty. `CHANGED=no` → `· No statusline tap to remove`. Exit 11 (`STATUS=unrecognized`) → the line above,
+nothing written. Exits 6 and 7 → as for `--apply`.
+
+Never abort prime. The settings write happens only on the human's yes.
 
 ### 5. Tool versions (informational)
 
@@ -505,6 +554,8 @@ The full status block — emit exactly this shape:
 <.gitignore update line — only after a yes to the step-4f offer>
 <delete-safe line — only in move mode (see step 4g)>
   ⚠ <.closed/ cleanup hint — only at HINT=yes; its command follows the status block as its own code block>
+✓ Statusline tap wired   (or · … absent / ⚠ … misrouted / no-refresh + the --apply offer, or · … tap-missing / overridden, or ⚠ … check incomplete — see step 4h)
+<statusline update line — only after a yes to the step-4h offer>
 
 
 Active slices:
@@ -555,6 +606,9 @@ After emitting the block, prime prints step 4g's cleanup command as its own code
 | CRAFT local state not gitignored (step 4f) | Emit the `⚠ Local state not gitignored …` line and offer `--apply` (confirmation-gated). Not a blocker. |
 | `ensure-gitignore.sh` not found, errors, or `--apply` hits a conflicting rule (exit 6) | Emit the matching `⚠` line from step 4f and continue. Never abort. |
 | `delete-mode.sh` not found or prints no `MODE=` (step 4g) | Emit `⚠ Delete-safe check incomplete: <reason>` and continue. Never abort, and never run a cleanup command yourself. |
+| Statusline tap absent, misrouted or without `refreshInterval` (step 4h) | Emit the `·` (absent) or `⚠` line and offer `--apply` (confirmation-gated, backup first). Not a blocker. |
+| `ensure-statusline-tap.sh` reports `tap-missing` / `overridden` / `unrecognized`, errors, or is not found (step 4h) | Emit the matching line from step 4h, offer nothing, continue. Never abort. |
+| `--apply` / `--remove` exits 6 (written, check failed) or 7 (write failed) (step 4h) | Emit step 4h's line; after exit 6 offer to copy the named backup back (Level 1). Never abort. |
 
 ---
 
