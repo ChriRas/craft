@@ -76,8 +76,9 @@
   Plus `bash scripts/test-cache-guard.sh` (slice-060) — the autopilot's cache guard: the `UserPromptSubmit` hook
   `hooks/cache-guard.sh` (every case under `/bin/bash` 3.2 too), the arm / disarm helper `cache-guard-marker.sh`, the
   profile key, and the sites that arm and disarm it.
-  Plus `bash scripts/test-epic-close-state.sh` (slice-061) — whether `/craft:commit` may close a merged autopilot
-  epic: the helper `epic-close-state.sh` against real git fixtures, and the sites in `commit.md` / `execute.md` a5.
+  Plus `bash scripts/test-epic-close-state.sh` (slice-061, slice-062) — whether `/craft:commit` may close a finished
+  epic (autopilot or sequential): the helper `epic-close-state.sh` against real git fixtures, the epic archive
+  template, and the sites in `commit.md` / `execute.md` a5 and s5.
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.
@@ -107,6 +108,9 @@
   (or any model that may bill usage credits): `-p` bills credits without asking — probes run
   on a model the plan includes (slice-044). A probe verdict never rests on the probed agent's own
   report — hook logs, marker files and transcripts decide (slice-045: a worker misreported its wait).
+- **A human test of changed command prose proves it ran the working copy** — the session transcript references the
+  `--plugin-dir` path, never `plugins/cache/craft`; a session started without the flag runs the installed release
+  (slice-062: the first interactive attempt did, and read like a broken slice).
 - Architectural decisions are banked in `brainstorm-decisions.md` as `D<N>` entries
   before they are implemented.
 - Commit messages follow Conventional Commits — `<type>(scope): subject` (D9).
