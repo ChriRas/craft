@@ -74,6 +74,11 @@ stop, the a5 sign-off) first prints `Cache warm until HH:MM — answer later →
   evidence. It is the human's step before the epic merge: run Test Strategy (c) in a `claude --plugin-dir` session when
   a5's UX demo script reaches slice-060, and answer the sign-off only after it. If it is not run, it goes to the archive's
   follow-ups as owed.
+- **Human test (c) part A passed** (user, 2026-10-06, at a5 before the sign-off) — in a `claude --plugin-dir` session on a
+  test tap (`CRAFT_USAGE_TAP`, statusline neutralised by `--settings`), armed via `~/cache-guard-test/setup.sh`: a subagent's
+  hand-back passed while the guard was armed and the tap cold; a human `hallo` was blocked with the restart text and got no
+  answer; `/clear` passed and the next prompt passed (the marker stays bound to the old session). Confirms interactively
+  what probe (b) could only show indirectly: the hand-back markup and the hook's `session_id` = `CLAUDE_CODE_SESSION_ID`.
 
 ## Commits
 
@@ -90,3 +95,4 @@ stop, the a5 sign-off) first prints `Cache warm until HH:MM — answer later →
 
 - R1-1 Light · Rethink · A ⛔ stop arms the guard but nothing disarms it when the human answers (the run has ended), so after manual work in the same session an idle hour blocks every prompt with the autopilot restart text; a record of prompt_cache.requests at arm time could bind the guard to the stop (execute.md guard section, hook, design §7 As built)
 - R1-2 Light · Rethink · The restart line is the same for every ⛔ stop, but a stop whose next step is a human action (blocked escalation, debug protocol, Handoff) needs that action before a re-run; the line and the hook's block reason name only the re-run (cache-guard.sh --restart is the one definition)
+- Human test (c) part B owed — the real idle case (real tap, cache really expired after ≥ 1 h, no other Claude session open, since the tap is shared) was not run; part A covered the logic on a test tap.
