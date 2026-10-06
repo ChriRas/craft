@@ -772,7 +772,7 @@ When `/craft:execute <epic-or-slice>` is used, the 9-phase loop runs across para
 | 7 (Refactor) | slice-worktree | Subagent-callable mode of `/craft:refactor` skips if `rules.md` declares Phase 7 dropped; otherwise writes handoff candidates without applying. In an autopilot run it records its candidates as decision lines, applies none and goes on to Phase 8 — the epic-end digest shows them (`/craft:refactor` → Subagent Mode defines it). |
 | 8 (Review) | slice-worktree | Subagent-callable mode of `/craft:review` applies in-phase fixes automatically; open findings write a handoff and stop — the plan is not paused (`/craft:review` → Subagent Mode defines the outcome). |
 | 8 → epic-merge | epic-worktree | When a slice clears review, the orchestrator merges its branch into `epic-<NNN>-<slug>` with `--no-ff`. For a lone slice, this step is skipped — the slice-branch stays parked until Phase 9. |
-| 9 (Commit) | main | `/craft:commit` runs from main, detects the mode (Standard / Slice-finalize / Epic-finalize), merges with `--no-ff`, walks decisions across every included slice, writes archive entries, closes plan files (deleted, or moved into `.claude/plans/.closed/`), and removes worktrees + branches. |
+| 9 (Commit) | main | `/craft:commit` runs from main, detects the mode (Standard / Slice-finalize / Epic-finalize / Epic-close — a finished epic with no epic worktree), merges with `--no-ff`, walks decisions across every included slice, writes archive entries, closes plan files (deleted, or moved into `.claude/plans/.closed/`), and removes worktrees + branches. |
 
 ### Subagent-callable contract
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
 # craft (Coding with Rules, Autonomy, Feedback, Tests)
-# test-epic-close-state.sh — self-contained tests for epic-close-state.sh (slice-061, roadmap B24, D37):
-# whether an autopilot epic can be closed by /craft:commit now — merged into the trunk on the human's
-# a5 [Y], every decomposition entry landed — derived from git and the epic plan, never stored.
+# test-epic-close-state.sh — self-contained tests for epic-close-state.sh (slice-061 / slice-062, B24 / B26, D37 / D38):
+# whether an epic can be closed by /craft:commit now — an autopilot epic merged into the trunk on the human's
+# a5 [Y], or a sequential one with no unmerged epic branch; every decomposition entry landed — derived from
+# git and the epic plan, never stored.
 #
 # The case table was written before the helper. Run it directly:
 #
@@ -74,12 +75,12 @@ OUT=""; RC=0
 run() { OUT="$(cd "$P" && bash "$HELPER" "$@" 2>&1)"; RC=$?; }
 line_for() { grep -E "^EPIC=[^ ]+ PLAN=$1 " <<<"$OUT"; }
 
-# expect <name> <plan> <state> <branch-state> <reason>
+# expect <name> <plan> <kind> <state> <branch-state> <reason>
 expect() {
   local l
   l="$(line_for "$2")"
-  if [[ $RC -eq 0 && "$l" == *" STATE=$3 "* && "$l" == *" BRANCH_STATE=$4 "* && "$l" == *" REASON=$5" ]]; then ok "$1"
-  else bad "$1 — rc=$RC, want STATE=$3 BRANCH_STATE=$4 REASON=$5, got: ${l:-<no line>} | $(tr '\n' '|' <<<"$OUT")"; fi
+  if [[ $RC -eq 0 && "$l" == *" KIND=$3 "* && "$l" == *" STATE=$4 "* && "$l" == *" BRANCH_STATE=$5 "* && "$l" == *" REASON=$6" ]]; then ok "$1"
+  else bad "$1 — rc=$RC, want KIND=$3 STATE=$4 BRANCH_STATE=$5 REASON=$6, got: ${l:-<no line>} | $(tr '\n' '|' <<<"$OUT")"; fi
 }
 expect_error() { # name rc reason
   if [[ $RC -eq $2 && "$OUT" == *"ERROR=$3"* && "$OUT" != *"STATE="* ]]; then ok "$1"
@@ -93,109 +94,131 @@ expect_counts() { # name epics closable
 echo "epic-close-state.sh — closable"
 reset; epic_branch; merge; archives; epic "$SIGNED"
 run --trunk main "$EPIC"
-expect "merged on a5 [Y], every entry landed" "$EPIC" closable merged -
+expect "merged on a5 [Y], every entry landed" "$EPIC" autopilot closable merged -
 expect_counts "counts for one closable epic" 1 1
-if grep -qE "^EPIC=epic-900 PLAN=$EPIC STATE=closable BRANCH=$BR BRANCH_STATE=merged REASON=-$" <<<"$OUT"; then
+if grep -qE "^EPIC=epic-900 PLAN=$EPIC KIND=autopilot STATE=closable BRANCH=$BR BRANCH_STATE=merged REASON=-$" <<<"$OUT"; then
   ok "the line names the epic branch, fields in order"; else bad "line format — got: $(tr '\n' '|' <<<"$OUT")"; fi
 g branch -d "$BR"
 run --trunk main "$EPIC"
-expect "branch already deleted, its merge on the trunk" "$EPIC" closable deleted -
+expect "branch already deleted, its merge on the trunk" "$EPIC" autopilot closable deleted -
 reset; epic_branch; merge; archives; epic "$L_RUN
 $L_ASK
 $L_NO
 $L_ASK
 $L_MERGED"
 run --trunk main "$EPIC"
-expect "a later [Y] after an earlier [N] — the last answer counts" "$EPIC" closable merged -
+expect "a later [Y] after an earlier [N] — the last answer counts" "$EPIC" autopilot closable merged -
 reset; epic_branch; merge; archives; epic "$SIGNED"
 perl -pi -e 's/\n/\r\n/' "$P/$EPIC"
 run --trunk main "$EPIC"
-expect "a CRLF epic plan" "$EPIC" closable merged -
+expect "a CRLF epic plan" "$EPIC" autopilot closable merged -
 
-echo "epic-close-state.sh — not an autopilot epic, not signed off, not merged"
-reset; epic_branch; merge; archives; epic "(no autopilot run yet)"
+echo "epic-close-state.sh — an epic without an autopilot log (sequential, or worked by hand)"
+reset; archives; epic "(no autopilot run yet)"
 run --trunk main "$EPIC"
-expect "no log line: not an autopilot epic" "$EPIC" not-autopilot - no_autopilot_log
-reset; epic_branch; merge; archives; epic "$SIGNED"
+expect "every entry landed, no epic branch: closable" "$EPIC" sequential closable none -
+if grep -qE "^EPIC=epic-900 PLAN=$EPIC KIND=sequential STATE=closable BRANCH=$BR BRANCH_STATE=none REASON=-$" <<<"$OUT"; then
+  ok "a sequential line names the branch it looked for"; else bad "sequential line format — got: $(tr '\n' '|' <<<"$OUT")"; fi
+reset; archives; epic "$SIGNED"
 perl -0pi -e 's/## Autopilot Log\n\n.*?\n\n## Recap/## Recap/s' "$P/$EPIC"
 run --trunk main "$EPIC"
-expect "no ## Autopilot Log section" "$EPIC" not-autopilot - no_autopilot_log
+expect "no ## Autopilot Log section at all" "$EPIC" sequential closable none -
+reset; epic_branch; merge; archives; epic "(no autopilot run yet)"
+run --trunk main "$EPIC"
+expect "its epic branch exists and is merged" "$EPIC" sequential closable merged -
+reset; epic_branch; archives; epic "(no autopilot run yet)"
+run --trunk main "$EPIC"
+expect "its epic branch exists unmerged" "$EPIC" sequential branch-unmerged unmerged branch_unmerged
+reset; g checkout -b "$BR"; g checkout main; archives; epic "(no autopilot run yet)"
+run --trunk main "$EPIC"
+expect "the ancestor trap holds without a log too" "$EPIC" sequential branch-unmerged unmerged branch_unmerged
+reset; archives; epic "(no autopilot run yet)"
+rm -f "$P/.claude/project/slices/slice-902-beta.md"
+printf '# Slice 902\n\n> Status: implementing\n> Slice-ID: slice-902\n' > "$P/.claude/plans/slice-902-beta.md"
+run --trunk main "$EPIC"
+expect "a slice still open" "$EPIC" sequential entries-open - not_landed:slice-902:plan
+reset; archives; epic "(no autopilot run yet)"
+perl -0pi -e 's/- \[x\] slice-901 — alpha — first\n- \[x\] slice-902 — beta — second\n//' "$P/$EPIC"
+run --trunk main "$EPIC"
+expect "an epic with no entries yet" "$EPIC" sequential entries-open - no_entries
+
+echo "epic-close-state.sh — an autopilot epic not signed off, not merged"
 reset; epic_branch; merge; archives; epic "$L_RUN
 $L_ASK"
 run --trunk main "$EPIC"
-expect "sign-off asked, never answered" "$EPIC" not-signed-off - no_answer
+expect "sign-off asked, never answered" "$EPIC" autopilot not-signed-off - no_answer
 reset; epic_branch; archives; epic "$L_RUN
 $L_ASK
 $L_NO"
 run --trunk main "$EPIC"
-expect "a5 answered [N]" "$EPIC" not-merged - not_merged
+expect "a5 answered [N]" "$EPIC" autopilot not-merged - not_merged
 reset; epic_branch; archives; epic "$L_RUN
 - 2026-10-06T10:10:00Z · ■ · epic-900 · plan gate: stopped, plans kept"
 run --trunk main "$EPIC"
-expect "a run stopped at the plan gate's [N] is no a5 answer" "$EPIC" not-signed-off - run_stopped
+expect "a run stopped at the plan gate's [N] is no a5 answer" "$EPIC" autopilot not-signed-off - run_stopped
 reset; epic_branch; archives; epic "$L_RUN
 - 2026-10-06T10:10:00Z · ■ · epic-900 · orphan plans: stopped — slice-903"
 run --trunk main "$EPIC"
-expect "a run stopped at the orphan question's [N] is no a5 answer" "$EPIC" not-signed-off - run_stopped
+expect "a run stopped at the orphan question's [N] is no a5 answer" "$EPIC" autopilot not-signed-off - run_stopped
 reset; epic_branch; archives; epic "$L_RUN
 $L_ASK
 $L_PR"
 run --trunk main "$EPIC"
-expect "a5 opened a PR: the PR path is not this mode's" "$EPIC" pr-path - pr_opened
+expect "a5 opened a PR: the PR path is not this mode's" "$EPIC" autopilot pr-path - pr_opened
 reset; epic_branch; archives; epic "$L_RUN
 $L_ASK
 $L_OTHER"
 run --trunk main "$EPIC"
-expect "merged into another trunk" "$EPIC" not-merged - merged_into:develop
+expect "merged into another trunk" "$EPIC" autopilot not-merged - merged_into:develop
 reset; epic_branch; merge; archives; epic "$L_RUN
 $L_ASK
 - 2026-10-06T11:05:00Z · ■ · epic-901 · merged into main"
 run --trunk main "$EPIC"
-expect "a ■ line of another epic does not count" "$EPIC" not-signed-off - no_answer
+expect "a ■ line of another epic does not count" "$EPIC" autopilot not-signed-off - no_answer
 reset; epic_branch; merge; archives; epic "$L_RUN
 $L_ASK
 \`\`\`
 $L_MERGED
 \`\`\`"
 run --trunk main "$EPIC"
-expect "a ■ line inside a fence does not count" "$EPIC" not-signed-off - no_answer
+expect "a ■ line inside a fence does not count" "$EPIC" autopilot not-signed-off - no_answer
 reset; epic_branch; merge; archives; epic "$L_RUN
 $L_ASK"
 perl -0pi -e 's/\n\nv\n/\n\nv\n\n- 2026-10-06T11:05:00Z · ■ · epic-900 · merged into main\n/' "$P/$EPIC"
 run --trunk main "$EPIC"
-expect "a ■ line outside ## Autopilot Log does not count" "$EPIC" not-signed-off - no_answer
+expect "a ■ line outside ## Autopilot Log does not count" "$EPIC" autopilot not-signed-off - no_answer
 
 echo "epic-close-state.sh — entries"
 reset; epic_branch; merge; archives; epic "$SIGNED"
 rm -f "$P/.claude/project/slices/slice-902-beta.md"
 printf '# Slice 902\n\n> Status: reviewing\n> Slice-ID: slice-902\n' > "$P/.claude/plans/slice-902-beta.md"
 run --trunk main "$EPIC"
-expect "a slice still open" "$EPIC" entries-open - not_landed:slice-902:plan
+expect "a slice still open" "$EPIC" autopilot entries-open - not_landed:slice-902:plan
 reset; epic_branch; merge; archives; epic "$SIGNED"
 perl -pi -e 's/^- \[x\] slice-902 — beta/- [ ] beta/' "$P/$EPIC"
 run --trunk main "$EPIC"
-expect "an entry never planned" "$EPIC" entries-open - not_landed:-:unlinked
+expect "an entry never planned" "$EPIC" autopilot entries-open - not_landed:-:unlinked
 
 echo "epic-close-state.sh — the epic branch"
 reset; g checkout -b "$BR"; g checkout main; archives; epic "$SIGNED"
 run --trunk main "$EPIC"
-expect "the ancestor trap: a branch without own commits is not merged" "$EPIC" branch-unmerged unmerged branch_unmerged
+expect "the ancestor trap: a branch without own commits is not merged" "$EPIC" autopilot branch-unmerged unmerged branch_unmerged
 reset; epic_branch; merge; archives; epic "$SIGNED"
 g checkout "$BR"; echo more > "$P/more.txt"; g add more.txt; g commit -m more; g checkout main
 run --trunk main "$EPIC"
-expect "commits on the epic branch after the merge" "$EPIC" branch-unmerged unmerged branch_unmerged
+expect "commits on the epic branch after the merge" "$EPIC" autopilot branch-unmerged unmerged branch_unmerged
 reset; epic_branch; archives; epic "$SIGNED"
 g branch -D "$BR"
 run --trunk main "$EPIC"
-expect "branch gone and no merge commit on the trunk" "$EPIC" branch-unmerged missing branch_missing
+expect "branch gone and no merge commit on the trunk" "$EPIC" autopilot branch-unmerged missing branch_missing
 
 echo "epic-close-state.sh — scanning every epic plan"
 reset; epic_branch; merge; archives; epic "$SIGNED"
 epic "$L_RUN" "> Epic-ID: epic-901
 > Epic-Slug: other" ".claude/plans/epic-901-other.md"
 run --trunk main
-expect "scan: the closable epic" "$EPIC" closable merged -
-expect "scan: the open epic" ".claude/plans/epic-901-other.md" not-signed-off - no_answer
+expect "scan: the closable epic" "$EPIC" autopilot closable merged -
+expect "scan: the open epic" ".claude/plans/epic-901-other.md" autopilot not-signed-off - no_answer
 expect_counts "scan: counts" 2 1
 reset
 run --trunk main
@@ -205,15 +228,15 @@ else bad "scan: no epic plan — rc=$RC: $(tr '\n' '|' <<<"$OUT")"; fi
 echo "epic-close-state.sh — malformed plans and errors"
 reset; epic_branch; merge; archives; epic "$SIGNED" "> Epic-Slug: demo"
 run --trunk main "$EPIC"
-if [[ $RC -eq 0 && "$OUT" == *"EPIC=- PLAN=$EPIC STATE=malformed BRANCH=- BRANCH_STATE=- REASON=epic_frontmatter:Epic-ID"* ]]; then
+if [[ $RC -eq 0 && "$OUT" == *"EPIC=- PLAN=$EPIC KIND=- STATE=malformed BRANCH=- BRANCH_STATE=- REASON=epic_frontmatter:Epic-ID"* ]]; then
   ok "no Epic-ID: malformed, never closable"; else bad "no Epic-ID — rc=$RC: $(tr '\n' '|' <<<"$OUT")"; fi
 reset; epic_branch; merge; archives; epic "$SIGNED" "> Epic-ID: epic-900"
 run --trunk main "$EPIC"
-if [[ $RC -eq 0 && "$OUT" == *"EPIC=epic-900 PLAN=$EPIC STATE=malformed BRANCH=- BRANCH_STATE=- REASON=epic_frontmatter:Epic-Slug"* ]]; then
+if [[ $RC -eq 0 && "$OUT" == *"EPIC=epic-900 PLAN=$EPIC KIND=- STATE=malformed BRANCH=- BRANCH_STATE=- REASON=epic_frontmatter:Epic-Slug"* ]]; then
   ok "no Epic-Slug: malformed"; else bad "no Epic-Slug — rc=$RC: $(tr '\n' '|' <<<"$OUT")"; fi
 reset
 run --trunk main ".claude/plans/epic-999-none.md"
-if [[ $RC -eq 0 && "$OUT" == *"PLAN=.claude/plans/epic-999-none.md STATE=malformed BRANCH=- BRANCH_STATE=- REASON=epic_plan_unreadable"* ]]; then
+if [[ $RC -eq 0 && "$OUT" == *"PLAN=.claude/plans/epic-999-none.md KIND=- STATE=malformed BRANCH=- BRANCH_STATE=- REASON=epic_plan_unreadable"* ]]; then
   ok "a named plan that does not exist: malformed"; else bad "missing plan — rc=$RC: $(tr '\n' '|' <<<"$OUT")"; fi
 reset
 run "$EPIC"
@@ -238,14 +261,42 @@ echo "pinned sites"
 COMMIT_MD="$REPO/commands/commit.md"
 EXECUTE_MD="$REPO/commands/execute.md"
 grep -qF 'scripts/epic-close-state.sh' "$COMMIT_MD" && ok "commit.md calls epic-close-state.sh" || bad "commit.md does not call epic-close-state.sh"
-for s in closable not-autopilot not-signed-off not-merged pr-path entries-open branch-unmerged malformed; do
+for s in closable not-signed-off not-merged pr-path entries-open branch-unmerged malformed; do
   grep -qF "STATE=$s" "$COMMIT_MD" && ok "commit.md handles STATE=$s" || bad "commit.md does not handle STATE=$s"
 done
-grep -qF 'Autopilot-epic-close' "$COMMIT_MD" && ok "commit.md names the Autopilot-epic-close mode" || bad "commit.md lacks the Autopilot-epic-close mode"
+for k in autopilot sequential; do
+  grep -qF "KIND=$k" "$COMMIT_MD" && ok "commit.md handles KIND=$k" || bad "commit.md does not handle KIND=$k"
+done
+grep -qF 'STATE=not-autopilot' "$COMMIT_MD" && bad "commit.md still handles the removed STATE=not-autopilot" || ok "commit.md no longer names STATE=not-autopilot"
+grep -qF '## Epic-close Mode' "$COMMIT_MD" && ok "commit.md has the Epic-close mode" || bad "commit.md lacks '## Epic-close Mode'"
 a5="$(awk '/^### a5 /{f=1} f&&/^## /{exit} f' "$EXECUTE_MD")"
 grep -qF 'Recommended next: /craft:commit' <<<"$a5" && ok "execute.md a5 hands over to /craft:commit" || bad "execute.md a5 lacks 'Recommended next: /craft:commit'"
+s5="$(awk '/^### s5 /{f=1;next} f&&/^#{2,3} /{exit} f' "$EXECUTE_MD")"
+grep -qF 'Recommended next: /craft:commit' <<<"$s5" && ok "execute.md s5 hands over to /craft:commit" || bad "execute.md s5 lacks 'Recommended next: /craft:commit'"
 if grep -qF 'closing an epic is not part of an autopilot run' "$EXECUTE_MD"; then bad "execute.md still says closing is not part of the run"
 else ok "execute.md no longer says closing is not part of the run"; fi
+# the mode was renamed (slice-062, D38): no shipped file may still name the old one
+old="$(grep -rlF 'Autopilot-epic-close' "$REPO/commands" "$REPO/skills" "$REPO/agents" "$REPO/templates" "$REPO/docs" "$REPO/README.md" "$REPO/CLAUDE.md" "$REPO/scripts/epic-close-state.sh" 2>/dev/null)"
+[[ -z "$old" ]] && ok "no shipped file names the old Autopilot-epic-close mode" || bad "the old mode name remains in: $(tr '\n' ' ' <<<"$old")"
+
+echo "the epic archive template"
+TPL="$REPO/templates/epic-archive.md.template"
+if [[ -f "$TPL" ]]; then
+  ok "templates/epic-archive.md.template exists"
+  for h in '## Vision' '## Epic Decisions' '## Open follow-ups'; do
+    grep -qxF "$h" "$TPL" && ok "the template carries $h" || bad "the template lacks $h"
+  done
+  grep -qE '^## Slices \(' "$TPL" && ok "the template carries ## Slices (N/N)" || bad "the template lacks ## Slices (N/N)"
+  for k in Completed Slices Merge; do
+    grep -qE "^> $k: " "$TPL" && ok "the template's frontmatter carries > $k:" || bad "the template's frontmatter lacks > $k:"
+  done
+  grep -qxF '## Commits' "$TPL" && bad "the template has a ## Commits section — commits belong in the frontmatter only" || ok "the template has no ## Commits section"
+else
+  bad "templates/epic-archive.md.template is missing"
+fi
+[[ "$(grep -cF 'templates/epic-archive.md.template' "$COMMIT_MD")" -ge 3 ]] \
+  && ok "commit.md names the template in Step 5, in Epic-close and in its P3" \
+  || bad "commit.md names templates/epic-archive.md.template fewer than 3 times"
 
 echo
 echo "RESULT: $PASS passed, $FAIL failed"

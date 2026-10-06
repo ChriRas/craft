@@ -1,0 +1,21 @@
+# Epic {{NNN}} — {{title}}
+
+> Completed: {{ISO_date}} (started {{started_ISO_date}})
+> Slices: {{landed}}/{{total}} landed · {{how_they_landed}}
+> Merge: {{merge}}
+
+## Vision
+
+{{vision}}
+
+## Slices ({{landed}}/{{total}})
+
+- [{{slice_id}} — {{short_name}}](./{{slice_id}}-{{slug}}.md) — {{what_it_did_in_one_line}}
+
+## Epic Decisions
+
+- **{{decision_name}}** ({{date}}) — {{reasoning}}
+
+## Open follow-ups
+
+- {{follow_up_or_none}}

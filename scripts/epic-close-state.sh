@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 #
 # craft (Coding with Rules, Autonomy, Feedback, Tests)
-# epic-close-state.sh — can /craft:commit close this autopilot epic now? (slice-061, roadmap B24, D37)
+# epic-close-state.sh — can /craft:commit close this epic now? (slice-061 / slice-062, roadmap B24 / B26, D37 / D38)
 #
 # WHY ------------------------------------------------------------------------
-# After an autopilot run's a5 [Y] no CRAFT command wrote the epic archive or closed the epic plan:
-# /craft:commit closed an epic only in Epic-finalize mode, which it detects by an epic worktree an
-# autopilot run never creates. epic-003 was closed by hand. /craft:commit's Autopilot-epic-close mode
-# closes it now, and whether an epic is ready for that is decided here, once — derived from git and the
-# epic plan, never stored (the pattern of execute-resume-state.sh and plan-gate-state.sh).
+# After an autopilot run's a5 [Y] — and after a sequential run's s5 — no CRAFT command wrote the epic
+# archive or closed the epic plan: /craft:commit closed an epic only in Epic-finalize mode, which it
+# detects by an epic worktree neither run creates. epic-001…003 were closed by hand. /craft:commit's
+# Epic-close mode closes them now, and whether an epic is ready for that is decided here, once — derived
+# from git and the epic plan, never stored (the pattern of execute-resume-state.sh and plan-gate-state.sh).
 #
 # WHAT -----------------------------------------------------------------------
 #   epic-close-state.sh --trunk <branch> [<epic-plan>…]
@@ -16,17 +16,18 @@
 # Run from the project root (or set CLAUDE_PROJECT_DIR); plan paths are relative to it. Without a plan,
 # every .claude/plans/epic-*.md is judged. One line per plan, then the counts:
 #
-#   EPIC=<epic-id>|- PLAN=<path> STATE=<state> BRANCH=<branch>|- BRANCH_STATE=<branch-state>|- REASON=<reason>|-
+#   EPIC=<epic-id>|- PLAN=<path> KIND=<kind>|- STATE=<state> BRANCH=<branch>|- BRANCH_STATE=<branch-state>|- REASON=<reason>|-
 #   EPIC_COUNT=<n>
 #   CLOSABLE_COUNT=<n>
 #
-# The checks run in this order; the first that fails names the state, and a later one is not judged
-# (its fields read `-`):
+# KIND is `autopilot` when the epic plan's `## Autopilot Log` holds a log line
+# (`- <datetime> · <▶|✓|⛔|■> · <id> · <text>`), else `sequential` — a sequential run, or an epic worked
+# slice by slice by hand; `-` on a malformed plan. The checks run in this order; the first that fails names
+# the state, and a later one is not judged (its fields read `-`):
 #
 #   malformed        the plan is unreadable, or its frontmatter (above the first `## `) lacks
 #                    `> Epic-ID:` or `> Epic-Slug:` — REASON epic_plan_unreadable | epic_frontmatter:<key>
-#   not-autopilot    `## Autopilot Log` holds no log line (`- <datetime> · <▶|✓|⛔|■> · <id> · <text>`): the
-#                    epic never ran in autopilot — Epic-finalize or a human closes it. REASON no_autopilot_log
+#   (autopilot only — the human's a5 answer; a sequential epic has none and skips these three)
 #   not-signed-off   no `■` line for this epic-ID in that section: a run still open, or a5's question never
 #                    answered (REASON no_answer) — or the last one is no a5 answer at all: a run that stopped
 #                    before a5, e.g. at the plan gate's or the orphan question's `[N]` (REASON run_stopped)
@@ -34,18 +35,19 @@
 #                    or a merge into another branch (REASON merged_into:<branch>)
 #   pr-path          the last `■` line is `PR #<N> opened` — the pull-request path, which this mode does not
 #                    close (D37). REASON pr_opened
+#   (both kinds)
 #   entries-open     `epic-entry-link.sh resolve` does not report every entry `landed` — REASON
 #                    not_landed:<slice-id or ->:<state> (the first such entry) | no_entries | unresolved (an
 #                    IGNORED line) | resolve_failed
 #   branch-unmerged  the epic branch `<epic-id>-<epic-slug>` is not merged into the trunk. BRANCH_STATE
 #                    unmerged (it exists, and no merge commit on the trunk has its tip as a non-first parent —
 #                    the ancestor trap: a branch without own commits is an ancestor of every trunk, yet nothing
-#                    was merged; commits added after the merge read the same) | missing (it is gone, and no
-#                    merge commit on the trunk is titled `Merge <epic-id>: …`, a5's subject). REASON
-#                    branch_unmerged | branch_missing
-#   closable         all of the above hold. BRANCH_STATE merged (the branch exists) | deleted (it is gone, its
-#                    merge is on the trunk — deleted by hand, or by a close that stopped after its step 5).
-#                    REASON -
+#                    was merged; commits added after the merge read the same) | missing (autopilot only: it is
+#                    gone, and no merge commit on the trunk is titled `Merge <epic-id>: …`, a5's subject).
+#                    REASON branch_unmerged | branch_missing
+#   closable         all of the above hold. BRANCH_STATE merged (the branch exists) | deleted (autopilot: it is
+#                    gone, its merge is on the trunk — deleted by hand, or by a close that stopped after its
+#                    branch step) | none (sequential: there is no epic branch). REASON -
 #
 # Only the `## Autopilot Log` section counts (up to the next `# ` / `## ` heading), outside example regions
 # (fenced blocks, multi-line HTML comments — scripts/example-regions.sh decides). CRLF reads as LF.
@@ -117,13 +119,13 @@ frontmatter() { # blanked-file key
 
 CLOSABLE=0
 COUNT=0
-emit() { # epic plan state branch branch-state reason
-  printf 'EPIC=%s PLAN=%s STATE=%s BRANCH=%s BRANCH_STATE=%s REASON=%s\n' "$1" "$2" "$3" "$4" "$5" "$6"
+emit() { # epic plan state branch branch-state reason — KIND is judge()'s `kind`
+  printf 'EPIC=%s PLAN=%s KIND=%s STATE=%s BRANCH=%s BRANCH_STATE=%s REASON=%s\n' "$1" "$2" "$kind" "$3" "$4" "$5" "$6"
   [[ "$3" == "closable" ]] && CLOSABLE=$((CLOSABLE + 1))
 }
 
 judge() {
-  local plan="$1" blank="$TMP/plan" id slug branch log last text resolved line sid state
+  local plan="$1" blank="$TMP/plan" kind=- id slug branch log last text resolved line sid state
   if [[ ! -f "$plan" || ! -r "$plan" ]] || ! bash "$REGIONS" blank markdown "$plan" 2>/dev/null | tr -d '\r' > "$blank"; then
     emit - "$plan" malformed - - epic_plan_unreadable; return
   fi
@@ -134,18 +136,22 @@ judge() {
   branch="$id-$slug"
 
   log="$(awk '$0 == "## Autopilot Log" { f = 1; next } f && /^##? / { exit } f' "$blank" | grep -E "$LOG_LINE")"
-  [[ -n "$log" ]] || { emit "$id" "$plan" not-autopilot - - no_autopilot_log; return; }
-  last="$(grep -F -- " · ■ · $id · " <<<"$log" | tail -n 1)"
-  [[ -n "$last" ]] || { emit "$id" "$plan" not-signed-off - - no_answer; return; }
-  text="${last#* · ■ · "$id" · }"
-  text="${text%"${text##*[![:space:]]}"}"
-  case "$text" in
-    "merged into $TRUNK") ;;
-    "merged into "*) emit "$id" "$plan" not-merged - - "merged_into:${text#merged into }"; return ;;
-    "PR #"*" opened") emit "$id" "$plan" pr-path - - pr_opened; return ;;
-    "complete, not merged") emit "$id" "$plan" not-merged - - not_merged; return ;;
-    *) emit "$id" "$plan" not-signed-off - - run_stopped; return ;;
-  esac
+  if [[ -n "$log" ]]; then
+    kind=autopilot
+    last="$(grep -F -- " · ■ · $id · " <<<"$log" | tail -n 1)"
+    [[ -n "$last" ]] || { emit "$id" "$plan" not-signed-off - - no_answer; return; }
+    text="${last#* · ■ · "$id" · }"
+    text="${text%"${text##*[![:space:]]}"}"
+    case "$text" in
+      "merged into $TRUNK") ;;
+      "merged into "*) emit "$id" "$plan" not-merged - - "merged_into:${text#merged into }"; return ;;
+      "PR #"*" opened") emit "$id" "$plan" pr-path - - pr_opened; return ;;
+      "complete, not merged") emit "$id" "$plan" not-merged - - not_merged; return ;;
+      *) emit "$id" "$plan" not-signed-off - - run_stopped; return ;;
+    esac
+  else
+    kind=sequential
+  fi
 
   resolved="$(CLAUDE_PROJECT_DIR="$PWD" bash "$LINK" resolve "$plan" 2>/dev/null)" ||
     { emit "$id" "$plan" entries-open - - resolve_failed; return; }
@@ -162,6 +168,8 @@ judge() {
   if git show-ref --verify --quiet "refs/heads/$branch"; then
     is_merged "$branch" || { emit "$id" "$plan" branch-unmerged "$branch" unmerged branch_unmerged; return; }
     emit "$id" "$plan" closable "$branch" merged -
+  elif [[ "$kind" == sequential ]]; then
+    emit "$id" "$plan" closable "$branch" none -
   elif git log --merges --format='%s' "refs/heads/$TRUNK" 2>/dev/null | grep -q -- "^Merge $id: "; then
     emit "$id" "$plan" closable "$branch" deleted -
   else

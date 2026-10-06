@@ -534,7 +534,10 @@ last), go straight to **s5** — do not emit a halt with a phantom "next slice".
 Reached from s1 (every slice landed) or s4. Emit `Epic <epic-NNN> complete — all <N> slices
 landed sequentially` (there is no epic-branch to merge; each slice already landed on `main` —
 directly on `direct`, or via its own approved PR on `pull-request` + `Protected-main: yes`, with
-the local trunk synced). Release the lock.
+the local trunk synced). Release the lock, and end with `Recommended next: /craft:commit` — it closes the epic: its
+decisions, its archive and its plan (its Epic-close mode, D38). Under `pull-request` + `Protected-main: yes` end instead
+with `<epic-NNN> is finished — close it by hand, through a PR (B25)`: Epic-close would refuse it, because its archive
+commit would land on the trunk directly.
 
 ---
 
@@ -945,7 +948,7 @@ character — the error's first line, its `'` and `"` dropped — so the single-
   left on `<trunk>` mid-merge, and the human chooses the way out — `git merge --abort`, then a re-run asks again; or
   resolve, `git commit`, and add `■ <epic-id> merged into <trunk>` to the log by hand. Otherwise log
   `■ <epic-id> merged into <trunk>`, then release the lock, and end with `Recommended next: /craft:commit` — it closes
-  the epic (its Autopilot-epic-close mode, D37).
+  the epic (its Epic-close mode, D37).
 - **[Y], `pull-request` + `Protected-main: yes`** → `git push -u origin <epic-branch>`, then
   `gh pr create --base <trunk> --head <epic-branch> --title "Merge <epic-NNN>: <epic title>" --body "$(printf '~~~~~~\n'; bash "${CLAUDE_PLUGIN_ROOT}/scripts/epic-digest.sh" "<epic-plan>"; printf '~~~~~~\n')"`
   — the body is the helper's output, generated again and never retyped, fenced so that GitHub keeps its lines and
@@ -962,7 +965,7 @@ nobody answered, and never release the lock before the answer: a later `[Y]` wou
 and 4 did both).
 
 The epic plan stays in `.claude/plans/` when the run ends — the run itself never closes the epic. After a `direct`
-merge, `/craft:commit` does (its Autopilot-epic-close mode, D37): the epic's decisions, its archive, its plan and its
+merge, `/craft:commit` does (its Epic-close mode, D37): the epic's decisions, its archive, its plan and its
 branch. After `[N]` or a PR it does not.
 
 ---
