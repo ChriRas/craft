@@ -10,7 +10,7 @@
 | # | ID | Type | Size | Item |
 |---|----|------|------|------|
 | 1 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
-| 2 | B23 | Fix | small | Autopilot run-start and master drift (slice-056 probes 3 and 4, split off B22 by slice-057): the a1 briefing block is not printed on a re-run, and the master writes helper files to `/tmp` outside the project — both prose the master did not follow; check whether a helper or a pin can bind them, as `epic-digest.sh` did for a5. slice-057's probe 1 added two more: a4's step-1c re-run passed the epic plan as a slice argument, got `RESULT=conflict` (`plan_unreadable`) and went on to a5 instead of stopping `⛔`; and a log line was stamped with a datetime not read off the clock (`19:13:55`, the file last written `19:13:50`) — the slice-049 rule broken again |
+| 2 | B27 | Fix | small | Autopilot a1 briefing content (slice-063's Phase-5 probe): `autopilot-log.sh`'s gate holds that a1 runs on every invocation, but the probe's master printed the briefing without its "Stops for you at: …" lines — print the block from a helper the master only relays, as `epic-digest.sh` does for a5 |
 | 3 | B25 | Fix | small | Closing an epic on the PR path (slice-061 / slice-062, D37 / D38) — an autopilot epic, and since slice-062 a sequential one, whose archive commit E3 refuses under protected main: under `pull-request` + `Protected-main: yes` a5 `[Y]` only opens the PR, and `/craft:commit`'s Epic-close mode stops at `STATE=pr-path` / E3 — the archive commit may not land on the trunk directly. Needs Epic-finalize's two passes: archive + decisions into the open PR, then `plan-landing.sh sync` after the merge |
 | 4 | B18 | Fix | small | Handoff-answer record (slice-042 R1-15): a resume records no answer to the handoff's question, so a subagent re-run — an autopilot re-run in particular — meets it again. Deferred by slice-049: build it when a real autopilot run shows a question that repeats (Phase-5 answers already live in `Status:`) |
 | 5 | B15 | Fix | slice | Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
@@ -30,6 +30,12 @@ Autopilot Mode`); every decomposition entry has a slice. The 2.0.0 release (rule
 2.0.0) is **deliberately not cut yet** — the user has a few more things to do first. No version bump, push or tag until
 the user says so; nothing is pushed yet. Still owed from slice-060: human test (c) part B (real idle ≥ 1 h) and the
 follow-ups R1-1 / R1-2 (archive → Follow-ups).
+
+**B23 shipped with slice-063 (2026-10-07)** — every `## Autopilot Log` line is written by `scripts/autopilot-log.sh`
+(the helper's clock, placement and landed check; a slice step refused before this invocation's `run started`, keyed to
+the execute lock's `SINCE=`); step 1c and a4 read the slice list through `execute-resume-state.sh --slices-from`, and a
+conflict on a4's re-run stops before a5; `.craft/tmp/` is the master's one place for its own files. The a1 block's
+content is still prose → **B27**.
 
 **B26 shipped with slice-062 (2026-10-06)** — D38: every epic archive is written from `templates/epic-archive.md.template`
 (commits only in the frontmatter, slice follow-ups by reference), and the mode, renamed Epic-close, closes a sequential or
