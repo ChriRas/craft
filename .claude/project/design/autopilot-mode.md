@@ -191,6 +191,19 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
 
 ## 6. Budget guard (5h / 7d window)
 
+- **Built by slice-058 (2026-10-06), as follows** — the bullets below are the design trail. `scripts/statusline-tap.sh`
+  (POSIX sh, wired by the user into `statusLine` with `refreshInterval`, never by CRAFT) keeps the statusline JSON in a
+  per-user tap; `scripts/usage-state.sh` is the one judge — `before` (a2), `during` (the builder at every boundary of
+  its spawn: each Phase-4 sub-task, each phase step, each autonomous debug attempt — review R1-1), `after` (a3 / a4) —
+  and the master and builder act on `VERDICT=` only; the master's carry of the log fields is checked by the helper
+  (`--check-line`), and a slice measures its Δ only when built start to end in one invocation. Limits in `craft-profile.md` →
+  `## Autopilot` (Q6), the forecast is the mean of the `Δ five_hour` fields on the log's `✓` lines (derived, never
+  stored), and the `after` gate reads each slice's Δ from its `▶` line. A budget stop inside a slice is **Held**
+  (`reason=budget`, no status write, no marker) and a plain re-run resumes it. No reading → conservative mode (the
+  slice runs, the run stops after it). *Correction:* the in-slice bullet below says per-sub-task commits make the
+  boundary safe — an autopilot builder never commits; the boundary is safe because the uncommitted work stays in the
+  checkout and step 1c reads it as the open slice's.
+
 - **Sensor:** statusline JSON (CRAFT would ship a tap script or document it; the user already runs
   `statusline-tap.sh` + `usage-watch.py`). Degrade: no/stale data → conservative mode
   (stop after every slice and ask).
@@ -340,12 +353,16 @@ touch `commands/` cannot be verified end-to-end in the session that writes them.
     master during a spawn. Where they live instead is open — a check inside the builder at its sub-task boundaries (e.g.
     reading a usage tap file), a hook firing inside the builder, or amending D32 to stops between spawns only — and is
     decided by epic-003's `budget-and-cache-guard` (the in-slice stop) and `autopilot-loop` (the progress line). The
-    before-a-slice and after-a-slice rules are unaffected: they run between spawns.
+    before-a-slice and after-a-slice rules are unaffected: they run between spawns. **Resolved by slice-058 (the user,
+    2026-10-06):** in the builder — it asks `usage-state.sh --gate during` at every boundary of its spawn (§6); D32 stays
+    unamended.
 
 ## 10. Still open
 
 - ~~**Q5** Subagent cache TTL `1h` vs. `5m`~~ — **resolved by slice-044**: per agent, by the break-even in §6.
-- **Q6** Threshold defaults (85 / 95 / 90) and whether they live in `craft-profile.md` (new `## Autopilot` block).
+- ~~**Q6** Threshold defaults (85 / 95 / 90) and whether they live in `craft-profile.md` (new `## Autopilot` block)~~ —
+  **resolved by slice-058** (the user, 2026-10-06): 85 / 95 / 90 in `## Autopilot`, validated through `usage-state.sh`
+  and reported by `/craft:prime` 4d; the overage heuristic stays fixed.
 - ~~**Master / judgment line** (from §4): which decisions the Sonnet master may take from helper output alone, and which go
   to the human or a short-lived Opus agent~~ — **resolved by slice-054** (`planning-pipeline`): a table in
   `commands/execute.md` → Autopilot run → *Who decides what in an autopilot run*. The master decides only what a helper
@@ -383,8 +400,9 @@ touch `commands/` cannot be verified end-to-end in the session that writes them.
   - whether a blocking builder command near 10 min trips `CLAUDE_ASYNC_AGENT_STALL_TIMEOUT_MS`, and what a test suite
     longer than `BASH_MAX_TIMEOUT_MS` needs (raise the setting, split the suite);
   - whether a foreground spawn longer than the master's 1 h TTL leaves the master cold (§6);
-  - where D32's in-slice budget stop lives while the master is blocked on a foreground builder (§9 Q8 consequence) —
-    `budget-and-cache-guard`. (Q7's progress line: **resolved by slice-049**, §9 Q7.)
+  - ~~where D32's in-slice budget stop lives while the master is blocked on a foreground builder (§9 Q8 consequence)~~ —
+    **resolved by slice-058**: in the builder, at every boundary of its spawn (§6). (Q7's progress line: **resolved by
+    slice-049**, §9 Q7.)
   - ~~how the human pauses or stops a master blocked on a foreground builder (Esc / Ctrl+C mid-spawn) and what state that
     leaves~~ — **resolved by slice-049** (§9 Q7): Esc; the slice keeps its execution status and a re-run resumes it.
     Shown by slice-049's human test T1;
