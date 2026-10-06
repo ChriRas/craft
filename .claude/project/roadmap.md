@@ -24,6 +24,11 @@
 
 ## Notes per item
 
+**F9 shipped with slice-059 (2026-10-06).** `/craft:prime` step 4h and `/craft:onboard` offer to wire the statusline tap
+the budget guard reads (`scripts/ensure-statusline-tap.sh`, D36: only on a yes, with a backup, reversible). Its follow-up
+R1-10 — a fail-open wired form, so the user's statusline survives an uninstalled CRAFT — is in
+`.claude/project/slices/slice-059-statusline-tap-wiring.md` → Follow-ups. Still to show: the real-file test after the release.
+
 **R1 shipped with slice-043 — CRAFT v1.5.0 (2026-09-15).** The installed runtime carries slice-032 … slice-042; a fresh
 session's `/craft:prime` reports v1.5.0 without drift, and the D33 Dock launch showed the hook receiving the Homebrew bash
 (details in `.claude/project/slices/slice-043-r1-release.md`). Still unshown by a real run: push / PR / backfill and the
