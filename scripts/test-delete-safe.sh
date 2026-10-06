@@ -599,7 +599,7 @@ for f in $EXPECTED_SITES; do
     && ok "$f: one close-file marker, with the close-file.sh call right below it" \
     || bad "$f: markers=$n_marker, calls near the marker=$near"
 done
-plan_rms="$(cd "$REPO" && grep -n -E '(^|[^a-z_-])rm([^a-z_-]|$)' commands/*.md agents/*.md skills/*/SKILL.md \
+plan_rms="$(cd "$REPO" && grep -n -E '(^|[^A-Za-z_-])rm([^A-Za-z_-]|$)' commands/*.md agents/*.md skills/*/SKILL.md \
   | grep -v -E 'git rm|DELETE_CMD|an `rm` of your own|`rm`, `mv`, package installs' || true)"
 [[ -z "$plan_rms" ]] && ok "no command, agent or skill tells the agent to rm a file itself" \
   || bad "an agent-issued rm is left in the prose: $plan_rms"
