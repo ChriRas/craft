@@ -192,7 +192,8 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
 ## 6. Budget guard (5h / 7d window)
 
 - **Built by slice-058 (2026-10-06), as follows** — the bullets below are the design trail. `scripts/statusline-tap.sh`
-  (POSIX sh, wired by the user into `statusLine` with `refreshInterval`, never by CRAFT) keeps the statusline JSON in a
+  (POSIX sh, wired into the user's `statusLine` with `refreshInterval` — by hand, or since slice-059 (D36) by
+  `scripts/ensure-statusline-tap.sh` on a yes, offered by `/craft:prime` 4h and `/craft:onboard`) keeps the statusline JSON in a
   per-user tap; `scripts/usage-state.sh` is the one judge — `before` (a2), `during` (the builder at every boundary of
   its spawn: each Phase-4 sub-task, each phase step, each autonomous debug attempt — review R1-1), `after` (a3 / a4) —
   and the master and builder act on `VERDICT=` only; the master's carry of the log fields is checked by the helper
