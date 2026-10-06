@@ -19,7 +19,8 @@ This command is a **durable-state mutation** and follows the Pre/Post-Assertion 
 ## Pre-flight
 
 > **Borrowed steps from `prime.md` and the plugin root.** This command follows steps of
-> `prime.md` (Pre-flight Step 1 here, step 4f in the Local-State Gitignore sub-procedure) by
+> `prime.md` (Pre-flight Step 1 here, step 4f in the Local-State Gitignore sub-procedure, step 4h in the
+> Statusline Tap sub-procedure) by
 > reading that file. Claude Code fills in the plugin-root placeholder (a dollar sign and braces
 > around `CLAUDE_PLUGIN_ROOT`) only in the command it loaded, never in a file read with `Read`, and
 > the Bash tool does not export it as a variable. Wherever the borrowed text shows that
@@ -139,6 +140,8 @@ Generate using the plugin templates:
 - `.claude/project/roadmap.md` (only if user provided roadmap content)
 - `CLAUDE.md` in repo root — slim index pointing to the above
 - `.gitignore` — last, run the Local-State Gitignore sub-procedure
+
+Then run the Statusline Tap sub-procedure — it changes no project file, only the user's own settings, and only on a yes.
 
 Do **not** pre-create an empty `.claude/project/design/` — the directory is the
 **Durable Capture** home for cross-cutting design knowledge (domain model, scenario
@@ -332,7 +335,7 @@ After writing `intent.md` and `rules.md`, count their lines:
 
 If `CLAUDE.md` did not previously exist, generate one from `templates/claude-md-index.template`. If it did exist and was the knowledge-split source, replace its content with the index template (the prior content has been distributed into `.claude/project/`).
 
-Then run the Local-State Gitignore sub-procedure.
+Then run the Local-State Gitignore sub-procedure, and after it the Statusline Tap sub-procedure.
 
 ### 6. Drift validation
 
@@ -588,6 +591,20 @@ confirmation offer — and map the outcome for the output block:
 
 Never a blocker: the other onboarding files stay written whatever the outcome.
 
+## Statusline Tap (shared sub-procedure)
+
+An autopilot run reads the plan's usage windows only through the statusline tap, and no plugin can wire it (D36), so
+onboarding offers it once — the first session a user starts with CRAFT is where a missing tap is cheapest to fix.
+Unlike the project files above, the tap goes into the user's **own** settings, which the onboarding confirmation did not
+cover: it is offered separately. Read
+`${CLAUDE_PLUGIN_ROOT}/commands/prime.md` → **step 4h** (plugin root as the Pre-flight note says) and run it as written —
+the `--check` run, the line per status, the offer and the `--apply` on a yes. Map the outcome for the output block:
+
+- **wired** (already, on a yes, or in the file that overrides the user level) → `statusline tap  (<✓ wired | wired — backup at <BACKUP> | wired — <SETTINGS> created>)`.
+- **no**, or a status step 4h offers nothing for → the line step 4h emits; `/craft:prime` offers it again every session.
+
+Never a blocker: the onboarding files stay written whatever the outcome.
+
 ---
 
 ## Post-Assertions
@@ -681,6 +698,7 @@ Created:
   CLAUDE.md
   .gitignore  (<outcome from the Local-State Gitignore sub-procedure>)
   [⚠ <gitignore warning(s), if any>]
+  [<statusline tap line from the Statusline Tap sub-procedure — your user settings, not a project file>]
 
 [Migration only]
 Moved to _legacy/:
@@ -723,6 +741,7 @@ Partial (post-assertion failure):
 | Drift on final validation | Reported via P5; user revises `rules.md`. No auto-correction. |
 | P1/P2/P2b/P2c/P3 fail after write | Warn loudly; emit partial-completion block; do not auto-rollback. |
 | Local-State Gitignore helper missing, errors, or hits a conflicting rule; or P2d fails | Emit the `⚠` line from the sub-procedure / P2d and continue. Never a blocker. `/craft:prime` step 4f re-offers the fix every session. |
+| Statusline Tap helper missing or errors, or the user declines | Emit the line from `/craft:prime` step 4h and continue. Never a blocker; prime offers it again every session. |
 | P4 fails (migration cleanup incomplete) | Warn loudly; user reconciles `.claude/` manually. |
 
 ---
