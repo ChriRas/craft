@@ -14,12 +14,11 @@
 | 3 | B25 | Fix | small | Closing an epic on the PR path (slice-061 / slice-062, D37 / D38) — an autopilot epic, and since slice-062 a sequential one, whose archive commit E3 refuses under protected main: under `pull-request` + `Protected-main: yes` a5 `[Y]` only opens the PR, and `/craft:commit`'s Epic-close mode stops at `STATE=pr-path` / E3 — the archive commit may not land on the trunk directly. Needs Epic-finalize's two passes: archive + decisions into the open PR, then `plan-landing.sh sync` after the merge |
 | 4 | B18 | Fix | small | Handoff-answer record (slice-042 R1-15): a resume records no answer to the handoff's question, so a subagent re-run — an autopilot re-run in particular — meets it again. Deferred by slice-049: build it when a real autopilot run shows a question that repeats (Phase-5 answers already live in `Status:`) |
 | 5 | B15 | Fix | slice | Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
-| 6 | B20 | Fix | small | Parallel worktree mode removes its checkpoint record once a slice is merged (`commands/execute.md` step 9: "delete its lines, and the file and an empty `.craft/` with them") — a user rule that denies or asks on removing files refuses it too (D34); keep it as state or close it through `close-file.sh` (slice-050 follow-up) |
-| 7 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
-| 8 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
-| 9 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
-| 10 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
-| 11 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
+| 6 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
+| 7 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
+| 8 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
+| 9 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
+| 10 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
 
 ## Notes per item
 
@@ -84,7 +83,7 @@ files. Closed plans move into the read-blocked `.claude/plans/.closed/` when suc
 confirmation), a helper never deletes, the execute lock carries its state (a lock this very session holds goes to the
 human), and `/craft:prime` hints a copy-ready cleanup command. Details and known limits in
 `.claude/project/slices/slice-050-b19-delete-safe-cleanup.md`. Its follow-up — parallel mode's checkpoint removal — is
-**B20**. Still the user's own settings work: three tiers — recursive removal denied, single-file removal on `ask`, CRAFT's
+**shipped with slice-066** (the record stays as append-only state, hidden by a nested `.craft/.gitignore`). Still the user's own settings work: three tiers — recursive removal denied, single-file removal on `ask`, CRAFT's
 move as the third; a rule for `rm -r` followed by a space does not match `-rf` or `-fr`, so tier 1 needs several patterns
 and a test.
 

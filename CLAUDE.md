@@ -109,7 +109,11 @@ bash scripts/test-review-findings-state.sh
 # epic branch passed as the trunk (slice-049 — no helper change, the sequential rows answer it), and that
 # commands/execute.md handles every ACTION value. Also covers scripts/tree-dirt-state.sh: CRAFT's plans,
 # counters and local state are no dirt for /craft:execute A3, /craft:commit and the re-run, and those
-# commands judge the tree only through it. Keep green.
+# commands judge the tree only through it. Since slice-066 (B20) it also runs `git worktree remove` for real on an
+# epic worktree holding step 9's checkpoint record: the record, kept as state and self-ignored through its nested
+# .craft/.gitignore (also under a project's `!.craft/` negation), lets the removal succeed, while a bare record
+# still blocks it and any other file under .craft/ still is dirt; execute.md step 9 is pinned to those two lines.
+# Keep green.
 bash scripts/test-execute-resume-state.sh
 
 # Tracked plan landing — scripts/plan-landing.sh takes a tracked slice plan off the trunk under
@@ -184,7 +188,9 @@ bash scripts/test-model-enum.sh
 # owner = CLAUDE_PID + start time) with one fixed takeover rule. Covers the rule matrix, move / collision /
 # refusal cases, every lock state incl. legacy locks, the guard's read block on .closed/ under bash 5 and
 # /bin/bash 3.2, that no scanner sees .closed/, the pinned close sites (commit.md, abort.md) with no
-# agent-issued rm left in the prose, and prime's cleanup hint (run for real on a fixture). Keep green.
+# agent-issued rm left in the prose, and prime's cleanup hint (run for real on a fixture). Since slice-066 (B20) it
+# also pins that execute.md step 9 keeps the checkpoint record as state — no removal of its lines, the file or .craft/.
+# Keep green.
 bash scripts/test-delete-safe.sh
 
 # Autopilot verification — D35: inside an autopilot run, Phase 5 is verified by command, not by the builder's report.
