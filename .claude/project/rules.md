@@ -24,10 +24,11 @@
   bash-4 constructs, and a 3.2 run skips a failing command and carries on green.
   `scripts/statusline-tap.sh` is POSIX `sh` (the user's statusline runs it, like a hook).
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate .`. Twenty-two standalone Bash harnesses cover what is
+  `claude plugin validate .`. Twenty-four standalone Bash harnesses cover what is
   mechanically checkable; keep all green:
   `bash scripts/test-readonly-context.sh` (read-only guard + sync helper, incl.
-  the guard↔helper normalizer agreement),
+  the guard↔helper normalizer agreement and the settings helpers' `GITIGNORED=` verdict for the
+  repository-root `settings.local.json`, also in a subdirectory project),
   `bash scripts/test-workflow-status-graph.sh` — asserts the phase graph declared in
   `skills/workflow/SKILL.md` is closed under both Phase-7 configurations, that the
   commands' `craft:writes` / `craft:reads` markers and the table agree **in both
@@ -36,11 +37,11 @@
   prescription from a prohibition),
   `bash scripts/test-docs-site.sh` (docs site in sync with the plugin surface),
   `bash scripts/test-plugin-cache-drift.sh` (plugin runtime vs. working tree, B2),
-  `bash scripts/test-toolchain-check.sh` (bash/python3 requirement, OS install hints, hook bash),
+  `bash scripts/test-toolchain-check.sh` (bash/python3 requirement, OS install hints, hook bash — informational in /craft:prime —, the status-graph harness's bash-only guard),
   `bash scripts/test-gitignore-sync.sh` (CRAFT local-state gitignore helper, B4),
   `bash scripts/test-handoff-marker-state.sh` (handoff-marker liveness helper + hook, B7; + episodes, B11),
   `bash scripts/test-review-findings-state.sh` (review findings-record parser, B6),
-  `bash scripts/test-execute-resume-state.sh` (execute re-run state + tree-dirt helpers, B8/B14),
+  `bash scripts/test-execute-resume-state.sh` (execute re-run state + tree-dirt helpers incl. the slice-worktree scope, B8/B14/B15),
   `bash scripts/test-plan-landing.sh` (a tracked plan's removal under protected main, B16),
   `bash scripts/test-epic-entry-link.sh` (epic decomposition entry ↔ slice-ID, B12), and
   `bash scripts/test-model-enum.sh` (B17) — the allowed model values are declared once in
@@ -76,12 +77,20 @@
   Plus `bash scripts/test-cache-guard.sh` (slice-060) — the autopilot's cache guard: the `UserPromptSubmit` hook
   `hooks/cache-guard.sh` (every case under `/bin/bash` 3.2 too), the arm / disarm helper `cache-guard-marker.sh`, the
   profile key, and the sites that arm and disarm it.
-  Plus `bash scripts/test-epic-close-state.sh` (slice-061, slice-062) — whether `/craft:commit` may close a finished
-  epic (autopilot or sequential): the helper `epic-close-state.sh` against real git fixtures, the epic archive
-  template, and the sites in `commit.md` / `execute.md` a5 and s5.
+  Plus `bash scripts/test-epic-close-state.sh` (slice-061, slice-062, slice-068) — whether `/craft:commit` may close a finished
+  epic (autopilot or sequential) and whether its close is already in flight (`closing`): the helper
+  `epic-close-state.sh` against real git fixtures, the epic archive template, and the sites in `commit.md`
+  (both passes of the PR path, the close branch) / `execute.md` a5 and s5.
   Plus `bash scripts/test-autopilot-log.sh` (slice-063, B23) — the autopilot log: every
   `## Autopilot Log` line is written by `autopilot-log.sh`, which reads the clock, places the
   line and refuses a slice step before this invocation's `run started` (the lock's `SINCE=`).
+  Plus `bash scripts/test-plan-roundtrip.sh` (slice-067, B15) — parallel worktree mode's plan round trip and slice commit:
+  `plan-roundtrip.sh` (`in` / `back` / `release`, its self-ignored record) against real worktree fixtures, from the
+  hand-in to a landed merge and a removed worktree, in a root and a subdirectory project with and without the CRAFT
+  block, plus the sites in `execute.md`, `commit.md` and `slice-builder.md`.
+  Plus `bash scripts/test-autopilot-briefing.sh` (slice-069, B27) — the autopilot's run-start briefing: the whole
+  block, its "Stops for you at" lines included, is printed by `autopilot-briefing.sh` and relayed unchanged by
+  `/craft:execute` a1 and the plan gate.
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.
