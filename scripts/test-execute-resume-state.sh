@@ -143,25 +143,31 @@ mkdir -p "$W/slice-001-a"
 out="$(run --epic "$EPIC" "$S1")"
 expect "pattern path is a plain directory → conflict" "$out" "SLICE=slice-001" REASON path_taken
 
-# a new worktree is a checkout of its base: the plan must be there, byte-identical (R1-1)
+# a new worktree is a checkout of its base. Since slice-067 a SLICE's plan is handed in by execute step 5
+# (plan-roundtrip.sh in), so the base need not hold it; the EPIC line keeps the guard (R1-1)
 fixture; eplan; splan slice-001 a implementing
 out="$(run --epic "$EPIC" "$S1")"
 expect "plans never committed (ignored) → epic line plan_not_committed" "$out" "EPIC=epic-001" REASON plan_not_committed
-expect "  … and the slice too"                    "$out" "SLICE=slice-001" REASON plan_not_committed
+expect "  … the slice creates (its plan is handed in)"  "$out" "SLICE=slice-001" ACTION create
+expect "  … REASON fresh"                         "$out" "SLICE=slice-001" REASON fresh
 out="$(run "$S1")"
-expect "  … lone slice as well"                   "$out" "SLICE=slice-001" REASON plan_not_committed
+expect "  … lone slice as well"                   "$out" "SLICE=slice-001" ACTION create
+expect "  … REASON fresh (lone slice)"            "$out" "SLICE=slice-001" REASON fresh
 commit_plans
 printf 'edit\n' >> "$P/$S1"
 out="$(run --epic "$EPIC" "$S1")"
-expect "committed plan edited since → slice plan_not_committed" "$out" "SLICE=slice-001" REASON plan_not_committed
-expect "  … the unchanged epic plan still creates" "$out" "EPIC=epic-001" ACTION create
-git -C "$P" add -f "$S1"; git -C "$P" commit -q -m "plan edit"
+expect "committed plan edited since → the slice still creates" "$out" "SLICE=slice-001" ACTION create
+expect "  … the unchanged epic plan creates"      "$out" "EPIC=epic-001" ACTION create
+printf 'edit\n' >> "$P/$EPIC"
+out="$(run --epic "$EPIC" "$S1")"
+expect "  … an epic plan edited since its commit → plan_not_committed" "$out" "EPIC=epic-001" REASON plan_not_committed
+git -C "$P" add -f "$S1" "$EPIC"; git -C "$P" commit -q -m "plan edit"
 out="$(run --epic "$EPIC" "$S1")"
 expect "  … committed → create"                   "$out" "SLICE=slice-001" ACTION create
 epic_worktree
 splan slice-002 b planning; git -C "$P" add -f "$S2"; git -C "$P" commit -q -m "late plan on main"
 out="$(run --epic "$EPIC" "$S1" "$S2")"
-expect "plan committed on main after the epic branch was cut → plan_not_committed" "$out" "SLICE=slice-002" REASON plan_not_committed
+expect "plan committed on main after the epic branch was cut → the slice creates" "$out" "SLICE=slice-002" ACTION create
 expect "  … a plan the epic branch holds creates"  "$out" "SLICE=slice-001" ACTION create
 slice_worktree slice-001-a epic-001-ep
 printf 'status edit\n' >> "$P/$S1"
@@ -582,6 +588,36 @@ expect "  … the main scope would not count it"    "$(dirt --checkout "$W/epic-
 out="$(run --epic "$EPIC" "$S1")"
 expect "  … execute-resume-state.sh judges the epic worktree in that scope" "$out" "EPIC=epic-001" REASON epic_worktree_dirty
 
+# a slice worktree (slice-067): execute step 6 commits the slice's work and nothing of CRAFT's — in a project
+# below the repository root, where some of CRAFT's files sit at the worktree root and some under the prefix
+N=$((N + 1)); SD="$TMP/c$N"; mkdir -p "$SD"
+git init -q -b main "$SD/proj"; mkdir -p "$SD/proj/sub/src"
+printf 'v1\n' > "$SD/proj/sub/src/code.txt"; printf 'old\n' > "$SD/proj/sub/src/old.txt"
+git -C "$SD/proj" add -A; git -C "$SD/proj" commit -q -m init
+git -C "$SD/proj" worktree add -q "$SD/wt" -b slice-001-a main
+SW="$SD/wt"
+sdirt() { (cd "$SD/proj/sub" && CLAUDE_PROJECT_DIR="$SD/proj/sub" bash "$DIRT" --checkout "$SW" --scope slice-worktree "$@" 2>&1); }
+mdirt() { (cd "$SD/proj/sub" && CLAUDE_PROJECT_DIR="$SD/proj/sub" bash "$DIRT" --checkout "$SW" "$@" 2>&1); }
+mkdir -p "$SW/sub/.claude/plans/.closed" "$SW/.craft" "$SW/.claude/plans"
+printf 'p\n' > "$SW/sub/.claude/plans/slice-001-a.md"; printf 'c\n' > "$SW/sub/.claude/plans/.closed/slice-000-z.md"
+printf 'r\n' > "$SW/.craft/plan-roundtrip"; printf 'g\n' > "$SW/.craft/.gitignore"
+printf 'h\n' > "$SW/.craft/handoff.md"; printf 'h\n' > "$SW/.craft/handoff-resolved-2026-10-07T10-00-00Z.md"
+: > "$SW/.claude/plans/.primed"; : > "$SW/.claude/plans/.hook-env"; : > "$SW/.claude/plans/.cache-guard"
+while IFS= read -r p; do
+  case "$p" in */) mkdir -p "$SW/sub/$p"; printf 'x\n' > "$SW/sub/${p}f" ;; *) mkdir -p "$(dirname "$SW/sub/$p")"; printf 'x\n' > "$SW/sub/$p" ;; esac
+done < <(bash "$SCRIPT_DIR/ensure-gitignore.sh" --print-paths)
+expect "slice-worktree scope: CRAFT files are no dirt, slice work is" "$(sdirt)" "" DIRTY no
+expect "  … the main scope counts the worktree-root files (.craft/, .primed) — that is why the scope exists" "$(mdirt)" "" DIRTY yes
+printf 'v2\n' > "$SW/sub/src/code.txt"; printf 'new\n' > "$SW/sub/src/new.txt"; git -C "$SW" rm -q "sub/src/old.txt"
+out="$(sdirt)"
+expect "  … a changed, a new and a deleted code file are dirt" "$out" "" DIRTY yes
+{ printf '%s\n' "$out" | grep -qxF 'DIRT= M sub/src/code.txt' && printf '%s\n' "$out" | grep -qxF 'DIRT=?? sub/src/new.txt' && printf '%s\n' "$out" | grep -qxF 'DIRT=D  sub/src/old.txt'; } \
+  && ok "  … each named on a DIRT line, by repository-relative path" || bad "  … DIRT lines: $(printf '%s' "$out" | tr '\n' '|')"
+[[ "$(printf '%s\n' "$out" | grep -c '^DIRT=')" == 3 ]] && ok "  … and nothing else (3 DIRT lines, CRAFT's files stay out)" || bad "  … more than the three code changes counted: $(printf '%s' "$out" | tr '\n' '|')"
+out="$(cd "$SD/proj/sub" && CLAUDE_PROJECT_DIR="$SD/proj/sub" /bin/bash "$DIRT" --checkout "$SW" --scope slice-worktree 2>&1)"
+{ [[ "$out" == *DIRTY=yes* ]] && ! grep -qE 'syntax error|command not found|unbound variable|bad substitution|line [0-9]+:' <<<"$out"; } \
+  && ok "  … a /bin/bash run of the new scope prints no shell error (the helper stays bash-3.2-compatible)" || bad "  … /bin/bash run: $(printf '%s' "$out" | tr '\n' '|')"
+
 # doubt means dirt: without the list the helper errors, and execute-resume-state.sh counts that as dirt
 fixture; splan slice-001 a planning
 mkdir -p "$TMP/lonely"; cp "$DIRT" "$HELPER" "$TMP/lonely/"
@@ -627,6 +663,11 @@ grep -qF 'git commit -m "…" -- <files>' <<<"$step5b" && ok "  … with a paths
 step7="$(awk '/^### Step 7 /{f=1} /^### Step 7b/{f=0} f' "$REPO_ROOT/commands/commit.md")"
 { grep -qF 'git rm -f' <<<"$step7" && grep -qF '"chore(plans): close slice-<NNN>" -- <plan paths>' <<<"$step7"; } \
   && ok "commands/commit.md Step 7 removes a tracked plan with git rm -f and commits it with a pathspec" || bad "commands/commit.md Step 7: tracked plan removal lacks -f or the pathspec commit"
+
+# slice-067: the plan guard is epic-only, and step 1c says so
+step1c_pin="$(awk '/^### 1c\./{f=1} /^### 2\./{f=0} f' "$EXECUTE")"
+{ [[ "$step1c_pin" == *plan_not_committed* ]] && [[ "$step1c_pin" == *'epic line'* ]] && [[ "$step1c_pin" != *'a new worktree is a checkout of its base, so an uncommitted, ignored or edited plan would reach'* ]]; } \
+  && ok "commands/execute.md step 1c names plan_not_committed for the epic line only" || bad "commands/execute.md step 1c still gives plan_not_committed to a slice (or never says it is an epic-line reason)"
 
 # the commands judge "clean" through the helper, never by a porcelain call of their own
 for cmd in execute commit release; do
