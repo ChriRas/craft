@@ -15,12 +15,11 @@
 | 4 | B18 | Fix | small | Handoff-answer record (slice-042 R1-15): a resume records no answer to the handoff's question, so a subagent re-run — an autopilot re-run in particular — meets it again. Deferred by slice-049: build it when a real autopilot run shows a question that repeats (Phase-5 answers already live in `Status:`) |
 | 5 | B15 | Fix | slice | Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
 | 6 | B20 | Fix | small | Parallel worktree mode removes its checkpoint record once a slice is merged (`commands/execute.md` step 9: "delete its lines, and the file and an empty `.craft/` with them") — a user rule that denies or asks on removing files refuses it too (D34); keep it as state or close it through `close-file.sh` (slice-050 follow-up) |
-| 7 | B17 | Fix | small | Settings helpers in a subdirectory project write the repo-root `settings.local.json` but report the project-dir `GITIGNORED` verdict (slice-039 R1-13) |
-| 8 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
-| 9 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
-| 10 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
-| 11 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
-| 12 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
+| 7 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
+| 8 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
+| 9 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
+| 10 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
+| 11 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
 
 ## Notes per item
 
@@ -29,6 +28,18 @@ Autopilot Mode`); every decomposition entry has a slice. The 2.0.0 release (rule
 2.0.0) is **deliberately not cut yet** — the user has a few more things to do first. No version bump, push or tag until
 the user says so; nothing is pushed yet. Still owed from slice-060: human test (c) part B (real idle ≥ 1 h) and the
 follow-ups R1-1 / R1-2 (archive → Follow-ups).
+
+**B17 shipped with slice-065 (2026-10-07)** — the settings helpers (`ensure-readonly-context.sh`,
+`ensure-worktree-trust.sh`) ask `ensure-gitignore.sh --verdict` from the repository root, so `GITIGNORED=` judges the
+`settings.local.json` they write, also in a subdirectory project, and `/craft:execute`'s `GITIGNORED=no` line names that
+file. Follow-up candidates, not built: (1) `ensure-gitignore.sh`'s CRAFT local-state path
+`.claude/settings.local.json` is anchored to the project dir, so `/craft:prime` 4f and `/craft:onboard` cover a file
+Claude Code ≥ 2.1.211 no longer uses in a subdirectory project, and never the repo-root one — a design decision about
+the block's anchoring; (2) `ensure-readonly-context.sh` reads `rules.md` at the repository root while the guard
+(`hooks/readonly-context-guard.sh`) reads it at the project dir, so the two can disagree on the declared connected
+projects in a subdirectory project; (3) exceptions to the repo-root settings file — a linked git worktree (Claude Code
+uses the main checkout's root file, the helpers take the worktree root) and the docs' other cases (repository root =
+home directory, foreign ownership, Windows).
 
 **B5 shipped with slice-064 (2026-10-07)** — `/craft:prime` shows a hook bash older than the Bash tool's as an
 informational `· Hook bash:` line (the helper's `HOOK_REMEDY` says CRAFT's hooks are bash-3.2-compatible and unaffected;
@@ -77,7 +88,7 @@ human), and `/craft:prime` hints a copy-ready cleanup command. Details and known
 move as the third; a rule for `rm -r` followed by a space does not match `-rf` or `-fr`, so tier 1 needs several patterns
 and a test.
 
-**B15, B17 — follow-ups from slice-039** (B16 shipped with slice-040). Details in
+**B15 — follow-up from slice-039** (B16 shipped with slice-040, B17 with slice-065). Details in
 `.claude/project/slices/slice-039-b9-b10-b13-b14-tree-hygiene.md` → Follow-ups and Known limits. B15 is what parallel
 worktree mode needs before anyone relies on it — no longer an F6 prerequisite, since the autopilot builder works in place.
 

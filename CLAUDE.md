@@ -30,7 +30,9 @@ claude plugin validate .
 # asserts that the guard's normalize_path and the helper's os.path.normpath agree,
 # which is the only thing keeping the two implementations from drifting. It also asserts that this
 # helper and scripts/ensure-worktree-trust.sh take the settings file's GITIGNORED= verdict from
-# scripts/ensure-gitignore.sh and never write .gitignore themselves. Keep green.
+# scripts/ensure-gitignore.sh and never write .gitignore themselves; the verdict covers the repository-root
+# .claude/settings.local.json (the file they write), also in a project that sits in a subdirectory of its
+# repository, and execute.md's GITIGNORED=no line is pinned to name that file. Keep green.
 bash scripts/test-readonly-context.sh
 
 # Workflow phase-transition graph — the Status graph declared in skills/workflow/SKILL.md
