@@ -22,6 +22,15 @@
 #                            entry such as .craft/ is not excluded wholesale) and execute's
 #                            checkpoint record .craft/checkpoints.md at the worktree root. Plans
 #                            stay dirt here: slice branches are merged into this checkout.
+#                            Since slice-066 step 9 writes a .craft/.gitignore next to the record, which hides
+#                            both from git; this exclusion stays for a record written before that, without it.
+#   --scope slice-worktree   a slice worktree (slice-067) — what /craft:execute step 6 commits before the
+#                            read-back: the slice's work. Everything --scope main excludes (the local-state
+#                            list and .claude/plans/, anchored at the project dir's prefix), plus what sits at
+#                            the WORKTREE root whatever the project dir is: .craft/ (the handoff marker, the
+#                            plan round-trip record) and every local-state path of that list (execute step 5 seeds
+#                            .claude/plans/.primed there, a session started there writes .claude/plans/.hook-env —
+#                            not below a subdirectory project's prefix). Any other change is the slice's.
 #
 #   --checkout <dir>         The checkout to judge. Default: the repository root of the project dir.
 #
@@ -52,7 +61,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "ERROR=unknown_argument:$1" >&2; exit 2 ;;
   esac
 done
-[[ "${SCOPE}" == "main" || "${SCOPE}" == "epic-worktree" ]] || { echo "ERROR=invalid_scope:${SCOPE}" >&2; exit 2; }
+[[ "${SCOPE}" == "main" || "${SCOPE}" == "epic-worktree" || "${SCOPE}" == "slice-worktree" ]] || { echo "ERROR=invalid_scope:${SCOPE}" >&2; exit 2; }
 
 PROJECT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 cd "${PROJECT}" 2>/dev/null || { echo "ERROR=project_dir_unreachable:${PROJECT}" >&2; exit 3; }
@@ -69,11 +78,16 @@ while IFS= read -r p; do
   [[ -n "$p" ]] || continue
   if [[ "${SCOPE}" == "epic-worktree" && "$p" == */ ]]; then continue; fi
   set -- "$@" ":(top,exclude)${REL}${p%/}"
+  # a slice worktree also holds CRAFT's local state at the worktree ROOT whatever the project dir is — a session
+  # started there writes .claude/plans/.hook-env, execute step 5 seeds .claude/plans/.primed
+  if [[ "${SCOPE}" == "slice-worktree" && -n "${REL}" ]]; then set -- "$@" ":(top,exclude)${p%/}"; fi
 done <<EOF
 ${PATHS}
 EOF
 if [[ "${SCOPE}" == "main" ]]; then
   set -- "$@" ":(top,exclude)${REL}.claude/plans"
+elif [[ "${SCOPE}" == "slice-worktree" ]]; then
+  set -- "$@" ":(top,exclude)${REL}.claude/plans" ':(top,exclude).craft'
 else
   set -- "$@" ':(top,exclude).craft/checkpoints.md'
 fi

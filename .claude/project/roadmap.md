@@ -10,18 +10,12 @@
 | # | ID | Type | Size | Item |
 |---|----|------|------|------|
 | 1 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
-| 2 | B27 | Fix | small | Autopilot a1 briefing content (slice-063's Phase-5 probe): `autopilot-log.sh`'s gate holds that a1 runs on every invocation, but the probe's master printed the briefing without its "Stops for you at: …" lines — print the block from a helper the master only relays, as `epic-digest.sh` does for a5 |
-| 3 | B25 | Fix | small | Closing an epic on the PR path (slice-061 / slice-062, D37 / D38) — an autopilot epic, and since slice-062 a sequential one, whose archive commit E3 refuses under protected main: under `pull-request` + `Protected-main: yes` a5 `[Y]` only opens the PR, and `/craft:commit`'s Epic-close mode stops at `STATE=pr-path` / E3 — the archive commit may not land on the trunk directly. Needs Epic-finalize's two passes: archive + decisions into the open PR, then `plan-landing.sh sync` after the merge |
-| 4 | B18 | Fix | small | Handoff-answer record (slice-042 R1-15): a resume records no answer to the handoff's question, so a subagent re-run — an autopilot re-run in particular — meets it again. Deferred by slice-049: build it when a real autopilot run shows a question that repeats (Phase-5 answers already live in `Status:`) |
-| 5 | B15 | Fix | slice | Parallel worktree mode needs the plan round-trip: hand the plan in, read its status back — slice-builder writes the plan status only into the worktree copy, so `/craft:commit` never detects a Slice-finalize, even for committed plans; a never-committed plan now stops at `plan_not_committed` (slice-039 R2-7) |
-| 6 | B20 | Fix | small | Parallel worktree mode removes its checkpoint record once a slice is merged (`commands/execute.md` step 9: "delete its lines, and the file and an empty `.craft/` with them") — a user rule that denies or asks on removing files refuses it too (D34); keep it as state or close it through `close-file.sh` (slice-050 follow-up) |
-| 7 | B17 | Fix | small | Settings helpers in a subdirectory project write the repo-root `settings.local.json` but report the project-dir `GITIGNORED` verdict (slice-039 R1-13) |
-| 8 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
-| 9 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
-| 10 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
-| 11 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
-| 12 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
-| 13 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
+| 2 | B18 | Fix | small | Handoff-answer record (slice-042 R1-15): a resume records no answer to the handoff's question, so a subagent re-run — an autopilot re-run in particular — meets it again. Deferred by slice-049: build it when a real autopilot run shows a question that repeats (Phase-5 answers already live in `Status:`) |
+| 3 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
+| 4 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
+| 5 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
+| 6 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
+| 7 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
 
 ## Notes per item
 
@@ -29,7 +23,57 @@
 Autopilot Mode`); every decomposition entry has a slice. The 2.0.0 release (rules.md → Deployment: autopilot ships as
 2.0.0) is **deliberately not cut yet** — the user has a few more things to do first. No version bump, push or tag until
 the user says so; nothing is pushed yet. Still owed from slice-060: human test (c) part B (real idle ≥ 1 h) and the
-follow-ups R1-1 / R1-2 (archive → Follow-ups).
+follow-ups R1-1 / R1-2 (archive → Follow-ups). Also owed before the cut: B25's human test on a scratch GitHub repo (see
+the B25 note below).
+
+**B27 shipped with slice-069 (2026-10-07)** — the autopilot's run-start briefing is printed by
+`scripts/autopilot-briefing.sh` (the whole block, its "Stops for you at" lines included); `/craft:execute` a1 and the plan
+gate only relay it unchanged, a helper error stops a1 (`⛔ … briefing failed`) and is one `⚠` line at the gate. Slice states
+come from `execute-resume-state.sh`; the order puts a resume slice first, then topological by `Depends-On`, ties in
+decomposition order (s1 states the same tie-break). `scripts/test-autopilot-briefing.sh` covers it.
+
+**B25 shipped with slice-068 (2026-10-07)** — D39: under `pull-request` + `Protected-main: yes`, `/craft:commit`'s
+Epic-close mode closes a finished epic in two passes. The first commits the decisions, the epic archive and the epic
+plan's removal (`plan-landing.sh close --keep-copy`) on the branch the PR carries — the epic branch a5's PR left, or, for
+a sequential epic and for an autopilot epic whose PR merged first, a close branch `<epic-id>-<slug>-close` cut from the
+synced trunk with a close PR of its own — and sets the epic plan to `Status: awaiting-approval`; the second, after the
+GitHub approval, is Step 6's second invocation (`gh pr merge --merge`, never `--admin`), `plan-landing.sh sync`,
+`git branch -d` and Step 7b. `epic-close-state.sh` reads the plan at `awaiting-approval` as `STATE=closing` and a merged
+`PR #<N> opened` epic as `closable`. a5's PR hand-over says to run `/craft:commit` first, then approve. Shown by
+`scripts/test-epic-close-state.sh` (helper fixtures and pinned prose) only; the real effect on GitHub is not.
+**Still owed before the 2.0.0 cut: a human test on a scratch GitHub repo with a protected trunk — an autopilot epic
+closed through its open PR (first pass, approve, second pass), an autopilot epic whose PR merged first, and a sequential
+epic, both through the close branch's PR.** Known limits: a squash or rebase merge of the epic's PR leaves no merge
+commit for the helper to find, so the epic stays `pr-path`; a push after an approval can dismiss it, hence the order.
+
+**B15 shipped with slice-067 (2026-10-07)**, including the worktree commit gap it uncovered — in parallel worktree mode
+nothing ever committed in a slice worktree. `/craft:execute` step 5 hands the main checkout's plan into every new worktree
+(`scripts/plan-roundtrip.sh in`, a record that hides itself through `.craft/.gitignore`), so a slice's plan needs no commit
+and `plan_not_committed` is an epic-line reason only; step 6 commits the slice's work on its branch
+(`tree-dirt-state.sh --scope slice-worktree`), reads the plan back (`back`) and only then merges or stashes; `/craft:commit`
+A3 checks the slice worktrees, and Step 7 releases the handed-in copy (`release`, which also hides CRAFT's own files at the worktree: the `.primed` seed, `.hook-env`, a resolved handoff marker) before `git worktree remove`. Open
+follow-ups, not built: (2) Epic-finalize — `/craft:commit` A1 accepts exactly one plan at `committing`, so a parallel epic
+with N read-back slices still aborts there, and Mode Detection can match the epic worktree and a slice worktree at once;
+(3) `/craft:abort` and `/craft:worktree-clean` still refuse a worktree that holds the handed-in plan, as they do for any
+uncommitted work; (4) the epic line keeps `plan_not_committed` — a never-committed epic plan still stops a parallel epic;
+(5) execute step 5 seeds `.primed` at the worktree root, not below a subdirectory project's prefix.
+
+**B17 shipped with slice-065 (2026-10-07)** — the settings helpers (`ensure-readonly-context.sh`,
+`ensure-worktree-trust.sh`) ask `ensure-gitignore.sh --verdict` from the repository root, so `GITIGNORED=` judges the
+`settings.local.json` they write, also in a subdirectory project, and `/craft:execute`'s `GITIGNORED=no` line names that
+file. Follow-up candidates, not built: (1) `ensure-gitignore.sh`'s CRAFT local-state path
+`.claude/settings.local.json` is anchored to the project dir, so `/craft:prime` 4f and `/craft:onboard` cover a file
+Claude Code ≥ 2.1.211 no longer uses in a subdirectory project, and never the repo-root one — a design decision about
+the block's anchoring; (2) `ensure-readonly-context.sh` reads `rules.md` at the repository root while the guard
+(`hooks/readonly-context-guard.sh`) reads it at the project dir, so the two can disagree on the declared connected
+projects in a subdirectory project; (3) exceptions to the repo-root settings file — a linked git worktree (Claude Code
+uses the main checkout's root file, the helpers take the worktree root) and the docs' other cases (repository root =
+home directory, foreign ownership, Windows).
+
+**B5 shipped with slice-064 (2026-10-07)** — `/craft:prime` shows a hook bash older than the Bash tool's as an
+informational `· Hook bash:` line (the helper's `HOOK_REMEDY` says CRAFT's hooks are bash-3.2-compatible and unaffected;
+`STATUS=hook-mismatch` / exit 10 are unchanged), and the status-graph harness's guard aborts only on `BASH=too-old`, with
+a focused message — a missing python3 no longer stops it. `scripts/test-toolchain-check.sh` covers both.
 
 **B23 shipped with slice-063 (2026-10-07)** — every `## Autopilot Log` line is written by `scripts/autopilot-log.sh`
 (the helper's clock, placement and landed check; a slice step refused before this invocation's `run started`, keyed to
@@ -43,7 +87,7 @@ hand-worked epic too — `/craft:execute` s5 hands over to `/craft:commit` like 
 
 **B24 shipped with slice-061 (2026-10-06)** — D37: after a5 `[Y]` (`direct`), `/craft:commit`'s Epic-close mode (named Autopilot-epic-close until slice-062)
 walks the epic decisions, writes and commits the epic archive, closes the epic plan and deletes the merged epic branch;
-`scripts/epic-close-state.sh` decides whether an epic is ready. The PR path is **B25**.
+`scripts/epic-close-state.sh` decides whether an epic is ready. The PR path shipped as B25 (see its note above).
 
 **F9 shipped with slice-059 (2026-10-06).** `/craft:prime` step 4h and `/craft:onboard` offer to wire the statusline tap
 the budget guard reads (`scripts/ensure-statusline-tap.sh`, D36: only on a yes, with a backup, reversible). Its follow-up
@@ -69,13 +113,9 @@ files. Closed plans move into the read-blocked `.claude/plans/.closed/` when suc
 confirmation), a helper never deletes, the execute lock carries its state (a lock this very session holds goes to the
 human), and `/craft:prime` hints a copy-ready cleanup command. Details and known limits in
 `.claude/project/slices/slice-050-b19-delete-safe-cleanup.md`. Its follow-up — parallel mode's checkpoint removal — is
-**B20**. Still the user's own settings work: three tiers — recursive removal denied, single-file removal on `ask`, CRAFT's
+**shipped with slice-066** (the record stays as append-only state, hidden by a nested `.craft/.gitignore`). Still the user's own settings work: three tiers — recursive removal denied, single-file removal on `ask`, CRAFT's
 move as the third; a rule for `rm -r` followed by a space does not match `-rf` or `-fr`, so tier 1 needs several patterns
 and a test.
-
-**B15, B17 — follow-ups from slice-039** (B16 shipped with slice-040). Details in
-`.claude/project/slices/slice-039-b9-b10-b13-b14-tree-hygiene.md` → Follow-ups and Known limits. B15 is what parallel
-worktree mode needs before anyone relies on it — no longer an F6 prerequisite, since the autopilot builder works in place.
 
 **B21 — slice-056 (2026-10-01).** The autopilot no longer stops at Phase 7: candidates become fixed-prefix decision lines,
 carried into the archive and read into the a5 digest by command. The missing `⛔` line did **not** reproduce (probe run 2

@@ -36,14 +36,20 @@
 #                                                                  conflict  worktree_missing
 #     the pattern path is a worktree on another branch / detached  conflict  worktree_foreign_branch
 #     the pattern path exists                                      conflict  path_taken
-#     the worktree would be created, but its base (the epic branch, else the trunk) does not hold
-#       the plan byte-identical — untracked, ignored, modified, or not yet in the epic branch;
-#       slice-builder would build a stale plan, or none                conflict  plan_not_committed
 #     otherwise                                                    create    fresh
-#   The epic line (--epic) runs the worktree rows above for the epic branch (its base is the trunk);
+#   A slice's plan is no condition of its creation since slice-067: /craft:execute step 5 hands the main
+#   checkout's plan into the new worktree (scripts/plan-roundtrip.sh in), so an untracked, ignored or edited
+#   plan reaches slice-builder as it is. (It used to be a conflict, plan_not_committed, when the base did not
+#   hold the plan byte-identical.)
+#   The epic line (--epic) runs the worktree rows above for the epic branch (its base is the trunk), and keeps
+#   the plan guard — the epic worktree's copy of the epic plan is the one plan-landing.sh acts on, and nothing
+#   hands it in:
+#     the epic worktree would be created, but the trunk does not hold the epic plan byte-identical —
+#       untracked, ignored or modified                              conflict  plan_not_committed
 #   an existing epic worktree is not reused while
 #     a merge is unfinished in it (MERGE_HEAD)                     conflict  epic_merge_in_progress
-#     it has uncommitted changes (its step-9 record .craft/checkpoints.md at the worktree root aside)
+#     it has uncommitted changes (its step-9 record .craft/checkpoints.md at the worktree root aside —
+#     since slice-066 self-ignored through .craft/.gitignore; the exclusion covers an older record without it)
 #                                                                  conflict  epic_worktree_dirty
 #
 #   sequential, per slice, first match wins:
@@ -64,7 +70,8 @@
 #     pull-request, a slice in flight, current branch ≠ its branch; or direct / nothing in
 #       flight, current branch ≠ trunk                             run-wide  conflict  wrong_branch
 #   Dirt is what scripts/tree-dirt-state.sh reports: CRAFT's local state and plans never count
-#   (--scope main), in an epic worktree its local-state files and checkpoint record do not.
+#   (--scope main), in an epic worktree its local-state files and checkpoint record do not
+#   (the record is append-only state that goes with the worktree; slice-066).
 #   Once every slice in flight is itself a conflict (multiple_open, branch_missing), no run-wide
 #   reason is added — the tree's changes may be that slice's, and its line names the fix.
 #
@@ -341,8 +348,7 @@ worktree_decision() { # branch id slug
 yn() { "$@" && printf yes || printf no; }
 
 # does <base-ref> hold <plan> byte-identical to the working file? A fresh worktree is a checkout of
-# that base, so this is the plan slice-builder will read there (B14 excludes plans from dirt, so A3
-# no longer forces them to be committed).
+# that base. Only the epic line asks since slice-067 (a slice's plan is handed in, not read from the base).
 plan_in_base() { # plan-file base-ref
   local dir rel blob
   dir="$(cd "$(dirname "$1")" 2>/dev/null && git rev-parse --show-prefix 2>/dev/null)" || return 1
@@ -406,9 +412,6 @@ for entry in "${RESOLVED[@]}"; do
         elif [[ "${merged}" == "yes" ]]; then action="skip"; reason="merged"
         else
           read -r action reason wt <<<"$(worktree_decision "${branch}" "${id}" "${slug}")"
-          base="refs/heads/${TRUNK}"
-          [[ -n "${EPIC_BRANCH}" ]] && branch_exists "${EPIC_BRANCH}" && base="refs/heads/${EPIC_BRANCH}"
-          if [[ "${action}" == "create" ]] && ! plan_in_base "${val}" "${base}"; then action="conflict"; reason="plan_not_committed"; fi
         fi
       else
         if [[ "${OPEN_STATUSES}" == *" ${status} "* ]]; then action="resume"; reason="open"

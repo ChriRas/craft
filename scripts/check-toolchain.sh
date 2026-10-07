@@ -37,7 +37,7 @@
 #   HOOK_REMEDY=<text>                                   only when HOOK_BASH=too-old
 #   STATUS=ok|hook-mismatch|missing-tools
 #
-# Exit codes: 0 ok · 10 hook-mismatch only (warn, do not abort) · 20 missing-tools (abort)
+# Exit codes: 0 ok · 10 hook-mismatch only (informational, do not abort) · 20 missing-tools (abort)
 # · 2 usage error. Read-only: never writes anything.
 #
 # Test-only overrides (used by scripts/test-toolchain-check.sh, never set in normal use):
@@ -278,7 +278,7 @@ if [[ "$hook_status" == "too-old" ]]; then
   [[ -n "${BASH:-}" && "$BASH" == */* ]] && bash_dir="${BASH%/*}"
   # The record is written by the SessionStart hook per project folder: it is as old as this
   # session's start, and the last session started in this folder wins.
-  echo "HOOK_REMEDY=hooks started this session with ${hook_path:-bash} ${hook_version} (this shell: bash ${bash_version}). CRAFT's own hooks are 3.2-compatible and unaffected; only scripts a hook runs would get the old bash. To align: start Claude Code from a terminal, or add \"env\": {\"PATH\": \"<the literal output of echo \$PATH in a terminal, never \$PATH>\"} to ~/.claude/settings.json with ${bash_dir} first, then restart — the record is rewritten at every session start"
+  echo "HOOK_REMEDY=informational — CRAFT's hooks and the scripts they call are bash-3.2-compatible and unaffected; only other hooks (your own, or other plugins') would run with this bash: hooks started this session with ${hook_path:-bash} ${hook_version} (this shell: bash ${bash_version}). To align: start Claude Code from a terminal, or add \"env\": {\"PATH\": \"<the literal output of echo \$PATH in a terminal, never \$PATH>\"} to ~/.claude/settings.json with ${bash_dir} first, then restart — the record is rewritten at every session start"
   echo "STATUS=hook-mismatch"
   exit 10
 fi

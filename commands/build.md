@@ -176,6 +176,6 @@ On clean Phase-4 completion (all sub-tasks checked, tests green), Subagent Mode 
 
 - It does **not** plan. If sub-tasks are missing, run `/craft:plan` first.
 - It does **not** run user-facing tests (Phase 5). Automated tests in Phase 4 run silently as part of implementation.
-- It does **not** commit. Phase 9 / `/craft:commit` does that.
+- It does **not** commit. Phase 9 / `/craft:commit` does that — and in a slice worktree `/craft:execute` step 6, which commits the worktree's work on the slice branch once the slice clears review.
 - It does **not** refactor speculatively. Phase 7 / `/craft:refactor` is the refactor seat.
 - It does **not** edit `intent.md` or `rules.md`. Decisions surfaced during implementation go into the slice plan's `## Decisions Made During This Slice` section for Phase 9 promotion.

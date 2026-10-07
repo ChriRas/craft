@@ -587,6 +587,18 @@ done
   && ! grep -q 'or on graceful abort' "$CMDS/execute.md"; } \
   && ok "execute.md releases only a lock this invocation took — an A4 abort releases nothing" || bad "execute.md abort release rule"
 
+# slice-066 (B20): the review-checkpoint record is append-only state — CRAFT never deletes its lines, the file or .craft/
+# (D34). Matched on the old clause and on any remove / delete verb within a short span of the record's name.
+step9="$(awk '/^### 9\./{f=1} /^### 10\./{f=0} f' "$CMDS/execute.md")"
+# the span may cross a path's dots (`.craft/checkpoints.md`), not a sentence's end
+step9_verbs="$(grep -n -i -E '(delet|remov|unlink|\brm\b)([^.]|\.[A-Za-z_/]){0,60}checkpoints\.md|checkpoints\.md([^.]|\.[A-Za-z_/]){0,60}(delet|remov|unlink|\brm\b)' <<<"$step9" || true)"
+{ [[ -n "$step9" ]] \
+  && ! grep -q -F -e 'delete its lines' -e 'an empty `.craft/` with them' <<<"$step9" \
+  && [[ -z "$step9_verbs" ]] \
+  && grep -q -F 'append-only state' <<<"$step9"; } \
+  && ok "execute.md step 9 keeps the checkpoint record as state" \
+  || bad "execute.md step 9 keeps the checkpoint record as state — old clause, a removal verb near checkpoints.md ($step9_verbs) or no 'append-only state'"
+
 # The pinned set of close sites: a new one is added here deliberately.
 EXPECTED_SITES="commands/abort.md commands/commit.md"
 sites="$(cd "$REPO" && grep -rl 'craft:close-file' commands agents skills 2>/dev/null | sort | tr '\n' ' ' | sed 's/ $//')"

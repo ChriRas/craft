@@ -30,7 +30,9 @@ claude plugin validate .
 # asserts that the guard's normalize_path and the helper's os.path.normpath agree,
 # which is the only thing keeping the two implementations from drifting. It also asserts that this
 # helper and scripts/ensure-worktree-trust.sh take the settings file's GITIGNORED= verdict from
-# scripts/ensure-gitignore.sh and never write .gitignore themselves. Keep green.
+# scripts/ensure-gitignore.sh and never write .gitignore themselves; the verdict covers the repository-root
+# .claude/settings.local.json (the file they write), also in a project that sits in a subdirectory of its
+# repository, and execute.md's GITIGNORED=no line is pinned to name that file. Keep green.
 bash scripts/test-readonly-context.sh
 
 # Workflow phase-transition graph — the Status graph declared in skills/workflow/SKILL.md
@@ -62,7 +64,9 @@ bash scripts/test-plugin-cache-drift.sh
 # compares the bash the SessionStart hook recorded in .claude/plans/.hook-env. /craft:prime runs
 # it in pre-flight. The harness drives every platform via test-only overrides and runs the hook
 # under /bin/bash (3.2 on macOS) — hooks/, this helper, the handoff-marker helper the hook calls and the
-# review-findings parser that helper calls must stay bash-3.2-compatible. Keep green.
+# review-findings parser that helper calls must stay bash-3.2-compatible. It also pins prime's hook-bash line
+# (informational `·`, never `⚠`) and the status-graph harness's guard (stops only for a too-old bash, never for
+# a missing python3). Keep green.
 bash scripts/test-toolchain-check.sh
 
 # Local-state gitignore helper — scripts/ensure-gitignore.sh decides, via git check-ignore, whether
@@ -103,10 +107,31 @@ bash scripts/test-review-findings-state.sh
 # worktree or path, a dirty tree or wrong branch nothing accounts for). /craft:execute step 1c calls it
 # before anything is created. Covers real git fixtures, the ancestor trap, both landings, an autopilot run's
 # epic branch passed as the trunk (slice-049 — no helper change, the sequential rows answer it), and that
-# commands/execute.md handles every ACTION value. Also covers scripts/tree-dirt-state.sh: CRAFT's plans,
+# commands/execute.md handles every ACTION value. Since slice-067 (B15) the plan guard `plan_not_committed` is
+# epic-line only: a slice's plan is handed into its worktree (plan-roundtrip.sh, below), so a slice whose plan is
+# untracked, ignored or edited since its commit reads `create`. Also covers scripts/tree-dirt-state.sh: CRAFT's plans,
 # counters and local state are no dirt for /craft:execute A3, /craft:commit and the re-run, and those
-# commands judge the tree only through it. Keep green.
+# commands judge the tree only through it. Since slice-066 (B20) it also runs `git worktree remove` for real on an
+# epic worktree holding step 9's checkpoint record: the record, kept as state and self-ignored through its nested
+# .craft/.gitignore (also under a project's `!.craft/` negation), lets the removal succeed, while a bare record
+# still blocks it and any other file under .craft/ still is dirt; execute.md step 9 is pinned to those two lines.
+# Its `--scope slice-worktree` (slice-067) also counts neither `.craft/` nor any local-state path of that list at the
+# worktree root (the seeded `.claude/plans/.primed`, a session's `.hook-env`) — in a subdirectory project too — and is
+# what /craft:execute step 6 commits from. Keep green.
 bash scripts/test-execute-resume-state.sh
+
+# Plan round trip — scripts/plan-roundtrip.sh (slice-067, B15) is parallel worktree mode's plan hand-in (`in`, step 5),
+# read-back (`back`, step 6, only at `committing`, after step 6 committed the slice's work on its branch) and release
+# (`release`, /craft:commit Step 7, before `git worktree remove`). A record in <worktree>/.craft/plan-roundtrip keeps any
+# copy nobody read from being overwritten (a conflict, never a write) and hides itself through <worktree>/.craft/.gitignore
+# (the pattern of slice-066's checkpoint record); no removal command lives in the helper (D34). Covers real worktree
+# fixtures from the hand-in to a landed `git merge --no-ff` and a removed worktree — in a root project with the CRAFT
+# block, one without a `.craft/` ignore, one without any .gitignore and a subdirectory project with and without the
+# block, the last three after a planted Phase-5 handoff (a resolved marker and `.hook-env` at the worktree root, which
+# `release` hides; on a conflict it hides nothing) — the premise cases (a bare record, a bare `.closed/` copy, a bare
+# `.primed` seed and a resolved marker each block `git worktree remove`), the hand-in on a reused worktree without a
+# record, and the pinned sites in execute.md, commit.md and slice-builder.md. Keep green.
+bash scripts/test-plan-roundtrip.sh
 
 # Tracked plan landing — scripts/plan-landing.sh takes a tracked slice plan off the trunk under
 # pull-request + Protected-main: `close` commits the plan's removal on the PR branch (by pathspec — a
@@ -180,7 +205,9 @@ bash scripts/test-model-enum.sh
 # owner = CLAUDE_PID + start time) with one fixed takeover rule. Covers the rule matrix, move / collision /
 # refusal cases, every lock state incl. legacy locks, the guard's read block on .closed/ under bash 5 and
 # /bin/bash 3.2, that no scanner sees .closed/, the pinned close sites (commit.md, abort.md) with no
-# agent-issued rm left in the prose, and prime's cleanup hint (run for real on a fixture). Keep green.
+# agent-issued rm left in the prose, and prime's cleanup hint (run for real on a fixture). Since slice-066 (B20) it
+# also pins that execute.md step 9 keeps the checkpoint record as state — no removal of its lines, the file or .craft/.
+# Keep green.
 bash scripts/test-delete-safe.sh
 
 # Autopilot verification — D35: inside an autopilot run, Phase 5 is verified by command, not by the builder's report.
@@ -246,17 +273,20 @@ bash scripts/test-statusline-wiring.sh
 # stale age), the hooks.json registration, and the sites in commands/execute.md that arm and disarm (markers). Keep green.
 bash scripts/test-cache-guard.sh
 
-# Epic close — scripts/epic-close-state.sh (slice-061 / slice-062, B24 / B26, D37 / D38) decides whether /craft:commit's
-# Epic-close mode can close an epic now. KIND=autopilot: its ## Autopilot Log's last ■ line is a5's `merged into <trunk>`;
+# Epic close — scripts/epic-close-state.sh (slice-061 / 062 / 068, B24 / B26 / B25, D37 / D38 / D39) decides whether
+# /craft:commit's Epic-close mode can close an epic now. KIND=autopilot: its ## Autopilot Log's last ■ line is a5's
+# `merged into <trunk>`, or `PR #<N> opened` once the trunk holds that PR's merge (pr-path until then — the close rides on
+# the open PR; a plan at `Status: awaiting-approval` reads `closing`, its close PR open);
 # KIND=sequential (no autopilot log — a sequential run or a hand-worked epic): no a5 answer needed. Both: every
 # decomposition entry landed (epic-entry-link.sh resolve), and an epic branch, if any, is merged — a merge commit on the
 # trunk with the branch tip as a non-first parent (the ancestor trap: a branch without own commits is no merge), or, an
-# autopilot branch gone, a5's merge subject. Covers real git fixtures for every STATE (closable, not-signed-off incl.
-# run_stopped, not-merged incl. another trunk, pr-path, entries-open, branch-unmerged, malformed) in both kinds, the last
+# autopilot branch gone, a5's merge subject or GitHub's `Merge pull request #<N> from …` subject. Covers real git fixtures for every STATE (closable, not-signed-off incl.
+# run_stopped, not-merged incl. another trunk, pr-path, closing, entries-open, branch-unmerged, malformed) in both kinds, the last
 # answer winning, ■ lines in a fence / outside the log / of another epic, CRLF, scan mode, errors, that it writes nothing,
 # the epic archive template (templates/epic-archive.md.template: its sections and frontmatter keys, no ## Commits), and the
-# pinned sites in commands/commit.md (the template in Step 5, Epic-close and P3) and execute.md a5 and s5 — and that no
-# shipped file still names the mode by its slice-061 name. Keep green.
+# pinned sites in commands/commit.md (the template in Step 5, Epic-close and P3; since slice-068 the PR path's two passes —
+# plan-landing.sh close / sync, the close branch and gh pr create — and no stale "close it by hand (B25)") and execute.md a5
+# and s5 — and that no shipped file still names the mode by its slice-061 name. Keep green.
 bash scripts/test-epic-close-state.sh
 
 # Autopilot log — scripts/autopilot-log.sh (slice-063, B23) writes every line of an epic plan's ## Autopilot Log: it reads
@@ -269,17 +299,29 @@ bash scripts/test-epic-close-state.sh
 # plan, is covered in test-execute-resume-state.sh.) Keep green.
 bash scripts/test-autopilot-log.sh
 
+# Autopilot run-start briefing — scripts/autopilot-briefing.sh (slice-069, B27) prints the whole "Autopilot — briefing" block
+# that /craft:execute a1 and the plan gate only relay unchanged, the way epic-digest.sh does for a5 (slice-063's probe: the a1
+# block was printed, but not bound): title, branch, occupied checkout, the slice order, the "Stops for you at" lines and the
+# Esc / resume line. It never decides a slice's state — execute-resume-state.sh does; the order puts a resume slice first, then
+# the open slices topologically by Depends-On, ties in decomposition order (s1 states the same tie-break). Covers real git
+# fixtures for the exact block, reordering, a landed dependency, [landed: …], resume / held marks, the Stops text byte-equal,
+# the title with and without " — ", CRLF, example regions, every ERROR= with an empty stdout (usage, an unreadable plan,
+# missing frontmatter, a missing helper or python3, RESULT=conflict, a Depends-On cycle), read-only, and the pins on
+# commands/execute.md (a1 runs the helper and relays unchanged, the ⛔ stop, ap step 5's ⚠ line, s1's tie-break, no
+# "Stops for you at:" line left in execute.md). Keep green.
+bash scripts/test-autopilot-briefing.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The twenty-two harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The twenty-four harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's log, the autopilot's epic-end digest, the epic close and its archive template, the autopilot's budget guard, the autopilot's cache guard, the statusline tap's wiring, the single declaration of the allowed model values, the
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the plan round trip of parallel worktree mode, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's log, the autopilot's run-start briefing, the autopilot's epic-end digest, the epic close and its archive template, the autopilot's budget guard, the autopilot's cache guard, the statusline tap's wiring, the single declaration of the allowed model values, the
 single definition of what counts as an example rather than content, delete-safe closing, and the autopilot's verification by command.
 
 ## Dogfooding Is Not Self-Verification

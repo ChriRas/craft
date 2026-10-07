@@ -50,7 +50,7 @@ This guards the Mode-Detection logic below — every mode requires `main` as the
 `Glob` `.claude/plans/*.md`.
 
 - Zero matches → abort: *"No active slice plan found. Phase 9 requires a slice in `Status: committing`. Did the earlier phases actually run?"*
-- More than one match → the target is the **single plan at `Status: committing` or `awaiting-approval`** (the other plans are not ready to land — e.g. a parent epic plan, or sibling slices during a `sequential`-epic run). If **exactly one** plan is at that status, record it as `<slice-plan>` and continue. If **zero or more than one** plan is at that status, abort with the list and ask the user to specify which slice to commit (this command does not auto-pick).
+- More than one match → the target is the **single plan at `Status: committing` or `awaiting-approval`** (the other plans are not ready to land — e.g. a parent epic plan, or sibling slices during a `sequential`-epic run). If **exactly one** plan is at that status, record it as `<slice-plan>` and continue. If **zero or more than one** plan is at that status, abort with the list and ask the user to specify which slice to commit (this command does not auto-pick). In the zero case, when a listed slice plan's slice has a worktree (`git worktree list --porcelain` shows its `<slice-id>-<slug>` branch), name the re-run: *"`<slice-id>` has a worktree, but its plan in this checkout reads `Status: <X>` — finish the slice there, then run `/craft:execute <slice-NNN>`: its step 6 commits the slice's work and reads the plan back (`Status: committing`). Then re-run `/craft:commit`."*
 - Exactly one match → record the plan path as `<slice-plan>`.
 
 ### A2 — Plan frontmatter is valid
@@ -69,7 +69,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/tree-dirt-state.sh"
 Which of CRAFT's own files — plans, ID counters, local state — do not count as uncommitted work is defined once, in that helper (`DIRTY=yes|no`, one `DIRT=` line per counted change). A helper that cannot run (non-zero exit) fails A3.
 
 - **Standard mode**: it must report `DIRTY=yes` (there are uncommitted changes to commit). Hold its `DIRT=` lines — P2 needs them to tell a change the human keeps out of Step 1's split from one Phase 9 left behind. If `DIRTY=no` → abort: *"Nothing to commit. Did Phase 4 / Phase 7 / Phase 8 actually run?"*
-- **Slice-finalize / Epic-finalize mode**: it must report `DIRTY=no` AND the corresponding worktree+branch from Mode Detection must exist. If `main` has uncommitted work AND a finalize mode was detected → abort: *"Working tree on `main` has uncommitted changes while a finalize-mode worktree is also present. Commit or stash the main-side changes before finalizing."*
+- **Slice-finalize / Epic-finalize mode**: it must report `DIRTY=no` AND the corresponding worktree+branch from Mode Detection must exist. If `main` has uncommitted work AND a finalize mode was detected → abort: *"Working tree on `main` has uncommitted changes while a finalize-mode worktree is also present. Commit or stash the main-side changes before finalizing."* Each **slice worktree** the mode names (the slice's; in Epic-finalize every included slice's that still exists) must report `DIRTY=no` too, judged by the same helper in its slice scope, which counts the slice's work and none of CRAFT's own files (the plan copy, `.craft/`, the seeded `.primed` marker): `bash "${CLAUDE_PLUGIN_ROOT}/scripts/tree-dirt-state.sh" --scope slice-worktree --checkout <worktree>`. Otherwise abort, naming the worktree, its `DIRT=` lines and the fix — *"`<slice-id>`'s worktree holds work that was never committed on its branch; re-run `/craft:execute <slice-NNN>` — its step 6 commits it and reads the plan back — then `/craft:commit`."* The merge in Step 1a would otherwise land a branch without the slice's work, and Step 7 would remove the worktree with it.
 - **Protected-main PR completion** (any mode; **takes precedence** whenever `Status: awaiting-approval` — Step 6, second invocation): the commits + archive already landed on the first invocation, so the tree is expected **clean**. Skip the non-empty check; this invocation only detects the PR approval and merges via `gh`.
 
 ### A4 — Tests green
@@ -116,22 +116,30 @@ that then cannot be pushed.
 - **Slice-finalize mode** — `/craft:execute <slice-NNN>` has completed; a worktree at `../<repo>-worktrees/<slice-id>-<slug>/` holds the slice-branch with `Status: committing` (first pass) or `awaiting-approval` (protected-main PR completion, second pass) and a clean tree. Follow Steps 1a, 2, 4, 5, 5b, 6, 7 (with the merge in Step 1a replacing Step 1's atomic split — the orchestrator already committed the sub-task work inside the worktree).
 - **Epic-finalize mode** — `/craft:execute <epic-NNN>` has completed; an `epic-<NNN>-<slug>` worktree exists with every contained slice already merged in. Follow Steps 1b, 2, 4, 5, 5b, 6, 7. The decisions walk in Step 4 runs once per included slice.
 - **Epic-close mode** — a finished epic with no epic worktree: an autopilot run's a5 `[Y]` merged its epic branch into
-  the trunk (`direct`), or a sequential / hand-worked epic has every slice landed. Every slice already closed, and what
-  is left is the epic itself (D37, D38). Follow the **Epic-close Mode** section (end of this file) — its own
-  pre-assertions, steps and post-assertions.
+  the trunk (`direct`) or opened a PR for it (`pull-request` + `Protected-main: yes`), or a sequential / hand-worked epic
+  has every slice landed. Every slice already closed, and what is left is the epic itself (D37, D38). Under protected
+  main it runs in **two passes**, like Epic-finalize (D39). Follow the **Epic-close Mode** section (end of this file) —
+  its own pre-assertions, steps and post-assertions. Step 0 below judges it first, so on an autopilot epic branch with no
+  slice at `committing` it wins over Standard mode's Autopilot differences.
 
 Detection logic:
 
-0. **A finished epic.** Only when no plan under `.claude/plans/` is at `Status: committing` or
-   `awaiting-approval`, `git worktree list --porcelain` shows only the main worktree and `git branch --show-current` is
-   the trunk (`main`, or the trunk `rules.md` `## Deployment` names): run, from the project root,
+0. **A finished epic.** Only when no *slice* plan under `.claude/plans/` is at `Status: committing` or
+   `awaiting-approval`, `git worktree list --porcelain` shows only the main worktree, and `git branch --show-current` is
+   the trunk (`main`, or the trunk `rules.md` `## Deployment` names) — or, on the PR path, an autopilot epic branch
+   `epic-<NNN>-<slug>` (the one a5's PR leaves checked out) or a close branch `epic-<NNN>-<slug>-close` (Epic-close's own
+   first pass): run, from the project root,
 
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/scripts/epic-close-state.sh" --trunk <trunk>
    ```
 
-   `CLOSABLE_COUNT=` above 0 → mode = Epic-close. `CLOSABLE_COUNT=0`, at least one epic line, and **no slice plan**
-   under `.claude/plans/` (only epic plans) → **stop here**, before A1: there is no slice to commit either, and A1/A2
+   Mode = Epic-close when any of these holds: a line reads `STATE=closing` (an epic plan at `awaiting-approval` whose
+   close PR is open — the **second pass**, run from the three branches above: the first pass leaves the checkout on the epic
+   branch or the close branch, and the trunk is where the human may have gone since), `CLOSABLE_COUNT=` is above 0, or a line reads
+   `STATE=pr-path` with `BRANCH=` equal to the current branch (the epic's PR is open and this checkout is its branch —
+   the **first pass**, riding on that PR). None holds, at least one epic line, and **no slice plan** under
+   `.claude/plans/` (only epic plans) → **stop here**, before A1: there is no slice to commit either, and A1/A2
    would answer with a slice message — A1 takes the lone epic plan for the slice and A2 rejects it as not reviewed
    (slice-061 review R1-1). Print *"Phase 9 aborted — no slice at `committing` and no epic to close:"*, then one line per
    epic plan as that mode's state table words it. Nothing was written. A slice plan exists (at another status), or no
@@ -145,7 +153,8 @@ Detection logic:
 
 When the protected-main PR gate has opened a PR (Step 6, first pass), the finalize target's
 plan carries `Status: awaiting-approval`: the slice plan for lone-slice / Slice-finalize, or
-the epic plan for Epic-finalize (that plan is the Epic-finalize target for the second pass).
+the epic plan for Epic-finalize (that plan is the Epic-finalize target for the second pass) and for Epic-close's PR path
+(step 0's `STATE=closing`: the second pass is found by the helper, not by a worktree — Epic-close Mode, *The PR path*).
 
 If the user invokes `/craft:commit` from inside a worktree, refuse: *"Run `/craft:commit` from the main checkout, not from inside a worktree. `cd` to `<main-path>` first."*
 
@@ -155,11 +164,11 @@ If the user invokes `/craft:commit` from inside a worktree, refuse: *"Run `/craf
 
 ### Step 0 — Protected-main PR completion short-circuit
 
-**If the finalize target's plan (the slice plan, or the epic plan in Epic-finalize) has
-`Status: awaiting-approval`**, this invocation is the **second pass** of the protected-main
+**If the finalize target's plan (the slice plan, the epic plan in Epic-finalize, or the epic plan in Epic-close's PR
+path) has `Status: awaiting-approval`**, this invocation is the **second pass** of the protected-main
 PR gate (Step 6): the commits, the decisions promotion, and the archive already landed on the
 first pass. **Skip Steps 1–5b entirely** and go straight to Step 6's
-*Second invocation* branch, then Step 7. Do **not** re-propose a commit split, re-walk the
+*Second invocation* branch, then Step 7 (in Epic-close: that mode's *The PR path* names what runs of it). Do **not** re-propose a commit split, re-walk the
 `[K]/[I]/[R]/[D]` dialog, or re-write and re-commit the archive.
 
 Otherwise (`Status: committing`) run Steps 1–7 normally.
@@ -197,7 +206,7 @@ If user wants a different split, iterate. Abort → clean exit, no mutation.
 
 ### Step 1a — Slice-branch merge (Slice-finalize mode)
 
-The slice-branch already contains all sub-task commits authored inside the worktree by `/craft:execute`. There is nothing to split.
+The slice-branch already contains the slice's commits, made inside the worktree by `/craft:execute` step 6 (it commits the slice's work there before it reads the plan back, and A3 has checked that nothing is left uncommitted). There is nothing to split.
 
 **Protected-main gate:** if the profile's `Merge → Type` is `pull-request` with `Protected-main: yes`, do **not** run the direct merge below — leave the slice-branch unmerged and land it via the Step 6 PR gate instead (continue with Step 2, Steps 4–5b, then Step 6). Otherwise (`Type: direct`, the default) merge the branch into `main`:
 
@@ -298,7 +307,7 @@ Write each to `.claude/project/slices/slice-<NNN>-<slug>.md`.
 In **Epic-finalize mode** (and in **Epic-close mode**, its step 2), also write the epic archive at `.claude/project/slices/epic-<NNN>-<slug>.md`, composed from `templates/epic-archive.md.template` — the one definition of its layout (D38):
 
 - Title, `> Completed:` today and the epic plan's `Started:`, `> Slices: N/N landed · <how they landed>`
-- `> Merge:` — one of three values: `<hash> (Merge <epic-NNN>: <title>)`, the epic branch's merge commit into the trunk; `through PR (epic-<NNN>-<slug> → <trunk>)`, when the archive is written before a PR merges it (Epic-finalize under `pull-request` + `Protected-main: yes`); or `trunk-based, no merge`, when no epic branch was merged (a sequential or hand-worked epic). This is the only place the epic archive names commits; each slice's commits stay in its own archive — never add a `## Commits` section
+- `> Merge:` — one of four values: `<hash> (Merge <epic-NNN>: <title>)`, the epic branch's merge commit into the trunk; `through PR (epic-<NNN>-<slug> → <trunk>)`, when the archive is written before a PR merges it (Epic-finalize under `pull-request` + `Protected-main: yes`, or Epic-close riding on the epic's open PR); `<hash> (<its subject>)`, the trunk's commit that merged the epic's PR before Epic-close ran — the merge commit holding the epic branch's tip as a non-first parent, or, the branch deleted, GitHub's `Merge pull request #<N> from …` commit (`<N>` from the epic plan's `PR #<N> opened` line); or `trunk-based, no merge`, when no epic branch was merged (a sequential or hand-worked epic). This is the only place the epic archive names commits; each slice's commits stay in its own archive — never add a `## Commits` section
 - `## Vision` — the epic plan's `## Vision`, as written
 - `## Slices (N/N)` — one line per decomposition entry, in its order, linked to the slice archive (`[<slice-id> — <short-name>](./<slice-id>-<slug>.md)`), with what it did in one line
 - `## Epic Decisions` — the epic decisions kept (`[K]`) or promoted (`[I]`) in Step 4
@@ -333,8 +342,10 @@ the trunk with the approved merge and not as a direct commit.
 
 ### Step 6 — Land the branch (Merge Workflow — direct vs. protected-main PR)
 
-> **Never on an autopilot epic branch** `epic-<NNN>-<slug>` in the main checkout — Autopilot Mode skips this step under
-> every Merge Workflow: nothing is pushed and no PR is opened per slice.
+> **Never for a slice on an autopilot epic branch** `epic-<NNN>-<slug>` in the main checkout — Autopilot Mode skips this
+> step under every Merge Workflow: nothing is pushed and no PR is opened per slice. (Epic-close's PR path is no slice: its
+> first pass runs this step's first invocation from that branch or from its own close branch, its second pass the second
+> invocation — Epic-close Mode, *The PR path*.)
 
 How a finished slice/epic reaches `main` is driven by the profile's `## Merge Workflow`
 (`Type`, `Protected-main`, `Approval`; documented defaults `direct` / `no` / `chat` when the
@@ -469,14 +480,34 @@ In **Standard mode**: close `.claude/plans/slice-<NNN>-<slug>.md` (*Closing an u
 > a later `/craft:execute` A6 finds the archive — and the plan removal it performs replaces the plan
 > close below.
 
-In **Slice-finalize mode**: close the slice plan (*Closing an untracked plan*; under protected main never — the sync above replaces this close, also when it reports `ON_TRUNK=yes`). Then remove the worktree and delete the slice-branch:
+> **Releasing a slice worktree's plan copy** — `/craft:execute` handed the main checkout's plan into every slice
+> worktree it created (step 5), and an untracked or modified file there would make git refuse the worktree's removal. So before
+> each **slice** worktree is removed (the epic worktree holds no such copy), run from the project root, one call per
+> worktree: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/plan-roundtrip.sh" release --worktree <worktree> <plan>` — `<plan>` is
+> that slice's plan path in the main checkout. The helper's header defines what it does: besides the plan copy it hides CRAFT's own files in that worktree (the `.primed` seed, a session's `.hook-env`, a resolved handoff marker) from git, so none of them makes git refuse the removal; it removes nothing.
+>
+> - `RESULT=released` with `ACTION=none` → a tracked copy was restored to the worktree's HEAD, or there was no copy.
+>   Continue with the removal.
+> - `ACTION=close` → close the copy named by `PLAN=` as *Closing an untracked plan* says — its one definition, so it
+>   adds no second close site — with `--project` set to the `PROJECT=` the helper names (the worktree's project
+>   directory) instead of the project root. Then continue with the removal. (The helper has already made sure the
+>   worktree's `.claude/plans/.closed/` hides itself from git where the project's `.gitignore` does not, so a move-mode
+>   close leaves nothing for `git worktree remove` to refuse.)
+> - `RESULT=conflict`, an `ERROR=` or no `RESULT=` line → **skip that worktree's removal and its `git branch -d`**
+>   and say so: *"⚠ `<slice-id>`: the plan copy in `<worktree>` is `<REASON>` (edited after `/craft:execute` read it
+>   back, or there is no record of the hand-in) — the worktree is left as it is. Inspect the copy, then remove the
+>   worktree yourself (`git worktree remove`, with `--force` only if you mean to drop that edit) and `git branch -d
+>   <branch>`; a re-run of `/craft:execute` cannot read the plan back any more, the slice has merged and this step has
+>   closed the main checkout's plan."* The rest of Step 7 goes on.
+
+In **Slice-finalize mode**: close the slice plan (*Closing an untracked plan*; under protected main never — the sync above replaces this close, also when it reports `ON_TRUNK=yes`). Then release the worktree's plan copy (above), remove the worktree and delete the slice-branch:
 
 ```
 git worktree remove ../<repo>-worktrees/<slice-id>-<slug>
 git branch -d <slice-id>-<slug>
 ```
 
-In **Epic-finalize mode**: close every included slice's plan AND the epic plan (*Closing an untracked plan*; under protected main never — the sync above replaces this close, also when it reports `ON_TRUNK=yes`). Then remove the slice-worktrees, the epic-worktree, and delete all the branches:
+In **Epic-finalize mode**: close every included slice's plan AND the epic plan (*Closing an untracked plan*; under protected main never — the sync above replaces this close, also when it reports `ON_TRUNK=yes`). Then release each slice worktree's plan copy (above), remove the slice-worktrees, the epic-worktree, and delete all the branches:
 
 ```
 for each <slice-id>-<slug>: git worktree remove ../<repo>-worktrees/<slice-id>-<slug>
@@ -626,9 +657,9 @@ Recommended next: /craft:plan to start the next slice, or /craft:prime to refres
 `committing`, or a finalize worktree existed — and the checkout is on the trunk once Step 7 is done, run step 0's helper
 command once more. `CLOSABLE_COUNT=` above 0 → replace the `Recommended next:` line with
 `Recommended next: /craft:commit — closes <EPIC> (<KIND>)`, one line per closable epic — under `pull-request` +
-`Protected-main: yes` instead `<EPIC> is finished — close it by hand, through a PR (B25)`, since Epic-close's E3 refuses
-it there. Not on an autopilot epic branch (Autopilot Mode) and not when the helper cannot run — then the line stays as
-it is.
+`Protected-main: yes` `Recommended next: /craft:commit — closes <EPIC> (<KIND>) through a PR (two passes: it opens the
+PR, you approve it, you run it again)`, since Epic-close's PR path cuts the close branch from the trunk. Not on an
+autopilot epic branch (Autopilot Mode) and not when the helper cannot run — then the line stays as it is.
 
 Protected-main PR opened (awaiting approval — first invocation):
 
@@ -673,6 +704,7 @@ Inspect and reconcile manually before starting the next slice.
 | A1 fails (no slice / multiple slices) | Abort with the diagnostic message. |
 | A2 fails (wrong `Status:` in plan) | Abort with hint to run the proper phase command first. |
 | A3 fails (nothing to commit) | Abort. |
+| A3 (finalize): a slice worktree holds uncommitted slice work (`--scope slice-worktree`) | Abort before any merge; name the worktree, its `DIRT=` lines and the `/craft:execute <slice-NNN>` re-run whose step 6 commits it. |
 | A4 fails (tests red) | Abort, refuse to commit. |
 | A5 fails (no recap) | Abort with `/craft:recap` recommendation. |
 | User aborts during split proposal | Clean abort; no commits, no mutations. |
@@ -681,9 +713,13 @@ Inspect and reconcile manually before starting the next slice.
 | Push fails (network, auth) | Stop after Step 6; archive written, plan kept, user told how to push manually. Do not proceed to Step 7. |
 | PR creation fails | Same as push fail: archive written, plan kept, recovery instructions emitted. |
 | `plan-landing.sh sync` fails after the merge (fetch, diverged trunk, checkout, fast-forward) | Surface git's reason and its `ERROR=`; no branch or worktree is removed. The plan copy is as it was (`awaiting-approval`) on the branch sync started from, so a re-run retries the sync once the cause is cleared. |
+| Step 7: `plan-roundtrip.sh release` reports `conflict`, or cannot run (finalize modes) | Skip that slice worktree's removal and branch deletion with a `⚠` line naming the worktree and the reason; the rest of Step 7 goes on, and the leftover is the human's (inspect it, then `git worktree remove` and `git branch -d`, as the line says). |
 | P1–P5 fail after the procedure | Warn loudly; emit partial-completion block; do not auto-rollback. |
 | No slice plan and no epic closable (Mode Detection step 0), or Epic-close's E1–E3 fail, or its close question (E4) answered `[N]` | Stop before any write; word each epic's state as the mode's state table does. |
-| Epic-close re-run after a close that stopped part-way | E4 finds the epic archive committed and resumes at step 4 — never a second walk, archive or archive commit. |
+| Epic-close re-run after a close that stopped part-way | E4 finds the epic archive committed and resumes at step 4 (PR path: at the first pass's item 2) — never a second walk, archive or archive commit. |
+| Epic-close, PR path: the epic's PR is `MERGED` or `CLOSED` at the first pass (E3), or the close branch already exists | Stop before any write; the line names the trunk sync (`MERGED` — a re-run then closes through the close branch), the PR to inspect, or the branch. |
+| Epic-close, PR path: the push or `gh pr create` fails on the first pass | Same as a failed push of a slice: the commits and the epic plan stay, the plan is not set to `awaiting-approval`; a re-run resumes at the push. |
+| Epic-close second pass: the close PR is not approved, closed, or `gh pr merge` fails | Step 6's second-invocation message; nothing changes and the epic stays `closing`. A PR closed without merging also gets the way out (second pass, item 1): reopen it, or start the close over by hand. |
 
 ---
 
@@ -693,7 +729,10 @@ Applies whenever the main checkout's current branch is an autopilot epic branch,
 `/craft:execute`'s **Autopilot run → a3** runs this command, **and** when a human does, after answering an autopilot
 stop by hand (`/craft:test` recommends `/craft:recap`, and the slice walks on to here). The slice was built in place on
 that branch, the one checkout, so Mode Detection finds **Standard mode**. Everything above runs as written, with these
-differences.
+differences. **Not when Mode Detection step 0 finds an epic to act on:** with no slice plan at `committing` or
+`awaiting-approval`, the epic branch checked out and its epic reading `pr-path` or `closing`, that is **Epic-close**'s
+PR path, which runs on this very branch — its two passes keep Step 6 and Step 7's *Plans and the trunk under protected
+main* (the push, the PR, the trunk sync and the branch deletes), and none of the differences below applies to them.
 
 **The landing — whoever runs it:**
 
@@ -738,8 +777,9 @@ A failing pre- or post-assertion stops the command as it always does; `/craft:ex
 Mode Detection step 0 found it: an epic whose slices have all landed, with no epic worktree left to finalize. It comes
 in two kinds, the helper's `KIND=`:
 
-- **`KIND=autopilot`** — an autopilot run's a5 `[Y]` merged the epic branch into the trunk. Each slice already went
-  through this command on the epic branch (Autopilot Mode) — committed, archived, its plan closed (D37).
+- **`KIND=autopilot`** — an autopilot run's a5 `[Y]` merged the epic branch into the trunk, or opened a PR for it. Each
+  slice already went through this command on the epic branch (Autopilot Mode) — committed, archived, its plan closed
+  (D37).
 - **`KIND=sequential`** — the epic plan has no autopilot log: a sequential run (`/craft:execute` s5) or an epic worked
   slice by slice by hand. Each slice already landed on the trunk through this command; there is usually no epic branch
   (D38).
@@ -748,15 +788,20 @@ What is left is the epic: its decisions, its archive, its plan and — for an au
 this mode; Level 1 as everywhere above. Whether an epic is ready is decided once, by `scripts/epic-close-state.sh` (its
 header) — this section only acts on its lines.
 
+**Two paths** (D39). Under `Merge → Type: pull-request` with `Protected-main: yes` — or for an epic whose line reads
+`STATE=pr-path` or `STATE=closing` — the close cannot be committed on the trunk. It runs as the **PR path**, in two
+passes (*The PR path*, below). Every other epic closes on the **direct path**: Steps 1–6 below, on the trunk.
+
 **The state table** — what each `STATE=` line of the helper means here. Step 0's abort and pre-assertion E2 word it
-so. The three a5 states occur only with `KIND=autopilot`:
+so. The a5 states and `pr-path` occur only with `KIND=autopilot`:
 
 | Line | Meaning | Tell the human |
 |---|---|---|
-| `STATE=closable` | every entry landed; autopilot: merged on a5 `[Y]`, the branch merged (or already deleted); sequential: no unmerged epic branch | the target — any other closable line: `<EPIC>: closable too — run /craft:commit again to close it` |
+| `STATE=closable` | every entry landed; autopilot: merged on a5 `[Y]` (or its PR merged and the trunk synced), the branch merged (or already deleted); sequential: no unmerged epic branch | the target — any other closable line: `<EPIC>: closable too — run /craft:commit again to close it` |
 | `STATE=not-signed-off` | the run is open, a5's question was never answered (`no_answer`), or the run stopped before a5 (`run_stopped`) | `<EPIC>: not signed off (<REASON>) — re-run /craft:execute <EPIC> --autopilot` |
 | `STATE=not-merged` | a5 answered without a merge into this trunk (`REASON=`) | `<EPIC>: not merged into <trunk> (<REASON>) — a re-run asks again` |
-| `STATE=pr-path` | a5 opened a PR | `<EPIC>: landed through a PR — that close is not built yet (B25); close it by hand` |
+| `STATE=pr-path` | a5 opened a PR and the trunk does not hold its merge yet | on the PR's branch (`BRANCH=` is the current branch) the target — the first pass rides on that PR; elsewhere `<EPIC>: PR still open — check out <BRANCH> and run /craft:commit (the epic's record joins the PR), or merge it on GitHub with a merge commit (not squash or rebase), update <trunk> and run /craft:commit` |
+| `STATE=closing` | the epic's close PR is open (the first pass ran; the plan reads `awaiting-approval`) | the target of the second pass — any other closing line: `<EPIC>: close PR open — approve it on GitHub, then run /craft:commit` |
 | `STATE=entries-open` | an entry has not landed (`REASON=`) — for a sequential epic, simply one still in progress | `<EPIC>: <REASON> — every entry must land first` |
 | `STATE=branch-unmerged` | the trunk does not hold `BRANCH=` (`BRANCH_STATE=`) — after a5's merge line, or an epic branch a sequential epic left | `<EPIC>: <BRANCH> is <BRANCH_STATE> on <trunk> — merge it, or, if it holds nothing to keep, delete it with git branch -d <BRANCH> (git refuses while it carries unmerged commits); then run /craft:commit again` |
 | `STATE=malformed` | the epic plan cannot be read as one (`REASON=`) | `<PLAN>: <REASON>` |
@@ -764,27 +809,58 @@ so. The three a5 states occur only with `KIND=autopilot`:
 **Pre-assertions** — any failure stops before anything is written. A1–A6 do not apply (there is no slice to commit,
 and the code already landed — A4's test run belongs to the slices, which ran it).
 
-- **E1 — Main checkout, on the trunk.** A0 as written, and `git branch --show-current` is the trunk.
-- **E2 — One epic to close.** Exactly one `STATE=closable` line → record its `EPIC=`, `PLAN=`, `KIND=`, `BRANCH=` and
+- **E1 — Main checkout.** A0 as written. The branch is judged by E3, once the path is known.
+- **E2 — One epic to act on.** The targets, in this order: `STATE=closing` lines (a close already in flight is
+  completed first — the second pass); else the `STATE=closable` lines plus the one `STATE=pr-path` line whose `BRANCH=`
+  is the current branch (the first pass). Exactly one → record its `EPIC=`, `PLAN=`, `KIND=`, `BRANCH=` and
   `BRANCH_STATE=`. More than one → list them and ask which to close (this command does not auto-pick). Either way,
   print every other line in its table wording, one line each, **here, before Step 1** — the human sees what stays open
   before anything is written, not only in the closing summary (slice-061 human test).
-- **E3 — The profile.** `Merge → Type: pull-request` with `Protected-main: yes` → stop: *"Closing `<EPIC>` commits its
-  archive on `<trunk>` directly, but this profile protects it. Close it by hand, through a PR."* (B25: the PR path is
-  not built yet.) It runs before E4's question, so the human is never asked to close what this profile then refuses
+- **E3 — The path, and the branch it runs from.** The PR path when the profile's `Merge → Type` is `pull-request`
+  with `Protected-main: yes`, or the target's state is `closing` or `pr-path`; else the direct path. Then, per path:
+  - *Direct path:* `git branch --show-current` is the trunk, else stop — *"Check out `<trunk>` first."*
+  - *PR path, second pass* (`closing`): the epic branch, the close branch or the trunk (Mode Detection step 0 runs on
+    those three; `plan-landing.sh sync` moves the checkout to the trunk itself).
+  - *PR path, first pass, `pr-path`:* the current branch is `BRANCH=` — the PR's branch, which the close rides on.
+    Before anything is written, `<N>` is the number in the plan's last `■` line (`PR #<N> opened`), and
+    `gh pr view <N> --json state,reviewDecision,headRefName,url` must read `headRefName` = `BRANCH=`, else stop —
+    *"PR #N belongs to branch `<headRefName>`, not `<BRANCH>` — check the epic plan's `PR #N opened` log line, or
+    check out `<headRefName>`; nothing was written."* — and then:
+    `OPEN` → rides (a `reviewDecision` of `APPROVED` is said once, before anything is pushed: *"PR #N is approved
+    already — pushing the close adds commits, so GitHub may ask for the approval again"*); `MERGED` → stop: *"PR #N is
+    merged on GitHub — check out `<trunk>`, bring it up to date (`git pull --ff-only`), then run `/craft:commit`
+    again: the close then opens its own close PR. If the helper still reads this epic `pr-path` on the updated trunk,
+    the PR was squash- or rebase-merged: no merge commit proves it, and this mode cannot close it — record the epic by
+    hand."*; `CLOSED` → stop: *"PR #N is closed without merging — inspect it on
+    GitHub."*
+  - *PR path, first pass, `closable`:* the current branch is the trunk, else stop — *"Check out `<trunk>` and bring it
+    up to date (`git pull --ff-only`) first: the close branch is cut from it."* The one exception is a first pass that
+    stopped part-way and is resumed (E4): the checkout is the close branch `<EPIC>-<slug>-close` itself. On the trunk, a
+    close branch of that name that already exists stops here, before E4's question, and nothing is overwritten:
+    *"`<EPIC>-<slug>-close` exists already — check it out and run `/craft:commit` again to resume that close, or delete
+    it with `git branch -d` if it holds nothing to keep (git refuses while it carries unmerged commits)."*
+  - *PR path, first pass:* `gh auth status` succeeds, else stop before anything is written — the push and the PR are the
+    pass's last steps, and a commit made before they fail would only leave the human a half-done close.
+
+  It runs before E4's question, so the human is never asked to close what this profile or checkout then refuses
   (slice-062 review R1-1).
-- **E4 — The human says so.** Ask, Level 1, with the target's title and kind: `Close <EPIC> "<title>" (<KIND>) now?
+- **E4 — The human says so.** The second pass skips this: the first pass asked, and this run only completes it. A first
+  pass (every path): ask, Level 1, with the target's title and kind: `Close <EPIC> "<title>" (<KIND>) now?
   [Y] close it / [N] leave it open` — **alone**, as a question of its own, never batched with Step 1's decisions walk;
   Step 1 starts only after the `[Y]` (slice-062 human test). `[N]` stops, nothing written. "Every entry landed" can be
   true of an epic the human still means to extend, and a sequential epic has no a5 `[Y]` (D38). On `[Y]`, run
   `bash "${CLAUDE_PLUGIN_ROOT}/scripts/epic-entry-link.sh" resolve <PLAN>` and hold its `SLICE=` IDs — P3 checks the
-  archive against them after the plan is closed (R1-3). And find where an earlier run stopped: when
-  `git cat-file -e HEAD:.claude/project/slices/<EPIC>-<slug>.md` succeeds, steps 1–3 already ran and their record is
-  committed — say so and **resume at step 4**; never walk, write or commit the archive twice (R1-2).
+  archive against them after the plan is closed (R1-3). On the `pr-path` first pass the helper has not judged the
+  entries (the epic's PR is still open), so they are checked here: `RESULT=ok` and every `SLICE=` line reads
+  `STATE=landed`, else stop — *"<EPIC>: <slice-id> has not landed — every entry must land first."* And find where an
+  earlier run stopped: when `git cat-file -e HEAD:.claude/project/slices/<EPIC>-<slug>.md` succeeds, steps 1–3 already
+  ran and their record is committed — say so and **resume at step 4** (on the PR path, at the first pass's item 2,
+  which also covers a first pass whose push or `gh pr create` failed); never walk, write or commit the archive twice
+  (R1-2).
 - **E5 — Hold the tree.** Run A3's `tree-dirt-state.sh` and hold its `DIRT=` lines, as Standard mode does — Step 4's
   promotion check and P2 read them. A dirty tree is no abort: every commit below is a pathspec commit.
 
-**Steps** — each delegates; nothing here redefines what it runs.
+**Steps (direct path)** — each delegates; nothing here redefines what it runs.
 
 1. **Decisions** — Step 4 as written, over the epic plan's `## Decisions Made During This Epic` only. The slices'
    decisions went through their own close and stay in their archives (D37).
@@ -795,21 +871,85 @@ and the code already landed — A4's test run belongs to the slices, which ran i
 3. **Commit the record** — Step 5b as written: each promoted file, then `docs(slices): archive <EPIC> (<short
    title>)`. No `Slice:` footer — no slice closes here; Step 2's attribution and language rules apply.
 4. **Close the epic plan** — Step 7's *Closing an untracked plan*, or its tracked-plan rule with
-   `chore(plans): close <EPIC>` on the trunk (never under `pull-request` + `Protected-main: yes` — E3 stops that). The
-   slice plans closed with their slices.
+   `chore(plans): close <EPIC>` on the trunk. The slice plans closed with their slices.
 5. **Delete the epic branch** — `BRANCH_STATE=merged` → `git branch -d <BRANCH>`; never `-D`. A refusal (unmerged —
    should not happen after E2) → surface it, skip the delete, and let the human inspect. `BRANCH_STATE=deleted` or
    `none` → nothing to delete.
 6. **Step 7b** with `<EPIC>` as the one closed ID — each slice's own close already ran it for that slice.
 
-**Post-assertions** — P1, P2, P4 and P7 as written; then:
+### The PR path
+
+Steps 1–3 are the direct path's, on the branch the close rides on; what differs is where the record lands and how the
+epic plan leaves the trunk. The trunk takes no direct commit: the record reaches it with an approved PR (Step 6's
+"Freigabe ≠ Merge" gate), in two passes keyed off the epic plan's `Status:`.
+
+**The branch the close rides on.** `STATE=pr-path` → the epic branch `BRANCH=`, the PR a5 opened (the epic's own PR,
+`<N>` from E3). `STATE=closable` — a sequential epic, or an autopilot epic whose PR merged before this run — has no open
+PR to ride on: after E4's `[Y]`, cut the close branch from the checked-out trunk, `git checkout -b <epic-id>-<slug>-close`
+(`<epic-id>-<slug>` is the epic branch's name, `BRANCH=`), unless E4 found a resumed first pass already on it. A branch
+of that name that already exists was stopped by E3, before E4's question. This is the one branch the command
+creates itself: it is new and holds nothing yet, while switching to the epic branch (a dirty or diverged checkout the
+human has to resolve) stays the human's act (E3).
+
+**First pass** — the epic plan is not yet at `awaiting-approval`; E1–E5 passed.
+
+1. Steps 1–3 as above, in the main checkout, which is on that branch. Step 2's `> Merge:` line names how the epic
+   landed: `through PR (<BRANCH> → <trunk>)` on the epic branch's own PR (Step 5's second value);
+   on a close branch, `trunk-based, no merge` for a sequential epic and, for an autopilot epic whose PR merged,
+   Step 5's third value (the trunk's commit that merged that PR).
+2. **Land it — Step 6's first invocation, items 0–4, by delegation**, with the epic plan as the plan and these
+   differences:
+   - item 0 runs `bash "${CLAUDE_PLUGIN_ROOT}/scripts/plan-landing.sh" close --message "chore(plans): close <EPIC>" --keep-copy <PLAN>`
+     — always `--keep-copy`: the live epic plan stays in the main checkout for the second pass;
+   - item 1 pushes the branch (`git push -u origin <branch>`);
+   - item 2 opens a PR only on a close branch, and only when none is open yet — a resumed pass may have created it
+     before it stopped: `gh pr list --head <epic-id>-<slug>-close --state open --json number,url` first, an existing PR
+     is reused; else `gh pr create --base <trunk> --head <epic-id>-<slug>-close --title
+     "Close <EPIC>: <title>" --body "<what the PR carries: the epic's decisions, its archive, its plan's removal>"`.
+     The epic branch's own PR exists already, so nothing is created there, and `<N>` and its URL come from E3's
+     `gh pr view`. The epic archive holds no `## Commits`, so there is no `#N` to backfill;
+   - item 3 (the one `craft:writes status=awaiting-approval` marker, in Step 6 — the status graph allows exactly one per
+     command) sets the epic plan `Status: awaiting-approval` and records `> PR: #N <url>` in its frontmatter — only once
+     the push (and, on a close branch, the PR) succeeded;
+   - item 4 emits the epic's awaiting-approval block (*Output*, below). Do **not** run steps 4–6 of the direct path, and
+     nothing lands on the trunk.
+
+   A failing `git push` or `gh pr create` leaves the plan where it is and the commits standing: the human clears the cause
+   and runs `/craft:commit` again, and E4's resume picks the pass up at this item 2.
+
+**Second pass** — the epic plan reads `Status: awaiting-approval` (`STATE=closing`), after the human's GitHub approval.
+Steps 1–5b of the command do not run again (Step 0's short-circuit).
+
+1. **Step 6's second invocation**, items 1–5, with `<N>` from the plan's `> PR:` and the epic plan as the plan — plus
+   `headRefName` in the `gh pr view` call, which names the branch to delete in item 3. It reads the PR, merges an
+   approved one with `gh pr merge <N> --merge` (never `--admin`) and stops with its own message when the PR is not yet
+   approved, was closed, or the merge fails; nothing changes then and the epic stays `closing`. For a PR **closed
+   without merging** it adds the way out to its message: reopen PR #N on GitHub and run `/craft:commit` again, or start
+   the close over — check out the branch the close rode on, delete the close branch if there is one (`git branch -d`),
+   remove the epic plan's `> PR:` line and set its `Status:` back by hand (the first pass overwrote it with
+   `awaiting-approval`; `git log -p` on the plan shows the earlier value), then run `/craft:commit` again. Read the plan's
+   `Epic-Slug` now: item 2 drops the plan, and item 3 needs the epic branch's name.
+2. **Step 7's *Plans and the trunk under protected main*** — `bash "${CLAUDE_PLUGIN_ROOT}/scripts/plan-landing.sh" sync --trunk <trunk> <PLAN>`
+   — brings the main checkout to the merged trunk and drops the epic plan's local copy, as that note defines (its
+   `ON_TRUNK=yes` and `ERROR=` outcomes included; an `ERROR=` stops before the branch is removed, and a re-run retries).
+   The epic archive and the promotions the first pass committed are now in the main checkout.
+3. **Delete the branches** — `git branch -d <headRefName>` (the branch the close rode on: the epic branch, or the
+   close branch) and, when it exists and is not that one — an autopilot epic whose PR merged before the close — the
+   epic branch `<EPIC>-<Epic-Slug>` too, as the direct path's step 5 does; never `-D`. A refusal → surface it, skip that
+   delete, let the human inspect. The checkout is on the trunk by now, so none of them is checked out.
+4. **Step 7b** with `<EPIC>` as the one closed ID.
+
+**Post-assertions** — P1, P2, P4 and P7 as written, and P3, P5 and P6 below. On the PR path they split by pass, as
+Step 6 splits them: the **first pass** runs P1–P4 (the plan-closing commit P1 counts is `plan-landing.sh close`'s),
+the **second pass** P5–P7, and re-reads P3's archive in the main checkout (it reached the trunk with the merge).
 
 - **P3 → the epic archive** passes P3's epic-archive check (the headings of `templates/epic-archive.md.template`) and
   names every slice E4 held — by command, not by reading: `grep -qF -- '<slice-id>' <archive>` succeeds for each held
   `SLICE=` ID.
 - **P5 → the epic plan** no longer exists at `PLAN=` (a moved one lives in `.claude/plans/.closed/`), and the helper,
   run again, prints no line for it.
-- **P6 → the branch**: `git branch --list <BRANCH>` prints nothing (unless step 5 surfaced a refusal, or there was none).
+- **P6 → the branches**: `git branch --list <BRANCH>` prints nothing (on the PR path: for the branch the close rode on
+  and for the epic branch `<EPIC>-<Epic-Slug>`; unless a delete surfaced a refusal, or there was none to delete).
 
 **Output:**
 
@@ -823,6 +963,20 @@ Commits:
 Archive: .claude/project/slices/<EPIC>-<slug>.md   (committed in <hash>)
 
 Recommended next: /craft:plan to start the next slice, or /craft:prime to refresh status.
+```
+
+The PR path's second pass prints this block too, with a line `PR #N merged` after the first and without the `Commits:`
+list (the first pass made them). Its first pass stops with the awaiting-approval block instead:
+
+```
+⏸ Epic <EPIC> "<title>" — <the epic's PR carries the close | close PR opened>, awaiting your GitHub approval
+   PR:     <url>   (#N)
+   Branch: <branch> → <trunk>   (<trunk> NOT merged yet)
+   The epic's decisions, its archive and its plan's removal are in the PR. Approve it on GitHub (a real review), then:
+   [Where the trunk tracked the epic plan: it is an untracked file here now — stay on <branch> until then;
+    `git checkout <trunk>` refuses, and `stash -u`, `clean` or `checkout -f` would destroy the live plan.]
+
+   Complete: /craft:commit    (detects the approval, merges via gh, brings <trunk> up to date)
 ```
 
 When P5's helper run still prints a `STATE=closable` line — a second finished epic — replace the `Recommended next:`
