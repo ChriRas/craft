@@ -1350,6 +1350,33 @@ Decision:
 - **The close is asked for.** Without a5's `[Y]` there is no explicit human signal, and "every entry landed" can be
   true of an epic the human still means to extend; the mode asks `Close <epic> now?` before it writes anything.
 
+### D39 — Epic-close Runs on the PR Path in Two Passes, on the Epic's Open PR or Its Own Close PR
+
+> Decided 2026-10-07 while planning slice-068 (roadmap B25). Amends D37's "`direct` only, for now" and its first bullet (Epic-close runs on the trunk after the merge — on the PR path the record rides on the open PR, before the merge), and D38's E3 stop.
+
+Under `Merge → Type: pull-request` + `Protected-main: yes` the epic archive, the promotions and the epic plan's removal
+cannot be committed on the trunk, so Epic-close stopped at `STATE=pr-path` / E3 and said "close it by hand".
+
+Decision:
+
+- **Two passes, keyed off the epic plan's `Status:`** — the shape Epic-finalize already has. The first pass runs the
+  decisions walk, writes the epic archive and commits both, then `plan-landing.sh close --keep-copy`, pushes, and sets
+  the epic plan to `Status: awaiting-approval` with `> PR: #N <url>`; nothing lands on the trunk. The second pass, after
+  the GitHub approval, is Step 6's second invocation (`gh pr merge --merge`, never `--admin`), then
+  `plan-landing.sh sync`, then `git branch -d` and Step 7b. No new merge or sync logic.
+- **The close rides on the open PR when there is one.** An autopilot epic whose a5 `[Y]` opened PR #N and whose PR is
+  still open takes the record on its epic branch, so it reaches the trunk with the one approved merge. Every other epic
+  (a sequential one; an autopilot one whose PR was merged first) has no open PR to ride on: the first pass cuts
+  `<epic-id>-<slug>-close` from the synced trunk and opens its own close PR. *Why not* only the epic branch: a
+  sequential epic has none, and an autopilot epic merged before the close would otherwise be unclosable under protected
+  main.
+- **The helper reads it, git proves it.** `epic-close-state.sh` reads an epic plan at `Status: awaiting-approval` as
+  `STATE=closing` (its close PR is open, nothing else may close it), and a `PR #<N> opened` epic whose branch is merged
+  into the synced trunk as `closable`, by the same merge-commit rule as a direct merge. A squash or rebase merge leaves
+  no such commit and stays `pr-path` — a known limit.
+- **The close is meant to run before the approval.** A push after an approval adds commits the human has not approved,
+  and GitHub may dismiss it. a5's PR hand-over says to run `/craft:commit` first and approve afterwards.
+
 ---
 
 ## 7. Carry-Over to Next Clusters

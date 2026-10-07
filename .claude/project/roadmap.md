@@ -11,13 +11,12 @@
 |---|----|------|------|------|
 | 1 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
 | 2 | B27 | Fix | small | Autopilot a1 briefing content (slice-063's Phase-5 probe): `autopilot-log.sh`'s gate holds that a1 runs on every invocation, but the probe's master printed the briefing without its "Stops for you at: …" lines — print the block from a helper the master only relays, as `epic-digest.sh` does for a5 |
-| 3 | B25 | Fix | small | Closing an epic on the PR path (slice-061 / slice-062, D37 / D38) — an autopilot epic, and since slice-062 a sequential one, whose archive commit E3 refuses under protected main: under `pull-request` + `Protected-main: yes` a5 `[Y]` only opens the PR, and `/craft:commit`'s Epic-close mode stops at `STATE=pr-path` / E3 — the archive commit may not land on the trunk directly. Needs Epic-finalize's two passes: archive + decisions into the open PR, then `plan-landing.sh sync` after the merge |
-| 4 | B18 | Fix | small | Handoff-answer record (slice-042 R1-15): a resume records no answer to the handoff's question, so a subagent re-run — an autopilot re-run in particular — meets it again. Deferred by slice-049: build it when a real autopilot run shows a question that repeats (Phase-5 answers already live in `Status:`) |
-| 5 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
-| 6 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
-| 7 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
-| 8 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
-| 9 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
+| 3 | B18 | Fix | small | Handoff-answer record (slice-042 R1-15): a resume records no answer to the handoff's question, so a subagent re-run — an autopilot re-run in particular — meets it again. Deferred by slice-049: build it when a real autopilot run shows a question that repeats (Phase-5 answers already live in `Status:`) |
+| 4 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
+| 5 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
+| 6 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
+| 7 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
+| 8 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
 
 ## Notes per item
 
@@ -25,7 +24,22 @@
 Autopilot Mode`); every decomposition entry has a slice. The 2.0.0 release (rules.md → Deployment: autopilot ships as
 2.0.0) is **deliberately not cut yet** — the user has a few more things to do first. No version bump, push or tag until
 the user says so; nothing is pushed yet. Still owed from slice-060: human test (c) part B (real idle ≥ 1 h) and the
-follow-ups R1-1 / R1-2 (archive → Follow-ups).
+follow-ups R1-1 / R1-2 (archive → Follow-ups). Also owed before the cut: B25's human test on a scratch GitHub repo (see
+the B25 note below).
+
+**B25 shipped with slice-068 (2026-10-07)** — D39: under `pull-request` + `Protected-main: yes`, `/craft:commit`'s
+Epic-close mode closes a finished epic in two passes. The first commits the decisions, the epic archive and the epic
+plan's removal (`plan-landing.sh close --keep-copy`) on the branch the PR carries — the epic branch a5's PR left, or, for
+a sequential epic and for an autopilot epic whose PR merged first, a close branch `<epic-id>-<slug>-close` cut from the
+synced trunk with a close PR of its own — and sets the epic plan to `Status: awaiting-approval`; the second, after the
+GitHub approval, is Step 6's second invocation (`gh pr merge --merge`, never `--admin`), `plan-landing.sh sync`,
+`git branch -d` and Step 7b. `epic-close-state.sh` reads the plan at `awaiting-approval` as `STATE=closing` and a merged
+`PR #<N> opened` epic as `closable`. a5's PR hand-over says to run `/craft:commit` first, then approve. Shown by
+`scripts/test-epic-close-state.sh` (helper fixtures and pinned prose) only; the real effect on GitHub is not.
+**Still owed before the 2.0.0 cut: a human test on a scratch GitHub repo with a protected trunk — an autopilot epic
+closed through its open PR (first pass, approve, second pass), an autopilot epic whose PR merged first, and a sequential
+epic, both through the close branch's PR.** Known limits: a squash or rebase merge of the epic's PR leaves no merge
+commit for the helper to find, so the epic stays `pr-path`; a push after an approval can dismiss it, hence the order.
 
 **B15 shipped with slice-067 (2026-10-07)**, including the worktree commit gap it uncovered — in parallel worktree mode
 nothing ever committed in a slice worktree. `/craft:execute` step 5 hands the main checkout's plan into every new worktree
@@ -68,7 +82,7 @@ hand-worked epic too — `/craft:execute` s5 hands over to `/craft:commit` like 
 
 **B24 shipped with slice-061 (2026-10-06)** — D37: after a5 `[Y]` (`direct`), `/craft:commit`'s Epic-close mode (named Autopilot-epic-close until slice-062)
 walks the epic decisions, writes and commits the epic archive, closes the epic plan and deletes the merged epic branch;
-`scripts/epic-close-state.sh` decides whether an epic is ready. The PR path is **B25**.
+`scripts/epic-close-state.sh` decides whether an epic is ready. The PR path shipped as B25 (see its note above).
 
 **F9 shipped with slice-059 (2026-10-06).** `/craft:prime` step 4h and `/craft:onboard` offer to wire the statusline tap
 the budget guard reads (`scripts/ensure-statusline-tap.sh`, D36: only on a yes, with a backup, reversible). Its follow-up

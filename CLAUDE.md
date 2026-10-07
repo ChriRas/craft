@@ -273,17 +273,20 @@ bash scripts/test-statusline-wiring.sh
 # stale age), the hooks.json registration, and the sites in commands/execute.md that arm and disarm (markers). Keep green.
 bash scripts/test-cache-guard.sh
 
-# Epic close — scripts/epic-close-state.sh (slice-061 / slice-062, B24 / B26, D37 / D38) decides whether /craft:commit's
-# Epic-close mode can close an epic now. KIND=autopilot: its ## Autopilot Log's last ■ line is a5's `merged into <trunk>`;
+# Epic close — scripts/epic-close-state.sh (slice-061 / 062 / 068, B24 / B26 / B25, D37 / D38 / D39) decides whether
+# /craft:commit's Epic-close mode can close an epic now. KIND=autopilot: its ## Autopilot Log's last ■ line is a5's
+# `merged into <trunk>`, or `PR #<N> opened` once the trunk holds that PR's merge (pr-path until then — the close rides on
+# the open PR; a plan at `Status: awaiting-approval` reads `closing`, its close PR open);
 # KIND=sequential (no autopilot log — a sequential run or a hand-worked epic): no a5 answer needed. Both: every
 # decomposition entry landed (epic-entry-link.sh resolve), and an epic branch, if any, is merged — a merge commit on the
 # trunk with the branch tip as a non-first parent (the ancestor trap: a branch without own commits is no merge), or, an
-# autopilot branch gone, a5's merge subject. Covers real git fixtures for every STATE (closable, not-signed-off incl.
-# run_stopped, not-merged incl. another trunk, pr-path, entries-open, branch-unmerged, malformed) in both kinds, the last
+# autopilot branch gone, a5's merge subject or GitHub's `Merge pull request #<N> from …` subject. Covers real git fixtures for every STATE (closable, not-signed-off incl.
+# run_stopped, not-merged incl. another trunk, pr-path, closing, entries-open, branch-unmerged, malformed) in both kinds, the last
 # answer winning, ■ lines in a fence / outside the log / of another epic, CRLF, scan mode, errors, that it writes nothing,
 # the epic archive template (templates/epic-archive.md.template: its sections and frontmatter keys, no ## Commits), and the
-# pinned sites in commands/commit.md (the template in Step 5, Epic-close and P3) and execute.md a5 and s5 — and that no
-# shipped file still names the mode by its slice-061 name. Keep green.
+# pinned sites in commands/commit.md (the template in Step 5, Epic-close and P3; since slice-068 the PR path's two passes —
+# plan-landing.sh close / sync, the close branch and gh pr create — and no stale "close it by hand (B25)") and execute.md a5
+# and s5 — and that no shipped file still names the mode by its slice-061 name. Keep green.
 bash scripts/test-epic-close-state.sh
 
 # Autopilot log — scripts/autopilot-log.sh (slice-063, B23) writes every line of an epic plan's ## Autopilot Log: it reads
