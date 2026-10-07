@@ -460,6 +460,9 @@ after every slice a3 lands (a4):
   `.claude/project/slices/`).
   If every slice is landed → go to **s5**.
 
+In the topological sort, slices with no order between them keep decomposition order — the order the briefing prints
+(`scripts/autopilot-briefing.sh` sorts the same way).
+
 ### s2 — Build the one slice in the main checkout
 
 Build **only that single slice** through Phase 4–8 in the main checkout. By its step-1c line:
@@ -706,15 +709,19 @@ it, nothing can say the gate was passed.
    `revise` finding this round's `VERDICT` keeps open — its planner already applied the note or recorded why not, and
    asking again is the human's call; a `review-only` round's findings; and those left when the two autonomous rounds
    are spent.
-5. **The gate** — Level 0, a stop that waits on the human. Log `▶ · <epic-id> · plan gate shown: <slice-id>, …`, arm the
-   cache guard <!-- craft:cache-guard arm --> (the last tool call before the block is printed; the human's answer
-   disarms it <!-- craft:cache-guard disarm -->, *The cache guard*), then emit *Autopilot — plan gate*
+5. **The gate** — Level 0, a stop that waits on the human. Log `▶ · <epic-id> · plan gate shown: <slice-id>, …`, run the briefing
+   helper (its part of the block, below), arm the cache guard <!-- craft:cache-guard arm --> (the last tool call before
+   the block is printed; the human's answer disarms it <!-- craft:cache-guard disarm -->, *The cache guard*), then emit
+   *Autopilot — plan gate*
    (Output Format): per awaiting plan its title, the `## Goal` sentence, Trigger / Effect / Test in one line each, the
    sub-task count, `Depends-On`, the verify-check count, every `NEEDS-HUMAN:` line as written and every failed check;
    every failed entry with its reserved ID; the plan review — its rounds, and every open finding (`ARCH FINDING=… OPEN=yes`
    and `ARCH_MALFORMED` lines) as written in `## Plan Review`, or that the review did not run; an `ARCH_MALFORMED` line
    with *"⚠ unreadable plan-review line <n> — correct it by hand in `## Plan Review`; autonomous revision stays off
-   until then"*; then how the run will go (a1's briefing lines, with the order from `Depends-On`). Offer `[Y]` only
+   until then"*; then how the run will go: the output of the briefing helper (a1) —
+   `bash "${CLAUDE_PLUGIN_ROOT}/scripts/autopilot-briefing.sh" --trunk <trunk> "<epic-plan>"`, run once, before the
+   arm — relayed **unchanged**, as a1 does. When the helper fails, print one line `⚠ run briefing not generated: <ERROR=>` in its
+   place: no stop, the plan gate goes on. Offer `[Y]` only
    when no plan failed a check, no entry failed, and `NEEDS_HUMAN_COUNT=0` — open plan-review findings do not withhold it:
    whether the package is right is the human's call:
    - **`[Y]`** → log `✓ · <epic-id> · plan gate approved: <every awaiting slice-id, comma-separated>` — the line
@@ -837,12 +844,21 @@ can drift, while the hook reads the marker under the project the session started
 
 ### a1 — Run-start briefing (once per invocation, before its first slice step — a2's spawn, or a3 for a slice resumed at `committing`)
 
-Emit the briefing block (Output Format → *Autopilot — briefing*): builds in place on `<epic-branch>`, `main` untouched
-until the end; the checkout is occupied — do not edit files or switch branches in it while the run lasts; the slice
-order with what step 1c found (to build, to resume, landed); where it stops for you; how to stop (Esc — a re-run of
-the same command resumes from disk) and that a stopped run is resumed the same way. When ap showed the plan gate in
-this invocation, the human has just read those lines there: print only the order line. Then log
-`▶ · <epic-id> · run started`.
+Run the briefing helper from the project root and print its stdout **unchanged** — every line, none added, reworded,
+reordered or dropped. The helper prints the whole block (Output Format → *Autopilot — briefing*; its header defines it,
+this file does not): where the run builds, that the checkout is occupied, the slice order as step 1c found it, where
+the run stops for the human, how to stop and how to resume:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/autopilot-briefing.sh" --trunk <trunk> "<epic-plan>"
+```
+
+Then log `▶ · <epic-id> · run started`. It is the whole block every time, also right after ap showed the plan gate in
+this invocation: the gate relays the same output, and a1 does not decide what the human has already read. On an
+`ERROR=` (a non-zero exit, nothing on stdout) the run has no briefing to show, and starting slices without one is the
+defect this step closes: print and log `⛔ · <epic-id> · briefing failed: <reason>` — the `ERROR=` text as the reason —
+release the lock and stop; `run started` is not logged, so the log gate refuses every slice step of a stray
+continuation anyway.
 
 **Every invocation, a re-run included** — slice-056's probe 3 re-ran without the briefing. The log helper holds it: a
 slice step (a2's `▶` line, a3's `✓` line) is refused with `ERROR=gate:no_run_started` until the log holds this
@@ -1211,7 +1227,7 @@ Autopilot — plan gate (ap):
    Plan review: <ARCH_ROUNDS> round(s), <ARCH_AUTO_LEFT> autonomous revision(s) left   (or: ⚠ the plan review did not run)
       P<n>-<k> · <slice-ids> · <kind> · <revise|note> · <text>   (every open finding — they do not withhold [Y])
       ⚠ unreadable plan-review line <n> — correct it by hand in `## Plan Review`; autonomous revision stays off until then
-   How the run will go: <a1's briefing lines — branch, occupied checkout, order from Depends-On, stops, Esc / resume>
+   How the run will go: <the briefing block, as `scripts/autopilot-briefing.sh` prints it — or one ⚠ line if it failed>
    [Y] approve and run   [R] <slice-id>[, …] — <note>: revise these   [N] stop, keep the plans
    ([Y] is offered only when no check, entry or NEEDS-HUMAN above is open or failed — plan-review findings do not withhold it.)
    <the cache guard's LINE=, verbatim — the block's last line>
@@ -1219,17 +1235,9 @@ Autopilot — plan gate (ap):
 
 Autopilot — briefing (a1):
 
-```
-▶ Autopilot run — epic-<NNN> "<title>"
-   Builds in place on <epic-branch>; <trunk> is not touched until you say yes at the end.
-   This checkout is occupied: do not edit files or switch branches here until the run stops.
-   Order: slice-<a> (build) → slice-<b> (resume at <Status>) → …   [landed: slice-<x>, …]
-   Stops for you at: Phase-5 checks that are refused or missing, a bug the autonomous debug loop could not fix, review
-   ping-pong (a finding whose one autonomous loop-back did not hold, or the round cap), scope questions, blockers,
-   failures, the usage budget (the limits in craft-profile.md → ## Autopilot; without a usage reading after every
-   slice) — and at the end (with the UX demo script).
-   Stop:   Esc.   Resume after any stop:   /craft:execute epic-<NNN> --autopilot
-```
+The block is printed by `scripts/autopilot-briefing.sh` (a1 above) and relayed **unchanged**; its header is the one place
+that defines the lines — this file restates none of them, the way *Autopilot — epic complete* leaves its block to
+`scripts/epic-digest.sh`. The plan gate's *How the run will go* is the same output.
 
 Autopilot — stopped (a2):
 
