@@ -93,6 +93,6 @@ stop, the a5 sign-off) first prints `Cache warm until HH:MM — answer later →
 
 ## Follow-ups
 
-- R1-1 Light · Rethink · A ⛔ stop arms the guard but nothing disarms it when the human answers (the run has ended), so after manual work in the same session an idle hour blocks every prompt with the autopilot restart text; a record of prompt_cache.requests at arm time could bind the guard to the stop (execute.md guard section, hook, design §7 As built)
-- R1-2 Light · Rethink · The restart line is the same for every ⛔ stop, but a stop whose next step is a human action (blocked escalation, debug protocol, Handoff) needs that action before a re-run; the line and the hook's block reason name only the re-run (cache-guard.sh --restart is the one definition)
+- R1-1 Light · Rethink · A ⛔ stop arms the guard but nothing disarms it when the human answers (the run has ended), so after manual work in the same session an idle hour blocks every prompt with the autopilot restart text; a record of prompt_cache.requests at arm time could bind the guard to the stop (execute.md guard section, hook, design §7 As built) — taken up by slice-070
+- R1-2 Light · Rethink · The restart line is the same for every ⛔ stop, but a stop whose next step is a human action (blocked escalation, debug protocol, Handoff) needs that action before a re-run; the line and the hook's block reason name only the re-run (cache-guard.sh --restart is the one definition) — taken up by slice-070
 - Human test (c) part B owed — the real idle case (real tap, cache really expired after ≥ 1 h, no other Claude session open, since the tap is shared) was not run; part A covered the logic on a test tap.

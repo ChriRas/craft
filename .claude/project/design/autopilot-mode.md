@@ -298,6 +298,18 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
   `/clear`, `/exit` and `/quit` (the block names `/clear` as the way out). The restart text has one definition,
   `cache-guard.sh --restart`. Every human stop prints `Cache warm until HH:MM — answer later → <restart>`, or
   `Cache expiry unknown …` when the tap does not belong to this session. The non-autopilot idle guard stays roadmap F7.
+- **As built (slice-070, 2026-10-07) — the guard holds only the stop that armed it, and names the human's step.**
+  A `⛔` stop arms but nothing disarms it when the human answers (the run has ended), so manual work in the same session
+  followed by an idle hour met the autopilot restart text (slice-060 R1-1). `arm` now also records the tap's
+  `prompt_cache.requests` (`requests=`, or `unknown` when this session's count cannot be read), and the hook blocks only
+  while the tap's count lies within **1** of it: arm is the stopping turn's last tool call, its final message is one
+  more request, and any turn in between adds at least one more. The tolerance is **measured** (live tap, Claude Code
+  2.1.292: 14 at the last tool call → 16 at the next turn's first, so the hook sees 15), not derived — slice-070's
+  archive holds the readings. A count that cannot be judged (missing, non-integer, below the recorded one) passes; a
+  marker without `requests=` (armed before slice-070) keeps the old rule. And a stop whose next step is the human's
+  (slice-060 R1-2) passes it with `arm --action '<text>'` (a2's Handoff, Failure and Held stops): the helper flattens it
+  to one line, the marker carries it as `action=`, and `cache-guard.sh --restart <epic> <action>` — still the one
+  definition — puts it first: `<action>, then /clear, then /craft:execute epic-NNN --autopilot`.
 
 ## 8. Candidate epic decomposition (rough)
 
