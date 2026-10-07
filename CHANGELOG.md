@@ -6,7 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
-## [1.7.1] - 2026-10-07
+## [1.8.0] - 2026-10-07
 
 > **Upgrade note — read before updating.**
 > - **Parallel worktree mode now hands the plan over and commits in the worktree:** `/craft:execute` copies a slice's plan into its worktree and reads it back, commits the slice's work on the slice branch inside the worktree, and `/craft:commit` releases the copy before it removes the worktree — a plan no longer has to be committed first. A worktree that still holds uncommitted slice work from an earlier run stops `/craft:commit` at A3 and names the re-run that commits it.
