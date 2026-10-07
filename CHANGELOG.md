@@ -6,8 +6,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-10-07
+
+> **Upgrade note — read before updating.**
+> - **Parallel worktree mode now hands the plan over and commits in the worktree:** `/craft:execute` copies a slice's plan into its worktree and reads it back, commits the slice's work on the slice branch inside the worktree, and `/craft:commit` releases the copy before it removes the worktree — a plan no longer has to be committed first. A worktree that still holds uncommitted slice work from an earlier run stops `/craft:commit` at A3 and names the re-run that commits it.
+> - **A new `UserPromptSubmit` hook (`hooks/cache-guard.sh`)** blocks a prompt of an autopilot session that arrives after its prompt cache expired; it reads the statusline tap, so accept the offer of `/craft:prime` (step 4h) to wire it. Without a reading it passes everything.
+> - **The autopilot's run-start briefing is now always printed in full**, also right after the plan gate.
+
+Slices 060–069: the last pieces of the autopilot (cache guard, closing every finished epic, a log written by a helper, the briefing printed by a helper) and the fixes of epic-004.
+
 ### Added
 - **Autopilot cache guard** (F6, slice-060) — a session that waits on you at the plan gate, a `⛔` stop or the end-of-epic sign-off keeps a prompt cache that expires after an hour, and an answer that arrives later re-writes the whole context at the full input price. Every such stop now first says `Cache warm until HH:MM — answer later → /clear, then /craft:execute <epic> --autopilot`, and a new `UserPromptSubmit` hook (`hooks/cache-guard.sh`, bash 3.2, fail open) blocks a prompt of that session that arrives after the cache expired — before any request is sent — when a re-write would cost at least `Cache-guard-recache-tokens` tokens (new `## Autopilot` profile key, default 100000) and names the restart; a builder's hand-back, a task notification, `/clear`, a prompt of another session and anything it cannot judge pass. It judges from the usage tap, so it needs the tap with `refreshInterval`; new local state `.claude/plans/.cache-guard` (gitignored by the usual `# CRAFT local state` block).
+- **Epic-close for every finished epic** (slice-061, slice-062) — `/craft:commit` now closes a finished epic itself, whether an autopilot run merged it, a sequential run landed it or you worked it slice by slice by hand: after `Close <epic> now?` it walks the epic's decisions, writes the epic archive from the new `templates/epic-archive.md.template`, closes the epic plan and deletes the merged epic branch; `scripts/epic-close-state.sh` decides whether an epic is ready and `/craft:execute` a5 and s5 end by recommending it.
+- **Epic-close under protected main** (B25, slice-068, D39) — with `Merge → Type: pull-request` and `Protected-main: yes` the close runs in two passes instead of stopping with "close it by hand": the first commits the epic's decisions, archive and plan removal on the branch whose PR carries them — the epic's open PR, or a `<epic-id>-<slug>-close` branch with its own PR — and sets the plan to `awaiting-approval`; after your GitHub approval the second merges with `gh`, syncs the trunk and deletes the branch; a PR merged by squash or rebase leaves no merge commit to read and is still closed by hand.
+- **Autopilot log written by a helper** (B23, slice-063) — every line of an epic plan's `## Autopilot Log` comes from `scripts/autopilot-log.sh`, which reads the clock itself and refuses a slice step before this invocation's `run started`; the a4 re-run reads the slice list off the epic plan (`execute-resume-state.sh --slices-from`) and stops on a conflict before a5, and the master's own files go to `.craft/tmp/`.
+- **Autopilot run-start briefing printed by a helper** (B27, slice-069) — `scripts/autopilot-briefing.sh` prints the whole briefing block, its "Stops for you at" lines included, and `/craft:execute` a1 and the plan gate only relay it unchanged, as a5 does with the digest; the order puts a slice to resume first, then the open slices by `Depends-On:`.
+- **Plan round trip for parallel worktree mode** (B15, slice-067) — `scripts/plan-roundtrip.sh` hands a slice's plan into its worktree, reads the finished plan back so `/craft:commit` detects a Slice-finalize, and releases the copy before `git worktree remove`; `/craft:execute` step 6 commits the slice's work on the slice branch first, and `plan_not_committed` is now an epic-line reason only.
+
+### Fixed
+- **A hook bash older than the Bash tool's is informational** (B5, slice-064) — `/craft:prime` shows it as `· Hook bash:` instead of `⚠ Hook bash:`, since CRAFT's hooks and the scripts they call are bash-3.2-compatible; the status-graph harness's guard now stops only for a too-old bash, never for a missing python3.
+- **`GITIGNORED=` judges the file the settings helpers write** (B17, slice-065) — in a project that sits in a subdirectory of its repository, `ensure-readonly-context.sh` and `ensure-worktree-trust.sh` report the verdict for the repository-root `.claude/settings.local.json`, and `/craft:execute`'s warning names that file.
+- **Parallel mode no longer removes its checkpoint record** (B20, slice-066) — step 9 keeps `<epic-worktree>/.craft/checkpoints.md` as state, hidden by a nested `.craft/.gitignore`, so a rule of yours that denies or asks on removing files never meets it and `git worktree remove` still succeeds.
 
 ## [1.7.0] - 2026-10-06
 
