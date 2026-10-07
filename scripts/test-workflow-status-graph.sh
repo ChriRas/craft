@@ -96,14 +96,28 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # do not even parse. Bash reads a script command by command, so this guard runs before the
 # first such construct and turns the parse error into an install hint. The minimum itself is
 # defined once, in check-toolchain.sh, which runs here with the very bash executing this file.
-if ! toolchain="$("$BASH" "$SCRIPT_DIR/check-toolchain.sh" 2>&1)"; then
-  case "$toolchain" in
-    *STATUS=missing-tools*)
-      printf 'FATAL: %s needs a newer toolchain than this shell provides:\n%s\n' \
-        "${BASH_SOURCE[0]##*/}" "$toolchain" >&2
-      exit 2 ;;
-  esac
-fi
+# The guard judges the bash ONLY (a `BASH=too-old` line): a missing python3 shows a readable
+# `command not found` at its first use, while an old bash shows a parse error, and python3 is
+# no business of this harness. It prints just the bash facts and remedy, not the helper's whole
+# key=value output. Helper cannot run → fail-open, as before. Everything here must parse under 3.2.
+toolchain="$("$BASH" "$SCRIPT_DIR/check-toolchain.sh" 2>&1)"
+case "
+$toolchain
+" in
+  *"
+BASH=too-old
+"*)
+    tc_get() { printf '%s\n' "$toolchain" | sed -n "s/^$1=//p" | head -n 1; }
+    printf 'FATAL: %s needs bash >= %s — it runs under %s %s.\n' \
+      "${BASH_SOURCE[0]##*/}" "$(tc_get BASH_MIN)" "$(tc_get BASH_PATH)" "$(tc_get BASH_VERSION)" >&2
+    if [[ -n "$(tc_get PATH_REMEDY)" ]]; then
+      printf '%s\n' "$(tc_get PATH_REMEDY)" >&2
+    elif [[ -n "$(tc_get INSTALL_BASH)" ]]; then
+      printf 'Install: %s\n' "$(tc_get INSTALL_BASH)" >&2
+    fi
+    [[ -n "$(tc_get INSTALL_NOTE)" ]] && printf 'Note: %s\n' "$(tc_get INSTALL_NOTE)" >&2
+    exit 2 ;;
+esac
 
 ROOT="${1:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 

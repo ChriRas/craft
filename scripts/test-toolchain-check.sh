@@ -265,7 +265,7 @@ running_bash_dir="$(bash -c 'printf %s "${BASH%/*}"')"
 remedy="$(printf '%s\n' "$OUT" | sed -n 's/^HOOK_REMEDY=//p')"
 { [[ $RC -eq 10 ]] && has "HOOK_BASH=too-old" && has "HOOK_BASH_VERSION=3.2.57" && has "STATUS=hook-mismatch" \
   && [[ "$remedy" == *"hooks started this session with /bin/bash 3.2.57"* ]] && [[ "$remedy" == *'"env": {"PATH"'* ]] \
-  && [[ "$remedy" == *"unaffected"* ]] && [[ "$remedy" == *"rewritten at every session start"* ]] \
+  && [[ "$remedy" == *"unaffected"* ]] && [[ "$remedy" == *"your own, or other plugins"* ]] && [[ "$remedy" == "informational"* ]] && [[ "$remedy" == *"rewritten at every session start"* ]] \
   && [[ "$remedy" == *"with $running_bash_dir first"* ]] && [[ "$remedy" != *"$running_bash_dir/bash"* ]]; } \
   && ok "hook ran 3.2, tool bash 5.3 → hook-mismatch, exit 10, remedy names env.PATH and the bash directory once" || bad "hook mismatch (rc=$RC, out=$OUT)"
 OUT="$(env CRAFT_TEST_UNAME=Darwin CRAFT_TEST_BASH_VERSION=5.3.15 CRAFT_TEST_PYTHON3_VERSION=3.12.1 bash "$HELPER" --project "$FIX/p-new" 2>&1)"; RC=$?
@@ -341,6 +341,53 @@ if [[ "$HOOK_BASH" == "/bin/bash" ]] && [[ "${hook_version%%.*}" -lt 5 ]]; then
 else
   echo "  SKIP  no system bash older than 5 — 3.2 parse/run cases not applicable here"
 fi
+
+# The status-graph harness's guard (slice-064, R3): it stops a run for the bash alone, with a focused
+# message, and never because python3 is missing. It runs BEFORE that harness's first bash-5 construct.
+echo "STATUS-GRAPH GUARD:"
+GRAPH="$SCRIPT_DIR/test-workflow-status-graph.sh"
+guard_out() { env "$@" bash "$GRAPH" 2>&1; }
+OUT="$(guard_out CRAFT_TEST_UNAME=Darwin CRAFT_TEST_BASH_VERSION=4.4.0 CRAFT_TEST_BASH_CANDIDATES=)"; RC=$?
+{ [[ $RC -eq 2 ]] && [[ "$OUT" == *"needs bash >= 5.0"* ]] && [[ "$OUT" == *"4.4.0"* ]] && [[ "$OUT" == *"brew install bash"* ]] \
+  && lacks_prefix "PYTHON3=" && lacks_prefix "OS=" && lacks_prefix "HOOK_BASH=" && lacks_prefix "STATUS="; } \
+  && ok "old bash → exit 2, 'needs bash >= 5.0' with the install command, none of the helper's other keys dumped" \
+  || bad "guard old bash (rc=$RC, out=$OUT)"
+OUT="$(guard_out CRAFT_TEST_UNAME=Darwin CRAFT_TEST_BASH_VERSION=4.4.0 CRAFT_TEST_BASH_CANDIDATES="$FIX/cand-new/bash")"; RC=$?
+{ [[ $RC -eq 2 ]] && [[ "$OUT" == *"needs bash >= 5.0"* ]] && [[ "$OUT" == *"is installed at $FIX/cand-new/bash"* ]] && [[ "$OUT" != *"INSTALL_BASH"* ]] \
+  && [[ "$OUT" != *"brew install bash"* ]] && lacks_prefix "PYTHON3="; } \
+  && ok "old bash with a current one off PATH → the PATH remedy, never an install command" \
+  || bad "guard off-PATH remedy (rc=$RC, out=$OUT)"
+mkdir -p "$FIX/graph-empty-root"
+OUT="$(env CRAFT_TEST_PYTHON3_VERSION=missing CRAFT_TEST_BASH_VERSION=5.3.15 bash "$GRAPH" "$FIX/graph-empty-root" 2>&1)"; RC=$?
+{ [[ "$OUT" != *"needs bash"* ]] && [[ "$OUT" == *"expected file not found"*"graph-empty-root/skills/workflow/SKILL.md"* ]]; } \
+  && ok "python3 missing alone does not stop the guard — the harness runs on (it reaches the empty root's missing SKILL.md, which is past the guard)" \
+  || bad "guard stopped for python3 (rc=$RC, out=$OUT)"
+mkdir -p "$FIX/guard-nohelper/scripts"; cp "$GRAPH" "$SCRIPT_DIR/example-regions.sh" "$FIX/guard-nohelper/scripts/"   # everything it needs but check-toolchain.sh
+OUT="$(env CRAFT_TEST_BASH_VERSION=4.4.0 bash "$FIX/guard-nohelper/scripts/test-workflow-status-graph.sh" "$FIX/graph-empty-root" 2>&1)"; RC=$?
+{ [[ "$OUT" != *"needs bash"* ]] && [[ "$OUT" == *"expected file not found"* ]]; } \
+  && ok "helper cannot run → the guard stays fail-open, the harness runs on" \
+  || bad "guard not fail-open (rc=$RC, out=$OUT)"
+if [[ -x /bin/bash ]] && [[ "$(/bin/bash -c 'printf %s "${BASH_VERSINFO[0]}"')" -lt 5 ]]; then
+  OUT="$(/bin/bash "$GRAPH" 2>&1)"; RC=$?
+  { [[ $RC -eq 2 ]] && [[ "$OUT" == *"needs bash >= 5.0"* ]] && [[ "$OUT" == *"/bin/bash"* ]] && [[ -z "$(shell_errors "$OUT")" ]]; } \
+    && ok "under /bin/bash $(/bin/bash -c 'printf %s "$BASH_VERSION"') → exit 2, the same message, no shell error text (the guard parses before the first bash-5 construct)" \
+    || bad "guard under /bin/bash (rc=$RC, shell errors: $(shell_errors "$OUT" | head -2), out=$(printf '%s\n' "$OUT" | head -3))"
+else
+  echo "  SKIP  no system bash older than 5 — guard under an old bash not applicable here"
+fi
+
+# /craft:prime renders the hook-bash mismatch as an informational line (slice-064, R2): nothing CRAFT ships
+# is affected by it, so it is a `·` note, never a `⚠` warning.
+echo "PRIME RENDERING:"
+PRIME="$REPO_ROOT/commands/prime.md"
+{ ! grep -q '⚠ Hook bash' "$PRIME"; } && ok "commands/prime.md has no '⚠ Hook bash' line" || bad "prime.md still renders a ⚠ Hook bash line"
+step1="$(sed -n '/^- `HELPER_EXIT=10`/,/^- `MISSING=bash`/p' "$PRIME")"
+block="$(sed -n '/^The full status block/,/^<stack-pack line/p' "$PRIME")"
+row="$(grep -F 'check-toolchain.sh` exit 10' "$PRIME")"
+{ [[ "$step1" == *'· Hook bash: <HOOK_REMEDY>'* ]] && [[ "$block" == *'· Hook bash: <HOOK_REMEDY>'* ]] \
+  && [[ "$row" == *'informational'* ]] && [[ "$row" == *'· Hook bash: <HOOK_REMEDY>'* ]]; } \
+  && ok "'· Hook bash: <HOOK_REMEDY>' in Pre-flight Step 1, the Output Format block and the Error Handling row (informational)" \
+  || bad "prime.md hook line (step1=${step1:0:80}, block=${block:0:80}, row=$row)"
 
 # Constructs newer than bash 3.2 that `bash -n` does not reject. Scanned on every machine (also where
 # no old bash exists to run the hooks under); full-line comments are ignored, since the helper's own
