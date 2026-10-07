@@ -63,7 +63,7 @@ The helper's other outcomes are **not** missing tools:
 - `HELPER_EXIT=10` (`STATUS=hook-mismatch`) — **do not abort.** The Bash tool has a current bash, but
   the SessionStart hook recorded an older one when this session started (Claude Code's own PATH
   differs from your shell's). Report the versions in the Tools line and add the output-block line
-  `⚠ Hook bash: <HOOK_REMEDY>`.
+  `· Hook bash: <HOOK_REMEDY>` — an informational line, not a warning: nothing CRAFT ships is affected.
 - `MISSING=bash` — the helper could not run at all (its `HELPER_EXIT=127` means exactly that);
   report bash as missing and ignore the helper line.
 - `HELPER=not-found`, `HELPER_EXIT=2`, or no `STATUS=` line — emit
@@ -538,7 +538,8 @@ The full status block — emit exactly this shape:
 ✓ Rules ↔ State drift check: <clean | ⚠ N drifts>
   <one line per drift, if any>
 ✓ Tools: context-mode ✓ (<version>), agent-browser ✓, git ✓ (<version>), gh ✓ (<version>), bash ✓ (<version>), python3 ✓ (<version>)   (bash ?, python3 ? when the toolchain check was incomplete)
-  ⚠ <Hook bash: … — only when the helper reports STATUS=hook-mismatch; or ⚠ Toolchain check incomplete: … (see Pre-flight Step 1)>
+  · Hook bash: <HOOK_REMEDY>   (only when the helper reports STATUS=hook-mismatch)
+  ⚠ <Toolchain check incomplete: … — only when the check could not run (see Pre-flight Step 1)>
 ✓ Senior-Developer baseline loaded
 <stack-pack line — only when a pack is declared; ✓ if found, ⚠ if missing (see step 4)>
 ✓ Agent models: <every agent with the model CRAFT will ask for, on one line, followed by [N overridden] — omitted when N is 0 (see step 4b); only when step 4b item 1 did not disable model resolution>
@@ -581,7 +582,7 @@ After emitting the block, prime prints step 4g's cleanup command as its own code
 |---|---|
 | One or more tools missing | Abort with concrete install instructions, do not proceed. |
 | bash or python3 missing / too old, or a current bash only off PATH | Part of the one missing-tools abort; the messages are defined in Pre-flight Step 1 (table and helper outcomes). |
-| Hooks ran an older bash than the Bash tool (`check-toolchain.sh` exit 10) | Emit the `⚠ Hook bash: …` line with the remedy and continue. Not a blocker. |
+| Hooks ran an older bash than the Bash tool (`check-toolchain.sh` exit 10) | Emit the informational `· Hook bash: <HOOK_REMEDY>` line and continue. Not a blocker, not a warning. |
 | `check-toolchain.sh` not found, exits 2, or prints something unexpected | Emit `⚠ Toolchain check incomplete: <reason>` and continue. |
 | `context-mode` outdated | Warn, suggest `/ctx-upgrade`, continue priming. |
 | `.claude/project/intent.md` missing | Emit onboarding nudge, do not proceed. |
