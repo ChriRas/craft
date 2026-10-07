@@ -95,8 +95,9 @@ the build blueprint in `plugin-architecture.md`. Headline decisions:
 - **CRAFT's own files are not the human's work (slice-039)** — which paths count as uncommitted
   work is decided once, by `scripts/tree-dirt-state.sh`: plans, ID counters and local state never
   block `/craft:execute` or `/craft:commit`. The flip side is that a command commits only what it
-  wrote (pathspec commits; the human's changes stay theirs), and a worktree is created only from a
-  base that holds its plan byte-identical. *Why not* let the clean-tree check count everything: it
+  wrote (pathspec commits; the human's changes stay theirs), and an epic worktree is created only from a
+  base that holds its plan byte-identical, while a slice's plan is handed into its worktree and read back
+  (`plan-roundtrip.sh`, slice-067). *Why not* let the clean-tree check count everything: it
   made plan files the human's problem and was, by accident, the only guard keeping worktrees off
   stale plans. Removing it without moving that guard (round-1 review) proved the guard was real.
 - **CRAFT never goes around a permission rule (D34, slice-050)** — when the user's settings deny or
