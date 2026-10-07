@@ -191,6 +191,98 @@ perl -0pi -e 's/\n\nv\n/\n\nv\n\n- 2026-10-06T11:05:00Z · ■ · epic-900 · me
 run --trunk main "$EPIC"
 expect "a ■ line outside ## Autopilot Log does not count" "$EPIC" autopilot not-signed-off - no_answer
 
+echo "epic-close-state.sh — the PR path (slice-068, B25)"
+# merge_pr <N> — what GitHub's merge button writes on the trunk (the branch tip becomes a non-first parent)
+merge_pr() { g merge --no-ff "$BR" -m "Merge pull request #$1 from owner/$BR"; }
+PRLOG="$L_RUN
+$L_ASK
+$L_PR"
+reset; epic_branch; merge_pr 12; archives; epic "$PRLOG"
+run --trunk main "$EPIC"
+expect "PR #12 merged, the trunk synced: closable" "$EPIC" autopilot closable merged -
+expect_counts "counts: a merged PR-path epic is closable" 1 1
+if grep -qE "^EPIC=epic-900 PLAN=$EPIC KIND=autopilot STATE=closable BRANCH=$BR BRANCH_STATE=merged REASON=-$" <<<"$OUT"; then
+  ok "the PR-path line names the epic branch, fields in order"; else bad "PR-path line format — got: $(tr '\n' '|' <<<"$OUT")"; fi
+reset; epic_branch; archives; epic "$PRLOG"
+run --trunk main "$EPIC"
+expect "PR #12 still open (the branch unmerged): pr-path" "$EPIC" autopilot pr-path - pr_opened
+expect_counts "counts: an open PR-path epic is not closable" 1 0
+if grep -qE "^EPIC=epic-900 PLAN=$EPIC KIND=autopilot STATE=pr-path BRANCH=$BR BRANCH_STATE=- REASON=pr_opened$" <<<"$OUT"; then
+  ok "the pr-path line names the branch the PR carries"; else bad "pr-path line format — got: $(tr '\n' '|' <<<"$OUT")"; fi
+reset; epic_branch; merge_pr 12; archives; epic "$PRLOG"
+g checkout "$BR"; echo more > "$P/more.txt"; g add more.txt; g commit -m more; g checkout main
+run --trunk main "$EPIC"
+expect "commits on the epic branch after the PR merged: branch-unmerged, as on the direct path" "$EPIC" autopilot branch-unmerged unmerged branch_unmerged
+reset; epic_branch; merge_pr 12; archives; epic "$PRLOG"
+g branch -d "$BR"
+run --trunk main "$EPIC"
+expect "PR merged and the branch gone: its merge commit names PR #12" "$EPIC" autopilot closable deleted -
+reset; epic_branch; g checkout "$BR"; echo more > "$P/more.txt"; g add more.txt; g commit -m more; g checkout main
+merge_pr 12; g branch -f "$BR" "$BR~1"; archives; epic "$PRLOG"
+run --trunk main "$EPIC"
+expect "PR merged, the local branch lags the PR's head: branch-unmerged, not a pr-path loop" "$EPIC" autopilot branch-unmerged unmerged branch_unmerged
+reset; epic_branch; g merge --squash "$BR"; g commit -m "Demo (#12)"; archives; epic "$PRLOG"
+run --trunk main "$EPIC"
+expect "PR squash-merged: no merge commit proves it, pr-path (the known limit)" "$EPIC" autopilot pr-path - pr_opened
+# older merges with ~20 KB subjects (well past a pipe buffer), the PR's merge the newest line of `git log --merges`
+reset; longsubj="$(head -c 20000 /dev/zero | tr '\0' x)"
+for i in 1 2 3 4 5 6 7 8; do g checkout -b "side$i"; echo "$i" > "$P/s$i.txt"; g add "s$i.txt"; g commit -m "s$i"; g checkout main; g merge --no-ff "side$i" -m "Merge side$i $longsubj"; done
+epic_branch; archives; epic "$PRLOG"; merge_pr 12; g branch -d "$BR"
+run --trunk main "$EPIC"
+expect "branch gone, a long merge history: grep -q's early exit must not read as no match" "$EPIC" autopilot closable deleted -
+reset; epic_branch; merge_pr 99; archives; epic "$PRLOG"
+g branch -d "$BR"
+run --trunk main "$EPIC"
+expect "branch gone, only another PR's merge on the trunk: pr-path" "$EPIC" autopilot pr-path - pr_opened
+reset; archives; epic "$PRLOG"
+run --trunk main "$EPIC"
+expect "branch gone, nothing merged: pr-path" "$EPIC" autopilot pr-path - pr_opened
+reset; epic_branch; merge_pr 12; archives; epic "$PRLOG"
+rm -f "$P/.claude/project/slices/slice-902-beta.md"
+printf '# Slice 902\n\n> Status: reviewing\n> Slice-ID: slice-902\n' > "$P/.claude/plans/slice-902-beta.md"
+run --trunk main "$EPIC"
+expect "PR merged, but a slice still open: entries-open" "$EPIC" autopilot entries-open - not_landed:slice-902:plan
+
+echo "epic-close-state.sh — closing: the close PR is open"
+await() { perl -pi -e 's/^> Status: planning$/> Status: awaiting-approval/' "$P/$EPIC"; }
+reset; epic_branch; merge; archives; epic "$SIGNED"; await
+run --trunk main "$EPIC"
+expect "an autopilot epic plan at awaiting-approval" "$EPIC" autopilot closing - awaiting_approval
+expect_counts "counts: a closing epic is not closable" 1 0
+if grep -qE "^EPIC=epic-900 PLAN=$EPIC KIND=autopilot STATE=closing BRANCH=- BRANCH_STATE=- REASON=awaiting_approval$" <<<"$OUT"; then
+  ok "the closing line, fields in order"; else bad "closing line format — got: $(tr '\n' '|' <<<"$OUT")"; fi
+reset; archives; epic "(no autopilot run yet)"; await
+run --trunk main "$EPIC"
+expect "a sequential epic plan at awaiting-approval" "$EPIC" sequential closing - awaiting_approval
+reset; epic_branch; archives; epic "$PRLOG"; await
+run --trunk main "$EPIC"
+expect "a PR-path epic at awaiting-approval (its branch unmerged)" "$EPIC" autopilot closing - awaiting_approval
+reset; epic_branch; archives; epic "$L_RUN"; await
+run --trunk main "$EPIC"
+expect "closing is judged before a5's answer" "$EPIC" autopilot closing - awaiting_approval
+reset; archives; epic "(no autopilot run yet)" "> Epic-ID: epic-900"; await
+run --trunk main "$EPIC"
+if [[ $RC -eq 0 && "$OUT" == *"STATE=malformed"*"REASON=epic_frontmatter:Epic-Slug"* ]]; then ok "malformed outranks closing"; else bad "malformed vs closing — rc=$RC: $(tr '\n' '|' <<<"$OUT")"; fi
+reset; epic_branch; merge; archives; epic "$SIGNED"; await
+perl -pi -e 's/\n/\r\n/' "$P/$EPIC"
+run --trunk main "$EPIC"
+expect "a CRLF epic plan at awaiting-approval" "$EPIC" autopilot closing - awaiting_approval
+reset; epic_branch; merge; archives; epic "$SIGNED"
+perl -pi -e 's/^> Status: planning$/```\n> Status: awaiting-approval\n```/' "$P/$EPIC"
+run --trunk main "$EPIC"
+expect "a Status line inside a fence is no status" "$EPIC" autopilot closable merged -
+reset; epic_branch; merge; archives; epic "$SIGNED"
+perl -0pi -e 's/\n\nv\n/\n\nv\n\n> Status: awaiting-approval\n/' "$P/$EPIC"
+run --trunk main "$EPIC"
+expect "a Status line below the frontmatter is no status" "$EPIC" autopilot closable merged -
+reset; epic_branch; merge; archives; epic "$SIGNED"; await
+epic "$L_RUN" "> Epic-ID: epic-901
+> Epic-Slug: other" ".claude/plans/epic-901-other.md"
+run --trunk main
+expect "scan: the closing epic" "$EPIC" autopilot closing - awaiting_approval
+expect "scan: the open epic beside it" ".claude/plans/epic-901-other.md" autopilot not-signed-off - no_answer
+expect_counts "scan: counts with a closing epic" 2 0
+
 echo "epic-close-state.sh — entries"
 reset; epic_branch; merge; archives; epic "$SIGNED"
 rm -f "$P/.claude/project/slices/slice-902-beta.md"
@@ -270,6 +362,21 @@ done
 for k in autopilot sequential; do
   grep -qF "KIND=$k" "$COMMIT_MD" && ok "commit.md handles KIND=$k" || bad "commit.md does not handle KIND=$k"
 done
+grep -qF 'STATE=closing' "$COMMIT_MD" && ok "commit.md handles STATE=closing" || bad "commit.md does not handle STATE=closing"
+close_sec="$(awk '/^## Epic-close Mode/{f=1;next} f&&/^## /{exit} f' "$COMMIT_MD")"
+grep -qE 'plan-landing\.sh.* close ' <<<"$close_sec" && ok "Epic-close calls plan-landing.sh close" || bad "Epic-close does not call plan-landing.sh close"
+grep -qE 'plan-landing\.sh.* sync ' <<<"$close_sec" && ok "Epic-close calls plan-landing.sh sync" || bad "Epic-close does not call plan-landing.sh sync"
+# the status graph allows exactly ONE craft:writes marker per command and status (test-workflow-status-graph.sh) — Step 6
+# item 3 holds it; Epic-close sets the status by delegating to that item, so its text must say so
+grep -qF 'status=awaiting-approval' <<<"$close_sec" && grep -qF 'Step 6' <<<"$close_sec" && grep -qF 'Status: awaiting-approval' <<<"$close_sec" && ok "Epic-close sets awaiting-approval through Step 6's first-invocation item 3" || bad "Epic-close does not name the awaiting-approval write it delegates to Step 6"
+[[ "$(grep -cF '<!-- craft:writes status=awaiting-approval -->' "$COMMIT_MD")" -eq 1 ]] && ok "commit.md carries the one awaiting-approval writer marker" || bad "commit.md does not carry exactly one awaiting-approval writer marker"
+grep -qF -- '<epic-id>-<slug>-close' <<<"$close_sec" && ok "Epic-close names the close branch (<epic-id>-<slug>-close)" || bad "Epic-close does not name the close branch"
+grep -qF 'gh pr create' <<<"$close_sec" && ok "Epic-close opens the close PR with gh pr create" || bad "Epic-close does not name gh pr create"
+for stale in 'close it by hand, through a PR (B25)' 'that close is not built yet (B25)'; do
+  grep -qF "$stale" "$COMMIT_MD" "$EXECUTE_MD" && bad "a shipped command still says: $stale" || ok "no command still says: $stale"
+done
+a5pr="$(awk '/^### a5 /{f=1} f&&/^- \*\*\[Y\], `pull-request`/{g=1;next} g&&/^- \*\*\[N\]\*\*/{exit} g' "$EXECUTE_MD")"
+grep -qF 'Recommended next: /craft:commit' <<<"$a5pr" && ok "execute.md a5's PR bullet hands over to /craft:commit" || bad "execute.md a5's PR bullet lacks 'Recommended next: /craft:commit'"
 grep -qF 'STATE=not-autopilot' "$COMMIT_MD" && bad "commit.md still handles the removed STATE=not-autopilot" || ok "commit.md no longer names STATE=not-autopilot"
 grep -qF '## Epic-close Mode' "$COMMIT_MD" && ok "commit.md has the Epic-close mode" || bad "commit.md lacks '## Epic-close Mode'"
 a5="$(awk '/^### a5 /{f=1} f&&/^## /{exit} f' "$EXECUTE_MD")"

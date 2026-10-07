@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # craft (Coding with Rules, Autonomy, Feedback, Tests)
-# epic-close-state.sh — can /craft:commit close this epic now? (slice-061 / slice-062, roadmap B24 / B26, D37 / D38)
+# epic-close-state.sh — can /craft:commit close this epic now? (slice-061 / 062 / 068, roadmap B24 / B26 / B25, D37 / D38 / D39)
 #
 # WHY ------------------------------------------------------------------------
 # After an autopilot run's a5 [Y] — and after a sequential run's s5 — no CRAFT command wrote the epic
@@ -27,14 +27,21 @@
 #
 #   malformed        the plan is unreadable, or its frontmatter (above the first `## `) lacks
 #                    `> Epic-ID:` or `> Epic-Slug:` — REASON epic_plan_unreadable | epic_frontmatter:<key>
+#   closing          the plan's frontmatter reads `> Status: awaiting-approval`: the first pass of /craft:commit's
+#                    Epic-close on the PR path has opened its close PR, and only the second pass may close the epic —
+#                    REASON awaiting_approval (slice-068, D39)
 #   (autopilot only — the human's a5 answer; a sequential epic has none and skips these three)
 #   not-signed-off   no `■` line for this epic-ID in that section: a run still open, or a5's question never
 #                    answered (REASON no_answer) — or the last one is no a5 answer at all: a run that stopped
 #                    before a5, e.g. at the plan gate's or the orphan question's `[N]` (REASON run_stopped)
 #   not-merged       the LAST `■` line of this epic is a5's `[N]`, `complete, not merged` (REASON not_merged),
 #                    or a merge into another branch (REASON merged_into:<branch>)
-#   pr-path          the last `■` line is `PR #<N> opened` — the pull-request path, which this mode does not
-#                    close (D37). REASON pr_opened
+#   pr-path          the last `■` line is `PR #<N> opened` and the trunk does not hold that PR's merge yet — the
+#                    close rides on the open PR (D39). BRANCH names the epic
+#                    branch that PR carries (BRANCH_STATE `-`). REASON pr_opened. The merge is proved as for a direct one: a merge
+#                    commit with the epic branch's tip as a non-first parent, or — the branch gone — GitHub's `Merge pull
+#                    request #<N> from …` commit. Once the trunk holds it, the checks below go on and the epic can read
+#                    closable; a squash or rebase merge leaves neither and stays pr-path (a known limit)
 #   (both kinds)
 #   entries-open     `epic-entry-link.sh resolve` does not report every entry `landed` — REASON
 #                    not_landed:<slice-id or ->:<state> (the first such entry) | no_entries | unresolved (an
@@ -110,6 +117,12 @@ is_merged() {
   return 1
 }
 
+# does a merge commit on the trunk have a subject matching <regex>?
+trunk_merge_subject() {
+  # no `grep -q`: its early exit would SIGPIPE `git log` on a long history and pipefail would read that as no match
+  git log --merges --format='%s' "refs/heads/$TRUNK" 2>/dev/null | grep -- "$1" >/dev/null
+}
+
 frontmatter() { # blanked-file key
   awk -v key="$2" '
     /^## / { exit }
@@ -125,7 +138,7 @@ emit() { # epic plan state branch branch-state reason — KIND is judge()'s `kin
 }
 
 judge() {
-  local plan="$1" blank="$TMP/plan" kind=- id slug branch log last text resolved line sid state
+  local plan="$1" blank="$TMP/plan" kind=- id slug branch log last text prn="" resolved line sid state
   if [[ ! -f "$plan" || ! -r "$plan" ]] || ! bash "$REGIONS" blank markdown "$plan" 2>/dev/null | tr -d '\r' > "$blank"; then
     emit - "$plan" malformed - - epic_plan_unreadable; return
   fi
@@ -136,8 +149,12 @@ judge() {
   branch="$id-$slug"
 
   log="$(awk '$0 == "## Autopilot Log" { f = 1; next } f && /^##? / { exit } f' "$blank" | grep -E "$LOG_LINE")"
-  if [[ -n "$log" ]]; then
-    kind=autopilot
+  if [[ -n "$log" ]]; then kind=autopilot; else kind=sequential; fi
+
+  # the close PR is open: a first pass of /craft:commit's Epic-close set the plan to awaiting-approval (slice-068)
+  [[ "$(frontmatter "$blank" Status)" != "awaiting-approval" ]] || { emit "$id" "$plan" closing - - awaiting_approval; return; }
+
+  if [[ "$kind" == autopilot ]]; then
     last="$(grep -F -- " · ■ · $id · " <<<"$log" | tail -n 1)"
     [[ -n "$last" ]] || { emit "$id" "$plan" not-signed-off - - no_answer; return; }
     text="${last#* · ■ · "$id" · }"
@@ -145,12 +162,23 @@ judge() {
     case "$text" in
       "merged into $TRUNK") ;;
       "merged into "*) emit "$id" "$plan" not-merged - - "merged_into:${text#merged into }"; return ;;
-      "PR #"*" opened") emit "$id" "$plan" pr-path - - pr_opened; return ;;
+      "PR #"*" opened")
+        # the epic's PR: closable only once the trunk holds its merge — the branch tip as a non-first parent, or,
+        # the branch gone, GitHub's own `Merge pull request #<N> from …` commit. Until then the PR path's first pass
+        # (the close rides on the open PR); a squash or rebase merge leaves neither and stays here (slice-068)
+        prn="${text#PR #}"; prn="${prn%% *}"
+        [[ "$prn" =~ ^[0-9]+$ ]] || { emit "$id" "$plan" pr-path "$branch" - pr_opened; return; }
+        if git show-ref --verify --quiet "refs/heads/$branch"; then
+          # a PR branch that lags the PR's head (GitHub's "Update branch", a committed suggestion) is no non-first parent
+          # of the merge commit, so GitHub's own subject proves the merge too; the branch check below then judges it
+          is_merged "$branch" || trunk_merge_subject "^Merge pull request #$prn from " ||
+            { emit "$id" "$plan" pr-path "$branch" - pr_opened; return; }
+        else
+          trunk_merge_subject "^Merge pull request #$prn from " || { emit "$id" "$plan" pr-path "$branch" - pr_opened; return; }
+        fi ;;
       "complete, not merged") emit "$id" "$plan" not-merged - - not_merged; return ;;
       *) emit "$id" "$plan" not-signed-off - - run_stopped; return ;;
     esac
-  else
-    kind=sequential
   fi
 
   resolved="$(CLAUDE_PROJECT_DIR="$PWD" bash "$LINK" resolve "$plan" 2>/dev/null)" ||
@@ -170,7 +198,7 @@ judge() {
     emit "$id" "$plan" closable "$branch" merged -
   elif [[ "$kind" == sequential ]]; then
     emit "$id" "$plan" closable "$branch" none -
-  elif git log --merges --format='%s' "refs/heads/$TRUNK" 2>/dev/null | grep -q -- "^Merge $id: "; then
+  elif trunk_merge_subject "^Merge $id: " || { [[ -n "$prn" ]] && trunk_merge_subject "^Merge pull request #$prn from "; }; then
     emit "$id" "$plan" closable "$branch" deleted -
   else
     emit "$id" "$plan" branch-unmerged "$branch" missing branch_missing
