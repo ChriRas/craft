@@ -196,6 +196,34 @@ verdict_case "negated exact line" negated
 new_git_fix
 verdict_case "no rule at all" no
 
+# A project that sits in a subdirectory of its git repository (B17 / slice-065): Claude Code reads
+# and writes <repo-root>/.claude/settings.local.json, and both helpers write that file, so the
+# verdict they print is the one for THAT file, equal to ensure-gitignore.sh asked from the repo root.
+new_subdir_fix() { # like new_git_fix, plus a project dir $P = $G/app (git init stays at $G)
+  new_git_fix; P="$G/app"; mkdir -p "$P"
+}
+subdir_case() { # name want-GITIGNORED — repo $G, project dir $P
+  local name="$1" want="$2" o1 o2 v before after
+  v="$(gi_verdict "$G")"
+  case "$v" in covered) v=yes ;; absent) v=no ;; esac
+  before="$(cat "$G/.gitignore" "$P/.gitignore" "$G/.claude/.gitignore" 2>/dev/null)"
+  o1="$(CLAUDE_PROJECT_DIR="$P" bash "$HELPER" --apply 2>&1)"
+  o2="$(CLAUDE_PROJECT_DIR="$P" bash "$TRUST" --apply 2>&1)"
+  after="$(cat "$G/.gitignore" "$P/.gitignore" "$G/.claude/.gitignore" 2>/dev/null)"
+  { [[ "$o1" == *"GITIGNORED=$want"* ]] && [[ "$o2" == *"GITIGNORED=$want"* ]] && [[ "$v" == "$want" ]]; } \
+    && ok "$name → GITIGNORED=$want from both helpers, equal to ensure-gitignore.sh" || bad "$name (want $want, gitignore-helper=$v; readonly: $(printf '%s' "$o1" | grep GITIGNORED); trust: $(printf '%s' "$o2" | grep GITIGNORED))"
+  { [[ -f "$G/.claude/settings.local.json" ]] && [[ ! -e "$P/.claude/settings.local.json" ]]; } \
+    && ok "  … --apply wrote the repo-root settings.local.json and none in the project dir" || bad "  … settings.local.json written to the wrong place (repo root: $([[ -f "$G/.claude/settings.local.json" ]] && echo yes || echo no), project dir: $([[ -e "$P/.claude/settings.local.json" ]] && echo yes || echo no))"
+  [[ "$before" == "$after" ]] && ok "  … neither --apply touched a .gitignore" || bad "  … a .gitignore changed: $(printf '%s' "$after" | tr '\n' '|')"
+}
+
+new_subdir_fix; printf '.claude/\n' > "$G/.gitignore"
+subdir_case "subdir: root rule covers the repo-root file" yes
+new_subdir_fix; printf '.claude/settings.local.json\n' > "$P/.gitignore"
+subdir_case "subdir: only a project-dir rule" no
+new_subdir_fix; printf '.claude/settings.local.json\n!.claude/settings.local.json\n' > "$G/.gitignore"
+subdir_case "subdir: root negation" negated
+
 # the execute-like sequence: onboard/prime wrote the block, then the worktree trust is applied twice
 new_git_fix
 CLAUDE_PROJECT_DIR="$G" bash "$GI" --apply >/dev/null 2>&1
@@ -210,6 +238,13 @@ for f in "$HELPER" "$TRUST"; do
   if grep -nE 'gitignore_path|ignore_line|open\([^)]*\.gitignore|STATUS=covered|STATUS=negated' "$f" >/dev/null; then bad "$(basename "$f") still handles .gitignore or maps its verdict itself"
   else ok "$(basename "$f") has no .gitignore handling of its own"; fi
 done
+
+# execute's GITIGNORED=no line names the repository root's settings file and a fix that covers it
+# in both layouts — 4f alone would write a project-anchored block that cannot cover it (B17)
+exec_line="$(grep -F 'on `no`, add one line' "$REPO_ROOT/commands/execute.md")"
+{ [[ -n "$exec_line" ]] && grep -qF "<repo-root>/.claude/settings.local.json is not gitignored" <<<"$exec_line" \
+  && grep -qF "repository root's .gitignore" <<<"$exec_line" && ! grep -qF "settings.local.json is not gitignored — /craft:prime offers" <<<"$exec_line"; } \
+  && ok "execute's GITIGNORED=no line names the repository root's settings file and a fix that covers it" || bad "execute's GITIGNORED=no line does not name the repo-root file / still offers 4f as the only fix"
 
 # prime 4e runs a project's own copy of this helper only in CRAFT's repo (B10 / slice-035 R10)
 step4e="$(awk '/^### 4e\./{f=1} /^### 4f\./{f=0} f' "$REPO_ROOT/commands/prime.md")"

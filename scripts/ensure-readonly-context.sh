@@ -32,7 +32,9 @@
 #   DECLARED=<n>              number of connected projects declared in rules.md
 #   ROOT=<abs> STATUS=...     one line per declared path (present|absent)
 #   SETTINGS=exists|missing   whether settings.local.json existed beforehand
-#   GITIGNORED=yes|negated|no|unknown  the settings file's verdict from ensure-gitignore.sh --verdict
+#   GITIGNORED=yes|negated|no|unknown  the verdict from ensure-gitignore.sh --verdict for
+#                             <repo-root>/.claude/settings.local.json, the file this helper reads and
+#                             writes (also when the project is a subdirectory of the repository)
 #                             (unknown: that helper could not answer). Never written here.
 #   STATUS=present|absent     aggregate: absent if any single path is absent
 #   CHANGED=yes|no            (apply only) whether a write happened
@@ -65,8 +67,10 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 # Whether settings.local.json is gitignored is decided once, by ensure-gitignore.sh (B9) — this
 # helper only reports it and never writes .gitignore: /craft:onboard and /craft:prime step 4f are
 # its writers, and a write here would dirty the checkout in the middle of a run.
+# The verdict is asked from the repository root: that is where Claude Code (and this helper) keep
+# settings.local.json, also when the project dir is a subdirectory of the repository (B17).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CRAFT_GITIGNORED="$(CLAUDE_PROJECT_DIR="$(pwd)" bash "${SCRIPT_DIR}/ensure-gitignore.sh" --verdict .claude/settings.local.json 2>/dev/null)" \
+CRAFT_GITIGNORED="$(CLAUDE_PROJECT_DIR="${REPO_ROOT}" bash "${SCRIPT_DIR}/ensure-gitignore.sh" --verdict .claude/settings.local.json 2>/dev/null)" \
   && [[ -n "${CRAFT_GITIGNORED}" ]] || CRAFT_GITIGNORED="unknown"
 export CRAFT_GITIGNORED
 
