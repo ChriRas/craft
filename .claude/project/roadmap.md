@@ -20,8 +20,7 @@
 | 9 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
 | 10 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
 | 11 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
-| 12 | B5 | Fix | small | Toolchain polish: `⚠ Hook bash` line as informational when nothing is affected (R2); status-graph harness guard checks only the bash version, not the full helper (R3) |
-| 13 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
+| 12 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
 
 ## Notes per item
 
@@ -30,6 +29,11 @@ Autopilot Mode`); every decomposition entry has a slice. The 2.0.0 release (rule
 2.0.0) is **deliberately not cut yet** — the user has a few more things to do first. No version bump, push or tag until
 the user says so; nothing is pushed yet. Still owed from slice-060: human test (c) part B (real idle ≥ 1 h) and the
 follow-ups R1-1 / R1-2 (archive → Follow-ups).
+
+**B5 shipped with slice-064 (2026-10-07)** — `/craft:prime` shows a hook bash older than the Bash tool's as an
+informational `· Hook bash:` line (the helper's `HOOK_REMEDY` says CRAFT's hooks are bash-3.2-compatible and unaffected;
+`STATUS=hook-mismatch` / exit 10 are unchanged), and the status-graph harness's guard aborts only on `BASH=too-old`, with
+a focused message — a missing python3 no longer stops it. `scripts/test-toolchain-check.sh` covers both.
 
 **B23 shipped with slice-063 (2026-10-07)** — every `## Autopilot Log` line is written by `scripts/autopilot-log.sh`
 (the helper's clock, placement and landed check; a slice step refused before this invocation's `run started`, keyed to

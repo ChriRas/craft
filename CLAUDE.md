@@ -62,7 +62,9 @@ bash scripts/test-plugin-cache-drift.sh
 # compares the bash the SessionStart hook recorded in .claude/plans/.hook-env. /craft:prime runs
 # it in pre-flight. The harness drives every platform via test-only overrides and runs the hook
 # under /bin/bash (3.2 on macOS) — hooks/, this helper, the handoff-marker helper the hook calls and the
-# review-findings parser that helper calls must stay bash-3.2-compatible. Keep green.
+# review-findings parser that helper calls must stay bash-3.2-compatible. It also pins prime's hook-bash line
+# (informational `·`, never `⚠`) and the status-graph harness's guard (stops only for a too-old bash, never for
+# a missing python3). Keep green.
 bash scripts/test-toolchain-check.sh
 
 # Local-state gitignore helper — scripts/ensure-gitignore.sh decides, via git check-ignore, whether
