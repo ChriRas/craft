@@ -360,6 +360,63 @@ printf 'x\n' > "$W/epic-001-ep/.craft/other.md"
 out="$(run --epic "$EPIC" "$S1")"
 expect "  … any other file under .craft/ still is dirt" "$out" "EPIC=epic-001" REASON epic_worktree_dirty
 
+# slice-066 (B20): step 9 keeps the record as state and hides it through a nested .craft/.gitignore, so nothing
+# of CRAFT's issues a removal and `git worktree remove` of the epic worktree still succeeds.
+# The two lines below are the ones commands/execute.md step 9 names (pinned further down).
+record_gitignore() { printf '/.gitignore\n/checkpoints.md\n' > "$W/epic-001-ep/.craft/.gitignore"; }
+record_fixture() { # a project that does not ignore .craft/ (or, given a rule, negates it), plus an epic worktree holding the record
+  fixture
+  git -C "$P" rm -q .gitignore
+  [[ -n "${1:-}" ]] && { printf '%s\n' "$1" > "$P/.gitignore"; git -C "$P" add .gitignore; }
+  git -C "$P" commit -q -m "track everything"
+  eplan; splan slice-001 a planning; git -C "$P" add -A; git -C "$P" commit -q -m plans
+  epic_worktree
+  mkdir -p "$W/epic-001-ep/.craft"; printf 'slice-001 shown 2026-09-14 abc123\n' > "$W/epic-001-ep/.craft/checkpoints.md"
+}
+record_fixture; record_gitignore
+out="$(run --epic "$EPIC" "$S1")"
+expect "step-9 record kept as state: epic worktree reads reuse" "$out" "EPIC=epic-001" ACTION reuse
+st="$(git -C "$W/epic-001-ep" status --porcelain --untracked-files=all)"
+[[ -z "$st" ]] && ok "  … and git status in the epic worktree lists neither file" || bad "  … git status lists: $st"
+git -C "$P" worktree remove "$W/epic-001-ep" >/dev/null 2>&1; rc=$?
+if [[ "$rc" == 0 && ! -d "$W/epic-001-ep" ]]; then ok "step-9 record kept as state: git worktree remove succeeds"
+else bad "step-9 record kept as state: git worktree remove succeeds — exit $rc"; fi
+
+record_fixture $'.craft/\n!.craft/'; record_gitignore   # a real negation: the project's rule un-ignores .craft/ again
+st="$(git -C "$W/epic-001-ep" status --porcelain --untracked-files=all)"
+git -C "$P" worktree remove "$W/epic-001-ep" >/dev/null 2>&1; rc=$?
+if [[ -z "$st" && "$rc" == 0 && ! -d "$W/epic-001-ep" ]]; then ok "step-9 record kept as state: a project negation of .craft/ does not expose it"
+else bad "step-9 record kept as state: a project negation of .craft/ does not expose it — status '$st', remove exit $rc"; fi
+
+record_fixture
+git -C "$P" worktree remove "$W/epic-001-ep" >/dev/null 2>&1; rc=$?
+[[ "$rc" != 0 && -d "$W/epic-001-ep" ]] && ok "step-9 record without its .gitignore still blocks git worktree remove" \
+  || bad "step-9 record without its .gitignore still blocks git worktree remove — exit $rc"
+out="$(run --epic "$EPIC" "$S1")"
+expect "  … yet a record written before this slice still reads reuse (tree-dirt-state's exclusion)" "$out" "EPIC=epic-001" ACTION reuse
+
+# another writer created .craft/.gitignore first (slice-067): step 9 appends the missing line, never rewrites one
+record_fixture; printf '/.gitignore\n' > "$W/epic-001-ep/.craft/.gitignore"
+st="$(git -C "$W/epic-001-ep" status --porcelain --untracked-files=all)"
+[[ -n "$st" ]] && ok "a .gitignore lacking the record's line leaves the record exposed (the premise for the append)" \
+  || bad "a .gitignore lacking the record's line leaves the record exposed — status is empty"
+printf '/checkpoints.md\n' >> "$W/epic-001-ep/.craft/.gitignore"
+st="$(git -C "$W/epic-001-ep" status --porcelain --untracked-files=all)"
+git -C "$P" worktree remove "$W/epic-001-ep" >/dev/null 2>&1; rc=$?
+[[ -z "$st" && "$rc" == 0 && ! -d "$W/epic-001-ep" ]] && ok "step-9 record kept as state: an existing .gitignore gets the missing line appended and the removal succeeds" \
+  || bad "step-9 append case — status '$st', remove exit $rc"
+
+record_fixture; record_gitignore
+printf 'x\n' > "$W/epic-001-ep/.craft/other.md"
+out="$(run --epic "$EPIC" "$S1")"
+expect "self-ignored record: any other file under .craft/ still is dirt" "$out" "EPIC=epic-001" REASON epic_worktree_dirty
+
+# the prose names the same two lines the fixture writes
+step9="$(awk '/^### 9\./{f=1} /^### 10\./{f=0} f' "$EXECUTE")"
+if grep -qF '.craft/.gitignore' <<<"$step9" && grep -qF 'appends the missing line' <<<"$step9" && grep -qF '`/.gitignore`' <<<"$step9" && grep -qF '`/checkpoints.md`' <<<"$step9"; then
+  ok "execute.md step 9 names the record's .gitignore lines"
+else bad "execute.md step 9 names the record's .gitignore lines — not found in step 9"; fi
+
 fixture; splan slice-001 a paused; splan slice-002 b implementing
 printf 'half done\n' > "$P/work.txt"
 out="$(run --mode sequential "$S1" "$S2")"

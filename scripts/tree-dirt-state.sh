@@ -22,6 +22,8 @@
 #                            entry such as .craft/ is not excluded wholesale) and execute's
 #                            checkpoint record .craft/checkpoints.md at the worktree root. Plans
 #                            stay dirt here: slice branches are merged into this checkout.
+#                            Since slice-066 step 9 writes a .craft/.gitignore next to the record, which hides
+#                            both from git; this exclusion stays for a record written before that, without it.
 #
 #   --checkout <dir>         The checkout to judge. Default: the repository root of the project dir.
 #

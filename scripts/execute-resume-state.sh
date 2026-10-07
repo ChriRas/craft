@@ -43,7 +43,8 @@
 #   The epic line (--epic) runs the worktree rows above for the epic branch (its base is the trunk);
 #   an existing epic worktree is not reused while
 #     a merge is unfinished in it (MERGE_HEAD)                     conflict  epic_merge_in_progress
-#     it has uncommitted changes (its step-9 record .craft/checkpoints.md at the worktree root aside)
+#     it has uncommitted changes (its step-9 record .craft/checkpoints.md at the worktree root aside —
+#     since slice-066 self-ignored through .craft/.gitignore; the exclusion covers an older record without it)
 #                                                                  conflict  epic_worktree_dirty
 #
 #   sequential, per slice, first match wins:
@@ -64,7 +65,8 @@
 #     pull-request, a slice in flight, current branch ≠ its branch; or direct / nothing in
 #       flight, current branch ≠ trunk                             run-wide  conflict  wrong_branch
 #   Dirt is what scripts/tree-dirt-state.sh reports: CRAFT's local state and plans never count
-#   (--scope main), in an epic worktree its local-state files and checkpoint record do not.
+#   (--scope main), in an epic worktree its local-state files and checkpoint record do not
+#   (the record is append-only state that goes with the worktree; slice-066).
 #   Once every slice in flight is itself a conflict (multiple_open, branch_missing), no run-wide
 #   reason is added — the tree's changes may be that slice's, and its line names the fix.
 #
