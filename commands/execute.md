@@ -818,7 +818,7 @@ restated here. The master never writes the marker itself — the helper binds it
 the statusline tap:
 
 ```
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/cache-guard-marker.sh" arm <epic-NNN> --project "<project-root>"
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/cache-guard-marker.sh" arm <epic-NNN> [--action '<what the human does>'] --project "<project-root>"
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/cache-guard-marker.sh" disarm --project "<project-root>"
 ```
 
@@ -829,8 +829,18 @@ can drift, while the hook reads the marker under the project the session started
   line of that turn's message — `Cache warm until HH:MM — answer later → <the restart>`, or `Cache expiry unknown — …`
   when the tap cannot say. The sites: the orphan question and the plan gate (ap), the a5 sign-off question, and every
   `⛔` stop after the lock is taken (a0 and the Pre-Assertions stop before anything ran, and their message is the restart
-  already): <!-- craft:cache-guard arm --> write the log line first, as the log rule says, then arm, then print the stop's
-  block with the line last.
+  already): <!-- craft:cache-guard arm --> write the log line first, as the log rule says; then make every other tool
+  call the stop needs — the lock release where the stop releases it, a read of the plan's `## Blocker`, a check that a
+  file exists; then arm, as the turn's **last** tool call; then print the stop's block with the line last. **Last** is
+  part of the contract: the helper records the session's request count, and the hook blocks only while that count has
+  not moved past the turn's final message — a tool call after the arm moves it one further, and the stop's own answer
+  then passes unguarded. Once the session went on after the stop (the human answered, the run ended, other work
+  followed), a late prompt passes on purpose (the hook's header).
+- **`--action`** — at a stop whose next step is the human's, not the re-run (a2's Handoff, Failure and Held-at-start
+  stops, not a budget stop: a scope decision, a debug protocol, a blocker), pass that step — the text the `⛔` line names
+  as *what the human does*, one line, each `'` in it written `'\''` inside the single quotes. The helper puts it in front
+  of the restart, in `LINE=` and in the hook's block reason. Without it the restart is the re-run alone; the restart's
+  text is the hook's (`--restart`), never written here.
 - **Disarm** <!-- craft:cache-guard disarm --> at the start of every invocation, right after the lock is taken — an
   earlier invocation's stop may have left it armed — and, in ap and a5, when the human's answer arrives. A builder
   spawn disarms it too (a2): a hand-back that met an armed guard after an hour would read the stale expiry as cold. The
@@ -902,7 +912,9 @@ seeded: this checkout is already primed.
   in this invocation, that it exists — slice-049's human test was sent to remove a file that was already gone — and
   never the lock: its only human path is A4's `release --force` line; afterwards `/craft:execute <epic-NNN> --autopilot` resumes it —
   step 1c reads it as `ACTION=resume`. Every stop this bullet classifies arms the cache guard <!-- craft:cache-guard arm -->
-  once its `⛔` line is logged, before the stopped block is printed (*The cache guard*).
+  after its `⛔` line is logged, the lock released and every other tool call of the stop made — as the turn's last tool
+  call, before the stopped block is printed (*The cache guard*) — a Handoff, Failure or Held-at-start stop with
+  `--action '<what the human does>'`, the same text as its `⛔` line; a budget stop without one (its step is the re-run).
 
 ### a3 — Land the slice on the epic branch: s3 at Level 2
 
