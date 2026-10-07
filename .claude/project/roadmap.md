@@ -22,8 +22,9 @@
 **F6 complete, release held (user, 2026-10-06).** epic-003 landed on `main` with slice-060 (`ae0875c Merge epic-003:
 Autopilot Mode`); every decomposition entry has a slice. The 2.0.0 release (rules.md → Deployment: autopilot ships as
 2.0.0) is **deliberately not cut yet** — the user has a few more things to do first. No version bump, push or tag until
-the user says so; nothing is pushed yet. Still owed from slice-060: human test (c) part B (real idle ≥ 1 h) and the
-follow-ups R1-1 / R1-2 (archive → Follow-ups). Also owed before the cut: B25's human test on a scratch GitHub repo (see
+the user says so; nothing is pushed yet. Slice-060's human test (c) part B (real idle ≥ 1 h) is **dropped** (user,
+2026-10-07: not a release blocker). The follow-ups R1-1 / R1-2 (archive → Follow-ups) shipped with slice-070
+(`cache-guard-disarm-on-answer`, 2026-10-07). Also owed before the cut: B25's human test on a scratch GitHub repo (see
 the B25 note below).
 
 **B27 shipped with slice-069 (2026-10-07)** — the autopilot's run-start briefing is printed by
