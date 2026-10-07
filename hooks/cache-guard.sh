@@ -24,36 +24,53 @@
 #   4. the prompt is a human's: not a subagent's hand-back or a task notification (UserPromptSubmit also fires for
 #      those and its payload has no source field — they start with `<agent-message from=` / `<task-notification>`,
 #      design record §2 — blocking one would block the very result the master waits for) and not /clear, /exit or
-#      /quit (the block names /clear as the way out).
+#      /quit (the block names /clear as the way out),
+#   5. the session did nothing since the stop (slice-070 R1-1): the tap's prompt_cache.requests lies between the
+#      marker's `requests=` and that count + REQUESTS_TOLERANCE. `arm` is the stopping turn's last tool call and
+#      records the count the tap holds then; the turn's final message adds one request, so a prompt that answers the
+#      stop itself sees count + 1, while any turn in between (the human answered, the run ended, the session went on)
+#      adds at least one more — such a prompt is no answer to the stop and passes. The tolerance was measured on a
+#      live tap (slice-070's plan → Decisions), not derived. A marker without `requests=` (armed before slice-070)
+#      skips this condition; `requests=unknown` (arm could not read this session's count), a tap without an integer
+#      count, or a count below the recorded one cannot be judged and passes.
 # Everything else passes, silently. FAIL OPEN: a missing, stale, foreign-session or malformed tap, a malformed or
 # disarmed marker, a malformed payload, no python3 — anything this hook cannot classify lets the prompt through.
 #
 # The marker is plain key=value lines (the helper writes them, this hook only reads):
-#   state=armed  session_id=<id>  epic=epic-NNN  armed=<UTC datetime>        — written by `arm`
-#   state=disarmed  disarmed=<UTC datetime>                                    — written by `disarm`
+#   state=armed  session_id=<id>  epic=epic-NNN  armed=<UTC datetime>         — written by `arm`
+#     requests=<integer|unknown>                                                — the tap's count at arm time (R1-1)
+#     [action=<one line>]                                                       — what the human does before the re-run (R1-2)
+#   state=disarmed  disarmed=<UTC datetime>                                     — written by `disarm`
 # The marker is bound to ONE session: after /clear the session_id changes (env-vars.md: CLAUDE_CODE_SESSION_ID
-# "is updated on /clear"), so a marker left armed blocks nothing in the restarted session.
+# "is updated on /clear"), so a marker left armed blocks nothing in the restarted session. An action holding a
+# control character makes the marker malformed (the helper flattens it to one line before it writes).
 #
-#   cache-guard.sh --restart epic-NNN   prints the restart instruction — its ONE definition: the block's reason
-#                                       and scripts/cache-guard-marker.sh's expiry line both use it. Exit 2 on
-#                                       anything but an epic id.
+#   cache-guard.sh --restart epic-NNN [<action>]   prints the restart instruction — its ONE definition: the block's
+#                                       reason and scripts/cache-guard-marker.sh's expiry line both use it. With a
+#                                       non-empty action: `<action>, then /clear, then /craft:execute epic-NNN
+#                                       --autopilot`; without one the plain instruction. Exit 2 on anything but an
+#                                       epic id, or an action holding a control character.
 #
 # The tap path, DEFAULT_RECACHE_TOKENS and STALE_S are copies of what usage-state.sh / statusline-tap.sh declare
 # (this hook is bash 3.2 and cannot call a bash >= 5 helper); scripts/test-cache-guard.sh binds each copy.
+# REQUESTS_TOLERANCE is this hook's own (the measured value above).
 #
 # Runtime: bash 3.2-compatible on purpose (rules.md → Bash baseline — hooks run with whatever bash Claude Code
 # hands them), python3 for the JSON (absent → the prompt passes). No other command runs before python3 is found.
 
 DEFAULT_RECACHE_TOKENS=100000
 STALE_S=300
+REQUESTS_TOLERANCE=1
 tap="${CRAFT_USAGE_TAP:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/craft/usage-tap.json}"
 proj="${CLAUDE_PROJECT_DIR:-$PWD}"
 
 mode=hook
 epic_arg=""
+action_arg=""
 if [ "${1:-}" = "--restart" ]; then
   mode=restart
   epic_arg="${2:-}"
+  action_arg="${3:-}"
 fi
 
 # Unarmed (no marker file — every prompt of a project that never ran an autopilot): nothing to read, nothing to start.
@@ -63,13 +80,20 @@ command -v python3 >/dev/null 2>&1 || { [ "$mode" = restart ] && exit 2; exit 0;
 IFS= read -r -d '' PYSRC <<'PY'
 import json, os, re, sys, time
 
-default_tokens, stale_s, proj, tap_path, mode, epic_arg = int(sys.argv[1]), int(sys.argv[2]), sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]
+default_tokens, stale_s, tolerance, proj, tap_path, mode, epic_arg, action_arg = (
+    int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]), sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8])
 EPIC_RE = r"epic-[0-9]+"
+CONTROL_RE = r"[\x00-\x1f\x7f]"
 
 
-def restart(epic):
-    # The one definition of the restart instruction.
-    return "/clear, then /craft:execute %s --autopilot" % epic
+def restart(epic, action):
+    # The one definition of the restart instruction; an action the human takes first leads it (R1-2).
+    plain = "/clear, then /craft:execute %s --autopilot" % epic
+    return "%s, then %s" % (action, plain) if action else plain
+
+
+def is_count(v):
+    return isinstance(v, int) and not isinstance(v, bool) and v >= 0
 
 
 def threshold():
@@ -113,6 +137,12 @@ def hook():
     epic = marker.get("epic", "")
     if not re.fullmatch(EPIC_RE, epic):
         return
+    action = marker.get("action", "")
+    if re.search(CONTROL_RE, action):
+        return
+    recorded = marker.get("requests")
+    if recorded is not None and not re.fullmatch(r"[0-9]+", recorded):
+        return
     age = time.time() - os.path.getmtime(tap_path)
     with open(tap_path, encoding="utf-8") as fh:
         tap = json.load(fh)
@@ -127,15 +157,19 @@ def hook():
             return
     if tokens < 0 or expires >= time.time() or tokens < threshold():
         return
+    if recorded is not None:
+        count = cache.get("requests")
+        if not is_count(count) or not int(recorded) <= count <= int(recorded) + tolerance:
+            return
     reason = ("Prompt cache expired at %s — answering here would re-write about %d tokens at the full input price. "
               "Restart instead: %s (the re-run resumes the epic)."
-              % (time.strftime("%H:%M", time.localtime(expires)), tokens, restart(epic)))
+              % (time.strftime("%H:%M", time.localtime(expires)), tokens, restart(epic, action)))
     print(json.dumps({"decision": "block", "reason": reason}))   # ASCII-escaped: a C locale cannot encode the dash
 
 
 if mode == "restart":
-    if re.fullmatch(EPIC_RE, epic_arg):
-        print(restart(epic_arg))
+    if re.fullmatch(EPIC_RE, epic_arg) and not re.search(CONTROL_RE, action_arg):
+        print(restart(epic_arg, action_arg))
         sys.exit(0)
     sys.exit(2)
 try:
@@ -144,7 +178,7 @@ except Exception:
     pass
 PY
 
-python3 -c "$PYSRC" "$DEFAULT_RECACHE_TOKENS" "$STALE_S" "$proj" "$tap" "$mode" "$epic_arg" 2>/dev/null
+python3 -c "$PYSRC" "$DEFAULT_RECACHE_TOKENS" "$STALE_S" "$REQUESTS_TOLERANCE" "$proj" "$tap" "$mode" "$epic_arg" "$action_arg" 2>/dev/null
 rc=$?
 if [ "$mode" = restart ]; then
   exit "$rc"

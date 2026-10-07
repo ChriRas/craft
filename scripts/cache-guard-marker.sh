@@ -11,9 +11,19 @@
 # from the tap, not from memory (rules.md: a number an agent states is read off a helper).
 #
 # WHAT -----------------------------------------------------------------------
-#   cache-guard-marker.sh arm <epic-NNN> [--project <root>]   write the marker (state=armed, this session, the epic) and print the
-#                                          expiry line. Fail open: a guard that cannot arm costs only a late
-#                                          re-write, so it reports ARMED=no and exits 0.
+#   cache-guard-marker.sh arm <epic-NNN> [--action <text>] [--project <root>]
+#                                          write the marker (state=armed, this session, the epic, the tap's request
+#                                          count, the action) and print the expiry line. Fail open: a guard that
+#                                          cannot arm costs only a late re-write, so it reports ARMED=no and exits 0.
+#                                          `requests=` is this session's prompt_cache.requests from the tap, or
+#                                          `unknown` (another session's tap, no tap, no non-negative integer count) —
+#                                          the hook blocks only while the count has not moved past it (R1-1). Arm is
+#                                          the stopping turn's LAST tool call, so the count it reads is the one the
+#                                          hook's tolerance is measured against.
+#                                          --action <text> — what the human must do before the re-run (R1-2): every
+#                                          run of whitespace and control characters becomes one blank, the ends are
+#                                          trimmed; empty after that → no action. It leads the restart in LINE and in
+#                                          the hook's block reason (hooks/cache-guard.sh --restart <epic> <action>).
 #   cache-guard-marker.sh disarm [--project <root>]           write state=disarmed over an existing marker. The file is never removed
 #                                          (CRAFT keeps its state files, like .execute.lock); no marker → nothing.
 #   cache-guard-marker.sh status [--project <root>]           what the marker says.
@@ -50,10 +60,14 @@ die() { echo "ERROR=$2" >&2; exit "$1"; }
 
 CMD="${1:-}"
 case "$CMD" in arm|disarm|status) shift ;; *) die 2 "unknown_command:$CMD" ;; esac
-EPIC=""; PROJECT=""; HAVE_EPIC=no
+EPIC=""; PROJECT=""; HAVE_EPIC=no; ACTION=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --project) [[ $# -ge 2 && -n "$2" ]] || die 2 "missing_value:--project"; PROJECT="$2"; shift 2 ;;
+    --action)
+      [[ "$CMD" == arm ]] || die 2 "unknown_argument:$1"
+      [[ $# -ge 2 ]] || die 2 "missing_value:--action"
+      ACTION="$2"; shift 2 ;;
     *) [[ "$CMD" == arm && "$HAVE_EPIC" == no ]] || die 2 "unknown_argument:$1"; EPIC="$1"; HAVE_EPIC=yes; shift ;;
   esac
 done
@@ -104,25 +118,35 @@ esac
 
 # --- arm ---------------------------------------------------------------------------------------
 [[ "$EPIC" =~ ^epic-[0-9]+$ ]] || die 2 "bad_epic:$EPIC"
-RESTART="$(bash "$HOOK" --restart "$EPIC" 2>/dev/null)" || die 3 "restart_unavailable"
+# One line: every run of whitespace / control characters → one blank, the ends trimmed.
+ACTION="$(printf '%s' "$ACTION" | LC_ALL=C tr '\000-\037\177' ' ' | sed -e 's/  */ /g' -e 's/^ //' -e 's/ $//')"
+RESTART="$(bash "$HOOK" --restart "$EPIC" "$ACTION" 2>/dev/null)" || die 3 "restart_unavailable"
 [[ -n "$RESTART" ]] || die 3 "restart_unavailable"
 
-EXPIRES="$(python3 - "$TAP" "$SESSION" <<'PY'
+# Two lines: the expiry (HH:MM | unknown), then the request count (integer | unknown) — both only from THIS session's tap.
+TAPREAD="$(python3 - "$TAP" "$SESSION" <<'PY'
 import json, sys, time
 tap, session = sys.argv[1], sys.argv[2]
+exp_out, req_out = "unknown", "unknown"
 try:
     with open(tap, encoding="utf-8") as fh:
         d = json.load(fh)
-    exp = d["prompt_cache"]["expires_at"]
-    if d.get("session_id") == session and session and not isinstance(exp, bool) and isinstance(exp, (int, float)) and exp > time.time():
-        print(time.strftime("%H:%M", time.localtime(exp)))
-        sys.exit(0)
+    cache = d["prompt_cache"]
+    if d.get("session_id") == session and session:
+        exp, req = cache.get("expires_at"), cache.get("requests")
+        if not isinstance(exp, bool) and isinstance(exp, (int, float)) and exp > time.time():
+            exp_out = time.strftime("%H:%M", time.localtime(exp))
+        if isinstance(req, int) and not isinstance(req, bool) and req >= 0:
+            req_out = str(req)
 except Exception:
     pass
-print("unknown")
+print(exp_out)
+print(req_out)
 PY
 )"
+EXPIRES="$(sed -n 1p <<<"$TAPREAD")"; REQUESTS="$(sed -n 2p <<<"$TAPREAD")"
 [[ -n "$EXPIRES" ]] || EXPIRES="unknown"
+[[ "$REQUESTS" =~ ^[0-9]+$ ]] || REQUESTS="unknown"
 if [[ "$EXPIRES" == unknown ]]; then
   LINE="Cache expiry unknown — answer later → $RESTART"
 else
@@ -134,7 +158,8 @@ if [[ -z "$SESSION" ]]; then
   armed="no"; reason="no_session_id"
 elif [[ ! "$SESSION" =~ ^[A-Za-z0-9._-]+$ ]]; then
   armed="no"; reason="bad_session_id"
-elif ! write_marker "$(printf 'state=armed\nsession_id=%s\nepic=%s\narmed=%s\n' "$SESSION" "$EPIC" "$(now_iso)")"; then
+elif ! write_marker "$(printf 'state=armed\nsession_id=%s\nepic=%s\narmed=%s\nrequests=%s\n' "$SESSION" "$EPIC" "$(now_iso)" "$REQUESTS"
+                       [[ -z "$ACTION" ]] || printf 'action=%s\n' "$ACTION")"; then
   armed="no"; reason="write_failed"
 fi
 

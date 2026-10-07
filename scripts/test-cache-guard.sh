@@ -45,7 +45,8 @@ TAP="$ROOT/tap.json"
 MARKER="$P/.claude/plans/.cache-guard"
 NOW="$(date +%s)"
 hhmm() { date -u -r "$1" +%H:%M 2>/dev/null || date -u -d "@$1" +%H:%M; }
-stamp() { date -u -r "$1" +%Y%m%d%H%M 2>/dev/null || date -u -d "@$1" +%Y%m%d%H%M; }
+# touch -t stamp to the second — a minute stamp let the 240 s fixture age past STALE_S (300 s) on a late second (slice-070)
+stamp() { date -u -r "$1" +%Y%m%d%H%M.%S 2>/dev/null || date -u -d "@$1" +%Y%m%d%H%M.%S; }
 S=11111111-aaaa-bbbb-cccc-000000000001      # the armed session
 OTHER=22222222-aaaa-bbbb-cccc-000000000002  # any other session
 EPIC=epic-003
@@ -59,12 +60,20 @@ print(json.dumps({"session_id": sys.argv[2], "transcript_path": "/x/t.jsonl", "c
                   "permission_mode": "default", "hook_event_name": "UserPromptSubmit", "prompt": sys.argv[1]}))
 PY
 }
-# marker <session> <epic> — an armed marker, as scripts/cache-guard-marker.sh writes it
-marker() { printf 'state=armed\nsession_id=%s\nepic=%s\narmed=2026-10-06T10:00:00Z\n' "$1" "$2" > "$MARKER"; }
-# tap <session> <expires_at offset from now, s> <recache tokens> — a statusline JSON like Claude Code 2.1.290's
+# marker <session> <epic> [<extra key=value line>…] — an armed marker, as scripts/cache-guard-marker.sh writes it;
+# without extra lines it is a marker armed before slice-070 (no requests=, no action=)
+marker() {
+  printf 'state=armed\nsession_id=%s\nepic=%s\narmed=2026-10-06T10:00:00Z\n' "$1" "$2" > "$MARKER"
+  shift 2
+  [[ $# -eq 0 ]] || printf '%s\n' "$@" >> "$MARKER"
+}
+# tap <session> <expires_at offset from now, s> <recache tokens> [<requests JSON value, default 29>] — a statusline
+# JSON like Claude Code 2.1.290's; the fourth argument goes in raw, so 'null', '"30"', 'true' or 'absent' (no key)
 tap() {
-  printf '{"session_id":"%s","prompt_cache":{"warm":false,"ttl":"1h","expires_at":%s,"requests":29,"recache_tokens_if_cold":%s},"rate_limits":{"five_hour":{"used_percentage":1,"resets_at":%s}}}' \
-    "$1" "$((NOW + $2))" "$3" "$((NOW + 7200))" > "$TAP"
+  local req="${4-29}" reqfield
+  if [[ "$req" == absent ]]; then reqfield=""; else reqfield="\"requests\":$req,"; fi
+  printf '{"session_id":"%s","prompt_cache":{"warm":false,"ttl":"1h","expires_at":%s,%s"recache_tokens_if_cold":%s},"rate_limits":{"five_hour":{"used_percentage":1,"resets_at":%s}}}' \
+    "$1" "$((NOW + $2))" "$reqfield" "$3" "$((NOW + 7200))" > "$TAP"
 }
 profile() { printf '# CRAFT Profile\n\n> Preset: balanced\n\n%s\n\n## Operational Language\n\n- **Chat:** en\n' "$1" > "$P/.claude/project/craft-profile.md"; }
 noprofile() { rm -f "$P/.claude/project/craft-profile.md"; }
@@ -249,10 +258,52 @@ nopy_out="$(printf '%s' "$HUMAN" | (cd "$P" && PATH="$NOPY" CLAUDE_PROJECT_DIR="
 expect "no python3 (bash 5): exit 0 and empty stdout" "$nopy_out" "rc=0"
 case_ "control: the same fixture, python3 present → block" "$HUMAN" block
 
+echo "== the hook: only while the session did nothing since the stop (slice-070 R1-1 — requests= with tolerance 1)"
+# The stopping turn arms as its last tool call, then sends one more request (its final message): a prompt that answers
+# the stop sees requests = N + 1; any answer turn in between adds at least one more (the measurement is in slice-070's plan).
+reset; marker "$S" "$EPIC" 'requests=29'; tap "$S" -60 150000 29
+case_ "marker requests=29, tap requests 29 (no request since arm) → block" "$HUMAN" block
+tap "$S" -60 150000 30
+case_ "marker requests=29, tap requests 30 (the stopping turn's final message) → block" "$HUMAN" block
+tap "$S" -60 150000 31
+case_ "marker requests=29, tap requests 31 (the session went on after the stop) → pass" "$HUMAN" pass
+tap "$S" -60 150000 500
+case_ "marker requests=29, tap requests 500 → pass" "$HUMAN" pass
+tap "$S" -60 150000 28
+case_ "marker requests=29, tap requests 28 (below the recorded count — cannot judge) → pass" "$HUMAN" pass
+for badreq in absent null '"30"' true 29.5 -1; do
+  tap "$S" -60 150000 "$badreq"
+  case_ "marker requests=29, tap requests $badreq → pass (fail open)" "$HUMAN" pass
+done
+for badmreq in 'requests=unknown' 'requests=' 'requests=-1' 'requests=abc' 'requests=29.0' 'requests= 29'; do
+  marker "$S" "$EPIC" "$badmreq"; tap "$S" -60 150000 29
+  case_ "marker $badmreq → pass (fail open)" "$HUMAN" pass
+done
+marker "$S" "$EPIC"; tap "$S" -60 150000 500
+case_ "a marker armed before slice-070 (no requests=) keeps the old rule: tap requests 500 → block" "$HUMAN" block
+
+echo "== the hook: the action a stop needs comes first in the restart (slice-070 R1-2)"
+ACT='answer the scope question: /craft:continue slice-071'
+reset; marker "$S" "$EPIC" 'requests=29' "action=$ACT"; tap "$S" -60 150000 30
+case_ "armed with an action, cache cold → block" "$HUMAN" block
+run_hook bash "$HUMAN"
+reason="$(printf '%s' "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["reason"])')"
+[[ "$reason" == *"$ACT, then /clear, then /craft:execute epic-003 --autopilot"* ]] && ok "the reason names the action first, then the restart" || bad "the reason does not lead with the action — '$reason'"
+marker "$S" "$EPIC" 'requests=29' 'action='
+run_hook bash "$HUMAN"
+reason="$(printf '%s' "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["reason"])')"
+[[ "$reason" == *"Restart instead: /clear, then /craft:execute epic-003 --autopilot"* ]] && ok "an empty action= reads as no action (the plain restart)" || bad "an empty action= changed the restart — '$reason'"
+marker "$S" "$EPIC" 'requests=29' "$(printf 'action=a\tb')"
+case_ "an action with a control character (a hand-edited marker) → pass (malformed marker)" "$HUMAN" pass
+
 echo "== the hook: --restart prints the one definition of the restart instruction"
 expect "--restart epic-003" "$("$OLD_BASH" "$HOOK" --restart epic-003 2>&1)" "/clear, then /craft:execute epic-003 --autopilot"
 "$OLD_BASH" "$HOOK" --restart 'epic-x; echo hi' >/dev/null 2>&1; rc=$?
 [[ "$rc" -eq 2 ]] && ok "--restart refuses a malformed epic id (exit 2)" || bad "--restart accepted a malformed epic id (exit $rc)"
+expect "--restart epic-003 <action>: the action first" "$("$OLD_BASH" "$HOOK" --restart epic-003 "$ACT" 2>&1)" "$ACT, then /clear, then /craft:execute epic-003 --autopilot"
+expect "--restart epic-003 '' (an empty action): the plain restart, byte for byte" "$("$OLD_BASH" "$HOOK" --restart epic-003 '' 2>&1)" "/clear, then /craft:execute epic-003 --autopilot"
+"$OLD_BASH" "$HOOK" --restart epic-003 "$(printf 'a\nb')" >/dev/null 2>&1; rc=$?
+[[ "$rc" -eq 2 ]] && ok "--restart refuses an action with a line break (exit 2)" || bad "--restart accepted an action with a line break (exit $rc)"
 
 echo "== the arming helper"
 unset CLAUDE_CODE_SESSION_ID
@@ -269,8 +320,13 @@ expect "arm: LINE is the expiry line, with the restart" "$(val "$out" LINE)" "Ca
 expect "arm: the marker holds the armed state, the session, the epic" "$(sed -n '1,3p' "$MARKER" | tr '\n' '|')" "state=armed|session_id=$S|epic=epic-003|"
 expect "arm: the marker has an armed= datetime" "$(sed -n '4p' "$MARKER" | sed 's/[0-9]/N/g')" "armed=NNNN-NN-NNTNN:NN:NNZ"
 expect "arm: no temp file left next to the marker" "$(ls -A "$P/.claude/plans" | grep -c 'cache-guard\.')" "0"
+expect "arm: the marker records this session's request count from the tap (R1-1)" "$(sed -n '5p' "$MARKER")" "requests=29"
+expect "arm without --action: no action= line" "$(grep -c '^action=' "$MARKER")" "0"
+tap "$S" -60 150000 30
+case_ "round trip: armed at requests 29, the cache has expired, tap at 30 → the hook blocks" "$HUMAN" block
+tap "$S" -60 150000 31
+case_ "round trip: armed at requests 29, tap at 31 (the session went on) → the hook passes" "$HUMAN" pass
 tap "$S" -60 150000
-case_ "round trip: armed by the helper, the cache has expired → the hook blocks" "$HUMAN" block
 out="$(arm status)"
 expect "status: ARMED=yes" "$(val "$out" ARMED)" "yes"
 expect "status: EPIC" "$(val "$out" EPIC)" "epic-003"
@@ -288,10 +344,38 @@ out="$(arm arm "$EPIC")"
 expect "arm, the tap belongs to another session: still armed" "$(val "$out" ARMED)" "yes"
 expect "… EXPIRES=unknown" "$(val "$out" EXPIRES)" "unknown"
 expect "… LINE says the expiry is unknown, with the restart" "$(val "$out" LINE)" "Cache expiry unknown — answer later → /clear, then /craft:execute epic-003 --autopilot"
+expect "… requests=unknown (another session's count is not this one's)" "$(grep '^requests=' "$MARKER")" "requests=unknown"
 rm -f "$TAP"
 out="$(arm arm "$EPIC")"; expect "arm without a tap: EXPIRES=unknown" "$(val "$out" EXPIRES)" "unknown"
+expect "arm without a tap: requests=unknown" "$(grep '^requests=' "$MARKER")" "requests=unknown"
 printf 'garbage' > "$TAP"
 out="$(arm arm "$EPIC")"; expect "arm with a malformed tap: EXPIRES=unknown" "$(val "$out" EXPIRES)" "unknown"
+expect "arm with a malformed tap: requests=unknown" "$(grep '^requests=' "$MARKER")" "requests=unknown"
+for badreq in absent null '"30"' true 29.5 -1; do
+  tap "$S" 1800 150000 "$badreq"
+  arm arm "$EPIC" >/dev/null; expect "arm, this session's tap with requests $badreq: requests=unknown" "$(grep '^requests=' "$MARKER")" "requests=unknown"
+done
+tap "$S" 1800 150000 0
+arm arm "$EPIC" >/dev/null; expect "arm, requests 0: recorded (a count, not unknown)" "$(grep '^requests=' "$MARKER")" "requests=0"
+# --action (R1-2): one line in the marker, first in the restart
+tap "$S" 1800 150000
+out="$(arm arm "$EPIC" --action "$ACT")"
+expect "arm --action: the marker carries the action" "$(grep '^action=' "$MARKER")" "action=$ACT"
+expect "arm --action: LINE leads with the action" "$(val "$out" LINE)" "Cache warm until $H — answer later → $ACT, then /clear, then /craft:execute epic-003 --autopilot"
+expect "arm --action: LINE's restart is the hook's --restart with that action (one definition)" "$(val "$out" LINE | sed 's/.*→ //')" "$("$OLD_BASH" "$HOOK" --restart "$EPIC" "$ACT")"
+out="$(arm arm "$EPIC" --action "$(printf '  fix the hook,\n\tthen  look  \r ')")"
+expect "arm --action with line breaks / tabs / runs of blanks: flattened to one line" "$(grep '^action=' "$MARKER")" "action=fix the hook, then look"
+expect "… and the LINE carries the flattened text" "$(val "$out" LINE)" "Cache warm until $H — answer later → fix the hook, then look, then /clear, then /craft:execute epic-003 --autopilot"
+expect "… the marker is still one key per line" "$(grep -vc '^[a-z_]*=' "$MARKER")" "0"
+out="$(arm arm "$EPIC" --action '')"
+expect "arm --action '': no action= line" "$(grep -c '^action=' "$MARKER")" "0"
+expect "arm --action '': the plain LINE, byte for byte" "$(val "$out" LINE)" "Cache warm until $H — answer later → /clear, then /craft:execute epic-003 --autopilot"
+out="$(arm arm "$EPIC" --action "$(printf ' \n\t ')")"
+expect "arm --action of blanks only: no action= line" "$(grep -c '^action=' "$MARKER")" "0"
+out="$(arm arm "$EPIC" --action)"; expect "--action without a value is an error" "$(printf '%s\n' "$out" | grep -c '^ERROR=missing_value:--action')" "1"
+out="$(arm disarm --action x)"; expect "--action on disarm is an error" "$(printf '%s\n' "$out" | grep -c '^ERROR=')" "1"
+arm arm "$EPIC" --action "$ACT" >/dev/null; arm arm "$EPIC" >/dev/null
+expect "re-arm without --action drops the earlier action" "$(grep -c '^action=' "$MARKER")" "0"
 tap "$S" -60 150000
 out="$(arm arm "$EPIC")"; expect "arm, the tap's cache has expired already: EXPIRES=unknown (never a past 'warm until')" "$(val "$out" EXPIRES)" "unknown"
 tap "$S" 1800 150000
@@ -397,7 +481,11 @@ expect "a5 arms it at the sign-off question" "$(count "$A5" "$ARM")" "1"
 expect "a5 disarms it when the answer ends the run" "$(count "$A5" "$DISARM")" "1"
 expect "the guard section arms at every other ⛔ stop" "$(count "$GUARD" "$ARM")" "1"
 expect "the guard section disarms at the run's start" "$(count "$GUARD" "$DISARM")" "1"
-for needle in 'scripts/cache-guard-marker.sh" arm <epic-NNN> --project "<project-root>"' 'scripts/cache-guard-marker.sh" disarm --project "<project-root>"' 'print its `LINE=` verbatim' \
+[[ "$A2" == *'--action'* ]] && ok "a2's stop arms with the action the human must take before the re-run (R1-2)" || bad "a2's stop does not pass --action"
+# arm records the request count, so it must follow the lock release and every other tool call of the stop (slice-070 review R1-1)
+[[ "$A2" == *'the lock released and every other tool call of the stop made — as the turn'*'last tool'* ]] && ok "a2 arms after the lock release, as the turn's last tool call" || bad "a2 does not order the arm after the lock release as the last tool call"
+[[ "$GUARD" == *'then arm, as the turn'*'**last** tool call'* && "$GUARD" == *'the lock release where the stop releases it'* ]] && ok "the guard section orders the arm after the release and every other tool call" || bad "the guard section does not order the arm last"
+for needle in 'scripts/cache-guard-marker.sh" arm <epic-NNN> [--action '"'"'<what the human does>'"'"'] --project "<project-root>"' '--action' 'request count' 'scripts/cache-guard-marker.sh" disarm --project "<project-root>"' 'print its `LINE=` verbatim' \
   'never a stop' 'Cache warm until HH:MM' 'hooks/cache-guard.sh' '.claude/plans/.cache-guard'; do
   [[ "$GUARD" == *"$needle"* ]] && ok "the cache guard section carries: $needle" || bad "the cache guard section lacks: $needle"
 done
