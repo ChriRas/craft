@@ -299,17 +299,29 @@ bash scripts/test-epic-close-state.sh
 # plan, is covered in test-execute-resume-state.sh.) Keep green.
 bash scripts/test-autopilot-log.sh
 
+# Autopilot run-start briefing — scripts/autopilot-briefing.sh (slice-069, B27) prints the whole "Autopilot — briefing" block
+# that /craft:execute a1 and the plan gate only relay unchanged, the way epic-digest.sh does for a5 (slice-063's probe: the a1
+# block was printed, but not bound): title, branch, occupied checkout, the slice order, the "Stops for you at" lines and the
+# Esc / resume line. It never decides a slice's state — execute-resume-state.sh does; the order puts a resume slice first, then
+# the open slices topologically by Depends-On, ties in decomposition order (s1 states the same tie-break). Covers real git
+# fixtures for the exact block, reordering, a landed dependency, [landed: …], resume / held marks, the Stops text byte-equal,
+# the title with and without " — ", CRLF, example regions, every ERROR= with an empty stdout (usage, an unreadable plan,
+# missing frontmatter, a missing helper or python3, RESULT=conflict, a Depends-On cycle), read-only, and the pins on
+# commands/execute.md (a1 runs the helper and relays unchanged, the ⛔ stop, ap step 5's ⚠ line, s1's tie-break, no
+# "Stops for you at:" line left in execute.md). Keep green.
+bash scripts/test-autopilot-briefing.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The twenty-three harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The twenty-four harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the plan round trip of parallel worktree mode, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's log, the autopilot's epic-end digest, the epic close and its archive template, the autopilot's budget guard, the autopilot's cache guard, the statusline tap's wiring, the single declaration of the allowed model values, the
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the plan round trip of parallel worktree mode, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's log, the autopilot's run-start briefing, the autopilot's epic-end digest, the epic close and its archive template, the autopilot's budget guard, the autopilot's cache guard, the statusline tap's wiring, the single declaration of the allowed model values, the
 single definition of what counts as an example rather than content, delete-safe closing, and the autopilot's verification by command.
 
 ## Dogfooding Is Not Self-Verification

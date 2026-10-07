@@ -10,13 +10,12 @@
 | # | ID | Type | Size | Item |
 |---|----|------|------|------|
 | 1 | F6 | Feature | epic | Autopilot mode (D32): hands-off epic execution — planner/architect agents, one plan gate, sequential slice loop on an epic branch, ping-pong breaker, budget + cache guards, epic-end sign-off |
-| 2 | B27 | Fix | small | Autopilot a1 briefing content (slice-063's Phase-5 probe): `autopilot-log.sh`'s gate holds that a1 runs on every invocation, but the probe's master printed the briefing without its "Stops for you at: …" lines — print the block from a helper the master only relays, as `epic-digest.sh` does for a5 |
-| 3 | B18 | Fix | small | Handoff-answer record (slice-042 R1-15): a resume records no answer to the handoff's question, so a subagent re-run — an autopilot re-run in particular — meets it again. Deferred by slice-049: build it when a real autopilot run shows a question that repeats (Phase-5 answers already live in `Status:`) |
-| 4 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
-| 5 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
-| 6 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
-| 7 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
-| 8 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
+| 2 | B18 | Fix | small | Handoff-answer record (slice-042 R1-15): a resume records no answer to the handoff's question, so a subagent re-run — an autopilot re-run in particular — meets it again. Deferred by slice-049: build it when a real autopilot run shows a question that repeats (Phase-5 answers already live in `Status:`) |
+| 3 | F7 | Feature | epic? | Idle cache guard (braindump): when the human stays away past the prompt-cache TTL, wake shortly before expiry, write the slice handoff, keep the cache warm a bounded number of times, and block a prompt into a cold session — avoids the full-history re-write on return |
+| 4 | F3 | Feature | epic | Cleanup skill: losslessly condense source comments with a fresh-context fidelity check (repo/epic/slice scope) |
+| 5 | D2 | Design | epic | Loosen fixed model rules → capability tiers (deep-reason / execute); open to Fable 5 & foreign models — **verify Fable 5 first** |
+| 6 | F5 | Feature | slice | Windows support: require Git for Windows or WSL 2, detect a PowerShell-only setup — **untested, needs a Windows machine** |
+| 7 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
 
 ## Notes per item
 
@@ -26,6 +25,12 @@ Autopilot Mode`); every decomposition entry has a slice. The 2.0.0 release (rule
 the user says so; nothing is pushed yet. Still owed from slice-060: human test (c) part B (real idle ≥ 1 h) and the
 follow-ups R1-1 / R1-2 (archive → Follow-ups). Also owed before the cut: B25's human test on a scratch GitHub repo (see
 the B25 note below).
+
+**B27 shipped with slice-069 (2026-10-07)** — the autopilot's run-start briefing is printed by
+`scripts/autopilot-briefing.sh` (the whole block, its "Stops for you at" lines included); `/craft:execute` a1 and the plan
+gate only relay it unchanged, a helper error stops a1 (`⛔ … briefing failed`) and is one `⚠` line at the gate. Slice states
+come from `execute-resume-state.sh`; the order puts a resume slice first, then topological by `Depends-On`, ties in
+decomposition order (s1 states the same tie-break). `scripts/test-autopilot-briefing.sh` covers it.
 
 **B25 shipped with slice-068 (2026-10-07)** — D39: under `pull-request` + `Protected-main: yes`, `/craft:commit`'s
 Epic-close mode closes a finished epic in two passes. The first commits the decisions, the epic archive and the epic
