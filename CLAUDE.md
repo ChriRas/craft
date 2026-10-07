@@ -107,14 +107,31 @@ bash scripts/test-review-findings-state.sh
 # worktree or path, a dirty tree or wrong branch nothing accounts for). /craft:execute step 1c calls it
 # before anything is created. Covers real git fixtures, the ancestor trap, both landings, an autopilot run's
 # epic branch passed as the trunk (slice-049 — no helper change, the sequential rows answer it), and that
-# commands/execute.md handles every ACTION value. Also covers scripts/tree-dirt-state.sh: CRAFT's plans,
+# commands/execute.md handles every ACTION value. Since slice-067 (B15) the plan guard `plan_not_committed` is
+# epic-line only: a slice's plan is handed into its worktree (plan-roundtrip.sh, below), so a slice whose plan is
+# untracked, ignored or edited since its commit reads `create`. Also covers scripts/tree-dirt-state.sh: CRAFT's plans,
 # counters and local state are no dirt for /craft:execute A3, /craft:commit and the re-run, and those
 # commands judge the tree only through it. Since slice-066 (B20) it also runs `git worktree remove` for real on an
 # epic worktree holding step 9's checkpoint record: the record, kept as state and self-ignored through its nested
 # .craft/.gitignore (also under a project's `!.craft/` negation), lets the removal succeed, while a bare record
 # still blocks it and any other file under .craft/ still is dirt; execute.md step 9 is pinned to those two lines.
-# Keep green.
+# Its `--scope slice-worktree` (slice-067) also counts neither `.craft/` nor any local-state path of that list at the
+# worktree root (the seeded `.claude/plans/.primed`, a session's `.hook-env`) — in a subdirectory project too — and is
+# what /craft:execute step 6 commits from. Keep green.
 bash scripts/test-execute-resume-state.sh
+
+# Plan round trip — scripts/plan-roundtrip.sh (slice-067, B15) is parallel worktree mode's plan hand-in (`in`, step 5),
+# read-back (`back`, step 6, only at `committing`, after step 6 committed the slice's work on its branch) and release
+# (`release`, /craft:commit Step 7, before `git worktree remove`). A record in <worktree>/.craft/plan-roundtrip keeps any
+# copy nobody read from being overwritten (a conflict, never a write) and hides itself through <worktree>/.craft/.gitignore
+# (the pattern of slice-066's checkpoint record); no removal command lives in the helper (D34). Covers real worktree
+# fixtures from the hand-in to a landed `git merge --no-ff` and a removed worktree — in a root project with the CRAFT
+# block, one without a `.craft/` ignore, one without any .gitignore and a subdirectory project with and without the
+# block, the last three after a planted Phase-5 handoff (a resolved marker and `.hook-env` at the worktree root, which
+# `release` hides; on a conflict it hides nothing) — the premise cases (a bare record, a bare `.closed/` copy, a bare
+# `.primed` seed and a resolved marker each block `git worktree remove`), the hand-in on a reused worktree without a
+# record, and the pinned sites in execute.md, commit.md and slice-builder.md. Keep green.
+bash scripts/test-plan-roundtrip.sh
 
 # Tracked plan landing — scripts/plan-landing.sh takes a tracked slice plan off the trunk under
 # pull-request + Protected-main: `close` commits the plan's removal on the PR branch (by pathspec — a
@@ -285,11 +302,11 @@ claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The twenty-two harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The twenty-three harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's log, the autopilot's epic-end digest, the epic close and its archive template, the autopilot's budget guard, the autopilot's cache guard, the statusline tap's wiring, the single declaration of the allowed model values, the
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the plan round trip of parallel worktree mode, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's log, the autopilot's epic-end digest, the epic close and its archive template, the autopilot's budget guard, the autopilot's cache guard, the statusline tap's wiring, the single declaration of the allowed model values, the
 single definition of what counts as an example rather than content, delete-safe closing, and the autopilot's verification by command.
 
 ## Dogfooding Is Not Self-Verification
