@@ -50,7 +50,7 @@ This guards the Mode-Detection logic below — every mode requires `main` as the
 `Glob` `.claude/plans/*.md`.
 
 - Zero matches → abort: *"No active slice plan found. Phase 9 requires a slice in `Status: committing`. Did the earlier phases actually run?"*
-- More than one match → the target is the **single plan at `Status: committing` or `awaiting-approval`** (the other plans are not ready to land — e.g. a parent epic plan, or sibling slices during a `sequential`-epic run). If **exactly one** plan is at that status, record it as `<slice-plan>` and continue. If **zero or more than one** plan is at that status, abort with the list and ask the user to specify which slice to commit (this command does not auto-pick).
+- More than one match → the target is the **single plan at `Status: committing` or `awaiting-approval`** (the other plans are not ready to land — e.g. a parent epic plan, or sibling slices during a `sequential`-epic run). If **exactly one** plan is at that status, record it as `<slice-plan>` and continue. If **zero or more than one** plan is at that status, abort with the list and ask the user to specify which slice to commit (this command does not auto-pick). In the zero case, when a listed slice plan's slice has a worktree (`git worktree list --porcelain` shows its `<slice-id>-<slug>` branch), name the re-run: *"`<slice-id>` has a worktree, but its plan in this checkout reads `Status: <X>` — finish the slice there, then run `/craft:execute <slice-NNN>`: its step 6 commits the slice's work and reads the plan back (`Status: committing`). Then re-run `/craft:commit`."*
 - Exactly one match → record the plan path as `<slice-plan>`.
 
 ### A2 — Plan frontmatter is valid
@@ -69,7 +69,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/tree-dirt-state.sh"
 Which of CRAFT's own files — plans, ID counters, local state — do not count as uncommitted work is defined once, in that helper (`DIRTY=yes|no`, one `DIRT=` line per counted change). A helper that cannot run (non-zero exit) fails A3.
 
 - **Standard mode**: it must report `DIRTY=yes` (there are uncommitted changes to commit). Hold its `DIRT=` lines — P2 needs them to tell a change the human keeps out of Step 1's split from one Phase 9 left behind. If `DIRTY=no` → abort: *"Nothing to commit. Did Phase 4 / Phase 7 / Phase 8 actually run?"*
-- **Slice-finalize / Epic-finalize mode**: it must report `DIRTY=no` AND the corresponding worktree+branch from Mode Detection must exist. If `main` has uncommitted work AND a finalize mode was detected → abort: *"Working tree on `main` has uncommitted changes while a finalize-mode worktree is also present. Commit or stash the main-side changes before finalizing."*
+- **Slice-finalize / Epic-finalize mode**: it must report `DIRTY=no` AND the corresponding worktree+branch from Mode Detection must exist. If `main` has uncommitted work AND a finalize mode was detected → abort: *"Working tree on `main` has uncommitted changes while a finalize-mode worktree is also present. Commit or stash the main-side changes before finalizing."* Each **slice worktree** the mode names (the slice's; in Epic-finalize every included slice's that still exists) must report `DIRTY=no` too, judged by the same helper in its slice scope, which counts the slice's work and none of CRAFT's own files (the plan copy, `.craft/`, the seeded `.primed` marker): `bash "${CLAUDE_PLUGIN_ROOT}/scripts/tree-dirt-state.sh" --scope slice-worktree --checkout <worktree>`. Otherwise abort, naming the worktree, its `DIRT=` lines and the fix — *"`<slice-id>`'s worktree holds work that was never committed on its branch; re-run `/craft:execute <slice-NNN>` — its step 6 commits it and reads the plan back — then `/craft:commit`."* The merge in Step 1a would otherwise land a branch without the slice's work, and Step 7 would remove the worktree with it.
 - **Protected-main PR completion** (any mode; **takes precedence** whenever `Status: awaiting-approval` — Step 6, second invocation): the commits + archive already landed on the first invocation, so the tree is expected **clean**. Skip the non-empty check; this invocation only detects the PR approval and merges via `gh`.
 
 ### A4 — Tests green
@@ -197,7 +197,7 @@ If user wants a different split, iterate. Abort → clean exit, no mutation.
 
 ### Step 1a — Slice-branch merge (Slice-finalize mode)
 
-The slice-branch already contains all sub-task commits authored inside the worktree by `/craft:execute`. There is nothing to split.
+The slice-branch already contains the slice's commits, made inside the worktree by `/craft:execute` step 6 (it commits the slice's work there before it reads the plan back, and A3 has checked that nothing is left uncommitted). There is nothing to split.
 
 **Protected-main gate:** if the profile's `Merge → Type` is `pull-request` with `Protected-main: yes`, do **not** run the direct merge below — leave the slice-branch unmerged and land it via the Step 6 PR gate instead (continue with Step 2, Steps 4–5b, then Step 6). Otherwise (`Type: direct`, the default) merge the branch into `main`:
 
@@ -469,14 +469,34 @@ In **Standard mode**: close `.claude/plans/slice-<NNN>-<slug>.md` (*Closing an u
 > a later `/craft:execute` A6 finds the archive — and the plan removal it performs replaces the plan
 > close below.
 
-In **Slice-finalize mode**: close the slice plan (*Closing an untracked plan*; under protected main never — the sync above replaces this close, also when it reports `ON_TRUNK=yes`). Then remove the worktree and delete the slice-branch:
+> **Releasing a slice worktree's plan copy** — `/craft:execute` handed the main checkout's plan into every slice
+> worktree it created (step 5), and an untracked or modified file there would make git refuse the worktree's removal. So before
+> each **slice** worktree is removed (the epic worktree holds no such copy), run from the project root, one call per
+> worktree: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/plan-roundtrip.sh" release --worktree <worktree> <plan>` — `<plan>` is
+> that slice's plan path in the main checkout. The helper's header defines what it does: besides the plan copy it hides CRAFT's own files in that worktree (the `.primed` seed, a session's `.hook-env`, a resolved handoff marker) from git, so none of them makes git refuse the removal; it removes nothing.
+>
+> - `RESULT=released` with `ACTION=none` → a tracked copy was restored to the worktree's HEAD, or there was no copy.
+>   Continue with the removal.
+> - `ACTION=close` → close the copy named by `PLAN=` as *Closing an untracked plan* says — its one definition, so it
+>   adds no second close site — with `--project` set to the `PROJECT=` the helper names (the worktree's project
+>   directory) instead of the project root. Then continue with the removal. (The helper has already made sure the
+>   worktree's `.claude/plans/.closed/` hides itself from git where the project's `.gitignore` does not, so a move-mode
+>   close leaves nothing for `git worktree remove` to refuse.)
+> - `RESULT=conflict`, an `ERROR=` or no `RESULT=` line → **skip that worktree's removal and its `git branch -d`**
+>   and say so: *"⚠ `<slice-id>`: the plan copy in `<worktree>` is `<REASON>` (edited after `/craft:execute` read it
+>   back, or there is no record of the hand-in) — the worktree is left as it is. Inspect the copy, then remove the
+>   worktree yourself (`git worktree remove`, with `--force` only if you mean to drop that edit) and `git branch -d
+>   <branch>`; a re-run of `/craft:execute` cannot read the plan back any more, the slice has merged and this step has
+>   closed the main checkout's plan."* The rest of Step 7 goes on.
+
+In **Slice-finalize mode**: close the slice plan (*Closing an untracked plan*; under protected main never — the sync above replaces this close, also when it reports `ON_TRUNK=yes`). Then release the worktree's plan copy (above), remove the worktree and delete the slice-branch:
 
 ```
 git worktree remove ../<repo>-worktrees/<slice-id>-<slug>
 git branch -d <slice-id>-<slug>
 ```
 
-In **Epic-finalize mode**: close every included slice's plan AND the epic plan (*Closing an untracked plan*; under protected main never — the sync above replaces this close, also when it reports `ON_TRUNK=yes`). Then remove the slice-worktrees, the epic-worktree, and delete all the branches:
+In **Epic-finalize mode**: close every included slice's plan AND the epic plan (*Closing an untracked plan*; under protected main never — the sync above replaces this close, also when it reports `ON_TRUNK=yes`). Then release each slice worktree's plan copy (above), remove the slice-worktrees, the epic-worktree, and delete all the branches:
 
 ```
 for each <slice-id>-<slug>: git worktree remove ../<repo>-worktrees/<slice-id>-<slug>
@@ -673,6 +693,7 @@ Inspect and reconcile manually before starting the next slice.
 | A1 fails (no slice / multiple slices) | Abort with the diagnostic message. |
 | A2 fails (wrong `Status:` in plan) | Abort with hint to run the proper phase command first. |
 | A3 fails (nothing to commit) | Abort. |
+| A3 (finalize): a slice worktree holds uncommitted slice work (`--scope slice-worktree`) | Abort before any merge; name the worktree, its `DIRT=` lines and the `/craft:execute <slice-NNN>` re-run whose step 6 commits it. |
 | A4 fails (tests red) | Abort, refuse to commit. |
 | A5 fails (no recap) | Abort with `/craft:recap` recommendation. |
 | User aborts during split proposal | Clean abort; no commits, no mutations. |
@@ -681,6 +702,7 @@ Inspect and reconcile manually before starting the next slice.
 | Push fails (network, auth) | Stop after Step 6; archive written, plan kept, user told how to push manually. Do not proceed to Step 7. |
 | PR creation fails | Same as push fail: archive written, plan kept, recovery instructions emitted. |
 | `plan-landing.sh sync` fails after the merge (fetch, diverged trunk, checkout, fast-forward) | Surface git's reason and its `ERROR=`; no branch or worktree is removed. The plan copy is as it was (`awaiting-approval`) on the branch sync started from, so a re-run retries the sync once the cause is cleared. |
+| Step 7: `plan-roundtrip.sh release` reports `conflict`, or cannot run (finalize modes) | Skip that slice worktree's removal and branch deletion with a `⚠` line naming the worktree and the reason; the rest of Step 7 goes on, and the leftover is the human's (inspect it, then `git worktree remove` and `git branch -d`, as the line says). |
 | P1–P5 fail after the procedure | Warn loudly; emit partial-completion block; do not auto-rollback. |
 | No slice plan and no epic closable (Mode Detection step 0), or Epic-close's E1–E3 fail, or its close question (E4) answered `[N]` | Stop before any write; word each epic's state as the mode's state table does. |
 | Epic-close re-run after a close that stopped part-way | E4 finds the epic archive committed and resumes at step 4 — never a second walk, archive or archive commit. |

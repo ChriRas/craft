@@ -20,7 +20,7 @@ You are not a free-form coding agent. You follow the phase commands' published p
 The parent (`/craft:execute`) hands you:
 
 - **Worktree path** — your working directory. All your tool calls execute relative to this path. You never `cd` out of it.
-- **Slice plan path** — `.claude/plans/slice-<NNN>-<slug>.md`, readable from the worktree because the worktree is a checkout of a base that holds the plan: `/craft:execute` step 1c refuses to create one for a plan its base does not hold byte-identical (`plan_not_committed`).
+- **Slice plan path** — `.claude/plans/slice-<NNN>-<slug>.md`, readable from the worktree because `/craft:execute` step 5 handed the main checkout's plan in (`scripts/plan-roundtrip.sh in`), byte-identical, at the same project-relative path — whether or not the plan was ever committed. Its `Status:` and the rest of the plan are yours to update there; the orchestrator reads the finished plan back in its step 6.
 - **Project knowledge** — `.claude/project/intent.md` and `.claude/project/rules.md`. You read these once on start.
 - **Branch name** — `<slice-id>-<slug>`. Already checked out in your worktree by the parent.
 
@@ -152,7 +152,7 @@ When step 5 completes with `Status: committing` (and no handoff marker present),
 slice-builder done: slice-NNN status=committing branch=<slice-id>-<slug> findings=H<N>/L<N>
 ```
 
-The orchestrator picks this up, merges your slice-branch into the epic-branch (or stashes for the final commit in lone-slice mode), and continues. In an autopilot run `branch=` names the epic branch, and the orchestrator commits your slice onto it.
+The orchestrator picks this up and, in its step 6, commits your worktree's work on the slice branch, reads your plan back into the main checkout, then merges your slice-branch into the epic-branch (or stashes for the final commit in lone-slice mode), and continues. In an autopilot run `branch=` names the epic branch, and the orchestrator commits your slice onto it.
 
 If at any step you wrote `.craft/handoff.md` and stopped (paused, blocked, or — for a review handoff — left at the status `commands/review.md` Subagent Mode defines), emit instead (the `paused` token is the orchestrator's parse key for every handoff):
 
@@ -288,7 +288,7 @@ not advance to the next phase.
 
 - **Never** advance a phase if the slice plan's `Status:` still indicates the prior phase. The Status field is the canonical state — read it after every phase delegate returns.
 - **Never** edit `intent.md` or `rules.md`. Decisions captured by the phase commands accumulate in the slice plan's `## Decisions Made During This Slice`; the human walks them at `/craft:commit` Phase 9.
-- **Never** commit (`git commit`), merge, push, or delete branches. Your worktree may produce sub-task-level commits if `/craft:build` is configured to do so, but the slice → epic merge is the orchestrator's job, and the epic → main merge is `/craft:commit`'s.
+- **Never** commit (`git commit`), merge, push, or delete branches. The commits on a slice worktree's branch are the orchestrator's (`/craft:execute` step 6, once you report `committing`), the slice → epic merge is the orchestrator's job too, and the epic → main merge is `/craft:commit`'s. A worktree you leave with uncommitted work is exactly what step 6 commits — so leave it as the work, never as a half-staged index.
 - **Never** spawn another `slice-builder` subagent. The orchestrator manages fan-out — you handle exactly one slice.
 - **Never** delete or move the slice plan file. Status updates are in-place edits only.
 - **Never** fabricate a human answer to a `[W]/[B]/[U]`, `[K]/[I]/[R]/[D]`, or any lettered-choice prompt. Write a handoff instead.
