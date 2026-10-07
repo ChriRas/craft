@@ -541,9 +541,9 @@ Reached from s1 (every slice landed) or s4. Emit `Epic <epic-NNN> complete — a
 landed sequentially` (there is no epic-branch to merge; each slice already landed on `main` —
 directly on `direct`, or via its own approved PR on `pull-request` + `Protected-main: yes`, with
 the local trunk synced). Release the lock, and end with `Recommended next: /craft:commit` — it closes the epic: its
-decisions, its archive and its plan (its Epic-close mode, D38). Under `pull-request` + `Protected-main: yes` end instead
-with `<epic-NNN> is finished — close it by hand, through a PR (B25)`: Epic-close would refuse it, because its archive
-commit would land on the trunk directly.
+decisions, its archive and its plan (its Epic-close mode, D38). Under `pull-request` + `Protected-main: yes` that close
+runs through a PR of its own (D39): the first run opens it, the human approves it on GitHub, the second run merges it —
+so end with `Recommended next: /craft:commit` there too, the same line, since the mode says what comes next.
 
 ---
 
@@ -994,7 +994,10 @@ error's first line — since the log helper refuses a text with a line break (*T
   `gh pr create --base <trunk> --head <epic-branch> --title "Merge <epic-NNN>: <epic title>" --body "$(printf '~~~~~~\n'; bash "${CLAUDE_PLUGIN_ROOT}/scripts/epic-digest.sh" "<epic-plan>"; printf '~~~~~~\n')"`
   — the body is the helper's output, generated again and never retyped, fenced so that GitHub keeps its lines and
   indents. A failed push or `gh pr create`: log
-  `⛔ · <epic-id> · PR not opened: <reason>`. Otherwise log `■ · <epic-id> · PR #<N> opened`, then release the lock.
+  `⛔ · <epic-id> · PR not opened: <reason>`. Otherwise log `■ · <epic-id> · PR #<N> opened`, then release the lock, and end with
+  `Recommended next: /craft:commit — adds <epic-NNN>'s record to PR #<N>; approve the PR after that` — its Epic-close
+  mode puts the epic's decisions, archive and plan removal on the epic branch the PR carries (D39), so they reach the
+  trunk with the one approved merge. A push after an approval can dismiss it, hence the order.
 - **[N]** → log `■ · <epic-id> · complete, not merged`, then release the lock.
 
 **No answer is no answer.** When the session ends at the question — the human closes it, a `-p` run is over — nothing
@@ -1007,7 +1010,8 @@ and 4 did both).
 
 The epic plan stays in `.claude/plans/` when the run ends — the run itself never closes the epic. After a `direct`
 merge, `/craft:commit` does (its Epic-close mode, D37): the epic's decisions, its archive, its plan and its
-branch. After `[N]` or a PR it does not.
+branch. After a PR it does too, in two passes (D39): the first adds that record to the open PR, the second runs after
+the GitHub approval and merges. After `[N]` it does not.
 
 ---
 
