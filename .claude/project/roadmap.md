@@ -37,6 +37,8 @@ the B25 note below).
 branch no longer counts. `/craft:commit` Mode Detection steps 0 and 1, A6 and Step 7's In-place-finalize read its `CRAFT_COUNT=` and name each
 foreign worktree in one `·` line; `/craft:execute` P5–P7 read it too (scope widened in Phase 4 — they warned falsely). Known limit:
 a `Branch name pattern` without `<slice-id>` reads foreign. `scripts/test-worktree-kinds.sh` covers it.
+Its review follow-up R1-2 shipped with slice-079 (2026-10-08): A6 reads the mode Mode Detection found instead of a
+worktree count, and step 2 names each CRAFT worktree that is no finalize target.
 
 **B27 shipped with slice-069 (2026-10-07)** — the autopilot's run-start briefing is printed by
 `scripts/autopilot-briefing.sh` (the whole block, its "Stops for you at" lines included); `/craft:execute` a1 and the plan

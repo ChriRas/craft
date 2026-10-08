@@ -350,8 +350,10 @@ bash scripts/test-choice-prompts.sh
 
 # Worktree kinds — scripts/worktree-kinds.sh (slice-078, B33) decides which linked worktrees are CRAFT's: a branch carrying a
 # `slice-<NNN>` or `epic-<NNN>` token (custom branch patterns included); a detached worktree or a foreign branch is not and
-# decides nothing. /craft:commit's Mode Detection steps 0 and 1, A6 and Step 7's In-place-finalize, and /craft:execute's P5–P7 read its CRAFT_COUNT=
-# instead of "only the main worktree" (a stray detached worktree kept epic-005 out of Epic-close and switched A6 off).
+# decides nothing. /craft:commit's Mode Detection steps 0, 1 and 2 and Step 7's In-place-finalize, and /craft:execute's P5–P7 read its
+# CRAFT_COUNT= instead of "only the main worktree" (a stray detached worktree kept epic-005 out of Epic-close and switched A6 off).
+# A6 reads the mode steps 1–2 detected, never a worktree count, and step 2 names each CRAFT worktree that is no finalize
+# target (slice-079: a slice still building elsewhere let a Standard commit land on a protected trunk) — pinned too.
 # Covers real worktree fixtures (slice, epic, detached, foreign branch, custom pattern, token boundaries, prunable, a path
 # with a space, a run from a linked worktree, errors), the pinned sites in commit.md / execute.md with no old predicate
 # left (judged on the joined text — a wrapped phrase hid one site in round 1), and mutated copies that go red. Keep green.
