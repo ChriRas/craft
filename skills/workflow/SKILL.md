@@ -231,7 +231,7 @@ invisible to it. Mark every new status write, or the graph goes blind on that on
 | **Heavy** | review agent fixes in Phase 8 | escalated — **blocks Commit** |
 | **Light** | review agent fixes in Phase 8 | recorded as a **follow-up**; Commit proceeds |
 
-**Soft volume cap:** once in-phase fixes reach **N** (default 5; `Review in-phase fix cap` in `rules.md` `## Self-Verification Settings`) while local-edit findings are still open, the agent stops and **recommends** escalating the remaining batch rather than fixing it. Soft = a recommendation, not a hard block.
+**Soft volume cap (D41):** **N** (default 5; `Review in-phase fix cap` in `rules.md` `## Self-Verification Settings`) is a **guide value**. Once in-phase fixes reach it while local-edit findings are still open, the agent keeps fixing the small findings (criteria in `/craft:review` → Step 4) up to a hard ceiling of **twice** N fixes per round, in every mode, recording why each extra fix is small; a finding that is not small, or one past the ceiling, is **recommended** for escalation. The rule is defined once, in `/craft:review` → Step 4.
 
 **Escalation:** a Heavy + needs-rethinking finding is never auto-fixed. The agent **recommends** (Level 1), per finding, one of two routes — loop back to Phase 4 (`/craft:build`) if the fix is in slice scope, or spin off a new slice (`/craft:plan`) if it is separate work. Phase 9 (Commit) is blocked until every Heavy + needs-rethinking finding is resolved. The routes are carried out by `/craft:review` itself — **Step 7** (gate, and when a spun-off finding counts as resolved) and **Step 8 (Loop back to Phase 4)**; this skill does not restate them.
 
@@ -239,7 +239,7 @@ invisible to it. Mark every new status write, or the graph goes blind on that on
 
 **Round cap and breaker:** a finding is Heavy only with a realistic failure, a slice gets a capped number of Phase-8 rounds, and inside an autopilot run a Heavy + needs-rethinking finding gets one loop-back before the ping-pong breaker blocks the slice — `/craft:review` → Pre-flight step 4, Step 7's cap route and Step 9 (slice-052).
 
-**Autonomy profile:** classifying findings — Level 3 (silent analysis, surfaced in the findings bundle); in-phase fixes — Level 2 (act, then bundle); escalation decisions and soft-cap breach — Level 1 (recommend, human decides).
+**Autonomy profile:** classifying findings — Level 3 (silent analysis, surfaced in the findings bundle); in-phase fixes — Level 2 (act, then bundle); escalation decisions and escalating a finding that is not small, or past the ceiling — Level 1 (recommend, human decides).
 
 **Ad-hoc mode:** `/craft:review` is slash-invocable at any time. Invoked *before* Phase 8 it is **advisory only** — it produces findings, fixes nothing, and changes no phase state; the developer folds the findings into ongoing work.
 

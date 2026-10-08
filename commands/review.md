@@ -114,11 +114,19 @@ For every **local-edit** finding (Heavy or Light), apply the fix, then run the p
    Tests: <status>
 ```
 
-**Soft volume cap.** The cap is `Review in-phase fix cap` in `rules.md` `## Self-Verification Settings` (default **5**). Once the number of in-phase fixes reaches the cap **while local-edit findings are still open** (`<K>` > 0), **stop** and recommend (Level 1) — with nothing left open there is no batch to escalate, and the cap does not fire:
+**Soft volume cap — a guide value (D41).** The cap is `Review in-phase fix cap` in `rules.md` `## Self-Verification Settings` (default **5**). It is a **guide value**, not a stop: it holds in every mode — interactive, Subagent Mode and an autopilot run alike. Once the number of in-phase fixes in this round reaches the cap **while local-edit findings are still open** (`<K>` > 0) — with nothing left open there is no batch to escalate, and the cap does not fire — judge **every** remaining local-edit finding against the **small-fix criteria** first, all of which must hold:
 
-> Review in-phase fix cap (<N>) reached — <K> local-edit findings still open. Many small fixes sum to a large unreviewed delta. Recommend escalating the remaining batch (loop back to Phase 4) rather than fixing it here.
+- it touches **one file**, with **about 20 changed lines at most**;
+- it adds **no new behavior** and changes **no interface, contract or test expectation**;
+- the project's tests are **green after** it (Level 3, as above) — an over-guide fix that leaves them red is reverted and counts as not small.
 
-The cap is a recommendation, not a hard block — the user may waive it. If the user **accepts** the escalation, the remaining local-edit findings are not fixed here: they loop back to Phase 4 through **Step 8**, reached via Step 7. **In the final round** (Pre-flight step 4) offer no loop-back: the remaining local-edit findings are recorded `open — fix cap, awaiting decision` and Step 7's **cap route** decides them — a loop-back there needs a granted extra round, so the rebuilt code is reviewed again.
+A finding that meets them is fixed in-phase, up to the **hard ceiling of `2 × cap` in-phase fixes in the round** (every fix of the round counts, the ones before the cap included). Each fix over the guide value resolves `fixed in-phase: over the guide value — <why small>` (Step 6; the *why* is a short clause naming the criteria it meets, e.g. one line in one file, a rename, a comment), the round carries one `- note · fix cap (<N>) exceeded: <k> small fix(es)` line, and the bundle reports the overrun: `Fix cap (<N>) exceeded: <k> small fix(es) over the guide value`. No question is asked.
+
+Fix the small ones first; only then do a finding that is **not small**, and every local-edit finding once the ceiling is reached, take the route below (a non-small finding never stops the small ones behind it from being fixed). Stop fixing and recommend (Level 1):
+
+> Review in-phase fix cap (<N>) reached — <K> local-edit findings still open (not small, or past the ceiling of <2N> fixes). Many fixes sum to a large unreviewed delta. Recommend escalating the remaining batch (loop back to Phase 4) rather than fixing it here.
+
+The recommendation is not a hard block — the user may waive it (recorded `- note · fix cap (<N>) waived by the user`), which lets the human go past the ceiling; the ceiling binds the agent, never the human's explicit choice. If the user **accepts** the escalation, the remaining local-edit findings are not fixed here: they loop back to Phase 4 through **Step 8**, reached via Step 7. **In the final round** (Pre-flight step 4) offer no loop-back: the remaining local-edit findings are recorded `open — fix cap, awaiting decision` and Step 7's **cap route** decides them — a loop-back there needs a granted extra round, so the rebuilt code is reviewed again.
 
 In **advisory mode**, skip this step: report local-edit findings as suggestions, apply nothing.
 
@@ -154,10 +162,11 @@ Write every finding to the slice plan's `## Review Findings` section — the aud
 - R<R>-<n> · Heavy · Rethink · <description> · advisory — no route
 - R<R>-<n> · Heavy · Rethink · <description> · accepted → known limit
 - note · fix cap (<N>) waived by the user
+- note · fix cap (<N>) exceeded: <k> small fix(es)
 - note · extra round granted: <why>
 ```
 
-The **resolution** is the last ` · ` field — a ` · ` or a quoted resolution value inside the description does not change it. It may carry a short note after `: ` or ` (` (`fixed in-phase: renamed the guard`); the note must not contain ` · `, or its tail becomes the last field and the line reads `MALFORMED`. `resolved in round <R>` is written only by Step 7, in place; `accepted → known limit` and the `extra round granted` note only by Step 7's cap route; `advisory — no route` is every line's resolution in advisory mode. Which resolutions keep a line **open** is the helper's table alone — `review-findings-state.sh --print-resolutions`, first column `yes`; advisory rounds are never open. A line the helper cannot read is reported `MALFORMED` and counted open — doubt blocks.
+The **resolution** is the last ` · ` field — a ` · ` or a quoted resolution value inside the description does not change it. It may carry a short note after `: ` or ` (` (`fixed in-phase: renamed the guard`) — a fix over the guide value (Step 4) writes `fixed in-phase: over the guide value — <why small>`; the note must not contain ` · `, or its tail becomes the last field and the line reads `MALFORMED`. `resolved in round <R>` is written only by Step 7, in place; `accepted → known limit` and the `extra round granted` note only by Step 7's cap route; `advisory — no route` is every line's resolution in advisory mode. Which resolutions keep a line **open** is the helper's table alone — `review-findings-state.sh --print-resolutions`, first column `yes`; advisory rounds are never open. A line the helper cannot read is reported `MALFORMED` and counted open — doubt blocks.
 
 A finding the reviewer returned as a reopen is written with its `reopens <ID>:` prefix exactly as returned, at the very start of its description — the prefix is the breaker's only input (`review-findings-state.sh` → `REOPEN=`); a reworded one reads as a new finding.
 
@@ -297,7 +306,7 @@ No fixes applied, no phase change. Fold these into your ongoing work.
 | `git diff HEAD` is empty (no slice delta) | Tell the user there is nothing to review; recommend confirming Phase 4 actually ran. |
 | The review subagent returns no structured findings | Re-run once with the rubric restated; if still unstructured, present the raw output and ask the user to classify. |
 | A test turns red after an in-phase fix | Treat it like any Phase-4 fix: one fix attempt; if still red, offer `/craft:debug`. Do not leave the tree red. |
-| In-phase fixes reach the soft cap with local-edit findings still open | Stop fixing; recommend escalating the remaining batch (Step 4). Not a hard block. Accepted → Step 7 case 1. |
+| In-phase fixes reach the guide value with local-edit findings still open | Keep fixing the small ones up to `2 × cap`, recording why each is small (Step 4); for a finding that is not small, or past the ceiling, stop and recommend escalating the remaining batch. Not a hard block. Accepted → Step 7 case 1. |
 | User routes findings both ways (some loop-back, some new slice) | → Step 7 case 1 (Step 8); the spin-offs stay open per Step 7 case 2. |
 | Slice plan has no `## Sub-Tasks` section when Step 8 runs | → Step 8.2 (append the section). |
 | User waives the soft cap | Continue fixing; record a `note ·` line under this round's heading (Step 6). |
@@ -316,7 +325,7 @@ Behavior in this mode:
 This section is the **one** definition of the autonomous review outcome (in an autopilot run together with Step 9, the breaker it points to); `agents/slice-builder.md` and `skills/workflow/SKILL.md` point here.
 
 - Steps 1–6 run normally; findings are classified and written to the slice plan's `## Review Findings`.
-- Step 4 (in-phase fix application) runs — fixing local-edit findings is mechanical and safe to automate. On a soft-cap breach the remaining local-edit findings are recorded `open — fix cap, awaiting decision` (no one accepted a loop-back).
+- Step 4 (in-phase fix application) runs — fixing local-edit findings is mechanical and safe to automate. Beyond the guide value it keeps fixing the findings that meet Step 4's small-fix criteria, up to the `2 × cap` ceiling, with the over-the-guide-value record; only the rest — not small, or past the ceiling — is recorded `open — fix cap, awaiting decision` (no one accepted a loop-back).
 - Step 5 — **Heavy + needs-rethinking** findings do **not** prompt the user; they are recorded `escalated → route pending`, with the recommended route (loop-back or new slice) for each written to `.craft/handoff.md`. In the final round (Pre-flight step 4) the recommended routes named there are the cap route's options (a known limit, an extra round, a new slice), not a plain loop-back. In an autopilot run Step 9 decides these findings first.
 - **Gate** — <!-- craft:handoff status=awaiting-rethink-decision plan=reviewing --> Step 7 runs **without its questions** — the cap route's question-free step (an open Light line → `follow-up → slice archive`) does run, its Heavy questions do not: if the helper reports `OPEN_COUNT` above 0 (any Phase-8 round, this round's or an earlier one's; `MALFORMED` lines count), **or cannot run** (Step 6) — no line is ever recorded `resolved` here, because that route is human-confirmed — write `.craft/handoff.md` with `Status: awaiting-rethink-decision` and as its `Episode:` the `ROUNDS=` of the helper run **after** Step 6 wrote this round — it equals `<R>`, never the pre-write run's value (omit `Episode:` when the helper cannot run — the marker then counts by status alone), name `/craft:review` as the resolution, and stop. The slice plan is **not** paused: it stays at the Phase-8 status Pre-flight step 2 set, which is exactly what the interactive resolution reads. With no open line, Step 7 case 3 applies (the review is clear).
 - **Loop-back** — <!-- craft:delegates rule=loop-back to=step-8 --> outside an autopilot run this mode never loops a slice back itself and writes no plan status for it (in one, only Step 9's single loop-back does). The human resolves the handoff with an interactive `/craft:review` in the slice worktree (reach it with `/craft:checkout`, or `/craft:continue`, which routes the unchanged plan status there); its Step 7 asks for the routes of the open lines, and a chosen loop-back runs **Step 8**, the one definition.
