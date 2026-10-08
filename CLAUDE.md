@@ -332,17 +332,28 @@ bash scripts/test-flow-state.sh
 # message queued mid-turn is undocumented and NOT shown by this harness - the slice's interactive Phase-5 test is. Keep green.
 bash scripts/test-pause-watch.sh
 
+# Choice-prompt sites — D40 amended / slice-076: every human-choice site in commands/*.md and skills/debug/SKILL.md names
+# `AskUserQuestion` itself, on one line marked `<!-- craft:choice -->`, because human test T2 showed that a pointer to
+# skills/workflow/SKILL.md -> Choice prompts is never followed. scripts/test-choice-prompts.sh binds the sentences: the tool name
+# on the marker's line, a `<!-- craft:choice typed -->` marker only in commands/execute.md and in the block of a cache-guard arm
+# marker (the guard's stops stay typed), a declared site count per file (read off the run) compared in both directions, and a
+# legend scan (two or more bracketed capitals, `(Y / ...)` or a vertical one-letter-per-line menu must lie within a window below a marker; a legend that is not
+# asked carries `<!-- craft:choice none -->`). Mutation self-tests on copies (tool name removed, marker removed, unmarked legend,
+# typed marker moved out of its arm block, tool name on a typed marker, a count changed) go red; the unchanged tree and a
+# negated mention stay green. Known limit: an open question with no legend and no marker is caught only by the count. Keep green.
+bash scripts/test-choice-prompts.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The twenty-six harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The twenty-seven harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the plan round trip of parallel worktree mode, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's log, the autopilot's run-start briefing, the autopilot's epic-end digest, the epic close and its archive template, the autopilot's budget guard, the autopilot's cache guard, the auto slice flow's verdict, the auto flow's pause request, the statusline tap's wiring, the single declaration of the allowed model values, the
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the plan round trip of parallel worktree mode, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's log, the autopilot's run-start briefing, the autopilot's epic-end digest, the epic close and its archive template, the autopilot's budget guard, the autopilot's cache guard, the auto slice flow's verdict, the auto flow's pause request, the choice-prompt sites' binding, the statusline tap's wiring, the single declaration of the allowed model values, the
 single definition of what counts as an example rather than content, delete-safe closing, and the autopilot's verification by command.
 
 ## Dogfooding Is Not Self-Verification
