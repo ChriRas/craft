@@ -104,7 +104,7 @@ In single-developer agent-coding, slices are **feature-shaped**, not component-s
 - Tests run silently (Level 3) and surface only on red.
 - Bundles surface at the end of each sub-task or at the 30k-token brake, whichever comes first.
 
-**Context discipline:** Keep the implementation session under ~100k tokens. If the slice is too big for one session, that is a signal that the slice was too big for Phase 3 — re-slice next time.
+**Context discipline:** Keep the implementation session under ~150k tokens. If the slice is too big for one session, that is a signal that the slice was too big for Phase 3 — re-slice next time.
 
 ---
 
