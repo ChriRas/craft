@@ -103,7 +103,7 @@
   `<!-- craft:choice sequence -->` with a fixed phrase (slice-077; their count is declared too), the site count per file is declared, and the legend
   scan holds an unmarked `[A]/[B]` menu out.
   Plus `bash scripts/test-worktree-kinds.sh` (slice-078, B33) — which linked worktrees are CRAFT's (`worktree-kinds.sh`:
-  a `slice-<NNN>` / `epic-<NNN>` token on the branch); `/craft:commit` steps 0–2 and In-place-finalize and `/craft:execute` P5–P7 read it; A6 reads the detected mode (slice-079).
+  a `slice-<NNN>` / `epic-<NNN>` token on the branch); `/craft:commit` steps 0–2 and `/craft:execute` P5–P7 read it; A6 (slice-079) and In-place-finalize (slice-080, with the start branch Mode Detection holds) read the detected mode.
   Plus `bash scripts/test-autopilot-briefing.sh` (slice-069, B27) — the autopilot's run-start briefing: the whole
   block, its "Stops for you at" lines included, is printed by `autopilot-briefing.sh` and relayed unchanged by
   `/craft:execute` a1 and the plan gate.

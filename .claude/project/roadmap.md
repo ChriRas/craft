@@ -39,6 +39,8 @@ foreign worktree in one `·` line; `/craft:execute` P5–P7 read it too (scope w
 a `Branch name pattern` without `<slice-id>` reads foreign. `scripts/test-worktree-kinds.sh` covers it.
 Its review follow-up R1-2 shipped with slice-079 (2026-10-08): A6 reads the mode Mode Detection found instead of a
 worktree count, and step 2 names each CRAFT worktree that is no finalize target.
+R1-4 of slice-079 shipped with slice-080 (2026-10-09): Step 7's In-place-finalize reads that mode and the start branch
+Mode Detection holds, so an in-place slice lands on the trunk whatever other worktrees exist.
 
 **B27 shipped with slice-069 (2026-10-07)** — the autopilot's run-start briefing is printed by
 `scripts/autopilot-briefing.sh` (the whole block, its "Stops for you at" lines included); `/craft:execute` a1 and the plan
