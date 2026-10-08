@@ -1390,7 +1390,7 @@ Decision:
 - **In an interactive session, every choice is an `AskUserQuestion` click.** A lettered menu becomes one question whose
   options are the menu's letters (label: letter + meaning; description: the consequence). A yes/no confirmation
   ("Proceed?", "Is that right?") is a two-option question. The legend in the command prose stays the one source of the
-  options — the convention renders it, no command carries a second copy.
+  options; the convention renders it. (Amended, slice-076: the site itself also names the tool — see below.)
 - **Open questions with typical answers offer them.** Where the answer is free text but has likely values (a trigger
   category, a language, a slice name derived from the context), the agent offers context-derived suggestions as options;
   "Other" stays for the user's own text. Questions with no meaningful presets (a Vision, a bug description) stay typed.
@@ -1409,6 +1409,17 @@ Decision:
   tool result no hook sees. Those questions render their full legend as text and are typed; every other question of an
   interactive session that is not asked at such a stop is a click. *Cost:* the questions at an autopilot epic's human stops stay typed; accepted — the alternative
   re-writes a whole expired context at the full input price on the click, which is what the guard exists to prevent.
+- **Amendment (slice-076, human test T2, 2026-10-08): each site names `AskUserQuestion` itself.** T2 showed zero
+  `AskUserQuestion` calls in a full phase loop: the sites only pointed at the convention, and no session ever read the
+  target (0 reads of `skills/workflow/SKILL.md`); even "ask as a click" without the tool's name did not bind. So every
+  human-choice site in `commands/*.md` and `skills/debug/SKILL.md` carries one sentence on a line marked
+  `<!-- craft:choice -->` that names `AskUserQuestion` together with the no-click fallback. This replaces "no command
+  carries a second copy" for that one sentence: it is the case where a pointer's handler cannot live behind the pointer
+  (rules.md → Code Conventions), so it is stated at each reader and **bound** — `scripts/test-choice-prompts.sh` checks
+  the marker, the tool name on the same line and a declared site count per file, both directions. The rule's body (the
+  limits, splitting, follow-ups, the no-click fallback, the cache-guard exception) lives in *Choice prompts*; a site sentence may add its own option list but restates no rule. The
+  cache-guard stops stay typed, each behind `<!-- craft:choice typed -->` in the block of its arm marker. *Cost:* one
+  marked sentence per site; accepted — the alternative, a pointer, is what failed.
 
 ### D41 — The Review Fix Cap Is a Guide Value, With a Hard Ceiling at Twice It
 
