@@ -53,6 +53,16 @@
 
 - **Default:** parallel
 
+## Slice Flow
+
+> How an interactive slice moves from phase to phase (`/craft:build` → … → `/craft:commit`). `auto`: each
+> phase ends by starting the next one itself, up to and including the commit, and stops only where you must
+> decide — those decisions arrive as clicks and the flow goes on after your answer. `manual`: one command per
+> phase, each ends with `Recommended next:`. `/craft:execute` and the autopilot keep their own orchestration.
+> Judged by the CRAFT plugin's `scripts/flow-state.sh`; an invalid value stops the flow (`/craft:prime` warns).
+
+- **Mode:** auto
+
 ## Permissions
 
 > Records which permission-scope preset onboarding applied. The actual allowlist entries
