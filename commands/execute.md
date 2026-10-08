@@ -1089,7 +1089,8 @@ printed the way A4 prints it: its own top-level code block.
 For an in-place run: `Bash` `git branch --show-current` is the slice branch,
 `bash "${CLAUDE_PLUGIN_ROOT}/scripts/tree-dirt-state.sh"` reports `DIRTY=yes` (the slice's uncommitted changes), the slice plan
 `Status:` is `awaiting-release`, and no worktree exists for this slice
-(`git worktree list --porcelain` shows only the main worktree).
+(`bash "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-kinds.sh"` reports `CRAFT_COUNT=0` — a worktree on no slice or
+epic branch does not count, slice-078).
 
 Failure → *"⚠ In-place run did not halt cleanly — expected the slice branch checked out with
 uncommitted changes and `Status: awaiting-release`. Inspect `git status` and the slice
@@ -1097,8 +1098,8 @@ plan."*
 
 ### P6 — Sequential epic landed cleanly (sequential mode only)
 
-For a sequential epic run: `git worktree list --porcelain` shows **only the main worktree**
-(no worktree created) and there is no epic-branch; and the run ended in one of these states,
+For a sequential epic run: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-kinds.sh"` reports `CRAFT_COUNT=0`
+(no worktree created; one on no slice or epic branch does not count) and there is no epic-branch; and the run ended in one of these states,
 per the Merge Workflow:
 
 - **`direct`** — the slice handled this invocation is **landed** (plan archived under
@@ -1120,7 +1121,8 @@ and the current slice landed, cleanly-halted, or awaiting-approval on its PR bra
 
 ### P7 — Autopilot run ended cleanly (autopilot run only)
 
-`git worktree list --porcelain` shows only the main worktree; the trunk points where it pointed before the run, unless
+`bash "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-kinds.sh"` reports `CRAFT_COUNT=0` (a worktree on no slice or epic
+branch does not count); the trunk points where it pointed before the run, unless
 a5 merged on the human's yes; the epic plan's `## Autopilot Log` and the epic branch agree **in both directions** —
 every `✓` on a slice-ID names a slice whose archive exists and whose `Slice:` commits are on the epic branch (`git log <epic-branch>
 --grep "Slice: <slice-id>"`), and every slice landed in this invocation has its `✓` line, ending in a `Δ five_hour` field;

@@ -34,8 +34,8 @@ If a slice plan is found, read its `## Recap Draft` section (written in Phase 6)
 
 Run all of the following. Any failure stops the command before any commit, archive write, or deletion happens.
 
-**First, Mode Detection's step 0** (below): when it finds the **Epic-close** mode, A1–A6 do not run — that
-mode has its own pre-assertions (end of this file).
+**First, Mode Detection's *Which worktrees count* and step 0** (below): when step 0 finds the **Epic-close** mode,
+A1–A6 do not run — that mode has its own pre-assertions (end of this file). A6 reads the worktree counts from that run.
 
 ### A0 — Running from the main checkout
 
@@ -91,7 +91,7 @@ The slice plan must contain a `## Recap Draft` section with content.
 This catches only the **Standard-mode-on-the-trunk** case — a direct commit on the trunk
 with no branch to open a PR from. Abort **before any commit** only when **all** hold: the
 profile's `Merge → Type` is `pull-request` with `Protected-main: yes`; **and**
-`git worktree list --porcelain` shows **only the primary worktree** (no finalize worktree);
+`worktree-kinds.sh` (Mode Detection → *Which worktrees count*) reports `CRAFT_COUNT=0` (no finalize worktree);
 **and** `git branch --show-current` equals the trunk (`main` or the configured trunk):
 *"Protected-main opens a PR from a branch, but you are on `<trunk>` directly with no branch
 to land. Run the slice via `/craft:execute` (worktree) or in-place so there is a branch, or
@@ -99,11 +99,12 @@ set `Merge → Type: direct`."*
 
 The **worktree guard is essential**: a finalize-mode run executes from the primary checkout
 (A0), whose current branch **is** the trunk, but its slice/epic branch lives in a *separate*
-worktree — the second worktree's presence excludes it from A6 (it genuinely has a branch to
+worktree — that slice/epic worktree's presence (`CRAFT_COUNT` above 0) excludes it from A6 (it genuinely has a branch to
 PR). An in-place run is on its own branch in the primary checkout (current branch ≠ trunk),
 so it passes. A slice already at `Status: awaiting-approval` likewise sits on its PR branch
 (in-place) or still has its finalize worktree — it passes. Only a genuine Standard commit
-directly on the trunk trips A6. Running this before Step 1 ensures no commits land on a trunk
+directly on the trunk trips A6 — and a worktree on no slice or epic branch does not keep it from tripping
+(slice-078: with any second worktree counting, a stray one switched the guard off). Running this before Step 1 ensures no commits land on a trunk
 that then cannot be pushed.
 
 ---
@@ -122,10 +123,28 @@ that then cannot be pushed.
   its own pre-assertions, steps and post-assertions. Step 0 below judges it first, so on an autopilot epic branch with no
   slice at `committing` it wins over Standard mode's Autopilot differences.
 
+**Which worktrees count** (slice-078). Steps 0 and 1 below and A6 judge the linked worktrees only through
+`scripts/worktree-kinds.sh` — which worktree is CRAFT's (a branch carrying a `slice-<NNN>` or `epic-<NNN>` token) is
+defined in its header, once. Run it once, from the project root, before step 0:
+
+```
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-kinds.sh"
+```
+
+A worktree on no slice or epic branch — detached, or on another branch — decides no mode and no guard. Name each
+`KIND=foreign` line in one line of the output, its fields as printed, and go on:
+
+```
+· Worktree <WORKTREE> (<BRANCH>) is on no slice or epic branch — ignored
+```
+
+The helper cannot run (non-zero exit, no `CRAFT_COUNT=`) → say so in one line and stop before any write: without its
+answer neither the mode nor A6 can be judged.
+
 Detection logic:
 
 0. **A finished epic.** Only when no *slice* plan under `.claude/plans/` is at `Status: committing` or
-   `awaiting-approval`, `git worktree list --porcelain` shows only the main worktree, and `git branch --show-current` is
+   `awaiting-approval`, `worktree-kinds.sh` reports `CRAFT_COUNT=0`, and `git branch --show-current` is
    the trunk (`main`, or the trunk `rules.md` `## Deployment` names) — or, on the PR path, an autopilot epic branch
    `epic-<NNN>-<slug>` (the one a5's PR leaves checked out) or a close branch `epic-<NNN>-<slug>-close` (Epic-close's own
    first pass): run, from the project root,
@@ -145,8 +164,8 @@ Detection logic:
    epic plan as that mode's state table words it. Nothing was written. A slice plan exists (at another status), or no
    epic plan → go on with step 1: A1/A2's slice message is the one that helps then. The helper cannot run (non-zero
    exit) → say so in one line and go on with step 1.
-1. `Bash` `git worktree list --porcelain`. If only the main worktree exists, mode = Standard.
-2. Otherwise, for each non-main worktree, look up the matching plan file under `.claude/plans/`.
+1. `worktree-kinds.sh` reports `CRAFT_COUNT=0` → mode = Standard.
+2. Otherwise, for each `KIND=craft` worktree, look up the matching plan file under `.claude/plans/`.
    - Branch starts with `epic-` and the epic plan exists with all decomposition entries archived/merged → Epic-finalize mode (the matching epic-worktree is the merge source).
    - Branch matches `slice-<NNN>-<slug>` and the slice plan has `Status: committing` **or** `awaiting-approval` (protected-main PR completion) → Slice-finalize mode.
    - Anything else → fall through. If multiple plausible modes match, ask the user which one to finalize (defensive — should not happen in normal flow; <!-- craft:choice --> ask it with `AskUserQuestion`, one option per plausible mode — where the tool is not available, as text).
@@ -462,8 +481,8 @@ In **Standard mode**: close `.claude/plans/slice-<NNN>-<slug>.md` (*Closing an u
 > **In-place-finalize (a slice built in-place on a non-trunk branch):** never on an autopilot epic branch
 > `epic-<NNN>-<slug>` — Autopilot Mode lands there. Otherwise, when the landed slice
 > was built in-place on a `<slice-id>-<slug>` branch in the main checkout (slice-018 in-place,
-> or a `sequential`-epic slice under a `pull-request` workflow) — i.e. only the primary
-> worktree exists **and** the current branch is not the trunk — return to the trunk after
+> or a `sequential`-epic slice under a `pull-request` workflow) — i.e. `worktree-kinds.sh` (Mode Detection →
+> *Which worktrees count*) reported `CRAFT_COUNT=0` **and** the current branch is not the trunk — return to the trunk after
 > landing, so the next run starts clean on `main`:
 > - `direct` workflow → the commits are on the branch; land them on the trunk:
 >   `git checkout <trunk>` then `git merge --no-ff <slice-id>-<slug>`, then
