@@ -87,7 +87,7 @@ do that manually (git reset, git revert, branch operations).
   Live vs. stale and the fallback when the helper cannot run are defined in `skills/workflow/SKILL.md` →
   **Handoff marker lifecycle**. Read-only: abort never renames a marker.
 
-Then ask, with the full lettered legend rendered every time per `skills/workflow/SKILL.md`:
+Then ask — as a click, or with the full legend rendered where no one can click, per the choice-prompt convention in `skills/workflow/SKILL.md`:
 
 ```
 ⚠ A worktree for this slice exists at <path>.
@@ -96,8 +96,8 @@ Then ask, with the full lettered legend rendered every time per `skills/workflow
    <On the fallback: "Open handoff: .craft/handoff.md — state unknown (helper could not run) — removal deletes it">
 
 Remove the worktree and delete its branch as part of the abort?
-  [Y] Yes  — `git worktree remove <path>` + `git branch -d <branch>` (uses `-D` only if branch has unmerged commits AND user re-confirms)
   [N] No   — leave the worktree intact; you can clean it up later with /craft:worktree-clean
+  [Y] Yes  — `git worktree remove <path>` + `git branch -d <branch>` (uses `-D` only if branch has unmerged commits AND user re-confirms)
 ```
 
 Default is **No** — match the rest of `/craft:abort`'s "destructive operations need explicit confirmation" stance. If the user picks `[Y]` but `git branch -d` reports unmerged commits, escalate with a separate confirmation before falling back to `-D`. Never silent force-delete.
@@ -110,7 +110,7 @@ If the slice was last modified within the past 60 minutes (`stat`/`ls -lT` on th
 ⚠ This slice was last touched <N> minutes ago. Sure you want to abort?
 ```
 
-Wait for a clear answer before continuing. Ambiguity → clean abort.
+Ask it as a yes/no click (default: no) and wait for the answer before continuing. Ambiguity → clean abort.
 
 ### Step 4 — Handoff warning
 
@@ -121,18 +121,28 @@ If the slice plan contains a non-empty `## Handoff` section, surface it:
    to delete it?
 ```
 
-Wait for a clear answer.
+Ask it as a yes/no click (default: no) and wait for the answer.
 
-### Step 5 — Confirm by typed slice ID
+### Step 5 — Confirm with two clicks
 
-Ask:
+Two yes/no questions in a row, each a click per the choice-prompt convention in `skills/workflow/SKILL.md` (the default
+option is "No" in both):
 
 ```
-Confirm abort? Type the slice ID exactly to confirm:
-  > slice-<NNN>
+1. Abort slice-<NNN>?
+     [No]  Cancel — nothing is changed
+     [Yes] Continue to the final confirmation
+2. Really abort slice-<NNN>? CRAFT cannot undo this — the plan file is closed (deleted; or moved into .claude/plans/.closed/
+   when your settings deny or ask on removal, or into .claude/plans/_aborted/ if you asked for that — a moved plan is
+   only recoverable by hand)<, and the worktree <path> with its branch <branch> is removed — only when Step 2b was
+   answered [Y]>.
+     [No]  Cancel — nothing is changed
+     [Yes] Abort slice-<NNN> now
 ```
 
-Only proceed if the user types the exact slice ID (`slice-<NNN>`, including the `slice-` prefix and three-digit number). Anything else → clean abort with: *"Confirmation mismatch. Abort cancelled. Try again with the exact ID."*
+The second question names the exact slice ID (`slice-<NNN>`, three-digit number) and that the step cannot be undone. Only
+proceed when both are answered "Yes". A "No" at either step, or any other answer → clean abort with: *"Abort cancelled."*
+Where no one can click, render both questions as text with their full legend and require an explicit "yes" to each.
 
 ### Step 6 — Close (or, by explicit user request, move)
 
@@ -161,7 +171,7 @@ Archival is never the default — only on explicit user request during this comm
 
 ### Step 6b — If requested, remove the worktree and branch
 
-If the user answered `[Y]` at Step 2b AND Step 5's typed-ID confirmation passed:
+If the user answered `[Y]` at Step 2b AND Step 5's two confirmations passed:
 
 ```
 git worktree remove <path>
@@ -253,7 +263,7 @@ Partial (post-assertion failure):
 |---|---|
 | A1 fails (argument missing or malformed) | Abort with `/craft:status` hint. |
 | A2 fails (no matching plan / multiple matches) | Abort with the diagnostic message. |
-| User confirms with wrong slice ID | Clean abort: *"Confirmation mismatch. Abort cancelled. Try again with the exact ID."* |
+| User answers "No" at either confirmation of Step 5 | Clean abort: *"Abort cancelled."* Nothing is changed. |
 | User answers "no" to the recency or handoff warning | Clean abort, plan untouched. |
 | User wants to move to `_aborted/` instead of closing | Allow only when explicitly requested during this command run — `mv` instead of the close. Never default to archiving. |
 | P1 fails (file still present after the close or mv) | Warn loudly; user inspects manually. No auto-retry. |
@@ -266,5 +276,5 @@ Partial (post-assertion failure):
 - It does **not** delete or modify commits. Git history is the user's responsibility.
 - It does **not** clean up branches.
 - It does **not** archive the aborted slice by default. Aborted work is not Decision-Log material; archival happens only on explicit user request.
-- It does **not** abort silently. Always requires the typed slice-ID confirmation.
+- It does **not** abort silently. Always requires the two-click confirmation of Step 5.
 - It does **not** auto-rollback on post-assertion failure. Partial state is surfaced for human reconciliation.
