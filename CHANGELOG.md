@@ -20,6 +20,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 - **Every human choice is a click in an interactive session** (slice-072, D40) — lettered menus (`[W]/[B]/[U]`, `[K]/[I]/[R]/[D]`, …), yes/no confirmations and open questions with typical answers are asked as an `AskUserQuestion` (options = the legend's letters with meaning and consequence; a menu of more than four options is split into steps; an option that needs a parameter asks for it in a follow-up). `/craft:abort` confirms with two clicks, the second naming the slice-ID and that it cannot be undone, instead of a typed ID. Subagent Mode and headless `claude -p` are unchanged: handoff / the full legend rendered as text, and so are the autopilot's three human stops that arm the cache guard (orphan question, plan gate, a5 sign-off), because a click would bypass the guard's prompt hook. One rule in `skills/workflow/SKILL.md` → *Choice prompts*; `commands/test.md`, `commands/abort.md` and the docs page follow it.
 - **Both 100k token limits rise to 150k** (slice-071) — the cache guard blocks a cold prompt only from 150000 tokens on (`hooks/cache-guard.sh`, `scripts/usage-state.sh`, the profile template, the three presets, `craft-profile-defaults.md`, the docs page), and Phase 4's context-discipline guideline in `skills/workflow/SKILL.md` names ~150k tokens.
 
+### Fixed
+- **Human test T2 (slice-076, D40 amended)** — every human-choice site now names `AskUserQuestion` itself (bound by `scripts/test-choice-prompts.sh`), so the clicks actually happen; `/craft:recap` no longer asks "Ready for Phase 7/8?" under `Mode: auto`; `/craft:commit` omits an attribution line the profile does not enable without a word about it.
+
 ## [1.8.0] - 2026-10-07
 
 > **Upgrade note — read before updating.**
