@@ -1,6 +1,6 @@
 ---
 description: Abandon a slice. Asks confirmation, then closes the plan file by default — deleted, or moved into .claude/plans/.closed/ when the user's settings deny or ask on removing it. Aborted slices have no archive value — they leave only their (possibly partial) commits behind, which the user manages separately.
-argument-hint: "<slice-NNN>"
+argument-hint: "[slice-NNN]"
 allowed-tools: ["Bash", "Read", "Glob"]
 ---
 
@@ -22,6 +22,9 @@ This command is a **durable-state mutation** (file deletion or move) and follows
 
 Capture `<slice-NNN>` from the command argument. No defaulting to "the active slice" — abort is destructive and must be explicit.
 
+**No argument: pick the slice.** A click is explicit, so it is no default. `Glob` `.claude/plans/slice-*-*.md`; with no
+match end with *"No active slice plan to abort."*. Otherwise <!-- craft:choice sequence --> ask which slice to abort in an `AskUserQuestion` call of its own: one option per slice (label: its ID, description: title and `Status:`) plus **Cancel** (the tool needs two options, so a single active slice still gets Cancel as the second); with more than three slices, split the options into steps or group them by status, and nothing is dropped. Where the tool is not available, list the slices as text and ask for the ID. The pick continues as `/craft:abort <that id>` — A1 below checks it like a typed one; **Cancel**, or no answer, ends with *"Abort cancelled."*. A malformed argument (a typo is not the same as no argument) is still refused by A1, not turned into a pick.
+
 ---
 
 ## Pre-Assertions
@@ -30,7 +33,7 @@ Run both. Any failure stops the command before any deletion happens.
 
 ### A1 — Slice ID argument present
 
-The command argument `<slice-NNN>` must be present and match the pattern `slice-\d{3}`.
+The slice ID — typed as the command argument, or clicked at Step 1 — must be present and match the pattern `slice-\d{3}`.
 
 Failure → abort: *"`/craft:abort` requires a slice ID (e.g., `/craft:abort slice-007`). Run `/craft:status` to see active slices."*
 
@@ -87,7 +90,7 @@ do that manually (git reset, git revert, branch operations).
   Live vs. stale and the fallback when the helper cannot run are defined in `skills/workflow/SKILL.md` →
   **Handoff marker lifecycle**. Read-only: abort never renames a marker.
 
-Then ask. <!-- craft:choice --> Ask it with `AskUserQuestion` (two options, the default No first); where the tool is not available, render the legend below as text:
+Then ask. <!-- craft:choice sequence --> Ask it in an `AskUserQuestion` call of its own (two options, the default No first), and ask the next question (Step 3) only after the answer; where the tool is not available, render the legend below as text:
 
 ```
 ⚠ A worktree for this slice exists at <path>.
@@ -110,7 +113,7 @@ If the slice was last modified within the past 60 minutes (`stat`/`ls -lT` on th
 ⚠ This slice was last touched <N> minutes ago. Sure you want to abort?
 ```
 
-<!-- craft:choice --> Ask it with `AskUserQuestion` (two options, the default No first; where the tool is not available, as text) and wait for the answer before continuing. Ambiguity → clean abort.
+<!-- craft:choice sequence --> Ask it in an `AskUserQuestion` call of its own (two options, the default No first; where the tool is not available, as text), together with no other question, and wait for the answer before continuing. A No ends the abort here; ambiguity → clean abort.
 
 ### Step 4 — Handoff warning
 
@@ -121,11 +124,11 @@ If the slice plan contains a non-empty `## Handoff` section, surface it:
    to delete it?
 ```
 
-<!-- craft:choice --> Ask it with `AskUserQuestion` (two options, the default No first; where the tool is not available, as text) and wait for the answer.
+<!-- craft:choice sequence --> Ask it in an `AskUserQuestion` call of its own (two options, the default No first; where the tool is not available, as text), only after the previous question (if any) was answered, and wait for the answer. A No ends the abort here.
 
 ### Step 5 — Confirm with two clicks
 
-<!-- craft:choice --> Two yes/no questions in a row, each asked with `AskUserQuestion` (two options; the default, No, first in both):
+<!-- craft:choice sequence --> Two yes/no questions in a row, each asked in an `AskUserQuestion` call of its own (two options; the default, No, first in both) — the second only after a Yes to the first, never in the same call:
 
 ```
 1. Abort slice-<NNN>?
@@ -139,9 +142,10 @@ If the slice plan contains a non-empty `## Handoff` section, surface it:
      [Yes] Abort slice-<NNN> now
 ```
 
-The second question names the exact slice ID (`slice-<NNN>`, three-digit number) and that the step cannot be undone. Only
-proceed when both are answered "Yes". A "No" at either step, or any other answer → clean abort with: *"Abort cancelled."*
-Where no one can click, render both questions as text with their full legend and require an explicit "yes" to each.
+The second question names the exact slice ID (`slice-<NNN>`, three-digit number) and that the step cannot be undone. It is
+asked only after the first was answered "Yes". Only proceed when both are answered "Yes". A "No" at either step, or any
+other answer → clean abort with: *"Abort cancelled."* — a No at the first ends the abort before the second is asked.
+Where no one can click, render each question as text with its full legend, the second only after an explicit "yes" to the first.
 
 ### Step 6 — Close (or, by explicit user request, move)
 
@@ -266,7 +270,9 @@ Partial (post-assertion failure):
 
 | Situation | Behavior |
 |---|---|
-| A1 fails (argument missing or malformed) | Abort with `/craft:status` hint. |
+| No argument | Step 1 offers the active slices as a click; the pick is checked by A1 like a typed ID. |
+| No argument and no active slice plan | End with *"No active slice plan to abort."* |
+| A1 fails (argument malformed, or no ID after the pick) | Abort with `/craft:status` hint. |
 | A2 fails (no matching plan / multiple matches) | Abort with the diagnostic message. |
 | User answers "No" at either confirmation of Step 5 | Clean abort: *"Abort cancelled."* Nothing is changed. |
 | User answers "no" to the recency or handoff warning | Clean abort, plan untouched. |
