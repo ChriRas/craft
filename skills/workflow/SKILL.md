@@ -513,9 +513,45 @@ Four levels. Phase defaults are above; action-type overrides apply across phases
 - **Auto-continue with abort option** at Level 2 — otherwise Level 2 collapses into Level 1.
 - **Level 3 visibility**: every bundle summarizes Level 3 actions in one line ("read 12 files, ran 3 lint checks"). Never invisible.
 
-#### Lettered-choice prompts
+#### Choice prompts (the lettered-choice-prompt convention)
 
-Several commands offer the user a lettered-choice menu — `[W]/[B]/[U]` (Phase 5 feedback), `[K]/[I]/[R]/[D]` (Phase 9 decision promotion), `[P]/[U]/[D]` (onboard migration), and others. Whenever such a menu is presented, render it **in full**: every option as its letter **plus its meaning plus its consequence / next-step**, on **every** occurrence — not just the first. The user may answer with the bare letter, but the agent always shows the full legend. Never present bare letters and rely on the user recalling what they mean.
+Several commands ask the human to choose — a lettered menu such as `[W]/[B]/[U]` (Phase 5 feedback), `[K]/[I]/[R]/[D]`
+(Phase 9 decision promotion) or `[P]/[U]/[D]` (onboard migration), a yes/no confirmation, or an open question with
+typical answers (D40). This is the one rule for all of them; a command names its options once, in its own legend, and
+points here — it carries no second copy of this rule.
+
+**Where the legend lives.** A command writes its menu as a legend: each letter, **its meaning and its consequence /
+next step**. That legend is the single source of the options for both renderings below.
+
+**Interactive session — a click.** If the `AskUserQuestion` tool is available, ask the question with it instead of
+printing a menu to type into:
+
+- **Lettered menu** → one question; one option per letter (label: the letter and its meaning; description: the
+  consequence / next step). The answer is the chosen option — never ask the user to type a letter.
+- **Yes/no confirmation** ("Proceed?", "Is that right?") → a two-option question, the default option first. A
+  destructive step names what it removes and that it cannot be undone in the question text.
+- **Open question with typical answers** (a trigger category, a language, a slice name derived from the context) →
+  offer context-derived suggestions as the options; the automatic "Other" takes the user's own text. A question with no
+  meaningful presets (a Vision, a bug description) stays typed.
+- **The tool's limits** — 2–4 options per question plus the automatic "Other", up to four questions per call. A menu of
+  more than four options is split into steps (or grouped, the group picked first) and nothing is dropped; an option
+  that needs a parameter (`[R] <ids> — <note>`, "Other language") asks for it in a follow-up question after the click.
+- **A vague answer to a menu** (text under "Other" that picks no option — "kind of works, but…") is not interpreted: ask
+  the question again.
+
+**A stop that arms the autopilot cache guard stays text.** Every question asked at a stop that arms the guard — the
+orphan question, the plan gate, the a5 sign-off, and any question a run stops to ask (`commands/execute.md` → *The cache
+guard*) — ends the turn so that the human's answer arrives as the next **prompt**: the `UserPromptSubmit` hook
+`hooks/cache-guard.sh` blocks a prompt that comes after the prompt cache expired, and a click is a tool result the hook
+never sees (and `AskUserQuestion` after the arm would be the tool call after the arm that lets the answer pass
+unguarded). Those questions are rendered as text with their full legend, as below, and answered by typing; every question
+at a stop that does not arm the guard, in an autopilot run too, is a click.
+
+**No human can click — the legend is rendered.** In Subagent Mode (`AskUserQuestion` is not available to a subagent; the
+command's own Subagent Mode writes a handoff instead of asking), in a headless `claude -p` session, or whenever the tool
+is not available, render the legend **in full** as text: every option as its letter plus its meaning plus its
+consequence / next step, on **every** occurrence — not just the first. The user may answer with the bare letter, but the
+agent always shows the full legend. Never present bare letters and rely on the user recalling what they mean.
 
 ---
 

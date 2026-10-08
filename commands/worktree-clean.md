@@ -106,7 +106,7 @@ Non-CRAFT worktrees (NOT touched):
 
 ### 3. Confirm per category
 
-Ask three lettered questions in sequence (each rendered with full legend per `skills/workflow/SKILL.md`):
+Ask three lettered questions in sequence (each asked per the choice-prompt convention in `skills/workflow/SKILL.md`):
 
 ```
 Remove all Archived worktrees and delete their branches?

@@ -94,7 +94,7 @@ How was it?
   [U] UX issue         → describe what should differ, then iterate
 ```
 
-Render this prompt with its full legend — each letter, its meaning, and its next-step — every time it appears, per the lettered-choice-prompt convention in `skills/workflow/SKILL.md`. Capture the single-letter answer.
+Ask this prompt as a click (one question, three options) or, where no one can click, render it with its full legend — each letter, its meaning, and its next-step — every time it appears, per the choice-prompt convention in `skills/workflow/SKILL.md`. Capture the chosen option.
 
 #### If `[W]` Works
 
@@ -123,6 +123,8 @@ Ask the user directly:
 Wait for the answer — do not interpret. Once the answer is captured, ask:
 
 > Iterate now (one short fix + re-demo), or close the slice with the current behavior and revisit later (new slice)?
+
+(A two-option choice — asked as a click per the convention above.)
 
 If iterate: go back to `/craft:build` for a focused fix, then return here for 5a / 5c. Loop until `[W]`.
 
@@ -168,7 +170,7 @@ Recommended next: /craft:build
 | Situation | Behavior |
 |---|---|
 | No `Status: implementing` or `testing` slice found | Stop, recommend `/craft:build` or `/craft:plan` — for a `paused` slice `/craft:continue` (Pre-flight step 1). |
-| User reports "kind of works, but…" without picking W/B/U | Re-ask, force the single-letter choice. Do not interpret vague answers. |
+| User reports "kind of works, but…" without picking W/B/U | Re-ask, requiring one of the three options. Do not interpret vague answers. |
 | Demo-setup cannot be derived (trigger field empty in plan) | Tell user the slice plan is missing the Trigger answer; recommend re-running `/craft:plan` to repair, or ask the user inline. |
 | User wants to skip Phase 5 because "tests are green" | Refuse politely: *"Phase 5 cannot be skipped — automated tests don't capture product feel. Take 60 seconds to run the demo."* |
 

@@ -212,7 +212,7 @@ Confirm by class? (Y / override-by-item / cancel)
 
 ### 2.5 Resolve plugin-already-provides collisions
 
-For each asset in the **Plugin-already-provides** class, ask explicitly — rendering the `[P]/[U]/[D]` menu with its full legend per the lettered-choice-prompt convention in `skills/workflow/SKILL.md`:
+For each asset in the **Plugin-already-provides** class, ask explicitly — asking the `[P]/[U]/[D]` menu per the lettered-choice-prompt convention in `skills/workflow/SKILL.md`:
 
 ```
 Skill collision: <name>
@@ -300,7 +300,7 @@ Parse the source file. Identify sections that map to:
 
 ##### Notes-section dialog (Gap #5)
 
-If the source contains a "Notes" / "Working Notes" / free-form section that mixes still-relevant decisions with dated working-notes, ask the user to triage **each bullet** one at a time — rendering the full `[I]/[R]/[O]/[K]/[D]` legend each time, per the lettered-choice-prompt convention in `skills/workflow/SKILL.md`:
+If the source contains a "Notes" / "Working Notes" / free-form section that mixes still-relevant decisions with dated working-notes, ask the user to triage **each bullet** one at a time — asking the `[I]/[R]/[O]/[K]/[D]` menu each time, per the lettered-choice-prompt convention in `skills/workflow/SKILL.md`:
 
 ```
 Notes entry <N>/<M>:
@@ -376,7 +376,7 @@ other names are valid for projects that add their own pack under
 
 ### Proposal (Level 0 — propose, never silently mutate)
 
-Present the candidate and let the user decide — rendering the full `[C]/[O]/[N]` legend per the lettered-choice-prompt convention in `skills/workflow/SKILL.md`:
+Present the candidate and let the user decide — asking the `[C]/[O]/[N]` menu per the lettered-choice-prompt convention in `skills/workflow/SKILL.md`:
 
 ```
 Detected stack-pack candidate: <name>
@@ -400,7 +400,7 @@ language), and `/craft:build` / `/craft:review` (code-comment language).
 
 Detect the **system language** first (the language the user is currently writing in,
 falling back to the host locale, e.g. `de-DE` → German). Then run the proposal —
-rendering the full `[S]/[O]` legend for chat, per the lettered-choice-prompt
+asking the `[S]/[O]` menu, per the lettered-choice-prompt
 convention in `skills/workflow/SKILL.md`:
 
 ```
@@ -443,7 +443,7 @@ default (empty); this sub-procedure covers everything else.
 
 ### Step 1 — Fast-defaults or guided (Level 0)
 
-Render the full `[D]/[G]` legend per the lettered-choice-prompt convention in
+Ask the `[D]/[G]` menu per the lettered-choice-prompt convention in
 `skills/workflow/SKILL.md`:
 
 ```
@@ -459,7 +459,7 @@ set `Preset: balanced`, and skip to Step 3. `[G]` → run Step 2.
 
 ### Step 2 — Guided knob dialog (Level 0)
 
-Ask one multiple-choice question per knob, in order, each rendering its full legend. Carry
+Ask one multiple-choice question per knob, in order, each asked per the choice-prompt convention. Carry
 the answers into memory for the render in Step 3 and enforce the cross-field rule as you go.
 
 1. **Execution mode**

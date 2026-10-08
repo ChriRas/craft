@@ -825,7 +825,9 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/cache-guard-marker.sh" disarm --project "<pr
 `<project-root>` resolved to the absolute path, as A4's lock calls do: a Bash call has no `CLAUDE_PROJECT_DIR` and its cwd
 can drift, while the hook reads the marker under the project the session started in.
 
-- **Arm** as the last tool call of every turn that ends waiting on the human, and print its `LINE=` verbatim as the last
+- **Arm** as the last tool call of every turn that ends waiting on the human — and ask the question of such a stop as
+  text with its full legend, never as an `AskUserQuestion` click: the guard sees a prompt, not a click
+  (`skills/workflow/SKILL.md` → *Choice prompts*) — and print its `LINE=` verbatim as the last
   line of that turn's message — `Cache warm until HH:MM — answer later → <the restart>`, or `Cache expiry unknown — …`
   when the tap cannot say. The sites: the orphan question and the plan gate (ap), the a5 sign-off question, and every
   `⛔` stop after the lock is taken (a0 and the Pre-Assertions stop before anything ran, and their message is the restart

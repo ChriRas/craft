@@ -84,8 +84,8 @@ If `Blocked-on` is the pending marker, the prerequisite may since have been crea
 
 ### 2. Resume fork
 
-Present the fork with its full legend, per the lettered-choice-prompt convention in
-`skills/workflow/SKILL.md`:
+Ask the fork per the lettered-choice-prompt convention in
+`skills/workflow/SKILL.md` (a click, or the full legend where no one can click):
 
 ```
 Unblock slice-<NNN> "<title>" — blocked on <blocked-on> (<blocker-type>)?
