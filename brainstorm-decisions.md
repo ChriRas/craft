@@ -1420,6 +1420,14 @@ Decision:
   limits, splitting, follow-ups, the no-click fallback, the cache-guard exception) lives in *Choice prompts*; a site sentence may add its own option list but restates no rule. The
   cache-guard stops stay typed, each behind `<!-- craft:choice typed -->` in the block of its arm marker. *Cost:* one
   marked sentence per site; accepted — the alternative, a pointer, is what failed.
+- **Amendment (slice-077, human re-test T4, 2026-10-08): dependent questions are asked in a call of their own.** T4 showed
+  `/craft:abort` carrying its recency warning and both Step-5 confirmations in one `AskUserQuestion` call: the later
+  questions were answered before the first one could end the abort. So a question that depends on an earlier answer
+  (or whose point is lost if the earlier one is No) is asked in an `AskUserQuestion` call of its own, the next only
+  after the answer; only independent questions share a call. `/craft:abort` called without an argument offers the
+  active slices as a click; the click is explicit, so it is not a default (the command's "no defaulting" rule stays).
+  The sequence sites carry `<!-- craft:choice sequence -->` and a fixed phrase, bound by `scripts/test-choice-prompts.sh`
+  like the tool name; the binding holds the text, not the agent's behavior.
 
 ### D41 — The Review Fix Cap Is a Guide Value, With a Hard Ceiling at Twice It
 
@@ -1476,6 +1484,18 @@ Decision:
   the running step, writes the handoff and pauses the slice the normal way. `stop` / `halt` are deliberately not pause
   words. *Why both hook and agent:* whether `UserPromptSubmit` fires for a message queued mid-turn is undocumented
   (2026-10-08) — slice-075's human test decides; the agent path works either way.
+- **Amendment (slice-077, human re-test T3 / T5, 2026-10-08, decision `[G]`): a pause word works in auto and manual flow
+  alike.** The finding replaces "undocumented": `UserPromptSubmit` did not fire for a message delivered mid-turn (T3), so
+  the hook covers only a pause word sent as a prompt of its own; for a word delivered mid-turn the agent's own `request`
+  is the path. A pause word makes the agent do four things: record the request first, finish the running step, write the
+  handoff (`/craft:handoff`), pause the slice (`/craft:pause`). That sentence is stated at each phase command, marked
+  `<!-- craft:pause-word -->` and bound (the reasoning of D40's slice-076 amendment: a pointer the agent never read cannot
+  carry it). At every countdown of a slice in flight, `/craft:debug`'s attempt countdown included, a message that is only
+  a pause word is the slice's pause request; any other input halts only the countdown or the loop. `/craft:pause` stays a
+  pause word (human decision at the plan gate): queued mid-turn it is a command that Claude Code holds until the turn
+  ends, so it takes effect only then. When it pauses a slice in flight it writes the handoff first, as the pause action
+  does; sent as a prompt of its own it is itself the pause action's run (one handoff, the note composed without asking,
+  like `pause`). Every exit of `/craft:pause` that pauses nothing settles a pending request.
 - *Cost:* existing projects without the key switch to auto flow on upgrade — the CHANGELOG carries an upgrade note.
 
 ---
