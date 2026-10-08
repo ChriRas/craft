@@ -20,7 +20,7 @@ Follow `skills/workflow/SKILL.md` Phase 5 mechanics (the three sub-steps 5a / 5b
 ### 1. Locate active slice
 
 <!-- craft:reads status=testing -->
-- `Glob` `.claude/plans/*.md`. Expect exactly one in `Status: testing` or `implementing`. If multiple, ask the user which slice. If none, stop with `No slice ready for testing. Run /craft:build first or /craft:plan to start a new slice.` — when the slice is `paused`, instead `Slice is paused. Resume it with /craft:continue first.`
+- `Glob` `.claude/plans/*.md`. Expect exactly one in `Status: testing` or `implementing`. If multiple, ask the user which slice. <!-- craft:choice --> Ask it with `AskUserQuestion` (one option per slice); where the tool is not available, a numbered list as text. If none, stop with `No slice ready for testing. Run /craft:build first or /craft:plan to start a new slice.` — when the slice is `paused`, instead `Slice is paused. Resume it with /craft:continue first.`
 
 ### 2. Load slice plan
 
@@ -85,7 +85,9 @@ Do nothing. The user exercises the artifact. The agent may answer specific quest
 
 ### Sub-step 5c — Feedback-Capture (Autonomy Level 0)
 
-When the user comes back, ask the structured prompt:
+When the user comes back, ask the structured prompt below.
+
+<!-- craft:choice --> Ask it with `AskUserQuestion` (one question, three options: label = the letter and its meaning, description = the next step); where the tool is not available (Subagent Mode, headless `claude -p`), render it as text with its full legend — each letter, its meaning, its next step — every time it appears. Capture the chosen option.
 
 ```
 How was it?
@@ -93,8 +95,6 @@ How was it?
   [B] Found a bug      → enter /craft:debug
   [U] UX issue         → describe what should differ, then iterate
 ```
-
-Ask this prompt as a click (one question, three options) or, where no one can click, render it with its full legend — each letter, its meaning, and its next-step — every time it appears, per the choice-prompt convention in `skills/workflow/SKILL.md`. Capture the chosen option.
 
 #### If `[W]` Works
 
@@ -124,7 +124,7 @@ Wait for the answer — do not interpret. Once the answer is captured, ask:
 
 > Iterate now (one short fix + re-demo), or close the slice with the current behavior and revisit later (new slice)?
 
-(A two-option choice — asked as a click per the convention above.)
+<!-- craft:choice --> Ask it with `AskUserQuestion` (two options: iterate now, close and revisit); where the tool is not available, render both options as text.
 
 If iterate: go back to `/craft:build` for a focused fix, then return here for 5a / 5c. Loop until `[W]`.
 
@@ -187,6 +187,8 @@ At the end of an interactive run, after the closing output above, run the **Auto
 ## Subagent Mode (when called by `/craft:execute`)
 
 When invoked by the `slice-builder` subagent during an autonomous `/craft:execute` run, the human cannot perform sub-step 5b in real time. The subagent therefore takes this path instead:
+
+<!-- craft:choice none -->
 
 0. Verify the slice plan is at `Status: testing` (set by `/craft:build` on clean Phase-4 completion). If any other status, <!-- craft:handoff status=failure plan=- --> write `.craft/handoff.md` with `Status: failure` and a one-line note "Out-of-band slice state — expected `testing`, found `<X>`" and stop. This catches a slipped Phase-4 transition before it pollutes Phase 5.
 0a. **In an autopilot run** (the spawn says so — `agents/slice-builder.md` → *In an autopilot run*) Phase 5 is verified

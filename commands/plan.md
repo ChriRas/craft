@@ -71,6 +71,7 @@ Failure → abort: *"Plugin manifest unreadable — version cannot be recorded i
 ## Procedure (Autonomy Level 1)
 
 The command argument is the feature or slice name. If absent, ask: *"Which slice should we plan? Short name in 3–6 words."*
+<!-- craft:choice --> Offer two or three names derived from the context as `AskUserQuestion` options ("Other" takes the user's own); where the tool is not available or nothing meaningful can be derived, ask as text.
 
 Derive `<slug>` from the name: lowercase, hyphenated, no whitespace.
 
@@ -79,6 +80,8 @@ If a file `.claude/plans/slice-*-<slug>.md` already exists, append `-2`, `-3`, e
 ### 1. Trigger question
 
 Ask, dialogically:
+
+<!-- craft:choice --> Ask it with `AskUserQuestion`: the likeliest triggers for this project as options (at most four of the list below, grouped if need be), "Other" takes the user's own; where the tool is not available, print the list as text.
 
 > What is the external trigger for this slice? Pick one or describe yours:
 > - User interaction (click, gesture, voice)
@@ -93,6 +96,8 @@ Capture the answer verbatim.
 ### 2. Observable-effect question
 
 Ask:
+
+<!-- craft:choice --> Ask it with `AskUserQuestion`: the likeliest effects for this slice as options (at most four of the list below), "Other" takes the user's own; where the tool is not available, print the list as text.
 
 > What is the observable effect when this slice succeeds? Pick or describe:
 > - UI update (text, color, position, new element)
@@ -122,6 +127,8 @@ Ask the user, or propose draft sub-tasks based on the trigger / effect / test an
 
 Each sub-task is a single bullet under `## Sub-Tasks`. Use `- [ ]` for unchecked.
 
+<!-- craft:choice --> Confirm a proposed list with `AskUserQuestion` (accept as it stands / change it — the change is asked as text); where the tool is not available, ask as text.
+
 ### 5. Optional: rough UI / interaction sketch
 
 For UI-bearing slices, ask: *"Do you have a sketch or wireframe? You can describe it in words or paste a path to an image."* Capture if provided.
@@ -129,6 +136,8 @@ For UI-bearing slices, ask: *"Do you have a sketch or wireframe? You can describ
 ### 5b. Optional: dependency declaration
 
 Ask:
+
+<!-- craft:choice --> Ask it with `AskUserQuestion`: "Independent" plus the open slices that look like prerequisites as options, "Other" takes a typed list of slice-IDs; where the tool is not available, ask as text.
 
 > Does this slice depend on other slices that must finish first? Pass a comma-separated list of slice-IDs (e.g., `slice-005, slice-007`), or leave empty if independent.
 
@@ -146,7 +155,7 @@ those are, and what an entry is, are defined in that helper's header.
 - `CANDIDATE_COUNT=0` → no entry to offer: skip the question (after the `IGNORED` lines, if any).
 - The helper cannot run (non-zero exit, no `CANDIDATE_COUNT=`) → say so in one line (*"epic entries could not be read —
   this slice is planned without an epic link"*) and continue without a link.
-- Otherwise ask, with the candidates as a numbered list plus a *none* choice. An entry with `LINK=<id>` was linked to a
+- Otherwise ask, with the candidates as a numbered list plus a *none* choice. <!-- craft:choice --> Ask it with `AskUserQuestion` (one option per selectable candidate, at most three, grouped by epic if need be, plus *none*); where the tool is not available, the numbered list below as text. An entry with `LINK=<id>` was linked to a
   slice that no longer exists — show it as such. An entry with `DUP=yes` shares its short-name with another entry, and
   `link` refuses both until one is renamed — list it as not selectable, with that reason. Say that entries linked to a
   slice that is still open are not listed:
@@ -366,7 +375,7 @@ Partial (post-assertion failure):
 <!-- craft:flow -->
 After the closing output of an interactive run, with the slice plan written at `Status: planning`, run the **After
 `/craft:plan`** step of `skills/workflow/SKILL.md` (*Auto flow*): ask `${CLAUDE_PLUGIN_ROOT}/scripts/flow-state.sh` (in CRAFT's own source repo: `scripts/flow-state.sh`) for the new plan (no `--from`).
-`NEXT=/craft:build` → ask one click, **Build now** (starts `/craft:build` at once) / **Later** (several slices can still be
+`NEXT=/craft:build` → <!-- craft:choice --> ask one `AskUserQuestion` click (where the tool is not available, the two options as text), **Build now** (starts `/craft:build` at once) / **Later** (several slices can still be
 planned ahead — the output's `Next:` line stands); any `STOP=` (`manual` is silent) asks nothing. Only after a
 successful closing output, never after a partial write; where the flow applies at all is the rule's (*Where it applies*).
 

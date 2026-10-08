@@ -36,7 +36,7 @@ This command is a **durable-state mutation** (it rewrites the slice plan's front
 - `Glob` `.claude/plans/*.md`. Identify the target **slice**:
   - `<slice-NNN>` argument given → that slice.
   - Else exactly one `Status: blocked` slice → use it. <!-- craft:reads status=blocked -->
-  - Else multiple blocked → ask which.
+  - Else multiple blocked → ask which. <!-- craft:choice --> Ask it with `AskUserQuestion` (one option per slice); where the tool is not available, a numbered list as text.
   - None blocked → *"No blocked slice to unblock."* and stop.
 - `Read` the chosen slice plan. Hold `Slice-ID`, `Status`, and the blocker frontmatter
   (`Blocker-type`, `Blocked-on`, `Blocked-since`, `Blocked-status`).
@@ -75,6 +75,8 @@ If `Blocked-on` is the pending marker, the prerequisite may since have been crea
 > slice/epic-ID to link it (so this slice auto-resurfaces when it closes), or skip to keep it
 > pending.
 
+<!-- craft:choice --> Ask it with `AskUserQuestion`: the plans that look like the prerequisite and "Keep it pending" as options, "Other" takes a typed ID; where the tool is not available, ask as text.
+
 - If an ID is given, verify it resolves to a plan under `.claude/plans/` or an archive under
   `.claude/project/slices/`; on success write it into `Blocked-on` (replacing the marker).
   Unresolvable → reject and re-ask.
@@ -84,8 +86,7 @@ If `Blocked-on` is the pending marker, the prerequisite may since have been crea
 
 ### 2. Resume fork
 
-Ask the fork per the lettered-choice-prompt convention in
-`skills/workflow/SKILL.md` (a click, or the full legend where no one can click):
+<!-- craft:choice --> Ask the fork with `AskUserQuestion` (three options: label = the letter and its meaning, description = its consequence); where the tool is not available, render the legend below as text:
 
 ```
 Unblock slice-<NNN> "<title>" — blocked on <blocked-on> (<blocker-type>)?
@@ -111,7 +112,7 @@ it does. Resume now only to override."*
 - **[A] Abort** — do not mutate; recommend `/craft:abort`.
 
 Before any write (Resume path), echo the change and get a one-word go-ahead — propose, never
-silently mutate (rules.md).
+silently mutate (rules.md). <!-- craft:choice --> Ask it with `AskUserQuestion` (two options: write it / do not); where the tool is not available, as text.
 
 ### 4. Confirm
 
@@ -143,6 +144,8 @@ If a back-fill ran, `Blocked-on` now holds an ID that resolves to a known plan/a
 no longer the `(pending — …)` marker.
 
 Failure → *"⚠ Back-fill did not land a resolvable `Blocked-on` for `<id>`. Inspect the plan."*
+
+<!-- craft:choice none -->
 
 ### P3 — Re-plan / Abort left state untouched ([P]/[A] only)
 
@@ -187,6 +190,8 @@ Partial (post-assertion failure):
 ---
 
 ## What This Command Does NOT Do
+
+<!-- craft:choice none -->
 
 - It does **not** auto-resurface on prerequisite completion — that is `/craft:commit`'s Step 7b.
 - It does **not** build, test, or commit — it only clears the blocked state and recommends the

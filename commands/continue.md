@@ -31,7 +31,7 @@ Its one write is the **resume of a `paused` slice** (step 4a): the confirmed res
 - If `<slice-NNN>` argument is given, find `.claude/plans/slice-<NNN>-*.md`.
 - Otherwise, `Glob` `.claude/plans/*.md`:
   - If exactly one file → use it.
-  - If multiple → list them and ask the user to pick:
+  - If multiple → list them and ask the user to pick. <!-- craft:choice --> Ask it with `AskUserQuestion` (one option per slice; more than four: split into steps or grouped, nothing dropped); where the tool is not available, print the list below as text:
 
     ```
     Multiple active slices. Pick one:
@@ -67,7 +67,7 @@ Pull `Status`, `Phase`, `Slice-ID`, and any pause/handoff notes.
 ### 4. Handle pause and handoff
 
 - If the slice plan has a `## Handoff` section that was filled (i.e., this is a fresh-context restart) → show its summary to the user and route based on `Phase`.
-- If the slice is at `Status: paused`, surface its `## Pause Note` and ask whether the user wants to continue from that point. A Pause Note on a slice at any other status is history (marked `> Resumed:` or `> Superseded by block:`) — never a reason to resume.
+- If the slice is at `Status: paused`, surface its `## Pause Note` and ask whether the user wants to continue from that point (<!-- craft:choice --> with `AskUserQuestion`, two options: resume / leave it paused; where the tool is not available, as text). A Pause Note on a slice at any other status is history (marked `> Resumed:` or `> Superseded by block:`) — never a reason to resume.
 - If the slice is `blocked`, surface its `## Blocker` section (what's missing / resume acceptance) and route to `/craft:unblock` — do not mutate here; unblocking is that command's job.
 
 ### 4a. Resume a paused slice
@@ -81,7 +81,8 @@ and only on the user's yes in step 3/4; a no leaves the plan untouched.
 2. **What to restore** — the pause record's `Paused-status:`, when it holds a status other than `paused` or `blocked`.
    A plan without a record (paused before B11), or with such a value, has no structured answer: **ask** the user which
    status to resume into — offer `implementing`, `testing`, `review`, `refactoring`, `reviewing`, `committing` and
-   propose a default read from the `## Pause Note`. Never guess from `Phase:` (a plan-time stamp that reads stale).
+   propose a default read from the `## Pause Note` (<!-- craft:choice --> with `AskUserQuestion`, split into two steps of at most
+   four options; where the tool is not available, a list as text). Never guess from `Phase:` (a plan-time stamp that reads stale).
    Note the record's `Paused-since` too — step 5 needs it after step 3 removes the record.
 3. **Write** — set `Status:` to that value and remove the two pause-record fields (`Paused-status`, `Paused-since`).
    Keep `## Pause Note` as history, with `> Resumed: <UTC datetime, YYYY-MM-DDTHH:MM:SSZ> → <status>` prepended (that exact shape: `scripts/pause-request.sh` compares it with a pause request's `SINCE`). A handoff marker written with the pause is now stale by derivation — rename

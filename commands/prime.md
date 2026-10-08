@@ -283,7 +283,7 @@ reports each as present/absent in `additionalDirectories`, plus an aggregate `ST
   `✓ Read-only context: N connected project(s) trusted + research/ (convention)`.
 - **Some absent** (`STATUS=absent`, exit 10) → status line
   `⚠ Read-only context: M of N connected project(s) not yet readable`, then **offer** to run
-  `--apply` (Level 1 — ask before it writes). On a yes, run
+  `--apply` (Level 1 — ask before it writes; <!-- craft:choice --> ask it with `AskUserQuestion`, two options — where the tool is not available, as text). On a yes, run
   `scripts/ensure-readonly-context.sh --apply` and report `CHANGED=`. This, step 4f and step 4h are
   the only prime steps that may mutate durable state, and only after explicit confirmation —
   never silently. On a no, leave the `⚠` line and continue.
@@ -320,7 +320,7 @@ Map the result to one status line:
 
 - **`STATUS=present`** (exit 0) → `✓ Local state gitignored`.
 - **`STATUS=absent`** (exit 10) → `⚠ Local state not gitignored: <paths from the ENTRY=… STATUS=absent lines>`,
-  then **offer** to run `--apply` (Level 1, ask before it writes), naming the file it changes:
+  then **offer** to run `--apply` (Level 1, ask before it writes; <!-- craft:choice --> ask it with `AskUserQuestion`, two options — where the tool is not available, as text), naming the file it changes:
   *"Add them to a `# CRAFT local state` block in `.gitignore`? Paths your `.gitignore` un-ignores
   on purpose stay untouched. Commit the change afterwards."* On a yes, run the same command with `--apply` and report
   `✓ .gitignore updated — <MISSING> path(s) added; commit .gitignore`. On a no, leave the `⚠`
@@ -382,7 +382,7 @@ bash "<helper>" --project "<project-root>" --check
   from `<TAP_CURRENT>`, which moves or disappears — the marketplace clone's is the stable one* (name `TAP_CURRENT=`
   exactly as printed: `CURRENT=` may hold a second `statusline-tap.sh` that is the user's own, BUG-1); no-refresh:
   *`refreshInterval` is missing, the reading goes stale while a run waits on a builder*. Then the offer below.
-- **The offer** (absent, misrouted, no-refresh) — **offer** `--apply` (Level 1), showing the change before it:
+- **The offer** (absent, misrouted, no-refresh) — **offer** `--apply` (Level 1; <!-- craft:choice --> ask it with `AskUserQuestion`, two options — where the tool is not available, as text), showing the change before it:
   `SETTINGS=` as the file, `CURRENT=` → `PROPOSED=` (an empty `CURRENT=` reads *(no statusLine yet)*; add
   `+ refreshInterval: 30` when `REFRESH=no`), and that a backup is taken first when the file exists. On a yes, run the
   same command with `--apply`: exit 0 with `STATUS=wired` → `✓ Statusline tap wired — backup at <BACKUP>` (with
@@ -396,7 +396,7 @@ bash "<helper>" --project "<project-root>" --check
   statusLine, which wins over your user settings — wire the tap there by hand if you want it`. No offer either way.
 - **`STATUS=unrecognized`** (exit 11) → `⚠ Statusline tap: <REASON>`. No offer.
 - **`--apply` exits 6** → `⚠ Statusline tap: <SETTINGS> was written but did not check out — the previous content is in
-  <the backup the error names>`, then **offer** to put it back (Level 1): on a yes, copy the backup over the settings
+  <the backup the error names>`, then **offer** to put it back (Level 1; <!-- craft:choice --> ask it with `AskUserQuestion`, two options — where the tool is not available, as text): on a yes, copy the backup over the settings
   file (`cp -p -- <backup> <SETTINGS>`) and report it. When the error names `backup: -`, the file did not exist
   before: say it was created and offer no copy. **Exits 7** → `⚠ Statusline tap: the write failed — <ERROR>;
   your settings are unchanged`. Any other error, or the helper not found → `⚠ Statusline tap check incomplete: <reason>`.

@@ -101,7 +101,7 @@ Present two explicit options:
 - **Heuristic-first (fast)** — scan existing repo artifacts (`README.md`, `package.json`, `composer.json`, `Cargo.toml`, `pyproject.toml`, `*.sh`, etc.), draft `intent.md` / `rules.md` from heuristics, then 3–5 clarifying questions for what cannot be inferred (product vision, tabus).
 - **Grill-Me-intensive (deep)** — full interview-style alignment via `skills/grill-me/SKILL.md`. Recommended for greenfield projects whose structure is not yet clear.
 
-Recommend heuristic-first as the default. User decides.
+Recommend heuristic-first as the default. User decides. <!-- craft:choice --> Ask it with `AskUserQuestion` (two options, heuristic-first first); where the tool is not available, print the two options as text.
 
 ### 2. Heuristic scan
 
@@ -136,6 +136,7 @@ Generate using the plugin templates:
 
 - `.claude/project/intent.md`
 - `.claude/project/rules.md` — rendered from `templates/rules.md.template`. If the Read-Only Context (optional) question collected any connected-project paths, write them as `- <absolute-path>` bullets into the `## Read-Only Context Sources` block, replacing the template's `(no connected projects declared)` placeholder; if none were given, leave the placeholder as-is.
+<!-- craft:choice none -->
 - `.claude/project/craft-profile.md` — rendered from `templates/craft-profile.md.template`: the `> Preset:` line and the Execution / Commit Policy / Merge Workflow / Epic Mode / Slice Flow (`{{slice_flow_mode}}`) / Permissions placeholders take the **Profile Config sub-procedure's resolved values** (`[D]` fast-defaults → the `balanced` preset's literals from `templates/profiles/balanced.md`; `[G]` guided → the per-knob answers), the `## Operational Language` placeholders (`{{chat_language_or_system}}` etc.) take the Language Config sub-procedure's values, and `## Agent Model Overrides` is left at its default (empty). Immediately after writing the profile, run the Permission Allowlist sub-procedure to write the chosen scope's read-only allowlist into `.claude/settings.local.json`.
 - `.claude/project/roadmap.md` (only if user provided roadmap content)
 - `CLAUDE.md` in repo root — slim index pointing to the above
@@ -206,13 +207,13 @@ Found <N> assets in .claude/. Proposed actions:
   - .claude/commands/init-project.md
   - .claude/allowed-commands.md
   - .claude/settings.local.json
-
-Confirm by class? (Y / override-by-item / cancel)
 ```
+
+<!-- craft:choice --> Ask the confirmation with `AskUserQuestion` (three options: accept as classified / override by item / cancel); where the tool is not available, print it as text: `Confirm by class? (Y / override-by-item / cancel)`
 
 ### 2.5 Resolve plugin-already-provides collisions
 
-For each asset in the **Plugin-already-provides** class, ask explicitly — asking the `[P]/[U]/[D]` menu per the lettered-choice-prompt convention in `skills/workflow/SKILL.md`:
+For each asset in the **Plugin-already-provides** class, ask explicitly. <!-- craft:choice --> Ask the `[P]/[U]/[D]` menu below with `AskUserQuestion` (three options: label = the letter and its meaning, description = its consequence); where the tool is not available, render it as text with its full legend:
 
 ```
 Skill collision: <name>
@@ -241,7 +242,7 @@ Which item? <e.g., .claude/commands/craft:plan-parallel.md>
 Move to which class? [universal-conflict | plugin-already-provides | specialist-keep | knowledge-split | project-local-keep | delete]
 ```
 
-Repeat until user types `done`.
+<!-- craft:choice --> Ask the target class with `AskUserQuestion` (the six classes, split into two steps of at most four options; where the tool is not available, as text); the item itself is typed. Repeat until user types `done`.
 
 ### 3.5 Final preview (dry-run)
 
@@ -264,7 +265,7 @@ Final preview — about to execute:
 Type `apply` to proceed, or anything else to abort cleanly.
 ```
 
-Only proceed if user types `apply` exactly. Anything else → abort with no file changes.
+<!-- craft:choice --> Ask it with `AskUserQuestion` (two options: apply / abort); where the tool is not available, only proceed if the user types `apply` exactly. Anything else → abort with no file changes.
 
 ### 4. Execute
 
@@ -300,7 +301,7 @@ Parse the source file. Identify sections that map to:
 
 ##### Notes-section dialog (Gap #5)
 
-If the source contains a "Notes" / "Working Notes" / free-form section that mixes still-relevant decisions with dated working-notes, ask the user to triage **each bullet** one at a time — asking the `[I]/[R]/[O]/[K]/[D]` menu each time, per the lettered-choice-prompt convention in `skills/workflow/SKILL.md`:
+If the source contains a "Notes" / "Working Notes" / free-form section that mixes still-relevant decisions with dated working-notes, ask the user to triage **each bullet** one at a time. <!-- craft:choice --> Ask the `[I]/[R]/[O]/[K]/[D]` menu below each time with `AskUserQuestion` (five options, split into two steps of at most four if need be); where the tool is not available, render it as text with its full legend:
 
 ```
 Notes entry <N>/<M>:
@@ -376,7 +377,7 @@ other names are valid for projects that add their own pack under
 
 ### Proposal (Level 0 — propose, never silently mutate)
 
-Present the candidate and let the user decide — asking the `[C]/[O]/[N]` menu per the lettered-choice-prompt convention in `skills/workflow/SKILL.md`:
+Present the candidate and let the user decide. <!-- craft:choice --> Ask the `[C]/[O]/[N]` menu below with `AskUserQuestion` (three options); where the tool is not available, render it as text with its full legend:
 
 ```
 Detected stack-pack candidate: <name>
@@ -400,8 +401,7 @@ language), and `/craft:build` / `/craft:review` (code-comment language).
 
 Detect the **system language** first (the language the user is currently writing in,
 falling back to the host locale, e.g. `de-DE` → German). Then run the proposal —
-asking the `[S]/[O]` menu, per the lettered-choice-prompt
-convention in `skills/workflow/SKILL.md`:
+<!-- craft:choice --> asking the `[S]/[O]` menu below with `AskUserQuestion` (two options); where the tool is not available, render it as text with its full legend:
 
 ```
 Language settings (detected system language: <lang>):
@@ -412,7 +412,7 @@ Language settings (detected system language: <lang>):
 ```
 
 Then ask for commits and comments, each defaulting to English (just confirm or
-override — no forced choice):
+override — no forced choice). <!-- craft:choice --> Ask each with `AskUserQuestion` (English first, the system language second, "Other" takes a language name); where the tool is not available, ask as text:
 
 ```
   Commits  — commit-message language  [default: English]
@@ -443,8 +443,7 @@ default (empty); this sub-procedure covers everything else.
 
 ### Step 1 — Fast-defaults or guided (Level 0)
 
-Ask the `[D]/[G]` menu per the lettered-choice-prompt convention in
-`skills/workflow/SKILL.md`:
+<!-- craft:choice --> Ask the `[D]/[G]` menu below with `AskUserQuestion` (two options); where the tool is not available, render it as text with its full legend:
 
 ```
 CRAFT autonomy / commit / merge / permission setup:
@@ -459,7 +458,7 @@ set `Preset: balanced`, and skip to Step 3. `[G]` → run Step 2.
 
 ### Step 2 — Guided knob dialog (Level 0)
 
-Ask one multiple-choice question per knob, in order, each asked per the choice-prompt convention. Carry
+<!-- craft:choice --> Ask one multiple-choice question per knob, in order, each with `AskUserQuestion` (one option per letter of the knob's legend; where the tool is not available, the legend as text). Carry
 the answers into memory for the render in Step 3 and enforce the cross-field rule as you go.
 
 1. **Execution mode**
@@ -488,7 +487,7 @@ the answers into memory for the render in Step 3 and enforce the cross-field rul
      [P] pull-request — open a PR; on protected `main` you approve it and CRAFT merges via gh ("Freigabe ≠ Merge")
    ```
    On `[P]`, set `Type: pull-request`, `Protected-main: yes`, `Approval: github-pr-review`, then
-   ask granularity; on `[D]`, set `Type: direct`, `Protected-main: no`, `Approval: chat`,
+   ask granularity (<!-- craft:choice --> with `AskUserQuestion`, three options; where the tool is not available, as text); on `[D]`, set `Type: direct`, `Protected-main: no`, `Approval: chat`,
    `Approval-granularity: auto` and skip the granularity question:
    ```
    PR approval granularity:
@@ -496,7 +495,7 @@ the answers into memory for the render in Step 3 and enforce the cross-field rul
      [S] per-slice — a PR + approval for every slice
      [E] per-epic  — one PR + approval at the epic boundary
    ```
-5. **Epic mode**
+5. **Epic mode** <!-- craft:choice --> (this and the two knobs below are asked with `AskUserQuestion` too, one option per letter; where the tool is not available, the legend as text)
    ```
    Default epic execution for /craft:execute <epic>:
      [P] parallel   — independent slices run concurrently in worktrees (default)

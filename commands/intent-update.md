@@ -27,7 +27,7 @@ Used when, mid-work, the user realizes the project's intent has shifted (e.g., a
 
 ### 1. Capture the user's intent shift
 
-Ask:
+Ask. <!-- craft:choice --> Offer the kind of change as `AskUserQuestion` options (new entry / revision / removal, "Other" takes the user's own words); the change itself is typed. Where the tool is not available, ask as text:
 
 > What is the change? Describe it as either:
 >   - A new entry (e.g., "add a goal: …")
@@ -52,7 +52,7 @@ If the change is large (>10 lines), surface a high-level summary first, then off
 
 ### 3. Confirm
 
-Ask:
+Ask. <!-- craft:choice --> Ask it with `AskUserQuestion` (three options: apply / revise / cancel); where the tool is not available, print the question below as text:
 
 ```
 Apply this diff to intent.md? (Y / revise / cancel)

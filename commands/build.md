@@ -40,7 +40,7 @@ Follow `skills/workflow/SKILL.md` Phase 4 mechanics and the autonomy matrix. Cod
 If `Status` is `planning`, write `Status: implementing` back to the slice plan.
 
 <!-- craft:reads status=implementing -->
-If `Status` is already `implementing`, resume without status change. If it is `paused`, do not resume on your own: ask the user to confirm the resume (4a runs only on a yes; a no stops here), then run `/craft:continue`'s **4a. Resume a paused slice** steps 1–5 (where, what to restore, write, check, the no-answer warning — carried in this command's output). Instead of 4a's step 6, go on here only if the restored status is `implementing`; otherwise stop and recommend the command `/craft:continue`'s step 3 names for that status.
+If `Status` is already `implementing`, resume without status change. If it is `paused`, do not resume on your own: ask the user to confirm the resume (4a runs only on a yes; a no stops here; <!-- craft:choice --> ask it with `AskUserQuestion`, two options — where the tool is not available, as text), then run `/craft:continue`'s **4a. Resume a paused slice** steps 1–5 (where, what to restore, write, check, the no-answer warning — carried in this command's output). Instead of 4a's step 6, go on here only if the restored status is `implementing`; otherwise stop and recommend the command `/craft:continue`'s step 3 names for that status.
 
 ### 4. Load the stack-pack and detect specialists
 
@@ -81,7 +81,7 @@ Briefly state the approach for the current sub-task. No long planning — this i
 
 - Make the smallest edits that satisfy the sub-task.
 - Code edits inside slice scope: Level 2 (act, then bundle).
-- Code edits outside slice scope (e.g., shared utility, unrelated file): drop to Level 1 — ask explicitly before editing.
+- Code edits outside slice scope (e.g., shared utility, unrelated file): drop to Level 1 — ask explicitly before editing. <!-- craft:choice --> Ask it with `AskUserQuestion` (approve the edit / do not edit — re-plan instead); where the tool is not available, ask as text.
 - Run tests after meaningful changes. Test runs are Level 3 silent unless red.
 - **Code comments** — write any code comments in the project's comment language: the `Comments` key of the `## Operational Language` block in `.claude/project/craft-profile.md` (default English when the profile, the block, or the key is absent). Applies only to comment prose, never to identifiers, keywords, or string literals required by the code.
 
@@ -91,7 +91,7 @@ Briefly state the approach for the current sub-task. No long planning — this i
 
   *"I notice I'm cycling on this. Should we enter `/craft:debug` mode and agree on a verification protocol before more attempts?"*
 
-  Do not force the user into `/craft:debug` — ask, wait, respect the answer.
+  <!-- craft:choice --> Ask it with `AskUserQuestion` (two options: enter `/craft:debug` / keep fixing); where the tool is not available, ask as text. Do not force the user into `/craft:debug` — ask, wait, respect the answer.
 
 ### 5. Check off the sub-task
 

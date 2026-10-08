@@ -42,7 +42,7 @@ its presence says nothing; only the helper's rule does. A live execute-run may b
 prune.
 
 `DECISION=confirm` (`REASON=own_process`) — the lock is held by this very Claude Code session, whose builders may still
-work in the background. Ask, Level 0: *"The run lock is held by this session (target `<TARGET>`). Is a `/craft:execute`
+work in the background. Ask, Level 0 (<!-- craft:choice --> with `AskUserQuestion`, two options; where the tool is not available, as text): *"The run lock is held by this session (target `<TARGET>`). Is a `/craft:execute`
 run from this session still working? [N] no, it ended — release it and clean up · [Y] yes — stop"*. Only on `[N]`:
 `bash "${CLAUDE_PLUGIN_ROOT}/scripts/execute-lock.sh" release --project "<project-root>"` (the plain release — this
 process owns the lock), then continue. Any other answer is a failure.
@@ -106,7 +106,7 @@ Non-CRAFT worktrees (NOT touched):
 
 ### 3. Confirm per category
 
-Ask three lettered questions in sequence (each asked per the choice-prompt convention in `skills/workflow/SKILL.md`):
+<!-- craft:choice --> Ask three yes/no questions in sequence, each with `AskUserQuestion` (two options, the default No first); where the tool is not available, render each question below as text with its legend:
 
 ```
 Remove all Archived worktrees and delete their branches?

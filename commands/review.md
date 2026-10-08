@@ -22,7 +22,7 @@ Follow `skills/workflow/SKILL.md` Phase 8 mechanics — in particular the findin
 ### 1. Locate the active slice
 
 - `Glob` `.claude/plans/*.md`.
-- If multiple slices → ask the user which one to review.
+- If multiple slices → ask the user which one to review. <!-- craft:choice --> Ask it with `AskUserQuestion` (one option per slice); where the tool is not available, a numbered list as text.
 - If none → stop with `No active slice to review. Run /craft:recap first (Phase 6 is what hands a slice to Review — via /craft:refactor only in a project that keeps Phase 7), or /craft:plan to start one.`
 
 ### 2. Determine the mode
@@ -126,13 +126,13 @@ Fix the small ones first; only then do a finding that is **not small**, and ever
 
 > Review in-phase fix cap (<N>) reached — <K> local-edit findings still open (not small, or past the ceiling of <2N> fixes). Many fixes sum to a large unreviewed delta. Recommend escalating the remaining batch (loop back to Phase 4) rather than fixing it here.
 
-The recommendation is not a hard block — the user may waive it (recorded `- note · fix cap (<N>) waived by the user`), which lets the human go past the ceiling; the ceiling binds the agent, never the human's explicit choice. If the user **accepts** the escalation, the remaining local-edit findings are not fixed here: they loop back to Phase 4 through **Step 8**, reached via Step 7. **In the final round** (Pre-flight step 4) offer no loop-back: the remaining local-edit findings are recorded `open — fix cap, awaiting decision` and Step 7's **cap route** decides them — a loop-back there needs a granted extra round, so the rebuilt code is reviewed again.
+<!-- craft:choice --> Ask the user to decide it with `AskUserQuestion` (two options: escalate the remaining batch / waive the cap and go on); where the tool is not available, ask as text. The recommendation is not a hard block — the user may waive it (recorded `- note · fix cap (<N>) waived by the user`), which lets the human go past the ceiling; the ceiling binds the agent, never the human's explicit choice. If the user **accepts** the escalation, the remaining local-edit findings are not fixed here: they loop back to Phase 4 through **Step 8**, reached via Step 7. **In the final round** (Pre-flight step 4) offer no loop-back: the remaining local-edit findings are recorded `open — fix cap, awaiting decision` and Step 7's **cap route** decides them — a loop-back there needs a granted extra round, so the rebuilt code is reviewed again.
 
 In **advisory mode**, skip this step: report local-edit findings as suggestions, apply nothing.
 
 ### Step 5 — Handle escalations (Level 1)
 
-- **Heavy + needs-rethinking** — never fixed here. For each, recommend one of two routes and let the user choose:
+- **Heavy + needs-rethinking** — never fixed here. For each, recommend one of two routes and let the user choose. <!-- craft:choice --> Ask it with `AskUserQuestion` (one question per finding, the two routes as options, the recommended one first); where the tool is not available, name both routes as text:
   - *loop back to Phase 4* (`/craft:build`) — the fix belongs in this slice's scope; runs **Step 8**, reached via Step 7;
   - *spin off a new slice* (`/craft:plan`) — it is genuinely separate work. The finding is **resolved only once that slice exists** and its ID is recorded (Step 6: `escalated → new slice <slice-ID>`); until then it stays open as `escalated → new slice (pending)`.
   A finding the user has not routed yet is recorded `escalated → route pending`. Open findings **block Commit** (Step 7).
@@ -176,8 +176,8 @@ If the slice plan has no `## Review Findings` section yet, append one.
 
 - **Advisory mode** — stop. Emit the findings report; do not touch `Status:`.
 - **Phase-8 mode** — first **resolve open lines**: run the helper and take every `FINDING=… OPEN=yes` of *every* Phase-8 round, this round's and earlier ones, legacy record included, and every `MALFORMED=` line:
-  - `new slice (pending)` — or a legacy `escalated → new slice` without an ID — → ask whether that slice now exists. Record the ID in place (`escalated → new slice <slice-ID>`) **only if** it resolves to `.claude/plans/<slice-ID>-*.md` or `.claude/project/slices/<slice-ID>-*.md`; otherwise say so and keep it pending.
-  - `route pending` or `open — fix cap, awaiting decision` on an **earlier** round's line (this round's were routed in Steps 4–5) → show the reviewer's verification verdict for that ID (Step 2) and ask for the route, recording it in place: *resolved* (`resolved in round <R>`, with `<R>` this round), *loop back to Phase 4* (`escalated → Phase 4 loop-back`), *spin off a new slice* (`escalated → new slice (pending)`, resolved as above), or *leave it pending*. **Pre-select *resolved* only when the verdict is `holds`**; on any other verdict offer it without pre-selection and name what the reviewer reported. The human confirms — a verdict never closes a line by itself.
+  - `new slice (pending)` — or a legacy `escalated → new slice` without an ID — → ask whether that slice now exists (<!-- craft:choice --> with `AskUserQuestion`, two options; where the tool is not available, as text). Record the ID in place (`escalated → new slice <slice-ID>`) **only if** it resolves to `.claude/plans/<slice-ID>-*.md` or `.claude/project/slices/<slice-ID>-*.md`; otherwise say so and keep it pending.
+  - `route pending` or `open — fix cap, awaiting decision` on an **earlier** round's line (this round's were routed in Steps 4–5) → show the reviewer's verification verdict for that ID (Step 2) and ask for the route (<!-- craft:choice --> with `AskUserQuestion`, the four routes below split into two steps of two options if need be; where the tool is not available, the four routes as text), recording it in place: *resolved* (`resolved in round <R>`, with `<R>` this round), *loop back to Phase 4* (`escalated → Phase 4 loop-back`), *spin off a new slice* (`escalated → new slice (pending)`, resolved as above), or *leave it pending*. **Pre-select *resolved* only when the verdict is `holds`**; on any other verdict offer it without pre-selection and name what the reviewer reported. The human confirms — a verdict never closes a line by itself.
   - a `MALFORMED=… MODE=phase8` finding line (advisory ones never block) → show it; the human either corrects it in place so the helper can read it (Step 6 lists this as an allowed in-place change), or routes it as above. It never counts as closed on its own.
   - `MALFORMED=heading-<n>` — a round heading whose number is not its position `<n>` → not routable; show the heading text. The human renumbers that heading to `<n>` **and** that round's IDs to `R<n>-…`, and writes the old → new IDs as a `note ·` line under this round, so earlier `Loop-back <ID>` sub-tasks and `reopens <ID>` references stay traceable.
   - `MALFORMED=fence-unclosed` — a code fence opened at that line never closes, so the helper cannot tell what it hides → show the line; the human closes the fence (an allowed in-place correction).
@@ -186,7 +186,7 @@ If the slice plan has no `## Review Findings` section yet, append one.
     (a MALFORMED line is corrected in place first where it can be, as above):
     - an open **Light** line → `follow-up → slice archive`, in place, without a question — a Light finding never holds
       a slice past its cap; list each in the output;
-    - an open **Heavy** line, or a MALFORMED one that stays unreadable → ask the human, and record the answer in place:
+    - an open **Heavy** line, or a MALFORMED one that stays unreadable → ask the human <!-- craft:choice --> with `AskUserQuestion` (the five routes below, split into steps of at most four options; where the tool is not available, all five as text), and record the answer in place:
       *accept as a known limit* (`accepted → known limit: <why>` — it reaches the archive's `## Follow-ups` through
       `--followups`); *grant one extra round and loop back* (first write `- note · extra round granted: <why>` under
       this round's heading, or under the last round's when no new round ran — the helper raises `ROUND_CAP` by one for
@@ -304,7 +304,7 @@ No fixes applied, no phase change. Fold these into your ongoing work.
 | No active slice plan | Stop; recommend `/craft:recap` (or `/craft:refactor` in a Phase-7-keeping project), else `/craft:plan`. |
 | Multiple active slices | Ask the user which slice to review. |
 | `git diff HEAD` is empty (no slice delta) | Tell the user there is nothing to review; recommend confirming Phase 4 actually ran. |
-| The review subagent returns no structured findings | Re-run once with the rubric restated; if still unstructured, present the raw output and ask the user to classify. |
+| The review subagent returns no structured findings | Re-run once with the rubric restated; if still unstructured, present the raw output and ask the user to classify (<!-- craft:choice --> with `AskUserQuestion`, one question per finding with the rubric classes as options; where the tool is not available, as text). |
 | A test turns red after an in-phase fix | Treat it like any Phase-4 fix: one fix attempt; if still red, offer `/craft:debug`. Do not leave the tree red. |
 | In-phase fixes reach the guide value with local-edit findings still open | Keep fixing the small ones up to `2 × cap`, recording why each is small (Step 4); for a finding that is not small, or past the ceiling, stop and recommend escalating the remaining batch. Not a hard block. Accepted → Step 7 case 1. |
 | User routes findings both ways (some loop-back, some new slice) | → Step 7 case 1 (Step 8); the spin-offs stay open per Step 7 case 2. |

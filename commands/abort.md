@@ -87,7 +87,7 @@ do that manually (git reset, git revert, branch operations).
   Live vs. stale and the fallback when the helper cannot run are defined in `skills/workflow/SKILL.md` →
   **Handoff marker lifecycle**. Read-only: abort never renames a marker.
 
-Then ask — as a click, or with the full legend rendered where no one can click, per the choice-prompt convention in `skills/workflow/SKILL.md`:
+Then ask. <!-- craft:choice --> Ask it with `AskUserQuestion` (two options, the default No first); where the tool is not available, render the legend below as text:
 
 ```
 ⚠ A worktree for this slice exists at <path>.
@@ -110,7 +110,7 @@ If the slice was last modified within the past 60 minutes (`stat`/`ls -lT` on th
 ⚠ This slice was last touched <N> minutes ago. Sure you want to abort?
 ```
 
-Ask it as a yes/no click (default: no) and wait for the answer before continuing. Ambiguity → clean abort.
+<!-- craft:choice --> Ask it with `AskUserQuestion` (two options, the default No first; where the tool is not available, as text) and wait for the answer before continuing. Ambiguity → clean abort.
 
 ### Step 4 — Handoff warning
 
@@ -121,12 +121,11 @@ If the slice plan contains a non-empty `## Handoff` section, surface it:
    to delete it?
 ```
 
-Ask it as a yes/no click (default: no) and wait for the answer.
+<!-- craft:choice --> Ask it with `AskUserQuestion` (two options, the default No first; where the tool is not available, as text) and wait for the answer.
 
 ### Step 5 — Confirm with two clicks
 
-Two yes/no questions in a row, each a click per the choice-prompt convention in `skills/workflow/SKILL.md` (the default
-option is "No" in both):
+<!-- craft:choice --> Two yes/no questions in a row, each asked with `AskUserQuestion` (two options; the default, No, first in both):
 
 ```
 1. Abort slice-<NNN>?

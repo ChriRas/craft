@@ -517,8 +517,15 @@ Four levels. Phase defaults are above; action-type overrides apply across phases
 
 Several commands ask the human to choose — a lettered menu such as `[W]/[B]/[U]` (Phase 5 feedback), `[K]/[I]/[R]/[D]`
 (Phase 9 decision promotion) or `[P]/[U]/[D]` (onboard migration), a yes/no confirmation, or an open question with
-typical answers (D40). This is the one rule for all of them; a command names its options once, in its own legend, and
-points here — it carries no second copy of this rule.
+typical answers (D40). This is the one rule for all of them. A command names its options once, in its own legend, and at
+each human-choice site carries **one marked sentence**: on a line marked `<!-- craft:choice -->` it names `AskUserQuestion`
+together with the no-click fallback ("where the tool is not available, the full legend as text"). Human test T2 showed why
+the sentence cannot be a pointer: no session ever read this section, so the sites that only pointed here never clicked.
+That sentence is the one deliberate copy — an agent that needs it is by definition one that did not read this file — and
+`scripts/test-choice-prompts.sh` binds it (the marker, the tool name on the same line, the declared site count per file,
+and the cache-guard stops below as `<!-- craft:choice typed -->`). The full rule stays here: the limits,
+splitting, follow-ups, the fallback and the cache-guard exception. A site sentence may add its own option list; it restates no
+rule.
 
 **Where the legend lives.** A command writes its menu as a legend: each letter, **its meaning and its consequence /
 next step**. That legend is the single source of the options for both renderings below.

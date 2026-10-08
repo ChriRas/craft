@@ -18,7 +18,7 @@ This is a **read-only** command — per the workflow skill's autonomy taxonomy, 
 
 ### Step 1 — Resolve target
 
-The argument is `slice-NNN` or `epic-NNN`. If absent, ask: *"Which slice or epic? Pass `slice-NNN` or `epic-NNN`."*
+The argument is `slice-NNN` or `epic-NNN`. If absent, ask: *"Which slice or epic? Pass `slice-NNN` or `epic-NNN`."* <!-- craft:choice --> Offer the active slices and epics as `AskUserQuestion` options ("Other" takes an ID); where the tool is not available, ask as text.
 
 ### Step 2 — Find the worktree
 

@@ -53,7 +53,7 @@ built, not from inside a worktree."*
   `Status: awaiting-release`.
   - Zero → abort: *"No in-place slice is awaiting release. `/craft:release` only resumes a
     slice halted by `/craft:execute` in in-place mode."*
-  - More than one → abort with the list and ask which slice to release.
+  - More than one → abort with the list and ask which slice to release. <!-- craft:choice --> Ask it with `AskUserQuestion` (one option per slice); where the tool is not available, a numbered list as text.
 
 ### A2 — Slice is at the in-place review halt
 
@@ -77,7 +77,9 @@ Failure → abort: *"Expected to be on branch `<branch>` (the in-place slice bra
 ### 1. Show what is being released
 
 `Bash` `git status --short` and `git diff --stat` — surface the uncommitted in-place changes
-so the release is an informed one:
+so the release is an informed one.
+
+<!-- craft:choice --> Ask the confirmation at the end of the block with `AskUserQuestion` (two options: release / cancel); where the tool is not available, print the block as text:
 
 ```
 Releasing slice-<NNN> "<title>" (branch <branch>):
@@ -146,6 +148,8 @@ Release cancelled — no state change. Slice-<NNN> stays at Status awaiting-rele
 ---
 
 ## Error Handling
+
+<!-- craft:choice none -->
 
 | Situation | Behavior |
 |---|---|

@@ -70,7 +70,7 @@ Failure → abort: *"Plugin manifest unreadable — version cannot be recorded i
 
 ## Procedure (Autonomy Level 1)
 
-The command argument is the epic name. If absent, ask: *"Which epic should we plan? Short name in 3–6 words."*
+The command argument is the epic name. If absent, ask: *"Which epic should we plan? Short name in 3–6 words."* <!-- craft:choice --> Offer two or three names derived from the context as `AskUserQuestion` options ("Other" takes the user's own); where the tool is not available or nothing meaningful can be derived, ask as text.
 
 Derive `<slug>` from the name: lowercase, hyphenated, no whitespace.
 

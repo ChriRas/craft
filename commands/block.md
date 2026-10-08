@@ -39,7 +39,7 @@ and routes.
 - `Glob` `.claude/plans/*.md`. Identify the active **slice** to block (ignore `epic-*` plan
   files — an epic is not blocked, its child slice is):
   - Exactly one active slice → use it.
-  - Multiple → ask which slice to block.
+  - Multiple → ask which slice to block. <!-- craft:choice --> Ask it with `AskUserQuestion` (one option per slice); where the tool is not available, a numbered list as text.
   - None → tell the user *"No active slice to block."* and stop.
 - `Read` the chosen slice plan. Hold `Slice-ID`, `Status`, `Phase` in context.
 
@@ -60,7 +60,7 @@ The slice `Status` must be an in-flight execution state — one of `implementing
 - `Status: committed` → *"Slice already closed. Nothing to block."* Abort.
 - `Status: blocked` → not a failure: offer to **update** the existing blocker (re-classify or
   re-word) rather than stacking a second one. Step 4 **preserves** the existing
-  `Blocked-status` on this path.
+  `Blocked-status` on this path. <!-- craft:choice --> Ask the offer with `AskUserQuestion` (two options: update the blocker / leave it); where the tool is not available, ask as text.
 - `Status: paused` → allowed; blocking supersedes the pause (note it in the confirmation).
   Step 4 takes the resume execution status from the pause record, and step 5 removes the record.
 - Any other `Status` (e.g. `awaiting-release`, `awaiting-approval`, or an unrecognized value)
@@ -83,7 +83,7 @@ Blocking is a human-facing direction decision — it runs dialogically at Level 
 
 ### 1. Classify the blocker
 
-Ask, dialogically:
+Ask, dialogically. <!-- craft:choice --> Ask it with `AskUserQuestion` (the four types below as options: label = the type, description = its meaning); where the tool is not available, print the list as text:
 
 > What kind of blocker is this?
 > - **prerequisite-work** — a missing unit of work (infra, an API, a service) that must be
@@ -109,7 +109,7 @@ Collect three things (this becomes the `## Blocker` section):
 
 ### 3. Type-specific handling
 
-- **prerequisite-work** — present the 3-option fork:
+- **prerequisite-work** — present the 3-option fork. <!-- craft:choice --> Ask it with `AskUserQuestion` (three options: Spawn / Park / Descope); where the tool is not available, print the three options as text:
   1. **Spawn** — the prerequisite becomes its own slice/epic. `/craft:block` does **not**
      create it; it routes: recommend `/craft:plan <name>` (or `/craft:epic <name>` if the
      prerequisite is itself multi-slice). If the user creates it now, capture the resulting
@@ -133,7 +133,8 @@ must **always** hold an execution `Status` token — one of `implementing`, `tes
   record's `Paused-status` (`skills/workflow/SKILL.md` → **Pause record**) when it is an
   execution token. When the plan has no record (paused before B11) or the recorded value is not an
   execution token, **ask** the user which execution token to resume into — offer the six execution
-  tokens as a pick-list and propose a default read from the slice's `## Pause Note`. Record their
+  tokens as a pick-list and propose a default read from the slice's `## Pause Note`.
+  <!-- craft:choice --> Ask it with `AskUserQuestion`, split into two steps of at most four options; where the tool is not available, a list as text. Record their
   answer; never store `paused`.
 - **Live status is `blocked`** (A1 re-block / update path) → **preserve** the slice's existing
   `Blocked-status`; do not recompute it from the live `blocked` token. Only the blocker
@@ -142,7 +143,8 @@ must **always** hold an execution `Status` token — one of `implementing`, `tes
 ### 5. Write the blocked state
 
 Before writing, echo the assembled block back to the user — the four frontmatter fields and
-the `## Blocker` prose — and get a one-word go-ahead. The agent proposes, never silently
+the `## Blocker` prose — and get a one-word go-ahead (<!-- craft:choice --> ask it with `AskUserQuestion`,
+two options: write it / do not; where the tool is not available, as text). The agent proposes, never silently
 mutates (rules.md). On confirmation, edit the active slice plan:
 
 <!-- craft:writes status=blocked -->

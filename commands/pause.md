@@ -15,7 +15,7 @@ Cleanly stop work on a slice without abandoning it. The slice file stays in `.cl
 
 - `Glob` `.claude/plans/*.md`. Find the slice the user wants to pause:
   - If exactly one active → use it.
-  - If multiple → ask which.
+  - If multiple → ask which. <!-- craft:choice --> Ask it with `AskUserQuestion` (one option per slice); where the tool is not available, a numbered list as text.
   - If none → tell user there is nothing to pause and stop.
 
 ---
@@ -24,7 +24,7 @@ Cleanly stop work on a slice without abandoning it. The slice file stays in `.cl
 
 ### 1. Capture a short pause note
 
-Ask: *"Quick note on where we are and what's next? (one or two sentences — saves you re-deriving later)"*
+Ask: *"Quick note on where we are and what's next? (one or two sentences — saves you re-deriving later)"* <!-- craft:choice --> Offer the note composed from the current state as an `AskUserQuestion` option (plus one option "No note — compose a minimal one"); "Other" takes the user's own words; where the tool is not available, ask as text.
 
 When the Auto flow's pause action calls this command (`skills/workflow/SKILL.md` → *The pause request*), do not ask: compose
 the note from the current state and show it.

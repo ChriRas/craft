@@ -72,7 +72,7 @@ tree or a wrong branch nobody accounts for. Every other target still requires a 
 removed (B19): whether a new run may take it is the helper's fixed rule, not a judgment of yours — act only on its
 `DECISION=`. `proceed` or `takeover` → continue (step 1 takes it). `confirm` (`REASON=own_process`) → the lock is held
 by this very Claude Code session, and only the human knows whether that run has ended: its builders may still work in
-the background. Ask, Level 0 — *"The run lock is held by this session (target `<TARGET>`, since `<SINCE>`). Is a
+the background. Ask, Level 0 (<!-- craft:choice --> with `AskUserQuestion`, two options; where the tool is not available, as text) — *"The run lock is held by this session (target `<TARGET>`, since `<SINCE>`). Is a
 `/craft:execute` run from this session still working? [N] no, it ended (e.g. interrupted with Esc) — release it and go
 on · [Y] yes — stop"*. Only on `[N]`: release the lock (step 1 — the plain release, which this process may run because
 it owns the lock; never `--force`), then continue. Any other answer → abort: *"A `/craft:execute` run from this session
@@ -238,7 +238,7 @@ This is a **durable-state mutation on user settings** — never silent. Follow t
 
 3. **If `STATUS=present`** → already trusted (idempotent no-op on every subsequent run). Note it in one line and continue to step 3.
 
-4. **If `STATUS=absent`** → announce the exact change and confirm once (Level 0):
+4. **If `STATUS=absent`** → announce the exact change and confirm once (Level 0; <!-- craft:choice --> ask the confirmation with `AskUserQuestion`, two options, `[Y]` first — where the tool is not available, print it as text):
 
    ```
    CRAFT will add the worktree base directory to permissions.additionalDirectories
@@ -488,6 +488,7 @@ Build **only that single slice** through Phase 4–8 in the main checkout. By it
 
 Then, on whichever line was set up above:
 
+<!-- craft:choice none -->
 - **Delegate Phase 4–8** to the per-phase commands (`/craft:build → /craft:test → /craft:recap
   → /craft:review`; Phase 7 skipped when `rules.md` drops it). Execute drives the phases without
   a per-phase re-invocation, but the human touchpoints CRAFT already requires (the Phase-5
@@ -557,6 +558,8 @@ the epic branch** by a foreground `slice-builder`, landed there by `/craft:commi
 the next slice without a halt. It **is** the Sequential epic path — order, resume, held slices and landing are s1–s3's,
 and are not restated here. This section lists only where an autopilot run differs. `main` does not move until the
 human says yes at the end (a5).
+
+<!-- craft:choice none -->
 
 **Every human stop stays, but one.** A review escalation, a debug protocol, a scope question, a blocker and a builder
 failure all stop the run (a2), and so does Phase 5's `[W]/[B]/[U]` — unless the slice's committed checks pass by command
@@ -647,7 +650,7 @@ found no `unlinked` or `missing` entry **and** the helper prints `RESULT=clear`:
 the human already approved, runs as before. A helper that cannot run stops the run `⛔` (release the lock): without
 it, nothing can say the gate was passed.
 
-0. **Plans no entry links — ask first.** Only when A6 found an `unlinked` or `missing` entry and the helper reports
+0. **Plans no entry links — ask first.** <!-- craft:choice typed --> Only when A6 found an `unlinked` or `missing` entry and the helper reports
    `ORPHAN_COUNT` above 0: an active plan no epic entry links may already plan one of those entries (a hand re-plan, a
    failed link, a planner cut off by Esc), and planning the entry again would build it twice. Whether it does is a
    content call, so ask — Level 0, before any planner runs — listing each `ORPHAN` line with the plan's title:
@@ -709,7 +712,7 @@ it, nothing can say the gate was passed.
    `revise` finding this round's `VERDICT` keeps open — its planner already applied the note or recorded why not, and
    asking again is the human's call; a `review-only` round's findings; and those left when the two autonomous rounds
    are spent.
-5. **The gate** — Level 0, a stop that waits on the human. Log `▶ · <epic-id> · plan gate shown: <slice-id>, …`, run the briefing
+5. **The gate** — Level 0, a stop that waits on the human. <!-- craft:choice typed --> Log `▶ · <epic-id> · plan gate shown: <slice-id>, …`, run the briefing
    helper (its part of the block, below), arm the cache guard <!-- craft:cache-guard arm --> (the last tool call before
    the block is printed; the human's answer disarms it <!-- craft:cache-guard disarm -->, *The cache guard*), then emit
    *Autopilot — plan gate*
@@ -992,7 +995,7 @@ Then — **the lock still held** — log `▶ · <epic-id> · sign-off asked`. T
 its exit 0 **is the check by command** before you ask. Any other exit — the write was refused or never landed (a human
 test's auto-mode classifier denied it, slice-057 BUG-1) — stops the run instead: print
 `⛔ · <epic-id> · sign-off not logged: <ERROR=>` — printed only, the log is what failed — and release the lock —
-nothing was asked, nothing merged. Otherwise arm the cache guard <!-- craft:cache-guard arm --> (*The cache guard*) and ask, Level 0 — the question's last
+nothing was asked, nothing merged. Otherwise arm the cache guard <!-- craft:cache-guard arm --> (*The cache guard*) and ask, Level 0 <!-- craft:choice typed --> — the question's last
 line is the helper's `LINE=`. The UX demo script is the product-feel check the verification did not replace: walk it
 before you answer.
 
@@ -1227,6 +1230,8 @@ Sequential epic — complete:
    Recommended next: /craft:prime to refresh, or /craft:plan for the next epic.
 ```
 
+<!-- craft:choice none -->
+
 Autopilot — plan gate (ap):
 
 ```
@@ -1275,6 +1280,8 @@ Autopilot — stopped after a landed slice (a4: budget, or re-run state):
    <the cache guard's LINE=, verbatim>
 ```
 
+<!-- craft:choice none -->
+
 Autopilot — epic complete (a5): the stdout of `scripts/epic-digest.sh`, relayed unchanged — its header defines the
 block, so it is not restated here — followed by a5's merge question:
 
@@ -1315,6 +1322,8 @@ Review checkpoint reached:
 ---
 
 ## Error Handling
+
+<!-- craft:choice none -->
 
 | Situation | Behavior |
 |---|---|
