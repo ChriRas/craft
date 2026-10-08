@@ -26,5 +26,6 @@
 # CRAFT local state (per-session markers, run lock, local settings, worktree handoff)
 .claude/plans/.execute.lock
 .claude/plans/.cache-guard
+.claude/plans/.pause-request
 .craft/
 .claude/plans/.closed/

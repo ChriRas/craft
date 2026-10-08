@@ -296,7 +296,8 @@ Like the drift and stack-pack checks, the drift itself is **reported**; the writ
 ### 4f. Local-state gitignore
 
 CRAFT writes local, per-clone state into the project: `.claude/plans/.primed` (step 9), the
-SessionStart hook's `.claude/plans/.hook-env`, the `/craft:execute` run lock,
+SessionStart hook's `.claude/plans/.hook-env`, the `/craft:execute` run lock, the autopilot's cache-guard marker, the auto flow's
+pause-request marker `.claude/plans/.pause-request`,
 `.claude/settings.local.json`, the worktree handoff marker `.craft/`, and the closed plans in `.claude/plans/.closed/`. Unignored, these show
 as untracked files in every `git status` — noise for the human; CRAFT's own clean-tree checks do not
 count them (`scripts/tree-dirt-state.sh`). `/craft:onboard` adds them for new projects; this step

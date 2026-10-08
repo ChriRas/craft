@@ -579,7 +579,7 @@ is not this sub-procedure's job — the Local-State Gitignore sub-procedure cove
 ## Local-State Gitignore (shared sub-procedure)
 
 CRAFT writes local, per-clone state into the project — the per-session prime marker, the
-hook's bash record, the `/craft:execute` run lock, `.claude/settings.local.json`, and the
+hook's bash record, the `/craft:execute` run lock, the cache-guard and pause-request markers, `.claude/settings.local.json`, and the
 worktree handoff marker `.craft/`. Unignored, a primed session leaves untracked files behind in
 every `git status` (CRAFT's own clean-tree checks do not count them). Onboarding therefore adds them to the
 project's `.gitignore` as the last write of both modes. It is part of the onboarding the user
