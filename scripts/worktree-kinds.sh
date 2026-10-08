@@ -32,7 +32,8 @@
 #
 # Reading a CRAFT worktree as foreign errs safe at every reader: commit.md step 0's epic-close-state.sh still
 # requires every entry landed and the epic branch merged; step 1 reads Standard mode instead of Slice-finalize,
-# where A3 ("nothing to commit") or the human-reviewed commit split stops it; A6 fires rather than stepping aside;
+# where A3 ("nothing to commit") or the human-reviewed commit split stops it, and A6 — which reads that mode
+# (slice-079) — fires rather than stepping aside;
 # Step 7's In-place-finalize lands an in-place branch on the trunk; execute.md P5–P7 warn rather than pass. So a
 # slice worktree caught detached (mid-rebase) is foreign here — the `·` line says it is on no slice or epic
 # branch, which is true of its checkout at that moment.

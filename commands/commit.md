@@ -34,8 +34,9 @@ If a slice plan is found, read its `## Recap Draft` section (written in Phase 6)
 
 Run all of the following. Any failure stops the command before any commit, archive write, or deletion happens.
 
-**First, Mode Detection's *Which worktrees count* and step 0** (below): when step 0 finds the **Epic-close** mode,
-A1–A6 do not run — that mode has its own pre-assertions (end of this file). A6 reads the worktree counts from that run.
+**The order.** First Mode Detection's *Which worktrees count* and step 0 (below): when step 0 finds the **Epic-close**
+mode, A1–A6 do not run — that mode has its own pre-assertions (end of this file). Then A0, then Mode Detection steps 1–2
+(A0 guards them: they need the main checkout), then A1–A6 — A3 and A6 read the mode steps 1–2 detected.
 
 ### A0 — Running from the main checkout
 
@@ -91,21 +92,23 @@ The slice plan must contain a `## Recap Draft` section with content.
 This catches only the **Standard-mode-on-the-trunk** case — a direct commit on the trunk
 with no branch to open a PR from. Abort **before any commit** only when **all** hold: the
 profile's `Merge → Type` is `pull-request` with `Protected-main: yes`; **and**
-`worktree-kinds.sh` (Mode Detection → *Which worktrees count*) reports `CRAFT_COUNT=0` (no finalize worktree);
-**and** `git branch --show-current` equals the trunk (`main` or the configured trunk):
+Mode Detection found **Standard mode**; **and** `git branch --show-current` equals the trunk
+(`main` or the configured trunk):
 *"Protected-main opens a PR from a branch, but you are on `<trunk>` directly with no branch
 to land. Run the slice via `/craft:execute` (worktree) or in-place so there is a branch, or
-set `Merge → Type: direct`."*
+set `Merge → Type: direct`."* When Mode Detection step 2 named CRAFT worktrees that are no finalize target, repeat
+those lines below the message and add: *"None of these is ready to finalize — if you meant to finalize one, finish it
+first (or `/craft:abort` a leftover). The changes on `<trunk>` still need a branch of their own."*
 
-The **worktree guard is essential**: a finalize-mode run executes from the primary checkout
+**The mode decides, not the worktrees**: a finalize-mode run executes from the primary checkout
 (A0), whose current branch **is** the trunk, but its slice/epic branch lives in a *separate*
-worktree — that slice/epic worktree's presence (`CRAFT_COUNT` above 0) excludes it from A6 (it genuinely has a branch to
-PR). An in-place run is on its own branch in the primary checkout (current branch ≠ trunk),
-so it passes. A slice already at `Status: awaiting-approval` likewise sits on its PR branch
-(in-place) or still has its finalize worktree — it passes. Only a genuine Standard commit
-directly on the trunk trips A6 — and a worktree on no slice or epic branch does not keep it from tripping
-(slice-078: with any second worktree counting, a stray one switched the guard off). Running this before Step 1 ensures no commits land on a trunk
-that then cannot be pushed.
+worktree — it genuinely has a branch to PR, and it is no Standard mode, so A6 does not apply. An in-place run is on
+its own branch in the primary checkout (current branch ≠ trunk), so it passes. A slice already at
+`Status: awaiting-approval` likewise sits on its PR branch (in-place) or still has its finalize worktree — it passes.
+Only a genuine Standard commit directly on the trunk trips A6 — also while a worktree exists that is no finalize
+target, a slice still building or one an aborted slice left (slice-079: A6 used to step aside for any CRAFT worktree,
+so such a worktree let a Standard commit land on the protected trunk). Running this before Step 1 ensures no commits
+land on a trunk that then cannot be pushed.
 
 ---
 
@@ -123,7 +126,7 @@ that then cannot be pushed.
   its own pre-assertions, steps and post-assertions. Step 0 below judges it first, so on an autopilot epic branch with no
   slice at `committing` it wins over Standard mode's Autopilot differences.
 
-**Which worktrees count** (slice-078). Steps 0 and 1 below and A6 judge the linked worktrees only through
+**Which worktrees count** (slice-078). Steps 0, 1 and 2 below judge the linked worktrees only through
 `scripts/worktree-kinds.sh` — which worktree is CRAFT's (a branch carrying a `slice-<NNN>` or `epic-<NNN>` token) is
 defined in its header, once. Run it once, from the project root, before step 0:
 
@@ -139,7 +142,7 @@ A worktree on no slice or epic branch — detached, or on another branch — dec
 ```
 
 The helper cannot run (non-zero exit, no `CRAFT_COUNT=`) → say so in one line and stop before any write: without its
-answer neither the mode nor A6 can be judged.
+answer the mode cannot be judged.
 
 Detection logic:
 
@@ -168,7 +171,14 @@ Detection logic:
 2. Otherwise, for each `KIND=craft` worktree, look up the matching plan file under `.claude/plans/`.
    - Branch starts with `epic-` and the epic plan exists with all decomposition entries archived/merged → Epic-finalize mode (the matching epic-worktree is the merge source).
    - Branch matches `slice-<NNN>-<slug>` and the slice plan has `Status: committing` **or** `awaiting-approval` (protected-main PR completion) → Slice-finalize mode.
-   - Anything else → fall through. If multiple plausible modes match, ask the user which one to finalize (defensive — should not happen in normal flow; <!-- craft:choice --> ask it with `AskUserQuestion`, one option per plausible mode — where the tool is not available, as text).
+   - Anything else — a slice still building, a worktree an aborted slice left, a branch with no plan — is no finalize
+     target. Name it in one line, `<STATUS>` being its plan's `Status:` or `none` when no plan matches, and go on:
+
+     ```
+     · Worktree <WORKTREE> (<BRANCH>, plan <STATUS>) is no finalize target — not finalized by this run
+     ```
+
+   No worktree matched a finalize mode → mode = Standard (A6 then judges a trunk commit under protected main). If multiple plausible modes match, ask the user which one to finalize (defensive — should not happen in normal flow; <!-- craft:choice --> ask it with `AskUserQuestion`, one option per plausible mode — where the tool is not available, as text).
 
 When the protected-main PR gate has opened a PR (Step 6, first pass), the finalize target's
 plan carries `Status: awaiting-approval`: the slice plan for lone-slice / Slice-finalize, or
