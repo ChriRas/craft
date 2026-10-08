@@ -176,6 +176,14 @@ Recommended next: /craft:build
 
 ---
 
+## Auto Flow (the interactive end)
+
+<!-- craft:flow -->
+At the end of an interactive run, after the closing output above, run the **Auto flow** step of `skills/workflow/SKILL.md`
+(*Auto flow* — where it applies, the `--from` value of this command, how to act on the verdict): ask
+`${CLAUDE_PLUGIN_ROOT}/scripts/flow-state.sh` (in CRAFT's own source repo: `scripts/flow-state.sh`) and act on its
+`NEXT=` / `STOP=` only.
+
 ## Subagent Mode (when called by `/craft:execute`)
 
 When invoked by the `slice-builder` subagent during an autonomous `/craft:execute` run, the human cannot perform sub-step 5b in real time. The subagent therefore takes this path instead:

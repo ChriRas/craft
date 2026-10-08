@@ -361,6 +361,15 @@ Partial (post-assertion failure):
 
 ---
 
+## Auto Flow (build now or later)
+
+<!-- craft:flow -->
+After the closing output of an interactive run, with the slice plan written at `Status: planning`, run the **After
+`/craft:plan`** step of `skills/workflow/SKILL.md` (*Auto flow*): ask `${CLAUDE_PLUGIN_ROOT}/scripts/flow-state.sh` (in CRAFT's own source repo: `scripts/flow-state.sh`) for the new plan (no `--from`).
+`NEXT=/craft:build` → ask one click, **Build now** (starts `/craft:build` at once) / **Later** (several slices can still be
+planned ahead — the output's `Next:` line stands); any `STOP=` (`manual` is silent) asks nothing. Only after a
+successful closing output, never after a partial write; where the flow applies at all is the rule's (*Where it applies*).
+
 ## Subagent Mode (when called by `/craft:execute`)
 
 In an autopilot run's planning stage (`/craft:execute` → Autopilot run → **ap**) a `slice-planner` agent plans one epic

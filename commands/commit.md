@@ -723,6 +723,12 @@ Inspect and reconcile manually before starting the next slice.
 
 ---
 
+## Auto Flow (the end of the flow)
+
+<!-- craft:flow -->
+`/craft:commit` is where the auto flow ends (`skills/workflow/SKILL.md` → *Auto flow*): it does not ask
+`scripts/flow-state.sh` and starts nothing afterwards; the closing output's `Recommended next:` stands.
+
 ## Autopilot Mode (a slice on an autopilot epic branch)
 
 Applies whenever the main checkout's current branch is an autopilot epic branch, `epic-<NNN>-<slug>` — when

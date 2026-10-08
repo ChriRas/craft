@@ -316,6 +316,14 @@ No fixes applied, no phase change. Fold these into your ongoing work.
 
 ---
 
+## Auto Flow (the interactive end)
+
+<!-- craft:flow -->
+At the end of an interactive run, after the closing output above, run the **Auto flow** step of `skills/workflow/SKILL.md`
+(*Auto flow* — where it applies, the `--from` value of this command, how to act on the verdict): ask
+`${CLAUDE_PLUGIN_ROOT}/scripts/flow-state.sh` (in CRAFT's own source repo: `scripts/flow-state.sh`) and act on its
+`NEXT=` / `STOP=` only.
+
 ## Subagent Mode (when called by `/craft:execute`)
 
 `/craft:review` already runs its core work in a fresh-context subagent (the reviewer). When `/craft:review` itself is invoked by the `slice-builder` subagent during an autonomous run, that becomes a sub-subagent — supported.

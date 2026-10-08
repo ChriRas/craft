@@ -553,6 +553,75 @@ is not available, render the legend **in full** as text: every option as its let
 consequence / next step, on **every** occurrence — not just the first. The user may answer with the bare letter, but the
 agent always shows the full legend. Never present bare letters and rely on the user recalling what they mean.
 
+
+#### Auto flow (the Slice Flow rule, D42)
+
+<!-- craft:flow-rule -->
+With the profile's `## Slice Flow` → `Mode: auto` (the plugin default; the `careful` preset ships `manual`) an
+interactive slice moves from phase to phase **by itself**, up to and including the commit, instead of waiting for the
+human to type each phase command — the human decisions inside the phases are what need the human, and they stay human.
+This is the one definition; the phase commands point here from the closing section marked `<!-- craft:flow -->` and
+carry no second copy.
+
+**Where it applies.** At the end of an interactive `/craft:build`, `/craft:test`, `/craft:recap`, `/craft:refactor`,
+`/craft:review` and `/craft:commit`, and after `/craft:plan` (below). Never in **Subagent Mode**, never inside
+`/craft:execute` or an autopilot run (they orchestrate the phases themselves), and never where no human can click (a
+headless `claude -p` session): there each command ends as it always did.
+
+**The verdict comes from one helper, never from judgment.** At the end of the command, after its normal closing output:
+
+1. Take the `--from` value: the plan's `Status:` at the moment the command's **own work** began — *after* its Pre-flight
+   status write, not the status it found (a build that found `planning` has already written `implementing`; passing
+   `planning` would let a build that stopped early start itself again). One value per command:
+
+   | Command | `--from` |
+   |---|---|
+   | `/craft:build` | `implementing` |
+   | `/craft:test` | `testing` |
+   | `/craft:recap` | the status it found (`review`, or `testing` right after Phase 5) |
+   | `/craft:refactor` | `refactoring`; with Phase 7 dropped none (its skip gate always advances to `reviewing` and must chain) |
+   | `/craft:review` | `reviewing`, in Phase-8 mode only — an **advisory** review changes no status and never chains |
+   | `/craft:plan`, `/craft:commit` | none (the plan click; the flow ends) |
+
+   A command that **refused in its Pre-flight** (no slice, a wrong status, a paused or blocked slice) did no work and wrote
+   no status: it runs **no** Auto flow step at all — its refusal message stands. Passing the table's value then would
+   start another phase on a slice the user only mistyped a command for.
+2. Run `bash "<plugin-root>/scripts/flow-state.sh" --project "<project-root>" --from <that status> "<slice plan>"` —
+   `<plugin-root>` is the resolved `${CLAUDE_PLUGIN_ROOT}` the phase command hands over (a skill read as a file is not
+   substituted); in CRAFT's own source repo `scripts/flow-state.sh` of the working tree. It reads the profile's mode and the plan's
+   `Status:` and prints `MODE=`, `STATUS=`, any `WARN=` lines and **exactly one** of `NEXT=` or `STOP=`.
+3. **`NEXT=/craft:<phase>`** → say `Auto flow → /craft:<phase>` and start that phase yourself, the way the user's typed
+   command would run it — its Pre-flight, its procedure, its human decisions as clicks (use the `Skill` tool where the
+   session offers it; else read the command's file and follow it). That phase ends with this same step.
+4. **`STOP=<reason>`** → do not start anything. `STOP=manual` is silent: the command ends with its own `Recommended
+   next:` as before. Any other reason is named in one line, `Auto flow stops: <reason> — <what that means>`, above the
+   command's own `Recommended next:`: `committed` — the slice is done, the flow ends here; `blocked`, `paused`,
+   `awaiting-release`, `awaiting-approval` — a human holds the slice (`/craft:unblock`, `/craft:continue`,
+   `/craft:release`, `/craft:commit`); `no-progress` — the phase ended in the status it began in, so it is waiting for
+   you (a gated review, a `[U]` iteration, a pause) — say what it waits for; `invalid-mode` — the profile's value is
+   neither `auto` nor `manual` (`/craft:prime` warns); `no-plan`, `unknown-status` — the plan cannot be read; any reason
+   this rule does not list — name it and stop.
+5. Relay every `WARN=` line as `⚠ <text>`. **Doubt means stop**: the helper missing, failing, or printing no `NEXT=` /
+   `STOP=` line is a stop — say `Auto flow stops: flow check incomplete — <one-line cause>`. (Unlike the handoff marker,
+   where doubt means live: a wrong automatic phase start costs more than a halt.)
+
+**Human decisions stay human.** The flow answers nothing for the human: Phase 5's `[W]/[B]/[U]` (and the exercise before
+it), a review escalation or cap route, the decision walk of Phase 9 and the commit-message confirmation are asked as
+clicks (*Choice prompts* above) and the flow goes on right after the answer. A phase's own stops are unchanged — a
+Pre-flight refusal runs no Auto flow step (step 1), and a gated review, a pause or a `/craft:debug` detour leaves the
+status where the work began, which the helper sees as no progress.
+
+**The flow ends after `/craft:commit`.** Its closing section calls no helper: the slice is closed, nothing follows but the
+command's own `Recommended next:`.
+
+**After `/craft:plan`.** With `Mode: auto`, plan ends by asking one click, **Build now** / **Later** (several slices can
+still be planned ahead); *Build now* runs steps 2–3 with the new plan (no `--from`) and so starts `/craft:build`, *Later*
+ends with the output's own `Next: /craft:build` line as before. The click follows only a successful closing output (not
+a partial write). With `manual` it asks nothing.
+
+**Manual.** `Mode: manual` is exactly the behavior before D42: one command per phase, each ending with `Recommended
+next:`.
+
 ---
 
 ## Rule-Conflict Resolution
