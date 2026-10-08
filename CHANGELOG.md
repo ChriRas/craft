@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+> **Upgrade note.**
+> - **Token limits rise from 100k to 150k.** The cache guard's default `Cache-guard-recache-tokens` is now `150000`, and Phase 4's context discipline says "under ~150k tokens". A project profile created from the 1.8.0 template (or one where you set the key yourself) carries an explicit `Cache-guard-recache-tokens: 100000` and keeps it: raise it to `150000` or delete the line (an absent key uses the new default).
+
+### Changed
+- **Both 100k token limits rise to 150k** (slice-071) — the cache guard blocks a cold prompt only from 150000 tokens on (`hooks/cache-guard.sh`, `scripts/usage-state.sh`, the profile template, the three presets, `craft-profile-defaults.md`, the docs page), and Phase 4's context-discipline guideline in `skills/workflow/SKILL.md` names ~150k tokens.
+
 ## [1.8.0] - 2026-10-07
 
 > **Upgrade note — read before updating.**

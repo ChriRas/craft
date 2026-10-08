@@ -287,7 +287,7 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
 - **As built (slice-060, 2026-10-06).** `hooks/cache-guard.sh` (bash 3.2, python3 for the JSON, fail open on every doubt)
   blocks with `{"decision":"block","reason":…}` when the arming marker `.claude/plans/.cache-guard` says `armed` for the
   prompt's `session_id`, the tap of the **same** session says `prompt_cache.expires_at < now`, and
-  `recache_tokens_if_cold` reaches the threshold (`## Autopilot` key `Cache-guard-recache-tokens`, default 100000).
+  `recache_tokens_if_cold` reaches the threshold (`## Autopilot` key `Cache-guard-recache-tokens`, default 150000; raised from 100000 by slice-071).
   Differences from the sketch above: the handoff written first is the Autopilot Log line (every stop logs before it
   arms); the restart is `/clear`, then `/craft:execute epic-NNN --autopilot` (a
   `/craft:autopilot resume` never existed — the re-run resumes the epic); the marker is **bound to the session** —
