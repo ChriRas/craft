@@ -321,24 +321,29 @@ bash scripts/test-autopilot-briefing.sh
 # directions. Keep green.
 bash scripts/test-flow-state.sh
 
-# Pause request — D42 / slice-075: in auto flow the human stops the flow by sending a message that is only `pause`, `pausieren` or
-# `/craft:pause`. The UserPromptSubmit hook hooks/pause-watch.sh (bash 3.2, fail-open, silent: it never prints and never blocks) and the
+# Pause request — D42 / slice-075, both flow modes since slice-077: the human pauses a slice in flight by sending a message that is only `pause`, `pausieren` or
+# `/craft:pause` (the last is a command: Claude Code holds it until the turn ends, so it takes effect only then). The UserPromptSubmit hook hooks/pause-watch.sh (bash 3.2, fail-open, silent: it never prints and never blocks) and the
 # agent itself (scripts/pause-request.sh request) record it in .claude/plans/.pause-request, kept as state and never removed; flow-state.sh
 # asks `pause-request.sh state --plan` (this session, live, not older than the plan's `> Resumed:`) and prints STOP=pause-requested at the
 # next sub-task or phase boundary; /craft:pause and /craft:handoff consume it. Covers the word matrix (a sentence with the word, stop,
-# halt, empty: none), a malformed / missing payload and an unwritable marker (the prompt passes, no stderr), manual mode / no slice in
-# flight, the marker round trip, the foreign-session / consumed / malformed / pre-resume cases, every hook case under the running bash
-# AND a real /bin/bash 3.2, the hooks.json registration and the sites of the rule. Whether Claude Code fires UserPromptSubmit for a
-# message queued mid-turn is undocumented and NOT shown by this harness - the slice's interactive Phase-5 test is. Keep green.
+# halt, empty: none), a malformed / missing payload and an unwritable marker (the prompt passes, no stderr), both modes record / no slice in
+# flight, flow-state's STOP=pause-requested under manual and invalid-mode (only for a plan in flight), the marker round trip, the foreign-session / consumed / malformed / pre-resume cases, every hook case under the running bash
+# AND a real /bin/bash 3.2, the hooks.json registration and the sites of the rule. It also binds the marked pause-word sentence
+# (`<!-- craft:pause-word -->`: pause-request.sh request, finish the running step, /craft:handoff, /craft:pause, in that order) at six
+# declared sites in both directions, and commands/pause.md (its exits that pause nothing run Step 3, the handoff bullet, the
+# prompt-of-its-own line, rule 3's pointer) - twelve mutation fixtures go red. THE FINDING (re-test T3): UserPromptSubmit did not fire
+# for a message delivered mid-turn, so the hook covers only a pause word sent as a prompt of its own; what the agent does on seeing a
+# word is NOT shown by this harness - the interactive re-test is. Keep green.
 bash scripts/test-pause-watch.sh
 
 # Choice-prompt sites — D40 amended / slice-076: every human-choice site in commands/*.md and skills/debug/SKILL.md names
 # `AskUserQuestion` itself, on one line marked `<!-- craft:choice -->`, because human test T2 showed that a pointer to
 # skills/workflow/SKILL.md -> Choice prompts is never followed. scripts/test-choice-prompts.sh binds the sentences: the tool name
-# on the marker's line, a `<!-- craft:choice typed -->` marker only in commands/execute.md and in the block of a cache-guard arm
+# on the marker's line, a `<!-- craft:choice sequence -->` marker (slice-077: a question that depends on an earlier answer is asked in an
+# `AskUserQuestion` call of its own - the fixed phrase on the line, a declared SEQUENCES count), a `<!-- craft:choice typed -->` marker only in commands/execute.md and in the block of a cache-guard arm
 # marker (the guard's stops stay typed), a declared site count per file (read off the run) compared in both directions, and a
 # legend scan (two or more bracketed capitals, `(Y / ...)` or a vertical one-letter-per-line menu must lie within a window below a marker; a legend that is not
-# asked carries `<!-- craft:choice none -->`). Mutation self-tests on copies (tool name removed, marker removed, unmarked legend,
+# asked carries `<!-- craft:choice none -->`). Mutation self-tests on copies (tool name removed, marker removed, the sequence phrase removed, a sequence marker turned plain, a SEQUENCES count changed, unmarked legend,
 # typed marker moved out of its arm block, tool name on a typed marker, a count changed) go red; the unchanged tree and a
 # negated mention stay green. Known limit: an open question with no legend and no marker is caught only by the count. Keep green.
 bash scripts/test-choice-prompts.sh
