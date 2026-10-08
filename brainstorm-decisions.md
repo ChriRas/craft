@@ -1403,6 +1403,12 @@ Decision:
   `claude -p` (Claude Code docs, verified 2026-10-08): Subagent Mode keeps writing handoffs, and a headless session falls
   back to the rendered legend. *Consequence:* the click itself cannot be shown by a headless probe — the slice's Phase 5
   needs a real interactive test.
+- **Exception — the stops that arm the cache guard stay text** (amendment, slice-072 review round 1). The autopilot's
+  orphan question, plan gate, a5 sign-off and any question a run stops to ask end the turn so that the human's answer arrives as a *prompt*: the
+  `UserPromptSubmit` hook (slice-060 / 070) blocks a prompt that comes after the prompt cache expired, and a click is a
+  tool result no hook sees. Those questions render their full legend as text and are typed; every other question of an
+  interactive session that is not asked at such a stop is a click. *Cost:* the questions at an autopilot epic's human stops stay typed; accepted — the alternative
+  re-writes a whole expired context at the full input price on the click, which is what the guard exists to prevent.
 
 ### D41 — The Review Fix Cap Is a Guide Value, With a Hard Ceiling at Twice It
 
