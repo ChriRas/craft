@@ -306,6 +306,14 @@ done
 plan_md="$(blank "$REPO/commands/plan.md")"
 case "$plan_md" in *"Build now"*) ok "commands/plan.md asks 'Build now'" ;; *) bad "commands/plan.md has no 'Build now' click" ;; esac
 
+# recap's Step 4 (slice-076, T2): under Mode: auto the "Ready for Phase 7/8?" question is not asked, so the step asks the
+# helper's --mode BEFORE its question
+recap_step4="$(blank "$REPO/commands/recap.md" | sed -n '/^### 4\. /,/^## Output Format/p')"
+recap_before_q="${recap_step4%%Ready for Phase*}"
+case "$recap_step4" in *"Ready for Phase"*) ok "recap Step 4 still asks the question where the mode is not auto" ;; *) bad "recap Step 4 lost its question (manual / invalid / helper failure must still ask)" ;; esac
+case "$recap_before_q" in *"flow-state.sh"*"--mode"*) ok "recap Step 4 names flow-state.sh and --mode before its question" ;; *) bad "recap Step 4 does not name flow-state.sh and --mode before its question (under auto it would still ask)" ;; esac
+case "$recap_before_q" in *'${CLAUDE_PLUGIN_ROOT}/scripts/flow-state.sh'*) ok "recap Step 4 hands over the resolved helper path" ;; *) bad "recap Step 4 does not hand over \${CLAUDE_PLUGIN_ROOT}/scripts/flow-state.sh" ;; esac
+
 for f in prime onboard; do
   c="$(cat "$REPO/commands/$f.md")"
   case "$c" in *"Slice Flow"*) ok "commands/$f.md names the Slice Flow block" ;; *) bad "commands/$f.md does not name the Slice Flow block" ;; esac

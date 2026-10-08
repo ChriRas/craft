@@ -24,7 +24,7 @@
 #                status it found (skills/workflow/SKILL.md -> Auto flow lists one value per command). A phase that ends in
 #                the status it began in has not advanced (a gated review, a [U] iteration, a pause) and does not chain:
 #                STOP=no-progress.
-#   --mode       the profile only (for /craft:prime): MODE= and WARN= lines, no plan, no verdict.
+#   --mode       the profile only (for /craft:prime, /craft:recap Step 4 and hooks/pause-watch.sh): MODE= and WARN= lines, no plan, no verdict.
 #   --map        the status -> command map, one `<status><TAB>NEXT<TAB>/craft:<cmd>` or
 #                `<status><TAB>STOP<TAB><reason>` line per status. test-workflow-status-graph.sh binds it to the
 #                phase graph in skills/workflow/SKILL.md in both directions (rules.md tabu: an unbound copy of the

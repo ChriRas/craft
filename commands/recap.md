@@ -37,13 +37,15 @@ Then the agent narrates, **without code**, in 3 short paragraphs:
 2. **Why** — What product / architectural decisions drove the implementation?
 3. **Walk-through** — How does the flow work from the trigger to the observable effect?
 
-After each paragraph, pause and let the user confirm or correct.
+After each paragraph, pause and let the user confirm or correct. <!-- craft:choice --> Ask it with `AskUserQuestion` (options: confirm / correct — the correction itself is typed); where the tool is not available, ask as text.
 
 ### 2. Complexity check — offer a diagram
 
 Count touched files and modules. If more than **3 modules / files** were touched in this slice, or if multiple architectural layers interact (e.g., frontend + API + DB + worker), offer:
 
 > This slice touched <N> components — a diagram would help. Shall I add a Mermaid diagram to the recap?
+
+<!-- craft:choice --> Ask it with `AskUserQuestion` (two options: add the diagram / skip it); where the tool is not available, ask as text.
 
 If yes, produce a small Mermaid block — typically `sequenceDiagram` for request flows or `flowchart LR` for data flows. Keep it under 15 nodes.
 
@@ -86,15 +88,26 @@ Where Phase 6 hands off depends on whether the project keeps Phase 7. Read the
 rule** defined in `skills/workflow/SKILL.md` (Phase Transition Rules): the project drops
 Phase 7 when a `## Workflow Rules` bullet declares Phase 7 (Refactor) dropped or skipped.
 
+**The question is asked only where the flow does not already decide it.** Before asking either question below, ask the
+helper for the mode: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/flow-state.sh" --project "<project-root>" --mode` (in CRAFT's
+own source repo: `scripts/flow-state.sh`), the same hand-over as the Auto Flow section below.
+
+- `MODE=auto` — **ask nothing.** "Ready for the next phase?" is no human decision under auto flow (D42: the recap's
+  confirm / correct steps above are the human's chance to correct it). Write the status the matching bullet names and go
+  on to the closing output and the Auto flow step.
+- `MODE=manual`, `MODE=invalid`, or a helper that fails or prints no `MODE=` line — ask the question as the bullets
+  say (doubt means asking: nothing moves without the human). <!-- craft:choice --> Ask it with `AskUserQuestion`
+  (two options: go on to the next phase / revise the recap first); where the tool is not available, ask as text.
+
 <!-- craft:writes status=refactoring when=phase7-kept -->
-- **Phase 7 kept (default)** — ask: *"Recap captured. Ready for Phase 7 (refactor)?"* If yes,
-  update `Status: refactoring` in the slice plan and emit
+- **Phase 7 kept (default)** — ask (unless `MODE=auto`): *"Recap captured. Ready for Phase 7 (refactor)?"* If yes
+  (or `MODE=auto`), update `Status: refactoring` in the slice plan and emit
   `Recommended next: /craft:refactor`.
 
 <!-- craft:writes status=reviewing when=phase7-dropped -->
 - **Phase 7 dropped** — there is no refactor seat to hand to, so Phase 6 hands **directly to
-  Phase 8**. Ask: *"Recap captured. Ready for Phase 8 (review)?"* If yes, update
-  `Status: reviewing` in the slice plan and emit `Recommended next: /craft:review`.
+  Phase 8**. Ask (unless `MODE=auto`): *"Recap captured. Ready for Phase 8 (review)?"* If yes (or
+  `MODE=auto`), update `Status: reviewing` in the slice plan and emit `Recommended next: /craft:review`.
   Do not hand this slice to `/craft:refactor`: that command never runs in this project, so the
   hand-off would dangle — the slice either sits in a phase that does not exist, or stays at
   `review`, which `/craft:review` reads as pre-Phase-8 and answers with advisory mode (findings
