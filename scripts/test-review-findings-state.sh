@@ -531,6 +531,46 @@ helper_res="$(bash "$HELPER" --print-resolutions | awk -F'|' '$2=="no"{print sub
   && ok "commands/review.md Step 6 format block lists exactly the helper's resolutions" \
   || bad "Step 6 ↔ helper drift: step6=[$(printf '%s' "$step6" | tr '\n' ';')] helper=[$(printf '%s' "$helper_res" | tr '\n' ';')]"
 
+# --- the fix cap as a guide value (slice-073, D41): a round of fixes over the cap ------------------------------------------
+# Cap 5, 8 local-edit findings: five fixed, two small ones fixed over the guide value (ceiling 10), one not small stays open.
+P="$(plan <<'EOF2'
+## Review Findings
+
+### Round 1 — 2026-10-08 (Phase-8)
+
+- R1-1 · Light · Local · a · fixed in-phase
+- R1-2 · Light · Local · b · fixed in-phase
+- R1-3 · Light · Local · c · fixed in-phase
+- R1-4 · Light · Local · d · fixed in-phase
+- R1-5 · Light · Local · e · fixed in-phase
+- R1-6 · Light · Local · f · fixed in-phase: over the guide value — one line in one file
+- R1-7 · Heavy · Local · g · fixed in-phase: over the guide value — a rename in one file
+- R1-8 · Heavy · Local · h · open — fix cap, awaiting decision
+- note · fix cap (5) exceeded: 2 small fix(es)
+EOF2
+)"
+out="$(run "$P")"
+P_BASE="$(plan <<'EOF2'
+## Review Findings
+
+### Round 1 — 2026-10-08 (Phase-8)
+
+- R1-1 · Light · Local · a · fixed in-phase
+- R1-2 · Heavy · Local · h · open — fix cap, awaiting decision
+EOF2
+)"
+out_base="$(run "$P_BASE")"
+{ has "$out" "OPEN_COUNT=1" && [[ "$(line_for "$out" R1-8)" == *"OPEN=yes"* ]] \
+  && [[ "$(line_for "$out" R1-6)" == *"OPEN=no"* ]] && [[ "$(line_for "$out" R1-7)" == *"OPEN=no"* ]] \
+  && [[ "$(line_for "$out" R1-6)" == *"RESOLUTION=fixed in-phase"* ]] \
+  && ! printf '%s' "$out" | grep -q '^MALFORMED=' && ! printf '%s' "$out" | grep -q '^FINDING=note'; } \
+  && ok "fix cap guide value: over-the-guide-value fixes are closed, only the not-small line is open, the exceeded note is no finding" \
+  || bad "guide-value record (out=$out)"
+[[ "$(printf '%s\n' "$out" | grep '^ROUND_CAP=')" == "$(printf '%s\n' "$out_base" | grep '^ROUND_CAP=')" ]] \
+  && ok "the fix-cap exceeded note leaves ROUND_CAP unchanged (only 'extra round granted' raises it)" || bad "ROUND_CAP moved by the exceeded note"
+grep -qF 'fixed in-phase: over the guide value — <why small>' "$REVIEW" && grep -qF -- '- note · fix cap (<N>) exceeded: <k> small fix(es)' "$REVIEW" \
+  && ok "review.md Step 6 shows the over-the-guide-value line and the exceeded note" || bad "review.md format examples missing"
+
 # --- the example-regions helper is unavailable (slice-047) -----------------------------------------------------------
 # This parser no longer decides what a fenced example is; scripts/example-regions.sh does. Without
 # it the script cannot tell a finding line from one parked in an example, so it FAILS rather than
