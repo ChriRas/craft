@@ -1,6 +1,6 @@
 ---
 description: Pause the active slice mid-phase. Records the pause note in the slice plan; slice stays open and resumable. Use when stepping away or context-switching.
-allowed-tools: ["Read", "Edit", "Glob"]
+allowed-tools: ["Bash", "Read", "Edit", "Glob"]
 ---
 
 # /craft:pause — Pause the Active Slice
@@ -26,6 +26,9 @@ Cleanly stop work on a slice without abandoning it. The slice file stays in `.cl
 
 Ask: *"Quick note on where we are and what's next? (one or two sentences — saves you re-deriving later)"*
 
+When the Auto flow's pause action calls this command (`skills/workflow/SKILL.md` → *The pause request*), do not ask: compose
+the note from the current state and show it.
+
 If user provides nothing, the agent composes a minimal note from current state ("Paused at Phase X, sub-task Y/Z — next was: <agent's best guess>"). Show it, let user confirm or override.
 
 ### 2. Update the slice plan
@@ -43,7 +46,14 @@ If user provides nothing, the agent composes a minimal note from current state (
   <user's or agent's note>
   ```
 
-### 3. Confirm
+### 3. Settle a pause request
+
+Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/pause-request.sh" consume --project "<project-root>"` (in CRAFT's own source repo
+`scripts/pause-request.sh`). It settles a pause request recorded during auto flow (`skills/workflow/SKILL.md` → *The
+pause request*) — the marker `.claude/plans/.pause-request` becomes `consumed`, never removed — and is a no-op
+(`CONSUMED=no`) without one. A helper that is missing or fails does not stop the pause: the slice is paused either way.
+
+### 4. Confirm
 
 ```
 ✓ slice-<NNN> paused.

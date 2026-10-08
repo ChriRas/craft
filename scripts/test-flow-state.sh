@@ -205,6 +205,22 @@ profile '- **Mode:** manual'
 plan reviewing
 verdict "--from with manual -> STOP=manual" "STOP=manual" --project "$P" --from reviewing "$PLAN"
 
+# The pause request (slice-075): a live request of THIS session wins over NEXT= and over no-progress; the full matrix
+# (consumed, foreign session, malformed, pre-resume, manual) is test-pause-watch.sh's.
+profile '- **Mode:** auto'
+plan testing
+printf 'STATE=requested\nSESSION=sess-1\nSINCE=2026-10-08T10:00:00Z\n' > "$P/.claude/plans/.pause-request"
+CLAUDE_CODE_SESSION_ID=sess-1 verdict "a live pause request at testing -> STOP=pause-requested (not NEXT=/craft:test)" "STOP=pause-requested" --project "$P" "$PLAN"
+plan implementing
+CLAUDE_CODE_SESSION_ID=sess-1 verdict "a live pause request wins over no-progress (--from implementing) -> STOP=pause-requested" "STOP=pause-requested" --project "$P" --from implementing "$PLAN"
+CLAUDE_CODE_SESSION_ID=sess-2 verdict "a pause request of another session -> no-progress as without it" "STOP=no-progress" --project "$P" --from implementing "$PLAN"
+plan paused
+CLAUDE_CODE_SESSION_ID=sess-1 verdict "a pause request at a paused slice -> STOP=paused (the status stop comes first)" "STOP=paused" --project "$P" "$PLAN"
+profile '- **Mode:** manual'
+plan testing
+CLAUDE_CODE_SESSION_ID=sess-1 verdict "a pause request in manual mode -> STOP=manual" "STOP=manual" --project "$P" "$PLAN"
+rm -f "$P/.claude/plans/.pause-request"
+
 # The --from value is the status AFTER the command's own Pre-flight write (review R1-1): a build that found
 # `planning` writes `implementing` first, so a build that stopped early must read as no progress.
 profile '- **Mode:** auto'

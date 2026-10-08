@@ -49,9 +49,14 @@
 #   unknown-status      no `> Status:` line in the plan's frontmatter (above its first `## `), or a value not in the map
 #   committed, blocked, paused, awaiting-release, awaiting-approval
 #                       the status stops the flow: a human holds the slice or the slice is done
+#   pause-requested     the human sent the pause word (hooks/pause-watch.sh, or the agent's own
+#                       `pause-request.sh request`) and the request is LIVE for this session — scripts/pause-request.sh
+#                       state --plan is the one judge (slice-075). It wins over no-progress and over NEXT: the agent
+#                       finishes the running step, writes the handoff and pauses the slice
+#                       (skills/workflow/SKILL.md -> Auto flow). A marker nobody can read, a missing helper or an
+#                       unattributable session is NO request (a phantom pause would halt a flow the human did not
+#                       stop) — the verdict then goes on as if there were none.
 #   no-progress         --from names the status the plan is still at
-#   (reserved)          pause-requested — slice-075 inserts it before NEXT; an agent that sees a STOP= it does not
-#                       know names the reason and stops.
 #
 # Exit 0 for every verdict; 2 for a usage error, a --project that is not a directory included (nothing on stdout). Needs bash >= 5.0 (scripts/ baseline).
 
@@ -185,6 +190,9 @@ if (( ! plan_ok )); then echo "STOP=no-plan"; exit 0; fi
 if ! verdict="$(status_map "$status")"; then echo "STOP=unknown-status"; exit 0; fi
 kind="${verdict%%$'\t'*}" detail="${verdict#*$'\t'}"
 if [[ "$kind" == "STOP" ]]; then echo "STOP=$detail"; exit 0; fi
+# The pause request (slice-075): asked of its one judge; anything but LIVE=yes is no request.
+pause_live="$("${BASH:-bash}" "$SCRIPT_DIR/pause-request.sh" state --project "$root" --plan "$plan" 2>/dev/null | sed -n 's/^LIVE=//p' | head -1)"
+if [[ "$pause_live" == "yes" ]]; then echo "STOP=pause-requested"; exit 0; fi
 if [[ -n "$from" && "$from" == "$status" ]]; then echo "STOP=no-progress"; exit 0; fi
 echo "NEXT=$detail"
 exit 0

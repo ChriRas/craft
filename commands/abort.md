@@ -169,6 +169,12 @@ mv <slice-plan> .claude/plans/_aborted/
 
 Archival is never the default — only on explicit user request during this command run.
 
+### Step 6a — Settle a pause request
+
+Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/pause-request.sh" consume --project "<project-root>"` (in CRAFT's own source repo `scripts/pause-request.sh`): a pause request
+still pending (`skills/workflow/SKILL.md` → *The pause request*) belonged to the slice just abandoned and must not pause the next
+one. A no-op (`CONSUMED=no`) without a request; a missing or failing helper does not stop the abort.
+
 ### Step 6b — If requested, remove the worktree and branch
 
 If the user answered `[Y]` at Step 2b AND Step 5's two confirmations passed:

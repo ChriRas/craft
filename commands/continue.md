@@ -84,7 +84,7 @@ and only on the user's yes in step 3/4; a no leaves the plan untouched.
    propose a default read from the `## Pause Note`. Never guess from `Phase:` (a plan-time stamp that reads stale).
    Note the record's `Paused-since` too — step 5 needs it after step 3 removes the record.
 3. **Write** — set `Status:` to that value and remove the two pause-record fields (`Paused-status`, `Paused-since`).
-   Keep `## Pause Note` as history, with `> Resumed: <ISO datetime> → <status>` prepended. A handoff marker written with the pause is now stale by derivation — rename
+   Keep `## Pause Note` as history, with `> Resumed: <UTC datetime, YYYY-MM-DDTHH:MM:SSZ> → <status>` prepended (that exact shape: `scripts/pause-request.sh` compares it with a pause request's `SINCE`). A handoff marker written with the pause is now stale by derivation — rename
    nothing (`skills/workflow/SKILL.md` → **Handoff marker lifecycle**).
 4. **Check** — `Read` the plan back: `Status:` must equal the restored value and neither field may remain. On a
    mismatch warn loudly (*"⚠ Resume not written as intended in `<path>` — inspect before continuing"*) and stop.

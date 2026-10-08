@@ -727,7 +727,9 @@ Inspect and reconcile manually before starting the next slice.
 
 <!-- craft:flow -->
 `/craft:commit` is where the auto flow ends (`skills/workflow/SKILL.md` → *Auto flow*): it does not ask
-`scripts/flow-state.sh` and starts nothing afterwards; the closing output's `Recommended next:` stands.
+`scripts/flow-state.sh` and starts nothing afterwards; the closing output's `Recommended next:` stands. It does settle a
+pause request still pending (`bash "${CLAUDE_PLUGIN_ROOT}/scripts/pause-request.sh" consume --project "<project-root>"`, in CRAFT's own source repo `scripts/pause-request.sh`): the flow
+ended, and an unread request must not pause the next slice of this session. A missing or failing helper does not matter here.
 
 ## Autopilot Mode (a slice on an autopilot epic branch)
 

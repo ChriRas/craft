@@ -110,7 +110,13 @@ At the end of each sub-task, emit a compact bundle:
    [continuing in 3s — type 'pause' to stop]
 ```
 
-If user types anything during the countdown, pause. If silence, continue to the next sub-task.
+If user types anything during the countdown, pause. If silence, continue to the next sub-task. (Under auto flow a message
+that is only a pause word is the pause request instead — `skills/workflow/SKILL.md` → *The pause request*: handoff and pause.)
+
+**Pause request (auto flow, interactive runs only).** After the bundle, while a sub-task is still unchecked, ask
+`flow-state.sh` with `--from implementing` as `skills/workflow/SKILL.md` → *Auto flow* → *The pause request* (rule 2)
+describes; on `STOP=pause-requested` run its pause action here instead of starting the next sub-task. Any other output:
+go on. Not in Subagent Mode.
 
 ### 7. Token brake
 
