@@ -152,13 +152,13 @@ reset; marker "$S" "$EPIC"; tap "$S" -60 150000
 touch -t "$(stamp "$((NOW - 240))")" "$TAP"
 case_ "a tap 240 s old is still a reading → block" "$HUMAN" block
 
-echo "== the hook: the threshold on recache_tokens_if_cold (default 100000)"
-reset; marker "$S" "$EPIC"; tap "$S" -60 99999
-case_ "99999 tokens (below the default) → pass" "$HUMAN" pass
-tap "$S" -60 100000
-case_ "100000 tokens (at the default) → block" "$HUMAN" block
-tap "$S" -60 100001
-case_ "100001 tokens → block" "$HUMAN" block
+echo "== the hook: the threshold on recache_tokens_if_cold (default 150000)"
+reset; marker "$S" "$EPIC"; tap "$S" -60 149999
+case_ "149999 tokens (below the default) → pass" "$HUMAN" pass
+tap "$S" -60 150000
+case_ "150000 tokens (at the default) → block" "$HUMAN" block
+tap "$S" -60 150001
+case_ "150001 tokens → block" "$HUMAN" block
 profile '## Autopilot
 
 - **Cache-guard-recache-tokens:** 500000'
@@ -183,15 +183,17 @@ profile '## Operational Language
 
 - **Cache-guard-recache-tokens:** 500000'
 tap "$S" -60 150000
-case_ "the key outside ## Autopilot is not read → default 100000, 150000 tokens → block" "$HUMAN" block
+case_ "the key outside ## Autopilot is not read → default 150000, 150000 tokens → block" "$HUMAN" block
+tap "$S" -60 149999
+case_ "the key outside ## Autopilot is not read → default 150000, 149999 tokens → pass" "$HUMAN" pass
 for bad_value in abc 0 -5 1.5 '1 000' '' 99999999999999999999x; do
   profile "## Autopilot
 
 - **Cache-guard-recache-tokens:** $bad_value"
   tap "$S" -60 150000
-  case_ "invalid profile value '$bad_value' → the default (100000): 150000 tokens → block" "$HUMAN" block
-  tap "$S" -60 99999
-  case_ "invalid profile value '$bad_value' → the default (100000): 99999 tokens → pass" "$HUMAN" pass
+  case_ "invalid profile value '$bad_value' → the default (150000): 150000 tokens → block" "$HUMAN" block
+  tap "$S" -60 149999
+  case_ "invalid profile value '$bad_value' → the default (150000): 149999 tokens → pass" "$HUMAN" pass
 done
 noprofile
 
@@ -405,9 +407,9 @@ out="$(arm sideways)"; expect "an unknown command is an error" "$(printf '%s\n' 
 expect "the helper's restart text is the hook's (one definition)" "$(val "$(arm arm "$EPIC")" LINE | sed 's/.*→ //')" "$("$OLD_BASH" "$HOOK" --restart "$EPIC")"
 
 echo "== the profile key"
-expect "usage-state.sh declares the key in DEFAULTS with 100000" "$(sed -n 's/^DEFAULTS = {\(.*\)}$/\1/p' "$USAGE" | tr -d '" ' | tr ',' '\n' | sed -n 's/^Cache-guard-recache-tokens://p')" "100000"
+expect "usage-state.sh declares the key in DEFAULTS with 150000" "$(sed -n 's/^DEFAULTS = {\(.*\)}$/\1/p' "$USAGE" | tr -d '" ' | tr ',' '\n' | sed -n 's/^Cache-guard-recache-tokens://p')" "150000"
 hook_default="$(sed -n 's/^DEFAULT_RECACHE_TOKENS=\([0-9]*\)$/\1/p' "$HOOK")"
-expect "the hook's default threshold equals the helper's DEFAULT (bound copy)" "$hook_default" "100000"
+expect "the hook's default threshold equals the helper's DEFAULT (bound copy)" "$hook_default" "150000"
 hook_stale="$(sed -n 's/^STALE_S=\([0-9]*\)$/\1/p' "$HOOK")"
 usage_stale="$(sed -n 's/^STALE_S = \([0-9]*\)$/\1/p' "$USAGE")"
 [[ -n "$hook_stale" && "$hook_stale" == "$usage_stale" ]] && ok "the hook's stale-tap age equals usage-state.sh's STALE_S ($usage_stale s — bound copy)" || bad "hook STALE_S '$hook_stale' ≠ usage-state.sh STALE_S '$usage_stale'"
@@ -428,7 +430,7 @@ for bad_value in abc 0 -5 1.5 ''; do
 
 - **Cache-guard-recache-tokens:** $bad_value"
   w="$(upr | grep '^WARN=' | head -1)"
-  expect "usage-state.sh warns about the invalid value '$bad_value' and names the default" "$w" "WARN=Autopilot → Cache-guard-recache-tokens: '$bad_value' invalid — a positive integer; using 100000"
+  expect "usage-state.sh warns about the invalid value '$bad_value' and names the default" "$w" "WARN=Autopilot → Cache-guard-recache-tokens: '$bad_value' invalid — a positive integer; using 150000"
 done
 profile '## Autopilot
 

@@ -38,7 +38,7 @@
 #   - **Budget-before-slice:** 85   LIMIT_BEFORE    used + forecast above it → do not start
 #   - **Budget-in-slice:** 95       LIMIT_DURING    five_hour at or above it → stop at the boundary
 #   - **Budget-seven-day:** 90      LIMIT_SEVEN_DAY seven_day at or above it → do not start / go on
-#   - **Cache-guard-recache-tokens:** 100000   not a budget — the threshold of hooks/cache-guard.sh (slice-060): below
+#   - **Cache-guard-recache-tokens:** 150000   not a budget — the threshold of hooks/cache-guard.sh (slice-060): below
 #                                       that many tokens a cold-cache re-write is cheaper than a restart. A positive
 #                                       integer; this helper only validates it (hooks/cache-guard.sh reads it itself — it is
 #                                       bash 3.2 and cannot call this helper) and prints no LIMIT_ line for it.
@@ -156,7 +156,7 @@ import json, math, os, re, sys, time
 gate, tap, profile, blanked, slice_id, now_arg, epic_warn, check, expect = sys.argv[1:10]
 now = int(now_arg) if now_arg else int(time.time())
 STALE_S = 300
-DEFAULTS = {"Budget-before-slice": 85, "Budget-in-slice": 95, "Budget-seven-day": 90, "Cache-guard-recache-tokens": 100000}
+DEFAULTS = {"Budget-before-slice": 85, "Budget-in-slice": 95, "Budget-seven-day": 90, "Cache-guard-recache-tokens": 150000}
 OVERAGE_PCT = 99
 warns = [epic_warn] if epic_warn else []
 

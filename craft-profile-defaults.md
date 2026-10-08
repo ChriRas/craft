@@ -30,7 +30,7 @@ This file documents the default values, the resolution rules, and the validation
 | Autopilot | Budget-before-slice | `85` | An autopilot run starts no slice while the 5-hour usage plus the forecast is above it. |
 | Autopilot | Budget-in-slice | `95` | A builder in an autopilot run stops at the next boundary of its spawn — a sub-task, a phase, a debug attempt — at or above it (5-hour usage). |
 | Autopilot | Budget-seven-day | `90` | An autopilot run starts no further slice at or above it (weekly usage). |
-| Autopilot | Cache-guard-recache-tokens | `100000` | Not a budget — the cache guard's threshold (`hooks/cache-guard.sh`): while an autopilot session waits on the human, a prompt that arrives after its prompt cache expired is blocked, with the restart instruction, when re-writing the cache would cost at least this many tokens. |
+| Autopilot | Cache-guard-recache-tokens | `150000` | Not a budget — the cache guard's threshold (`hooks/cache-guard.sh`): while an autopilot session waits on the human, a prompt that arrives after its prompt cache expired is blocked, with the restart instruction, when re-writing the cache would cost at least this many tokens. |
 | Operational Language | Chat | system language | The language `/craft:prime` adopts for the session. |
 | Operational Language | Commits | `English` | Commit-message language (`/craft:commit`). |
 | Operational Language | Comments | `English` | Code-comment language (`/craft:build`, `/craft:review`). |
