@@ -184,6 +184,8 @@ At the end of an interactive run, after the closing output above, run the **Auto
 `${CLAUDE_PLUGIN_ROOT}/scripts/flow-state.sh` (in CRAFT's own source repo: `scripts/flow-state.sh`) and act on its
 `NEXT=` / `STOP=` only.
 
+<!-- craft:pause-word --> **A message that is only a pause word** (*The pause request*, `skills/workflow/SKILL.md`) that reaches you while this command runs — in auto and manual flow alike, whether or not the hook fired — makes you do four things in this order: run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/pause-request.sh" request --project "<project-root>"` first (in CRAFT's own source repo: `scripts/pause-request.sh`), finish the running step, run `/craft:handoff`, then `/craft:pause`.
+
 ## Subagent Mode (when called by `/craft:execute`)
 
 When invoked by the `slice-builder` subagent during an autonomous `/craft:execute` run, the human cannot perform sub-step 5b in real time. The subagent therefore takes this path instead:

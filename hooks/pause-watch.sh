@@ -1,28 +1,31 @@
 #!/usr/bin/env bash
 #
-# craft (Coding with Rules, Autonomy, Feedback, Tests) — UserPromptSubmit hook: the pause request of the auto slice
-# flow (slice-075, D42)
+# craft (Coding with Rules, Autonomy, Feedback, Tests) — UserPromptSubmit hook: the pause request of the slice flow
+# (slice-075, D42; both flow modes since slice-077)
 #
 # WHY ------------------------------------------------------------------------
-# During auto slice flow the human can stop the flow by sending the one word `pause` while a phase runs. Claude Code
-# queues such a message and delivers it at the next tool boundary of the running turn. This hook records it the
-# moment it is submitted — a marker the agent reads at the next sub-task or phase boundary through flow-state.sh
-# (STOP=pause-requested), then finishes the running step, writes the handoff and pauses the slice the normal way.
-# Whether UserPromptSubmit fires for a message queued mid-turn is NOT documented; the agent records a queued pause
-# word itself (scripts/pause-request.sh request), so the feature works either way — this hook is the early path,
-# and the only one while the agent is idle between turns.
+# While a slice is in flight the human can ask for a pause by sending the one word `pause`. This hook records such a
+# prompt the moment it is submitted — a marker the agent reads at the next sub-task or phase boundary through
+# flow-state.sh (STOP=pause-requested), then finishes the running step, writes the handoff and pauses the slice the
+# normal way.
+# THE FINDING (human re-test T3, 2026-10-08): UserPromptSubmit did NOT fire for a message delivered mid-turn. Claude Code
+# queues a message sent while a turn runs and hands it to the agent as an attachment at a tool boundary; no prompt is
+# submitted, so no hook sees it. This hook therefore covers only a pause word sent as a PROMPT OF ITS OWN (the agent
+# idle between turns, or a queued command Claude Code holds until the turn ends and then submits — `/craft:pause` is
+# one). For a word delivered mid-turn the agent's own `scripts/pause-request.sh request` is the path
+# (skills/workflow/SKILL.md -> The pause request); this hook is the early path for the prompt-of-its-own case.
+# The mode does not matter (decision [G], re-test T5): the hook reads no profile, so a pause word works under
+# `Mode: manual` as under `Mode: auto`.
 #
 # WHAT -----------------------------------------------------------------------
 # Reads the UserPromptSubmit payload on stdin and writes .claude/plans/.pause-request when ALL of these hold:
 #   1. the prompt, trimmed and case-folded, is exactly `pause`, `pausieren` or `/craft:pause` (a message that merely
 #      contains the word, `stop` and `halt` are none — too easily meant otherwise),
 #   2. the session id is a marker-safe id (the marker is bound to ONE session; /clear changes it),
-#   3. the project runs auto flow: its profile's `## Slice Flow` -> `Mode:` is not `manual` (default auto; lines in a
-#      fenced block or an HTML comment are no content; `Execution -> Mode` is another key),
-#   4. a slice is in flight: some .claude/plans/slice-*.md has a frontmatter `> Status:` (above its first `## `) of
+#   3. a slice is in flight: some .claude/plans/slice-*.md has a frontmatter `> Status:` (above its first `## `) of
 #      implementing, testing, review, refactoring, reviewing or committing.
 # It NEVER prints anything and NEVER blocks — the prompt always passes (the agent also sees the word and acts on it) —
-# and always exits 0. FAIL OPEN: a malformed payload, an unreadable plan or profile, an unwritable marker, no
+# and always exits 0. FAIL OPEN: a malformed payload, an unreadable plan, an unwritable marker, no
 # python3 — anything this hook cannot classify records nothing and lets the prompt through, silently.
 #
 # The marker format is defined in scripts/pause-request.sh (the reader and settler); this hook writes the same lines:
@@ -47,32 +50,6 @@ proj = sys.argv[1]
 WORDS = ("pause", "pausieren", "/craft:pause")
 ACTIVE = ("implementing", "testing", "review", "refactoring", "reviewing", "committing")
 SID_RE = r"[A-Za-z0-9._-]+"
-
-
-def flow_is_auto():
-    try:
-        with open(os.path.join(proj, ".claude/project/craft-profile.md"), encoding="utf-8") as fh:
-            text = fh.read()
-    except Exception:
-        return True                       # no profile: the default is auto (an unreadable one cannot say otherwise)
-    text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
-    out, fenced = [], False
-    for line in text.split("\n"):
-        if re.match(r"^[ \t]*(```|~~~)", line):
-            fenced = not fenced
-            continue
-        if not fenced:
-            out.append(line)
-    text = "\n".join(out)
-    block = re.search(r"^## Slice Flow[ \t]*\r?$(.*?)(?=^## |\Z)", text, re.M | re.S)
-    if not block:
-        return True
-    modes = []
-    for raw in block.group(1).split("\n"):
-        m = re.fullmatch(r"-[ \t]+\*\*Mode:\*\*[ \t]*(.*?)", raw.rstrip("\r").strip())
-        if m:
-            modes.append(m.group(1))
-    return not modes or modes != ["manual"]
 
 
 def slice_in_flight():
@@ -105,7 +82,7 @@ def hook():
         return
     if prompt.strip().lower() not in WORDS:
         return
-    if not flow_is_auto() or not slice_in_flight():
+    if not slice_in_flight():
         return
     marker = os.path.join(proj, ".claude/plans/.pause-request")
     tmp = "%s.%d.tmp" % (marker, os.getpid())

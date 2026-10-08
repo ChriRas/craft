@@ -24,7 +24,8 @@
 #                status it found (skills/workflow/SKILL.md -> Auto flow lists one value per command). A phase that ends in
 #                the status it began in has not advanced (a gated review, a [U] iteration, a pause) and does not chain:
 #                STOP=no-progress.
-#   --mode       the profile only (for /craft:prime, /craft:recap Step 4 and hooks/pause-watch.sh): MODE= and WARN= lines, no plan, no verdict.
+#   --mode       the profile only (for /craft:prime and /craft:recap Step 4): MODE= and WARN= lines, no plan, no verdict.
+#                (hooks/pause-watch.sh no longer reads the mode since slice-077: a pause word works in both modes.)
 #   --map        the status -> command map, one `<status><TAB>NEXT<TAB>/craft:<cmd>` or
 #                `<status><TAB>STOP<TAB><reason>` line per status. test-workflow-status-graph.sh binds it to the
 #                phase graph in skills/workflow/SKILL.md in both directions (rules.md tabu: an unbound copy of the
@@ -42,20 +43,23 @@
 #   WARN=<text>                      zero or more
 #   NEXT=/craft:<phase>   OR   STOP=<reason>      exactly one         (not with --mode)
 #
-# STOP reasons, first match wins:
+# STOP reasons, first match wins (pause-requested comes first for a plan in flight, see its line):
+#   pause-requested     the human sent the pause word (hooks/pause-watch.sh, or the agent's own
+#                       `pause-request.sh request`) and the request is LIVE for this session — scripts/pause-request.sh
+#                       state --plan is the one judge (slice-075). Since slice-077 (re-test T5, decision [G]) it holds in
+#                       BOTH modes: for a readable plan whose status the map sends to NEXT= (a plan in flight) it comes
+#                       ahead of invalid-mode and manual. Every other verdict keeps its order below — under `manual` a
+#                       committed, paused or blocked plan, or a missing one, still prints STOP=manual. It wins over
+#                       no-progress and over NEXT: the agent finishes the running step, writes the handoff and pauses the
+#                       slice (skills/workflow/SKILL.md -> Auto flow). A marker nobody can read, a missing helper or an
+#                       unattributable session is NO request (a phantom pause would halt a flow the human did not
+#                       stop) — the verdict then goes on as if there were none.
 #   invalid-mode        the mode is not auto / manual
 #   manual              Mode: manual — today's behavior, one command per phase
 #   no-plan             the plan file is missing or not a file
 #   unknown-status      no `> Status:` line in the plan's frontmatter (above its first `## `), or a value not in the map
 #   committed, blocked, paused, awaiting-release, awaiting-approval
 #                       the status stops the flow: a human holds the slice or the slice is done
-#   pause-requested     the human sent the pause word (hooks/pause-watch.sh, or the agent's own
-#                       `pause-request.sh request`) and the request is LIVE for this session — scripts/pause-request.sh
-#                       state --plan is the one judge (slice-075). It wins over no-progress and over NEXT: the agent
-#                       finishes the running step, writes the handoff and pauses the slice
-#                       (skills/workflow/SKILL.md -> Auto flow). A marker nobody can read, a missing helper or an
-#                       unattributable session is NO request (a phantom pause would halt a flow the human did not
-#                       stop) — the verdict then goes on as if there were none.
 #   no-progress         --from names the status the plan is still at
 #
 # Exit 0 for every verdict; 2 for a usage error, a --project that is not a directory included (nothing on stdout). Needs bash >= 5.0 (scripts/ baseline).
@@ -184,15 +188,19 @@ printf 'MODE=%s\n' "$mode"
 printf 'STATUS=%s\n' "$status"
 emit_warns
 
+# The pause request (slice-075; both modes since slice-077, decision [G]): asked of its one judge; anything but
+# LIVE=yes is no request. It is asked ahead of the mode stops, but only for a readable plan whose status the map sends
+# to NEXT= (a plan in flight): a manual-mode plan that is committed, paused or blocked, or missing, keeps STOP=manual.
+if (( plan_ok )) && verdict="$(status_map "$status")" && [[ "${verdict%%$'\t'*}" == "NEXT" ]]; then
+  pause_live="$("${BASH:-bash}" "$SCRIPT_DIR/pause-request.sh" state --project "$root" --plan "$plan" 2>/dev/null | sed -n 's/^LIVE=//p' | head -1)"
+  if [[ "$pause_live" == "yes" ]]; then echo "STOP=pause-requested"; exit 0; fi
+fi
 if [[ "$mode" == "invalid" ]]; then echo "STOP=invalid-mode"; exit 0; fi
 if [[ "$mode" == "manual" ]]; then echo "STOP=manual"; exit 0; fi
 if (( ! plan_ok )); then echo "STOP=no-plan"; exit 0; fi
 if ! verdict="$(status_map "$status")"; then echo "STOP=unknown-status"; exit 0; fi
 kind="${verdict%%$'\t'*}" detail="${verdict#*$'\t'}"
 if [[ "$kind" == "STOP" ]]; then echo "STOP=$detail"; exit 0; fi
-# The pause request (slice-075): asked of its one judge; anything but LIVE=yes is no request.
-pause_live="$("${BASH:-bash}" "$SCRIPT_DIR/pause-request.sh" state --project "$root" --plan "$plan" 2>/dev/null | sed -n 's/^LIVE=//p' | head -1)"
-if [[ "$pause_live" == "yes" ]]; then echo "STOP=pause-requested"; exit 0; fi
 if [[ -n "$from" && "$from" == "$status" ]]; then echo "STOP=no-progress"; exit 0; fi
 echo "NEXT=$detail"
 exit 0

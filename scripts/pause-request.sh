@@ -4,13 +4,14 @@
 # pause-request.sh — the pause request of the auto slice flow: record it, read it, settle it (slice-075, D42)
 #
 # WHY ------------------------------------------------------------------------
-# During auto slice flow (skills/workflow/SKILL.md -> Auto flow) the human can stop the flow by sending the one
+# During a slice in flight (skills/workflow/SKILL.md -> Auto flow) the human can ask for a pause by sending the one
 # word `pause` (also `pausieren`, `/craft:pause`). Claude Code delivers such a message at the next tool boundary of
 # the running turn, so the request has to outlive that turn's current step: it is recorded in a marker, and the
 # agent reads it at the next sub-task or phase boundary through flow-state.sh (STOP=pause-requested). Two writers
 # record it — the UserPromptSubmit hook hooks/pause-watch.sh, and the agent itself via `request` when it sees the
-# queued word in its own context (whether the hook fires for a queued message is undocumented, so neither path
-# is trusted alone). Reading and settling go through this helper only: the agent never parses the marker.
+# queued word in its own context. THE FINDING (human re-test T3, 2026-10-08, slice-077): the hook did NOT fire for a
+# message delivered mid-turn, so it covers only a pause word sent as a prompt of its own; for a word delivered mid-turn
+# this `request` is the path. Both flow modes (decision [G]). Reading and settling go through this helper only: the agent never parses the marker.
 #
 # WHAT -----------------------------------------------------------------------
 #   pause-request.sh request [--project <root>]

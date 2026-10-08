@@ -67,7 +67,7 @@ Add or overwrite the `## Handoff` section in the slice plan:
 ### 3. Settle a pause request
 
 Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/pause-request.sh" consume --project "<project-root>"` (in CRAFT's own source repo
-`scripts/pause-request.sh`): a pause request recorded during auto flow (`skills/workflow/SKILL.md` → *The pause request*)
+`scripts/pause-request.sh`): a pause request recorded in either flow mode (`skills/workflow/SKILL.md` → *The pause request*)
 is answered by the handoff and the pause that follows it — the marker becomes `consumed`, never removed. A no-op
 (`CONSUMED=no`) without a request; a missing or failing helper does not stop the handoff.
 

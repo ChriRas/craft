@@ -523,7 +523,7 @@ together with the no-click fallback ("where the tool is not available, the full 
 the sentence cannot be a pointer: no session ever read this section, so the sites that only pointed here never clicked.
 That sentence is the one deliberate copy — an agent that needs it is by definition one that did not read this file — and
 `scripts/test-choice-prompts.sh` binds it (the marker, the tool name on the same line, the declared site count per file,
-and the cache-guard stops below as `<!-- craft:choice typed -->`). The full rule stays here: the limits,
+the sequence sites as `<!-- craft:choice sequence -->`, and the cache-guard stops below as `<!-- craft:choice typed -->`). The full rule stays here: the limits,
 splitting, follow-ups, the fallback and the cache-guard exception. A site sentence may add its own option list; it restates no
 rule.
 
@@ -543,6 +543,11 @@ printing a menu to type into:
 - **The tool's limits** — 2–4 options per question plus the automatic "Other", up to four questions per call. A menu of
   more than four options is split into steps (or grouped, the group picked first) and nothing is dropped; an option
   that needs a parameter (`[R] <ids> — <note>`, "Other language") asks for it in a follow-up question after the click.
+- **Dependent questions are asked one call at a time** (D40, slice-077). A question that depends on an earlier answer, or
+  whose point is lost when the earlier one is No (a confirmation chain such as `/craft:abort`'s), is asked in an
+  `AskUserQuestion` call of its own, the next one only after the answer; a No ends the chain before any further question.
+  Only independent questions share a call. A site that is such a chain carries `<!-- craft:choice sequence -->` and the
+  phrase ``in an `AskUserQuestion` call of its own`` on that line, bound by `scripts/test-choice-prompts.sh`.
 - **A vague answer to a menu** (text under "Other" that picks no option — "kind of works, but…") is not interpreted: ask
   the question again.
 
@@ -600,11 +605,11 @@ headless `claude -p` session): there each command ends as it always did.
 3. **`NEXT=/craft:<phase>`** → say `Auto flow → /craft:<phase>` and start that phase yourself, the way the user's typed
    command would run it — its Pre-flight, its procedure, its human decisions as clicks (use the `Skill` tool where the
    session offers it; else read the command's file and follow it). That phase ends with this same step.
-4. **`STOP=<reason>`** → do not start anything. `STOP=manual` is silent: the command ends with its own `Recommended
+4. **`STOP=<reason>`** → do not start anything. `STOP=manual` is silent (the pause word is the exception to "`manual` = before D42": a live request prints `STOP=pause-requested` in manual mode too): the command ends with its own `Recommended
    next:` as before. Any other reason is named in one line, `Auto flow stops: <reason> — <what that means>`, above the
    command's own `Recommended next:`: `committed` — the slice is done, the flow ends here; `blocked`, `paused`,
    `awaiting-release`, `awaiting-approval` — a human holds the slice (`/craft:unblock`, `/craft:continue`,
-   `/craft:release`, `/craft:commit`); `pause-requested` — you sent the pause word, run the pause action (*The pause
+   `/craft:release`, `/craft:commit`); `pause-requested` — you sent the pause word (in either mode), run the pause action (*The pause
    request* below) instead of the generic line; `no-progress` — the phase ended in the status it began in, so it is waiting for
    you (a gated review, a `[U]` iteration, a pause) — say what it waits for; `invalid-mode` — the profile's value is
    neither `auto` nor `manual` (`/craft:prime` warns); `no-plan`, `unknown-status` — the plan cannot be read; any reason
@@ -630,26 +635,35 @@ ends with the output's own `Next: /craft:build` line as before. The click follow
 a partial write). With `manual` it asks nothing.
 
 **Manual.** `Mode: manual` is exactly the behavior before D42: one command per phase, each ending with `Recommended
-next:`.
+next:` — except the pause word, which works in manual flow as in auto flow (*The pause request*).
 
-**The pause request (slice-075).** In auto flow the human stops the flow by sending a message that is **only** `pause`,
-`pausieren` or `/craft:pause` (trimmed, any case — `stop` and `halt` are deliberately no pause words, and a message that
-merely contains the word is no request). Claude Code delivers a message sent while a turn runs at the turn's next tool
-boundary, so the request must outlive the step in flight: it is a marker, `.claude/plans/.pause-request` (kept as state,
-never removed), recorded twice over — by the `UserPromptSubmit` hook `hooks/pause-watch.sh`, and by you. Three rules,
-all through `scripts/pause-request.sh` / `flow-state.sh` (the same plugin-root and project-root as above); you never
-parse the marker:
+**The pause request (slice-075; both modes since slice-077).** The human pauses a slice in flight — in auto flow and in
+`Mode: manual` alike (D42 amendment, decision `[G]`) — by sending a message that is **only** `pause`, `pausieren` or
+`/craft:pause` (trimmed, any case — `stop` and `halt` are deliberately no pause words, and a message that merely contains
+the word is no request). Claude Code delivers a message sent while a turn runs at the turn's next tool boundary, so the
+request must outlive the step in flight: it is a marker, `.claude/plans/.pause-request` (kept as state, never removed),
+recorded by you and, for a word sent as a prompt of its own, by the `UserPromptSubmit` hook `hooks/pause-watch.sh`.
+**The finding (re-test T3, 2026-10-08):** the hook did not fire for a message delivered mid-turn. It covers only a pause
+word sent as a prompt of its own (the agent idle, or a held command delivered at turn end); for a word delivered
+mid-turn your own `request` (rule 1) is the only path. `/craft:pause` is a pause word too, but it is a **command**: Claude
+Code holds a queued command until the turn ends, so it takes effect only then and cannot stop a running flow mid-turn
+the way `pause` / `pausieren` can — whatever the flow did in that turn stands. Four rules, all through
+`scripts/pause-request.sh` / `flow-state.sh` (the same plugin-root and project-root as above); you never parse the marker:
 
 1. **Record it.** When a user message that is only a pause word reaches you — in the prompt, or delivered mid-turn
    between tool results — run `bash "<plugin-root>/scripts/pause-request.sh" request --project "<project-root>"` before
-   anything else (the hook may or may not have fired for a queued message; `request` is idempotent). Only for an
-   interactive slice in flight under `Mode: auto` (at `implementing`, `testing`, `review`, `refactoring`, `reviewing` or `committing` —
-   a slice still at `planning` is not in flight: a "pause" typed in the planning dialogue is too easily meant otherwise); in `manual` the word keeps its old meaning (the bundle countdown's
-   "type 'pause' to stop"), and in Subagent Mode and an autopilot run there is no flow to pause.
+   anything else (the hook may or may not have fired; `request` is idempotent). Only for an interactive slice in flight
+   (at `implementing`, `testing`, `review`, `refactoring`, `reviewing` or `committing` — a slice still at `planning` is
+   not in flight: a "pause" typed in the planning dialogue is too easily meant otherwise), in either flow mode; in
+   Subagent Mode and an autopilot run there is no flow to pause. At a countdown (build's sub-task bundle, refactor's item
+   bundle, debug's attempt bundle) a message that is only a pause word is the slice's pause request, and any other input
+   halts only the countdown or the debug loop. Each phase command states this at its site in one line marked
+   `<!-- craft:pause-word -->` (bound by `scripts/test-pause-watch.sh`).
 2. **Check it at every boundary.** At each phase end the helper call above already includes it: a live request of this
-   session prints `STOP=pause-requested` (it wins over `NEXT=` and over `no-progress`). `/craft:build` also asks at each
-   **sub-task boundary** — after the bundle, while a sub-task is still unchecked — with `--from implementing`; there only
-   `STOP=pause-requested` matters, any other output means the build goes on with the next sub-task.
+   session prints `STOP=pause-requested` (it wins over `NEXT=` and over `no-progress`; under `Mode: manual` too, for a
+   slice in flight). `/craft:build` also asks at each **sub-task boundary** — after the bundle, while a sub-task is still
+   unchecked — with `--from implementing`, in both modes; there only `STOP=pause-requested` matters, any other output
+   means the build goes on with the next sub-task.
 3. **The pause action.** On `STOP=pause-requested`: finish the running step (never stop in the middle of an edit — the
    sub-task or phase step in flight is completed, or left unchecked with its state in the note), say `Auto flow stops:
    pause-requested — you asked to pause`, then write the handoff (`/craft:handoff`) and pause the slice
@@ -657,7 +671,7 @@ parse the marker:
    (`pause-request.sh consume`), so `/craft:continue` later resumes the slice the usual way and the old request cannot
    fire again; a request made before a resume is no request (`state --plan` reads the plan's `> Resumed:` line). Start
    nothing after it. A pause word that reaches you while **no step is running** (a new prompt at a boundary) needs no
-   boundary: record it (rule 1) and run the pause action at once.
+   boundary: record it (rule 1) and run the pause action at once; for `/craft:pause` that run is the command itself, nothing runs before it (`commands/pause.md` → Pre-flight).
 4. **Settle what is not read.** A request the flow never reads — the slice ends in another `STOP=` (Auto flow step 5),
    `/craft:commit` closes it, `/craft:abort` drops it — is consumed there (`pause-request.sh consume`), so it cannot pause
    the next slice of this session.

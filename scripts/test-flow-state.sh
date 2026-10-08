@@ -218,7 +218,24 @@ plan paused
 CLAUDE_CODE_SESSION_ID=sess-1 verdict "a pause request at a paused slice -> STOP=paused (the status stop comes first)" "STOP=paused" --project "$P" "$PLAN"
 profile '- **Mode:** manual'
 plan testing
-CLAUDE_CODE_SESSION_ID=sess-1 verdict "a pause request in manual mode -> STOP=manual" "STOP=manual" --project "$P" "$PLAN"
+CLAUDE_CODE_SESSION_ID=sess-1 verdict "a pause request in manual mode, plan in flight -> STOP=pause-requested (slice-077, decision [G])" "STOP=pause-requested" --project "$P" "$PLAN"
+plan paused
+CLAUDE_CODE_SESSION_ID=sess-1 verdict "manual + a pause request at a paused plan -> STOP=manual" "STOP=manual" --project "$P" "$PLAN"
+plan committed
+CLAUDE_CODE_SESSION_ID=sess-1 verdict "manual + a pause request at a committed plan -> STOP=manual" "STOP=manual" --project "$P" "$PLAN"
+CLAUDE_CODE_SESSION_ID=sess-1 verdict "manual + a pause request, plan file missing -> STOP=manual" "STOP=manual" --project "$P" "$P/.claude/plans/nope.md"
+plan testing
+CLAUDE_CODE_SESSION_ID=sess-2 verdict "manual + a pause request of another session -> STOP=manual" "STOP=manual" --project "$P" "$PLAN"
+profile '- **Mode:** sideways'
+CLAUDE_CODE_SESSION_ID=sess-1 verdict "invalid mode + a live pause request, plan in flight -> STOP=pause-requested" "STOP=pause-requested" --project "$P" "$PLAN"
+plan paused
+CLAUDE_CODE_SESSION_ID=sess-1 verdict "invalid mode + a pause request at a paused plan -> STOP=invalid-mode" "STOP=invalid-mode" --project "$P" "$PLAN"
+rm -f "$P/.claude/plans/.pause-request"
+profile '- **Mode:** manual'
+plan testing
+verdict "manual without a pause request -> STOP=manual" "STOP=manual" --project "$P" "$PLAN"
+profile '- **Mode:** sideways'
+verdict "invalid mode without a pause request -> STOP=invalid-mode" "STOP=invalid-mode" --project "$P" "$PLAN"
 rm -f "$P/.claude/plans/.pause-request"
 
 # The --from value is the status AFTER the command's own Pre-flight write (review R1-1): a build that found

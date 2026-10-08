@@ -113,14 +113,15 @@ For each attempt:
      Verification: ❌ — <output snippet>
      Negative check: ✓
      Next hypothesis: <one-liner>
-     [continuing in 3s — type 'pause' to stop]
+     [continuing in 3s — type 'pause' to pause the slice, anything else to halt the loop]
    ```
 
 #### Loop exit conditions
 
 - **Success** — Verification passes AND negative check passes. Agent exits the loop, reports the working fix with diff, and offers to promote the verification command to a permanent regression test (see below).
 - **5 attempts exhausted** — Agent stops, transitions to Step 4.
-- **User interrupts** — Any input during the auto-continue countdown pauses the loop. The user can ask for the attempt log, request a strategy change, or escalate.
+- **User interrupts** — A message that is only a pause word during the auto-continue countdown is the slice's pause request (`skills/workflow/SKILL.md` → *The pause request*). Any other input pauses only the loop: the user can ask for the attempt log, request a strategy change, or escalate (`stop` is no pause word, so it halts only the loop).
+  <!-- craft:pause-word --> **A message that is only a pause word** (*The pause request*, `skills/workflow/SKILL.md`) that reaches you while this loop runs — in auto and manual flow alike, whether or not the hook fired — makes you do four things in this order: run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/pause-request.sh" request --project "<project-root>"` first (in CRAFT's own source repo: `scripts/pause-request.sh`), finish the running attempt (its `## Bug Fix Attempts` entry written), run `/craft:handoff`, then `/craft:pause`. The pause note names the attempt count and the frozen protocol; `/craft:continue` resumes the slice's phase, not the loop.
 
 #### Forbidden during the loop
 

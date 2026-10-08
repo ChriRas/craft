@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # craft (Coding with Rules, Autonomy, Feedback, Tests)
-# test-pause-watch.sh — self-contained tests for the pause request of the auto slice flow (slice-075, D42):
+# test-pause-watch.sh — self-contained tests for the pause request of the slice flow (slice-075, D42; both modes since slice-077):
 # the UserPromptSubmit hook hooks/pause-watch.sh, the marker helper scripts/pause-request.sh (request / state /
 # consume), flow-state.sh's STOP=pause-requested, the hooks.json registration, and the sites of the rule. Run it
 # directly:
@@ -13,8 +13,13 @@
 # case runs twice — under the bash this harness runs in and under /bin/bash — and a run that prints error text on
 # stderr fails (a 3.2 run skips a failing command and carries on green). The hook is FAIL-OPEN and silent: whatever
 # it cannot classify, the prompt passes — it never prints anything on stdout, never a block.
-# What this harness cannot show: that Claude Code fires UserPromptSubmit for a message queued while a turn runs
-# (undocumented) — that is the slice's interactive Phase-5 test, not a harness case.
+# What this harness cannot show: the hook's reach. THE FINDING (human re-test T3, 2026-10-08): UserPromptSubmit did NOT
+# fire for a message delivered mid-turn, so the hook covers only a pause word sent as a prompt of its own, and for a word
+# delivered mid-turn the agent's own `request` is the path. A harness cannot send a prompt to Claude Code, so what the
+# agent DOES on seeing a word (record it, finish the step, write the handoff, pause; one handoff for `/craft:pause`;
+# one call per question) is shown by the interactive re-test only (T3-T5, the debug countdown, a queued /craft:pause).
+# The pins below bind TEXT: the marked pause-word sentence at six declared sites, pause.md's exits and its handoff
+# bullet, rule 3's pointer. A pin that is green says the sentence is still there, never that the agent follows it.
 # It writes nothing outside its own mktemp directory (removed on exit).
 
 set -uo pipefail
@@ -157,21 +162,21 @@ reset; mkdir "$MARKER"    # a directory where the marker file belongs: the write
 hook_case "a directory in the marker's place → none, no stderr" "$(payload 'pause')" none
 rmdir "$MARKER"
 
-echo "== the hook: only an auto-flow session with an active slice"
+echo "== the hook: both flow modes (slice-077, decision [G]) — only a slice in flight matters"
 reset; profile $'## Slice Flow\n\n- **Mode:** manual'
-hook_case "Mode: manual → none (the countdown's own pause stays)" "$(payload 'pause')" none
+hook_case "Mode: manual → request (a pause word works in both modes)" "$(payload 'pause')" request
 reset; profile $'## Slice Flow\n\n- **Mode:** auto'
 hook_case "Mode: auto → request" "$(payload 'pause')" request
+reset; profile $'## Slice Flow\n\n- **Mode:** sideways'
+hook_case "an invalid Mode → request (the hook reads no profile)" "$(payload 'pause')" request
 reset; profile $'## Slice Flow\n\n```\n- **Mode:** manual\n```\n\n- **Mode:** auto'
-hook_case "a manual line in a fenced example is no content → request" "$(payload 'pause')" request
-reset; profile $'## Slice Flow\n\n<!--\n- **Mode:** manual\n-->\n'
-hook_case "a manual line in an HTML comment is no content → request" "$(payload 'pause')" request
-reset; profile $'## Execution\n\n- **Mode:** manual\n\n## Slice Flow\n\n- **Mode:** auto'
-hook_case "Execution -> Mode: manual is another key → request" "$(payload 'pause')" request
+hook_case "a manual line in a fenced example → request" "$(payload 'pause')" request
 reset; profile $'## Slice Flow\n\n- **Mode:** manual\n\n## Execution\n\n- **Mode:** auto'
-hook_case "Slice Flow -> Mode: manual, a later block says auto → none" "$(payload 'pause')" none
+hook_case "Slice Flow -> Mode: manual, a later block says auto → request" "$(payload 'pause')" request
 reset; noprofile
-hook_case "no profile (the default is auto) → request" "$(payload 'pause')" request
+hook_case "no profile → request" "$(payload 'pause')" request
+reset; printf 'this is not a profile \xff\xfe' > "$P/.claude/project/craft-profile.md"
+hook_case "an unreadable profile → request (the hook does not read it)" "$(payload 'pause')" request
 reset; rm -f "$PLAN"
 hook_case "no slice plan at all → none" "$(payload 'pause')" none
 for st in implementing testing review refactoring reviewing committing; do
@@ -358,7 +363,13 @@ expect "a request older than the plan's resume → NEXT=" "$(key NEXT "$(flow - 
 write_marker "STATE=requested\nSESSION=$S\nSINCE=2026-10-08T12:00:00Z\n"
 expect "a request newer than the plan's resume → STOP=pause-requested" "$(key STOP "$(flow - "$PLAN")")" "pause-requested"
 reset; plan testing; profile $'## Slice Flow\n\n- **Mode:** manual'; write_marker "STATE=requested\nSESSION=$S\nSINCE=2026-10-08T10:00:00Z\n"
-expect "manual mode → STOP=manual (the pause word is the countdown's, not the request's)" "$(key STOP "$(flow - "$PLAN")")" "manual"
+expect "manual mode, a live request at a plan in flight → STOP=pause-requested (slice-077, decision [G])" "$(key STOP "$(flow - "$PLAN")")" "pause-requested"
+reset; plan testing; profile $'## Slice Flow\n\n- **Mode:** sideways'; write_marker "STATE=requested\nSESSION=$S\nSINCE=2026-10-08T10:00:00Z\n"
+expect "invalid mode + a live request at a plan in flight → STOP=pause-requested" "$(key STOP "$(flow - "$PLAN")")" "pause-requested"
+reset; plan paused; profile $'## Slice Flow\n\n- **Mode:** manual'; write_marker "STATE=requested\nSESSION=$S\nSINCE=2026-10-08T10:00:00Z\n"
+expect "manual mode, a live request at a paused plan → STOP=manual (only a plan in flight)" "$(key STOP "$(flow - "$PLAN")")" "manual"
+reset; plan testing; profile $'## Slice Flow\n\n- **Mode:** manual'
+expect "manual mode without a request → STOP=manual" "$(key STOP "$(flow - "$PLAN")")" "manual"
 reset; plan paused; write_marker "STATE=requested\nSESSION=$S\nSINCE=2026-10-08T10:00:00Z\n"
 expect "a slice already paused → STOP=paused (the status stop comes first)" "$(key STOP "$(flow - "$PLAN")")" "paused"
 reset; plan blocked; write_marker "STATE=requested\nSESSION=$S\nSINCE=2026-10-08T10:00:00Z\n"
@@ -398,20 +409,146 @@ done
 grep -q 'Any `STOP=` settles a pending pause request' "$WORKFLOW" && ok "the rule: any STOP= at a phase end settles a pending request" || bad "the rule does not settle a request on another STOP="
 BUILD_MD="$REPO_ROOT/commands/build.md"
 grep -q 'pause-requested' "$BUILD_MD" && ok "commands/build.md checks the pause request at the sub-task boundary" || bad "commands/build.md does not check the pause request at the sub-task boundary"
-# The hook's copies are bound, not trusted (rules.md): its "in flight" statuses to flow-state's map, its Mode reading to flow-state --mode,
-# its writer to the helper's reader (both directions).
+# The hook's copies are bound, not trusted (rules.md): its "in flight" statuses to flow-state's map, its writer to the
+# helper's reader (both directions). Since slice-077 it reads no `Slice Flow` (no Mode condition), so there is no mode copy to bind.
 want="$(bash "$FLOW" --map | awk -F'\t' '$2 == "NEXT" && $1 != "planning" { print $1 }' | sort | tr '\n' ' ')"
 have="$(printf '%s' "$(sed -n 's/^ACTIVE = (\(.*\))$/\1/p' "$HOOK")" | tr ',' '\n' | tr -d '" ' | sort | tr '\n' ' ')"
 expect "the hook's in-flight statuses = flow-state --map's NEXT statuses minus planning" "$have" "$want"
-for body in $'- **Mode:** auto' $'- **Mode:** manual' $'```\n- **Mode:** manual\n```' $'<!--\n- **Mode:** manual\n-->' ''; do
-  reset; profile "## Slice Flow"$'\n\n'"$body"
-  fmode="$(bash "$FLOW" --mode --project "$P" | sed -n 's/^MODE=//p')"
-  [[ "$fmode" == manual ]] && wantw=none || wantw=request
-  hook_case "hook and flow-state --mode agree (flow-state says $fmode) → $wantw — $(printf '%s' "$body" | tr '\n' ' ')" "$(payload 'pause')" "$wantw"
-done
+if grep -v '^[[:space:]]*#' "$HOOK" | grep -qE 'Slice Flow|craft-profile|flow_is_auto'; then bad "the hook reads the Slice Flow profile (it must not: a pause word works in both modes)"; else ok "the hook's code reads no Slice Flow / profile (no Mode condition)"; fi
+if grep -qE 'undocu''mented' "$HOOK" "$HELPER" "$0"; then bad "the finding is not on record: the old reason (the hook's firing for a queued message is unknown) still stands in the hook, the helper or this harness"; else ok "the hook, the helper and this harness state the finding instead of the old reason"; fi
+grep -q 'did NOT' "$HOOK" && grep -qi 'prompt of its own' "$HOOK" && ok "the hook's header carries the finding (did NOT fire mid-turn; prompt of its own only)" || bad "the hook's header does not carry the finding"
 reset; helper request --project "$P" >/dev/null; run_hook bash "$(payload 'pause')"
 out="$(helper state --project "$P")"
 expect "a marker the helper wrote, rewritten by the hook, is still read by the helper (LIVE=yes)" "$(key LIVE "$out")" "yes"
+
+
+# --- the marked pause-word sentence (slice-077) -------------------------------------------------------------------
+# WHY: re-test T3 — the pause rule lives only in skills/workflow/SKILL.md and the phase commands only POINT at it, so the
+# agent that had to record the word first never read it (the same cause as D40's slice-076 amendment). The record-and-pause
+# sentence is therefore stated at each site and bound here, like the choice sentence. Contract:
+#   - the sites are DECLARED (PAUSE_SITES) and compared in both directions over commands/*.md and skills/*/SKILL.md; a
+#     marker is a line with `<!-- craft:pause-word -->` (not inside backticks), exactly one per declared site;
+#   - each marked line names, in this order: `pause-request.sh" request`, "finish the running", `/craft:handoff`,
+#     `/craft:pause` — and never lists the words (`pausieren`); the rule's body stays in SKILL.md -> The pause request.
+PAUSE_SITES='
+commands/build.md
+commands/test.md
+commands/recap.md
+commands/refactor.md
+commands/review.md
+skills/debug/SKILL.md
+'
+# pause_word_errs <root> — ERR lines on stdout
+pause_word_errs() {
+  local root="$1" f rel n declared line
+  for f in "$root"/commands/*.md "$root"/skills/*/SKILL.md; do
+    [[ -f "$f" ]] || continue
+    rel="${f#"$root"/}"
+    n="$(grep -cE '(^|[^`])<!-- craft:pause-word -->' "$f")"
+    declared=0; printf '%s\n' "$PAUSE_SITES" | grep -qxF "$rel" && declared=1
+    [[ "$n" == "$declared" ]] || echo "ERR $rel: $n pause-word marker(s), declared $declared"
+  done
+  while IFS= read -r rel; do
+    [[ -n "$rel" ]] || continue
+    if [[ ! -f "$root/$rel" ]]; then echo "ERR $rel: declared pause-word site does not exist"; continue; fi
+    line="$(grep -E '(^|[^`])<!-- craft:pause-word -->' "$root/$rel" | head -n 1)"
+    [[ -n "$line" ]] || continue
+    printf '%s\n' "$line" | awk -v REL="$rel" '{
+      p1 = index($0, "pause-request.sh\" request"); p2 = index($0, "finish the running")
+      p3 = index($0, "/craft:handoff"); p4 = index($0, "/craft:pause`")
+      if (!p1) print "ERR " REL ": the pause-word line does not call pause-request.sh request"
+      if (!p2) print "ERR " REL ": the pause-word line does not say finish the running step"
+      if (!p3) print "ERR " REL ": the pause-word line does not name /craft:handoff"
+      if (!p4) print "ERR " REL ": the pause-word line does not name /craft:pause"
+      if (p1 && p2 && p3 && p4 && !(p1 < p2 && p2 < p3 && p3 < p4)) print "ERR " REL ": the pause-word line names the four steps out of order"
+      if (index($0, "pausieren")) print "ERR " REL ": the pause-word line lists the words (the list has one defining place)"
+    }'
+  done <<< "$PAUSE_SITES"
+}
+# pause_md_errs <pause.md> <SKILL.md> — ERR lines on stdout: the exits, the handoff bullet, the prompt-of-its-own line, rule 3's pointer
+pause_md_errs() {
+  local pm="$1" sk="$2" pre step1 rule3 w
+  w="$(grep -n 'craft:writes status=paused' "$pm" | head -n 1 | cut -d: -f1)"
+  [[ -n "$w" ]] || { echo "ERR pause.md: the status=paused write marker is missing"; return; }
+  pre="$(sed -n '/^## Pre-flight/,/^## Procedure/p' "$pm")"      # Pre-flight lies above Step 2's write marker (line $w)
+  [[ -n "$pre" ]] || echo "ERR pause.md: no Pre-flight section"
+  # the exits that pause nothing name Step 3
+  printf '%s\n' "$pre" | grep -F 'If none' | grep -q 'Step 3' || echo "ERR pause.md: the Pre-flight 'If none' exit does not name Step 3"
+  printf '%s\n' "$pre" | grep -F 'names none' | grep -q 'Step 3' || echo "ERR pause.md: the Pre-flight pick that names no slice does not name Step 3"
+  grep -F '| Slice is in `committed` status' "$pm" | grep -q 'Step 3' || echo "ERR pause.md: the committed row does not name Step 3"
+  grep -F '| Slice is `blocked`' "$pm" | grep -q 'Step 3' || echo "ERR pause.md: the blocked row does not name Step 3"
+  # the handoff, before Step 2's write marker
+  printf '%s\n' "$pre" | grep -q '/craft:handoff' || echo "ERR pause.md: Pre-flight does not name /craft:handoff before the status=paused write"
+  printf '%s\n' "$pre" | grep -F 'prompt of its own' | grep -qF "pause action's run" || echo "ERR pause.md: no Pre-flight line carries both 'prompt of its own' and \"pause action's run\""
+  step1="$(sed -n '/^### 1\./,/^### 2\./p' "$pm")"
+  printf '%s\n' "$step1" | grep -qF 'prompt of its own' || echo "ERR pause.md: Step 1's no-ask sentence does not name 'prompt of its own'"
+  printf '%s\n' "$step1" | grep -qF 'do not ask' || echo "ERR pause.md: Step 1 lost its no-ask clause"
+  rule3="$(sed -n '/^3\. \*\*The pause action\.\*\*/,/^4\. \*\*Settle/p' "$sk")"
+  printf '%s\n' "$rule3" | grep -F '`/craft:pause`' | grep -qF 'commands/pause.md' || echo "ERR SKILL.md: rule 3 has no line carrying /craft:pause and commands/pause.md"
+}
+
+echo "== the marked pause-word sentence: six declared sites, four steps in order"
+errs="$(pause_word_errs "$REPO_ROOT")"
+if [[ -z "$errs" ]]; then ok "each declared site carries one pause-word line: request, finish the running, /craft:handoff, /craft:pause in order, no word list; no other file has a marker"; else while IFS= read -r l; do bad "${l#ERR }"; done <<< "$errs"; fi
+errs="$(pause_md_errs "$PAUSE_MD" "$WORKFLOW")"
+if [[ -z "$errs" ]]; then ok "commands/pause.md: four exits name Step 3, the handoff bullet and the prompt-of-its-own line stand before Step 2, Step 1 names it, rule 3 points at pause.md"; else while IFS= read -r l; do bad "${l#ERR }"; done <<< "$errs"; fi
+
+echo "== mutations: each pin must go red on a copy (the binding holds text, not behavior)"
+MUT="$ROOT/mut"
+mk_copy() { rm -rf "$MUT"; mkdir -p "$MUT/commands" "$MUT/skills/debug" "$MUT/skills/workflow"; cp "$REPO_ROOT"/commands/*.md "$MUT/commands/"; cp "$REPO_ROOT/skills/debug/SKILL.md" "$MUT/skills/debug/"; cp "$WORKFLOW" "$MUT/skills/workflow/"; }
+mut_red() { # <label> <error text it must produce> <errs>
+  if printf '%s\n' "$3" | grep -qF -- "$2"; then ok "RED as it must: $1"; else bad "did not go red: $1 ($(printf '%s' "$3" | head -n 1))"; fi
+}
+sub_file() { # <file> <old> <new> — literal replace in a copy; fails the harness when the text is not there
+  python3 - "$1" "$2" "$3" <<'PY' || bad "mutation edit failed: no '$2' in $1"
+import sys
+p, old, new = sys.argv[1:4]
+s = open(p, encoding="utf-8").read()
+if old not in s:
+    sys.exit(1)
+open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
+PY
+}
+cut_file() { # <file> <start text> <end text> — delete from the line holding <start> through the line holding <end>
+  python3 - "$1" "$2" "$3" <<'PY' || bad "mutation cut failed: '$2'..'$3' in $1"
+import sys
+p, a, b = sys.argv[1:4]
+lines = open(p, encoding="utf-8").read().split("\n")
+i = next((k for k, l in enumerate(lines) if a in l), None)
+j = next((k for k, l in enumerate(lines) if i is not None and k >= i and b in l), None)
+if i is None or j is None:
+    sys.exit(1)
+open(p, "w", encoding="utf-8").write("\n".join(lines[:i] + lines[j + 1:]))
+PY
+}
+mk_copy
+errs="$(pause_word_errs "$MUT")"; [[ -z "$errs" ]] && ok "positive control: the copied tree is green" || bad "positive control: the copied tree is red ($(printf '%s' "$errs" | head -n 1))"
+mk_copy; sub_file "$MUT/commands/build.md" 'pause-request.sh" request' 'pause-request.sh'
+mut_red "the request call removed from the pause-word line (build.md)" "does not call pause-request.sh request" "$(pause_word_errs "$MUT")"
+mk_copy; sub_file "$MUT/commands/test.md" '<!-- craft:pause-word -->' ''
+mut_red "a marker removed (test.md)" "0 pause-word marker(s), declared 1" "$(pause_word_errs "$MUT")"
+mk_copy; printf '\n<!-- craft:pause-word --> x\n' >> "$MUT/commands/status.md"
+mut_red "a marker where none is declared (status.md)" "declared 0" "$(pause_word_errs "$MUT")"
+mk_copy; sub_file "$MUT/skills/debug/SKILL.md" 'finish the running attempt' 'carry on'
+mut_red "debug: 'finish the running' removed" "finish the running step" "$(pause_word_errs "$MUT")"
+mk_copy; sub_file "$MUT/commands/recap.md" 'run `/craft:handoff`, then `/craft:pause`' 'run `/craft:pause`, then `/craft:handoff`'
+mut_red "the steps out of order (recap.md)" "out of order" "$(pause_word_errs "$MUT")"
+mk_copy; sub_file "$MUT/commands/review.md" '(*The pause request*,' '(`pausieren`, *The pause request*,'
+mut_red "the word list copied into a pause-word line (review.md)" "lists the words" "$(pause_word_errs "$MUT")"
+
+mk_copy; errs="$(pause_md_errs "$MUT/commands/pause.md" "$MUT/skills/workflow/SKILL.md")"; [[ -z "$errs" ]] && ok "positive control: the copied pause.md and rule are green" || bad "positive control (pause.md): red ($(printf '%s' "$errs" | head -n 1))"
+mk_copy; sub_file "$MUT/commands/pause.md" '| Slice is in `committed` status | Run Step 3, then stop' '| Slice is in `committed` status | Stop'
+mut_red "Step 3 removed from the committed row" "committed row does not name Step 3" "$(pause_md_errs "$MUT/commands/pause.md" "$MUT/skills/workflow/SKILL.md")"
+mk_copy; sub_file "$MUT/commands/pause.md" '| Slice is `blocked` | Run Step 3, then stop' '| Slice is `blocked` | Stop'
+mut_red "Step 3 removed from the blocked row" "blocked row does not name Step 3" "$(pause_md_errs "$MUT/commands/pause.md" "$MUT/skills/workflow/SKILL.md")"
+mk_copy; cut_file "$MUT/commands/pause.md" 'The handoff, for a slice in flight.' 'is outside rule 1: no handoff.'
+mut_red "the handoff bullet removed" "does not name /craft:handoff" "$(pause_md_errs "$MUT/commands/pause.md" "$MUT/skills/workflow/SKILL.md")"
+mk_copy; cut_file "$MUT/commands/pause.md" '**Sent as a prompt of its own**' '**Sent as a prompt of its own**'
+mut_red "the prompt-of-its-own line removed from the bullet" "no Pre-flight line carries both" "$(pause_md_errs "$MUT/commands/pause.md" "$MUT/skills/workflow/SKILL.md")"
+mk_copy; sub_file "$MUT/commands/pause.md" 'it arrives as a prompt of its own on a slice in flight' 'it arrives by hand on a slice in flight'
+mut_red "'prompt of its own' removed from Step 1" "Step 1's no-ask sentence" "$(pause_md_errs "$MUT/commands/pause.md" "$MUT/skills/workflow/SKILL.md")"
+mk_copy; sub_file "$MUT/skills/workflow/SKILL.md" 'for `/craft:pause` that run is the command itself, nothing runs before it (`commands/pause.md` → Pre-flight).' ''
+mut_red "rule 3's pointer clause removed" "rule 3 has no line carrying" "$(pause_md_errs "$MUT/commands/pause.md" "$MUT/skills/workflow/SKILL.md")"
 
 echo
 echo "RESULT: $PASS passed, $FAIL failed"

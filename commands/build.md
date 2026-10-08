@@ -107,13 +107,16 @@ At the end of each sub-task, emit a compact bundle:
    Test: <status — "green" / "<N> passed" / "skipped">
    Level-3 silent ops: <one-line summary, e.g. "read 4 files, ran lint">
    Next: Sub-Task <N+1>/<Total> — <name>
-   [continuing in 3s — type 'pause' to stop]
+   [continuing in 3s — type 'pause' to pause the slice, anything else to stop]
 ```
 
-If user types anything during the countdown, pause. If silence, continue to the next sub-task. (Under auto flow a message
-that is only a pause word is the pause request instead — `skills/workflow/SKILL.md` → *The pause request*: handoff and pause.)
+If silence, continue to the next sub-task. A message that is only a pause word is the slice's pause request, in either flow
+mode (`skills/workflow/SKILL.md` → *The pause request*): handoff and pause. Any other message stops the countdown and is
+answered before the next sub-task.
 
-**Pause request (auto flow, interactive runs only).** After the bundle, while a sub-task is still unchecked, ask
+<!-- craft:pause-word --> **A message that is only a pause word** (*The pause request*, `skills/workflow/SKILL.md`) that reaches you while this command runs — in auto and manual flow alike, whether or not the hook fired — makes you do four things in this order: run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/pause-request.sh" request --project "<project-root>"` first (in CRAFT's own source repo: `scripts/pause-request.sh`), finish the running step, run `/craft:handoff`, then `/craft:pause`.
+
+**Pause request (interactive runs only, both flow modes).** After the bundle, while a sub-task is still unchecked, ask
 `flow-state.sh` with `--from implementing` as `skills/workflow/SKILL.md` → *Auto flow* → *The pause request* (rule 2)
 describes; on `STOP=pause-requested` run its pause action here instead of starting the next sub-task. Any other output:
 go on. Not in Subagent Mode.
@@ -177,7 +180,7 @@ When the `slice-builder` subagent invokes `/craft:build` during an autonomous ru
 - **Self-verification trigger** (Procedure step 4) — instead of asking the human "Should we enter `/craft:debug` mode?" on a 2nd same-symptom fix attempt, <!-- craft:handoff status=awaiting-protocol plan=paused --> pause for a human decision with `Status: awaiting-protocol`; the Pause Note describes the recurring symptom. The subagent does not negotiate a verification protocol with no human present. **In an autopilot run** (the spawn says so) it first runs `skills/debug/SKILL.md` → **Autonomous Mode** — a protocol frozen by two agents, every attempt judged by `verify-run.sh` — and this pause is only that mode's end stop, its escalation package in the Pause Note; on a `pass` the build continues with the sub-task.
 - **Outside-scope edits** (Procedure step 3 / Error Handling row 5) — instead of asking the human for approval at Level 1, <!-- craft:handoff status=awaiting-scope-decision plan=paused --> pause for a human decision with `Status: awaiting-scope-decision`; the Pause Note names the file or change outside the plan. The plan boundary is a contract; the subagent never expands scope unilaterally.
 - **Out-of-scope blocker** (Problem-Playbook: an unforeseen dependency that exceeds minimal in-slice work) — when a *whole prerequisite* is missing (infra/API/service), or a `decision` / `access` / `external` wait stands in the way per the spawn-boundary heuristic, this is a blocker, not a scope-spill: follow the slice-builder's **Blocker detection & escalation** — classify, write the first-class `blocked` state, write `.craft/handoff.md` with `Status: awaiting-block-decision`, and stop. (The distinction from *Outside-scope edits*: that is permission to touch an unnamed file; this is a missing unit of work or a direction call the subagent must never make.)
-- **Bundle countdowns** — the "[continuing in 3s — type 'pause' to stop]" line is omitted in subagent output. There is no human to type during the countdown.
+- **Bundle countdowns** — the "[continuing in 3s — type 'pause' to pause the slice, anything else to stop]" line is omitted in subagent output. There is no human to type during the countdown.
 - **Budget guard** (autopilot run only — the spawn says so) — after Procedure step 6's bundle, while a sub-task is
   still unchecked, run the slice-builder's budget guard (`agents/slice-builder.md` → *The budget guard* — defined
   there once, its `reason=budget` stop included) before the next sub-task.
