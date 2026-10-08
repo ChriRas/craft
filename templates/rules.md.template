@@ -79,7 +79,7 @@ Things that must never happen.
 
 ## Self-Verification Settings (optional)
 
-Override `/debug`, `/craft:review`, and stale-slice defaults if needed.
+Override `/debug`, `/craft:review`, and stale-slice defaults if needed. The review fix cap is a guide value: small fixes continue past it, up to a hard ceiling of twice the number, per review round.
 
 - **Max attempts:** 5
 - **Auto-trigger threshold:** 2

@@ -89,6 +89,8 @@ Ask the user, one at a time:
 2. **"Could a new developer follow the flow from trigger to effect without mental leaps?"**
 3. **"Which refactor would preserve behavior but improve structure?"**
 
+<!-- craft:choice --> Where the agent has candidate answers from the recent slice's code, offer them with `AskUserQuestion` (the candidates as options, "Other" takes the user's own); where the tool is not available or nothing is derived, ask as text.
+
 For each, capture the user's answer. If the user has no answer to a prompt, the agent may suggest one based on the recent slice's code — but the user picks what gets done.
 
 ### 2. Filter to 2–3 items
@@ -96,6 +98,8 @@ For each, capture the user's answer. If the user has no answer to a prompt, the 
 If the candidate list exceeds 3:
 
 > We have <N> candidates. Phase 7 allows 2–3 to keep the slice focused. Pick the top items, the rest become a future refactor slice.
+
+<!-- craft:choice --> Ask it with `AskUserQuestion` as a multi-select over the candidates (at most four per question, split into steps if need be); where the tool is not available, a numbered list as text.
 
 Capture the user's pick.
 
@@ -114,7 +118,7 @@ Bundle per item:
 ✓ Refactor 1/N: <name>
    Changed: <files>
    Tests: <status>
-   [continuing in 3s — type 'pause' to stop]
+   [continuing in 3s — type 'pause' to pause the slice, anything else to stop]
 ```
 
 ### 4. Handle larger discoveries
@@ -160,9 +164,19 @@ Recommended next: /craft:review
 | Tests turn red after a refactor item | Revert the item OR fix the test in this slice. Do not commit red. |
 | User wants to do more than 3 items | Push back once: *"More than 3 makes the slice unfocused. Capture extras for a future slice?"* If user insists, allow but warn that the slice has expanded beyond its plan. |
 | User wants to skip Phase 7 entirely | Allow, but record `Phase 7 skipped` in the slice plan's `## Decisions Made During This Slice` so the omission is auditable. |
-| Refactor touches files outside the slice's code scope | Drop to Level 1: ask explicitly. Outside-scope refactor is usually a sign of a separate refactor slice. |
+| Refactor touches files outside the slice's code scope | Drop to Level 1: ask explicitly (<!-- craft:choice --> with `AskUserQuestion`, two options; where the tool is not available, as text). Outside-scope refactor is usually a sign of a separate refactor slice. |
 
 ---
+
+## Auto Flow (the interactive end)
+
+<!-- craft:flow -->
+At the end of an interactive run, after the closing output above, run the **Auto flow** step of `skills/workflow/SKILL.md`
+(*Auto flow* — where it applies, the `--from` value of this command, how to act on the verdict): ask
+`${CLAUDE_PLUGIN_ROOT}/scripts/flow-state.sh` (in CRAFT's own source repo: `scripts/flow-state.sh`) and act on its
+`NEXT=` / `STOP=` only.
+
+<!-- craft:pause-word --> **A message that is only a pause word** (*The pause request*, `skills/workflow/SKILL.md`) that reaches you while this command runs — in auto and manual flow alike, whether or not the hook fired — makes you do four things in this order: run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/pause-request.sh" request --project "<project-root>"` first (in CRAFT's own source repo: `scripts/pause-request.sh`), finish the running step, run `/craft:handoff`, then `/craft:pause`.
 
 ## Subagent Mode (when called by `/craft:execute`)
 

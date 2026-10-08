@@ -58,7 +58,7 @@
 # Runtime: bash 3.2-compatible on purpose (rules.md → Bash baseline — hooks run with whatever bash Claude Code
 # hands them), python3 for the JSON (absent → the prompt passes). No other command runs before python3 is found.
 
-DEFAULT_RECACHE_TOKENS=100000
+DEFAULT_RECACHE_TOKENS=150000
 STALE_S=300
 REQUESTS_TOLERANCE=1
 tap="${CRAFT_USAGE_TAP:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/craft/usage-tap.json}"

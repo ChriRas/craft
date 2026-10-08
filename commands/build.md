@@ -40,7 +40,7 @@ Follow `skills/workflow/SKILL.md` Phase 4 mechanics and the autonomy matrix. Cod
 If `Status` is `planning`, write `Status: implementing` back to the slice plan.
 
 <!-- craft:reads status=implementing -->
-If `Status` is already `implementing`, resume without status change. If it is `paused`, do not resume on your own: ask the user to confirm the resume (4a runs only on a yes; a no stops here), then run `/craft:continue`'s **4a. Resume a paused slice** steps 1–5 (where, what to restore, write, check, the no-answer warning — carried in this command's output). Instead of 4a's step 6, go on here only if the restored status is `implementing`; otherwise stop and recommend the command `/craft:continue`'s step 3 names for that status.
+If `Status` is already `implementing`, resume without status change. If it is `paused`, do not resume on your own: ask the user to confirm the resume (4a runs only on a yes; a no stops here; <!-- craft:choice --> ask it with `AskUserQuestion`, two options — where the tool is not available, as text), then run `/craft:continue`'s **4a. Resume a paused slice** steps 1–5 (where, what to restore, write, check, the no-answer warning — carried in this command's output). Instead of 4a's step 6, go on here only if the restored status is `implementing`; otherwise stop and recommend the command `/craft:continue`'s step 3 names for that status.
 
 ### 4. Load the stack-pack and detect specialists
 
@@ -81,7 +81,7 @@ Briefly state the approach for the current sub-task. No long planning — this i
 
 - Make the smallest edits that satisfy the sub-task.
 - Code edits inside slice scope: Level 2 (act, then bundle).
-- Code edits outside slice scope (e.g., shared utility, unrelated file): drop to Level 1 — ask explicitly before editing.
+- Code edits outside slice scope (e.g., shared utility, unrelated file): drop to Level 1 — ask explicitly before editing. <!-- craft:choice --> Ask it with `AskUserQuestion` (approve the edit / do not edit — re-plan instead); where the tool is not available, ask as text.
 - Run tests after meaningful changes. Test runs are Level 3 silent unless red.
 - **Code comments** — write any code comments in the project's comment language: the `Comments` key of the `## Operational Language` block in `.claude/project/craft-profile.md` (default English when the profile, the block, or the key is absent). Applies only to comment prose, never to identifiers, keywords, or string literals required by the code.
 
@@ -91,7 +91,7 @@ Briefly state the approach for the current sub-task. No long planning — this i
 
   *"I notice I'm cycling on this. Should we enter `/craft:debug` mode and agree on a verification protocol before more attempts?"*
 
-  Do not force the user into `/craft:debug` — ask, wait, respect the answer.
+  <!-- craft:choice --> Ask it with `AskUserQuestion` (two options: enter `/craft:debug` / keep fixing); where the tool is not available, ask as text. Do not force the user into `/craft:debug` — ask, wait, respect the answer.
 
 ### 5. Check off the sub-task
 
@@ -107,10 +107,19 @@ At the end of each sub-task, emit a compact bundle:
    Test: <status — "green" / "<N> passed" / "skipped">
    Level-3 silent ops: <one-line summary, e.g. "read 4 files, ran lint">
    Next: Sub-Task <N+1>/<Total> — <name>
-   [continuing in 3s — type 'pause' to stop]
+   [continuing in 3s — type 'pause' to pause the slice, anything else to stop]
 ```
 
-If user types anything during the countdown, pause. If silence, continue to the next sub-task.
+If silence, continue to the next sub-task. A message that is only a pause word is the slice's pause request, in either flow
+mode (`skills/workflow/SKILL.md` → *The pause request*): handoff and pause. Any other message stops the countdown and is
+answered before the next sub-task.
+
+<!-- craft:pause-word --> **A message that is only a pause word** (*The pause request*, `skills/workflow/SKILL.md`) that reaches you while this command runs — in auto and manual flow alike, whether or not the hook fired — makes you do four things in this order: run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/pause-request.sh" request --project "<project-root>"` first (in CRAFT's own source repo: `scripts/pause-request.sh`), finish the running step, run `/craft:handoff`, then `/craft:pause`.
+
+**Pause request (interactive runs only, both flow modes).** After the bundle, while a sub-task is still unchecked, ask
+`flow-state.sh` with `--from implementing` as `skills/workflow/SKILL.md` → *Auto flow* → *The pause request* (rule 2)
+describes; on `STOP=pause-requested` run its pause action here instead of starting the next sub-task. Any other output:
+go on. Not in Subagent Mode.
 
 ### 7. Token brake
 
@@ -154,6 +163,14 @@ Update `Status: testing` in the slice plan.
 
 ---
 
+## Auto Flow (the interactive end)
+
+<!-- craft:flow -->
+At the end of an interactive run, after the closing output above, run the **Auto flow** step of `skills/workflow/SKILL.md`
+(*Auto flow* — where it applies, the `--from` value of this command, how to act on the verdict): ask
+`${CLAUDE_PLUGIN_ROOT}/scripts/flow-state.sh` (in CRAFT's own source repo: `scripts/flow-state.sh`) and act on its
+`NEXT=` / `STOP=` only.
+
 ## Subagent Mode (when called by `/craft:execute`)
 
 When the `slice-builder` subagent invokes `/craft:build` during an autonomous run, the main procedure runs unchanged — the build loop is mechanical and safe to automate. Five behavioral overrides apply.
@@ -163,7 +180,7 @@ When the `slice-builder` subagent invokes `/craft:build` during an autonomous ru
 - **Self-verification trigger** (Procedure step 4) — instead of asking the human "Should we enter `/craft:debug` mode?" on a 2nd same-symptom fix attempt, <!-- craft:handoff status=awaiting-protocol plan=paused --> pause for a human decision with `Status: awaiting-protocol`; the Pause Note describes the recurring symptom. The subagent does not negotiate a verification protocol with no human present. **In an autopilot run** (the spawn says so) it first runs `skills/debug/SKILL.md` → **Autonomous Mode** — a protocol frozen by two agents, every attempt judged by `verify-run.sh` — and this pause is only that mode's end stop, its escalation package in the Pause Note; on a `pass` the build continues with the sub-task.
 - **Outside-scope edits** (Procedure step 3 / Error Handling row 5) — instead of asking the human for approval at Level 1, <!-- craft:handoff status=awaiting-scope-decision plan=paused --> pause for a human decision with `Status: awaiting-scope-decision`; the Pause Note names the file or change outside the plan. The plan boundary is a contract; the subagent never expands scope unilaterally.
 - **Out-of-scope blocker** (Problem-Playbook: an unforeseen dependency that exceeds minimal in-slice work) — when a *whole prerequisite* is missing (infra/API/service), or a `decision` / `access` / `external` wait stands in the way per the spawn-boundary heuristic, this is a blocker, not a scope-spill: follow the slice-builder's **Blocker detection & escalation** — classify, write the first-class `blocked` state, write `.craft/handoff.md` with `Status: awaiting-block-decision`, and stop. (The distinction from *Outside-scope edits*: that is permission to touch an unnamed file; this is a missing unit of work or a direction call the subagent must never make.)
-- **Bundle countdowns** — the "[continuing in 3s — type 'pause' to stop]" line is omitted in subagent output. There is no human to type during the countdown.
+- **Bundle countdowns** — the "[continuing in 3s — type 'pause' to pause the slice, anything else to stop]" line is omitted in subagent output. There is no human to type during the countdown.
 - **Budget guard** (autopilot run only — the spawn says so) — after Procedure step 6's bundle, while a sub-task is
   still unchecked, run the slice-builder's budget guard (`agents/slice-builder.md` → *The budget guard* — defined
   there once, its `reason=budget` stop included) before the next sub-task.

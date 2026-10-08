@@ -29,7 +29,7 @@ Read `~/.claude/plugins/installed_plugins.json`. Find the key matching `craft@<m
   local clone, use git pull in that clone instead.
   ```
 
-- If multiple entries exist (e.g. user-scope + project-scope), prefer the user-scope entry; if none is user-scope, abort with a list of candidates and ask the user which to upgrade.
+- If multiple entries exist (e.g. user-scope + project-scope), prefer the user-scope entry; if none is user-scope, abort with a list of candidates and ask the user which to upgrade (<!-- craft:choice --> with `AskUserQuestion`, one option per candidate; where the tool is not available, a numbered list as text).
 
 Extract:
 - `marketplaceName` (the part after `@` in the key)
@@ -152,7 +152,7 @@ Version: <installedVersion> → <newVersion>
 
 ### 4. Human confirmation (required)
 
-Pause and ask explicitly:
+Pause and ask explicitly. <!-- craft:choice --> Ask it with `AskUserQuestion` (two options: pull / do not); where the tool is not available, print the question below as text:
 
 ```
 Pull these N commits into the marketplace clone? (yes / no)

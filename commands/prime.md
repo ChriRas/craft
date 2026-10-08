@@ -211,12 +211,12 @@ stack-pack checks, this is **reported, never corrected**.
 
 1. **Detect** — `Read` `.claude/project/craft-profile.md`.
    - **Absent** → emit the defaults line, skip items 2 and 3, and go on with item 4 (the budget has defaults too):
-     `✓ CRAFT profile: none — plugin defaults (balanced: execution=worktree, commit=on, merge=direct, epic=parallel, permissions=standard)`.
+     `✓ CRAFT profile: none — plugin defaults (balanced: execution=worktree, commit=on, merge=direct, epic=parallel, permissions=standard, flow=auto)`.
      The defaults are documented in `craft-profile-defaults.md`.
    - **Present** → parse the `> Preset:` line and the block fields below.
 
 2. **Validate** (warnings only, never abort). Emit a `⚠` line for each issue found:
-   - **Unknown block or field key** — `⚠ CRAFT profile: unknown key '<key>' — ignored.` The `## Operational Language`, `## Agent Model Overrides` and `## Autopilot` blocks are expected profile members (their values are validated/reported by steps 4c/4b and item 4 below) — never flag them as unknown.
+   - **Unknown block or field key** — `⚠ CRAFT profile: unknown key '<key>' — ignored.` The `## Operational Language`, `## Agent Model Overrides`, `## Autopilot` and `## Slice Flow` blocks are expected profile members (their values are validated/reported by steps 4c/4b and items 4 and 5 below) — never flag them as unknown.
    - **Value outside its enum:**
      - `Execution → Mode` ∈ `worktree | in-place`
      - `Commit Policy → Auto-commit` ∈ `on | off`
@@ -224,17 +224,19 @@ stack-pack checks, this is **reported, never corrected**.
      - `Merge Workflow → Type` ∈ `direct | pull-request`; `Protected-main` ∈ `yes | no`; `Approval` ∈ `chat | github-pr-review`; `Approval-granularity` ∈ `per-slice | per-epic | auto`
      - `Epic Mode → Default` ∈ `parallel | sequential`
      - `Permissions → Scope` ∈ `minimal | standard | broad`
+     - `Slice Flow → Mode` — checked by item 5 (the helper owns the enum), not here
      - Out-of-enum → `⚠ CRAFT profile: '<block> → <field>: <value>' invalid — allowed: <list>.`
    - **Constraint** — `Auto-commit: off` with `Mode: worktree` → `⚠ CRAFT profile: Auto-commit=off requires Execution Mode=in-place (the worktree merge model needs per-sub-task commits).`
    - A missing block/field within an otherwise-present profile is **not** a warning — it falls back to the plugin default for that field.
 
 3. **Report** — emit one status line with the active preset and the effective settings:
-   `✓ CRAFT profile: <preset> — execution=<mode>, commit=<on|off>[+coauthored-by], merge=<type>[/protected/<approval>], epic=<mode>, permissions=<scope>`.
+   `✓ CRAFT profile: <preset> — execution=<mode>, commit=<on|off>[+coauthored-by], merge=<type>[/protected/<approval>], epic=<mode>, permissions=<scope>, flow=<mode>`.
+   `flow=<mode>` is item 5's `MODE=` (`auto` | `manual` | `invalid`; `auto` when the profile or block is absent).
    Append the `/protected/<approval>` segment **only when `Protected-main: yes`**; otherwise emit just `merge=<type>`.
    Append the `+coauthored-by` suffix to the `commit=` segment **only when `Co-Authored-By: on`**; otherwise omit it (the default `off` stays silent).
    The profile's `## Operational Language` and `## Agent Model Overrides` are read and
    reported by steps 4c/4b respectively — this report line covers the autonomy/commit/
-   merge/epic/permissions settings only, to avoid double-reporting.
+   merge/epic/permissions/flow settings only, to avoid double-reporting.
 
 4. **Autopilot budget** — runs whether or not the profile exists (the budget has defaults). Its values and the
    rule for them are `scripts/usage-state.sh`'s (its header) — prime keeps no copy. Resolve the helper like step 4f
@@ -249,6 +251,16 @@ stack-pack checks, this is **reported, never corrected**.
      case, not a missing one. A `·` line, not a `⚠`: a project that never runs the autopilot has nothing to fix;
    - the helper not found, or no `VERDICT=` line → `⚠ Autopilot budget check incomplete: <ERROR= or a one-line cause>`.
    Reported, never corrected; the helper writes nothing. Never abort prime.
+
+5. **Slice flow** — runs whether or not the profile exists (the mode defaults to `auto`). Its value and the rule for it
+   are `scripts/flow-state.sh`'s (its header) — prime keeps no copy of the enum beyond the pointer above. Resolve the
+   helper like item 4 and run it via Bash: `bash "<helper>" --project "<project-root>" --mode`. Then:
+   - one `⚠ CRAFT profile: <text>` line per `WARN=` line (an invalid value, an unknown key or a stray line in the block);
+   - `MODE=` is the `flow=` segment of item 3's report line; `MODE=invalid` is reported as `flow=invalid` and needs no
+     line of its own — the `WARN=` line above names the value and what is allowed, and the flow stops until it is fixed;
+   - the helper not found, or no `MODE=` line → `⚠ CRAFT profile: Slice Flow check incomplete: <ERROR= or a one-line cause>`
+     and `flow=?` in the report line.
+   Reported, never corrected. Never abort prime. (Run item 5 before emitting item 3's line, which carries its result.)
 
 ### 4e. Read-only context sources sync
 
@@ -271,7 +283,7 @@ reports each as present/absent in `additionalDirectories`, plus an aggregate `ST
   `✓ Read-only context: N connected project(s) trusted + research/ (convention)`.
 - **Some absent** (`STATUS=absent`, exit 10) → status line
   `⚠ Read-only context: M of N connected project(s) not yet readable`, then **offer** to run
-  `--apply` (Level 1 — ask before it writes). On a yes, run
+  `--apply` (Level 1 — ask before it writes; <!-- craft:choice --> ask it with `AskUserQuestion`, two options — where the tool is not available, as text). On a yes, run
   `scripts/ensure-readonly-context.sh --apply` and report `CHANGED=`. This, step 4f and step 4h are
   the only prime steps that may mutate durable state, and only after explicit confirmation —
   never silently. On a no, leave the `⚠` line and continue.
@@ -284,7 +296,8 @@ Like the drift and stack-pack checks, the drift itself is **reported**; the writ
 ### 4f. Local-state gitignore
 
 CRAFT writes local, per-clone state into the project: `.claude/plans/.primed` (step 9), the
-SessionStart hook's `.claude/plans/.hook-env`, the `/craft:execute` run lock,
+SessionStart hook's `.claude/plans/.hook-env`, the `/craft:execute` run lock, the autopilot's cache-guard marker, the auto flow's
+pause-request marker `.claude/plans/.pause-request`,
 `.claude/settings.local.json`, the worktree handoff marker `.craft/`, and the closed plans in `.claude/plans/.closed/`. Unignored, these show
 as untracked files in every `git status` — noise for the human; CRAFT's own clean-tree checks do not
 count them (`scripts/tree-dirt-state.sh`). `/craft:onboard` adds them for new projects; this step
@@ -307,7 +320,7 @@ Map the result to one status line:
 
 - **`STATUS=present`** (exit 0) → `✓ Local state gitignored`.
 - **`STATUS=absent`** (exit 10) → `⚠ Local state not gitignored: <paths from the ENTRY=… STATUS=absent lines>`,
-  then **offer** to run `--apply` (Level 1, ask before it writes), naming the file it changes:
+  then **offer** to run `--apply` (Level 1, ask before it writes; <!-- craft:choice --> ask it with `AskUserQuestion`, two options — where the tool is not available, as text), naming the file it changes:
   *"Add them to a `# CRAFT local state` block in `.gitignore`? Paths your `.gitignore` un-ignores
   on purpose stay untouched. Commit the change afterwards."* On a yes, run the same command with `--apply` and report
   `✓ .gitignore updated — <MISSING> path(s) added; commit .gitignore`. On a no, leave the `⚠`
@@ -369,7 +382,7 @@ bash "<helper>" --project "<project-root>" --check
   from `<TAP_CURRENT>`, which moves or disappears — the marketplace clone's is the stable one* (name `TAP_CURRENT=`
   exactly as printed: `CURRENT=` may hold a second `statusline-tap.sh` that is the user's own, BUG-1); no-refresh:
   *`refreshInterval` is missing, the reading goes stale while a run waits on a builder*. Then the offer below.
-- **The offer** (absent, misrouted, no-refresh) — **offer** `--apply` (Level 1), showing the change before it:
+- **The offer** (absent, misrouted, no-refresh) — **offer** `--apply` (Level 1; <!-- craft:choice --> ask it with `AskUserQuestion`, two options — where the tool is not available, as text), showing the change before it:
   `SETTINGS=` as the file, `CURRENT=` → `PROPOSED=` (an empty `CURRENT=` reads *(no statusLine yet)*; add
   `+ refreshInterval: 30` when `REFRESH=no`), and that a backup is taken first when the file exists. On a yes, run the
   same command with `--apply`: exit 0 with `STATUS=wired` → `✓ Statusline tap wired — backup at <BACKUP>` (with
@@ -383,7 +396,7 @@ bash "<helper>" --project "<project-root>" --check
   statusLine, which wins over your user settings — wire the tap there by hand if you want it`. No offer either way.
 - **`STATUS=unrecognized`** (exit 11) → `⚠ Statusline tap: <REASON>`. No offer.
 - **`--apply` exits 6** → `⚠ Statusline tap: <SETTINGS> was written but did not check out — the previous content is in
-  <the backup the error names>`, then **offer** to put it back (Level 1): on a yes, copy the backup over the settings
+  <the backup the error names>`, then **offer** to put it back (Level 1; <!-- craft:choice --> ask it with `AskUserQuestion`, two options — where the tool is not available, as text): on a yes, copy the backup over the settings
   file (`cp -p -- <backup> <SETTINGS>`) and report it. When the error names `backup: -`, the file did not exist
   before: say it was created and offer no copy. **Exits 7** → `⚠ Statusline tap: the write failed — <ERROR>;
   your settings are unchanged`. Any other error, or the helper not found → `⚠ Statusline tap check incomplete: <reason>`.

@@ -104,7 +104,7 @@ In single-developer agent-coding, slices are **feature-shaped**, not component-s
 - Tests run silently (Level 3) and surface only on red.
 - Bundles surface at the end of each sub-task or at the 30k-token brake, whichever comes first.
 
-**Context discipline:** Keep the implementation session under ~100k tokens. If the slice is too big for one session, that is a signal that the slice was too big for Phase 3 — re-slice next time.
+**Context discipline:** Keep the implementation session under ~150k tokens. If the slice is too big for one session, that is a signal that the slice was too big for Phase 3 — re-slice next time.
 
 ---
 
@@ -231,7 +231,7 @@ invisible to it. Mark every new status write, or the graph goes blind on that on
 | **Heavy** | review agent fixes in Phase 8 | escalated — **blocks Commit** |
 | **Light** | review agent fixes in Phase 8 | recorded as a **follow-up**; Commit proceeds |
 
-**Soft volume cap:** once in-phase fixes reach **N** (default 5; `Review in-phase fix cap` in `rules.md` `## Self-Verification Settings`) while local-edit findings are still open, the agent stops and **recommends** escalating the remaining batch rather than fixing it. Soft = a recommendation, not a hard block.
+**Soft volume cap (D41):** **N** (default 5; `Review in-phase fix cap` in `rules.md` `## Self-Verification Settings`) is a **guide value**. Once in-phase fixes reach it while local-edit findings are still open, the agent keeps fixing the small findings (criteria in `/craft:review` → Step 4) up to a hard ceiling of **twice** N fixes per round, in every mode, recording why each extra fix is small; a finding that is not small, or one past the ceiling, is **recommended** for escalation. The rule is defined once, in `/craft:review` → Step 4.
 
 **Escalation:** a Heavy + needs-rethinking finding is never auto-fixed. The agent **recommends** (Level 1), per finding, one of two routes — loop back to Phase 4 (`/craft:build`) if the fix is in slice scope, or spin off a new slice (`/craft:plan`) if it is separate work. Phase 9 (Commit) is blocked until every Heavy + needs-rethinking finding is resolved. The routes are carried out by `/craft:review` itself — **Step 7** (gate, and when a spun-off finding counts as resolved) and **Step 8 (Loop back to Phase 4)**; this skill does not restate them.
 
@@ -239,7 +239,7 @@ invisible to it. Mark every new status write, or the graph goes blind on that on
 
 **Round cap and breaker:** a finding is Heavy only with a realistic failure, a slice gets a capped number of Phase-8 rounds, and inside an autopilot run a Heavy + needs-rethinking finding gets one loop-back before the ping-pong breaker blocks the slice — `/craft:review` → Pre-flight step 4, Step 7's cap route and Step 9 (slice-052).
 
-**Autonomy profile:** classifying findings — Level 3 (silent analysis, surfaced in the findings bundle); in-phase fixes — Level 2 (act, then bundle); escalation decisions and soft-cap breach — Level 1 (recommend, human decides).
+**Autonomy profile:** classifying findings — Level 3 (silent analysis, surfaced in the findings bundle); in-phase fixes — Level 2 (act, then bundle); escalation decisions and escalating a finding that is not small, or past the ceiling — Level 1 (recommend, human decides).
 
 **Ad-hoc mode:** `/craft:review` is slash-invocable at any time. Invoked *before* Phase 8 it is **advisory only** — it produces findings, fixes nothing, and changes no phase state; the developer folds the findings into ongoing work.
 
@@ -513,9 +513,172 @@ Four levels. Phase defaults are above; action-type overrides apply across phases
 - **Auto-continue with abort option** at Level 2 — otherwise Level 2 collapses into Level 1.
 - **Level 3 visibility**: every bundle summarizes Level 3 actions in one line ("read 12 files, ran 3 lint checks"). Never invisible.
 
-#### Lettered-choice prompts
+#### Choice prompts (the lettered-choice-prompt convention)
 
-Several commands offer the user a lettered-choice menu — `[W]/[B]/[U]` (Phase 5 feedback), `[K]/[I]/[R]/[D]` (Phase 9 decision promotion), `[P]/[U]/[D]` (onboard migration), and others. Whenever such a menu is presented, render it **in full**: every option as its letter **plus its meaning plus its consequence / next-step**, on **every** occurrence — not just the first. The user may answer with the bare letter, but the agent always shows the full legend. Never present bare letters and rely on the user recalling what they mean.
+Several commands ask the human to choose — a lettered menu such as `[W]/[B]/[U]` (Phase 5 feedback), `[K]/[I]/[R]/[D]`
+(Phase 9 decision promotion) or `[P]/[U]/[D]` (onboard migration), a yes/no confirmation, or an open question with
+typical answers (D40). This is the one rule for all of them. A command names its options once, in its own legend, and at
+each human-choice site carries **one marked sentence**: on a line marked `<!-- craft:choice -->` it names `AskUserQuestion`
+together with the no-click fallback ("where the tool is not available, the full legend as text"). Human test T2 showed why
+the sentence cannot be a pointer: no session ever read this section, so the sites that only pointed here never clicked.
+That sentence is the one deliberate copy — an agent that needs it is by definition one that did not read this file — and
+`scripts/test-choice-prompts.sh` binds it (the marker, the tool name on the same line, the declared site count per file,
+the sequence sites as `<!-- craft:choice sequence -->`, and the cache-guard stops below as `<!-- craft:choice typed -->`). The full rule stays here: the limits,
+splitting, follow-ups, the fallback and the cache-guard exception. A site sentence may add its own option list; it restates no
+rule.
+
+**Where the legend lives.** A command writes its menu as a legend: each letter, **its meaning and its consequence /
+next step**. That legend is the single source of the options for both renderings below.
+
+**Interactive session — a click.** If the `AskUserQuestion` tool is available, ask the question with it instead of
+printing a menu to type into:
+
+- **Lettered menu** → one question; one option per letter (label: the letter and its meaning; description: the
+  consequence / next step). The answer is the chosen option — never ask the user to type a letter.
+- **Yes/no confirmation** ("Proceed?", "Is that right?") → a two-option question, the default option first. A
+  destructive step names what it removes and that it cannot be undone in the question text.
+- **Open question with typical answers** (a trigger category, a language, a slice name derived from the context) →
+  offer context-derived suggestions as the options; the automatic "Other" takes the user's own text. A question with no
+  meaningful presets (a Vision, a bug description) stays typed.
+- **The tool's limits** — 2–4 options per question plus the automatic "Other", up to four questions per call. A menu of
+  more than four options is split into steps (or grouped, the group picked first) and nothing is dropped; an option
+  that needs a parameter (`[R] <ids> — <note>`, "Other language") asks for it in a follow-up question after the click.
+- **Dependent questions are asked one call at a time** (D40, slice-077). A question that depends on an earlier answer, or
+  whose point is lost when the earlier one is No (a confirmation chain such as `/craft:abort`'s), is asked in an
+  `AskUserQuestion` call of its own, the next one only after the answer; a No ends the chain before any further question.
+  Only independent questions share a call. A site that is such a chain carries `<!-- craft:choice sequence -->` and the
+  phrase ``in an `AskUserQuestion` call of its own`` on that line, bound by `scripts/test-choice-prompts.sh`.
+- **A vague answer to a menu** (text under "Other" that picks no option — "kind of works, but…") is not interpreted: ask
+  the question again.
+
+**A stop that arms the autopilot cache guard stays text.** Every question asked at a stop that arms the guard — the
+orphan question, the plan gate, the a5 sign-off, and any question a run stops to ask (`commands/execute.md` → *The cache
+guard*) — ends the turn so that the human's answer arrives as the next **prompt**: the `UserPromptSubmit` hook
+`hooks/cache-guard.sh` blocks a prompt that comes after the prompt cache expired, and a click is a tool result the hook
+never sees (and `AskUserQuestion` after the arm would be the tool call after the arm that lets the answer pass
+unguarded). Those questions are rendered as text with their full legend, as below, and answered by typing; every question
+at a stop that does not arm the guard, in an autopilot run too, is a click.
+
+**No human can click — the legend is rendered.** In Subagent Mode (`AskUserQuestion` is not available to a subagent; the
+command's own Subagent Mode writes a handoff instead of asking), in a headless `claude -p` session, or whenever the tool
+is not available, render the legend **in full** as text: every option as its letter plus its meaning plus its
+consequence / next step, on **every** occurrence — not just the first. The user may answer with the bare letter, but the
+agent always shows the full legend. Never present bare letters and rely on the user recalling what they mean.
+
+
+#### Auto flow (the Slice Flow rule, D42)
+
+<!-- craft:flow-rule -->
+With the profile's `## Slice Flow` → `Mode: auto` (the plugin default; the `careful` preset ships `manual`) an
+interactive slice moves from phase to phase **by itself**, up to and including the commit, instead of waiting for the
+human to type each phase command — the human decisions inside the phases are what need the human, and they stay human.
+This is the one definition; the phase commands point here from the closing section marked `<!-- craft:flow -->` and
+carry no second copy.
+
+**Where it applies.** At the end of an interactive `/craft:build`, `/craft:test`, `/craft:recap`, `/craft:refactor`,
+`/craft:review` and `/craft:commit`, and after `/craft:plan` (below). Never in **Subagent Mode**, never inside
+`/craft:execute` or an autopilot run (they orchestrate the phases themselves), and never where no human can click (a
+headless `claude -p` session): there each command ends as it always did.
+
+**The verdict comes from one helper, never from judgment.** At the end of the command, after its normal closing output:
+
+1. Take the `--from` value: the plan's `Status:` at the moment the command's **own work** began — *after* its Pre-flight
+   status write, not the status it found (a build that found `planning` has already written `implementing`; passing
+   `planning` would let a build that stopped early start itself again). One value per command:
+
+   | Command | `--from` |
+   |---|---|
+   | `/craft:build` | `implementing` |
+   | `/craft:test` | `testing` |
+   | `/craft:recap` | the status it found (`review`, or `testing` right after Phase 5) |
+   | `/craft:refactor` | `refactoring`; with Phase 7 dropped none (its skip gate always advances to `reviewing` and must chain) |
+   | `/craft:review` | `reviewing`, in Phase-8 mode only — an **advisory** review changes no status and never chains |
+   | `/craft:plan`, `/craft:commit` | none (the plan click; the flow ends) |
+
+   A command that **refused in its Pre-flight** (no slice, a wrong status, a paused or blocked slice) did no work and wrote
+   no status: it runs **no** Auto flow step at all — its refusal message stands. Passing the table's value then would
+   start another phase on a slice the user only mistyped a command for.
+2. Run `bash "<plugin-root>/scripts/flow-state.sh" --project "<project-root>" --from <that status> "<slice plan>"` —
+   `<plugin-root>` is the resolved `${CLAUDE_PLUGIN_ROOT}` the phase command hands over (a skill read as a file is not
+   substituted); in CRAFT's own source repo `scripts/flow-state.sh` of the working tree. It reads the profile's mode and the plan's
+   `Status:` and prints `MODE=`, `STATUS=`, any `WARN=` lines and **exactly one** of `NEXT=` or `STOP=`.
+3. **`NEXT=/craft:<phase>`** → say `Auto flow → /craft:<phase>` and start that phase yourself, the way the user's typed
+   command would run it — its Pre-flight, its procedure, its human decisions as clicks (use the `Skill` tool where the
+   session offers it; else read the command's file and follow it). That phase ends with this same step.
+4. **`STOP=<reason>`** → do not start anything. `STOP=manual` is silent (the pause word is the exception to "`manual` = before D42": a live request prints `STOP=pause-requested` in manual mode too): the command ends with its own `Recommended
+   next:` as before. Any other reason is named in one line, `Auto flow stops: <reason> — <what that means>`, above the
+   command's own `Recommended next:`: `committed` — the slice is done, the flow ends here; `blocked`, `paused`,
+   `awaiting-release`, `awaiting-approval` — a human holds the slice (`/craft:unblock`, `/craft:continue`,
+   `/craft:release`, `/craft:commit`); `pause-requested` — you sent the pause word (in either mode), run the pause action (*The pause
+   request* below) instead of the generic line; `no-progress` — the phase ended in the status it began in, so it is waiting for
+   you (a gated review, a `[U]` iteration, a pause) — say what it waits for; `invalid-mode` — the profile's value is
+   neither `auto` nor `manual` (`/craft:prime` warns); `no-plan`, `unknown-status` — the plan cannot be read; any reason
+   this rule does not list — name it and stop.
+5. **Any `STOP=` settles a pending pause request** (*The pause request*, rule 4) — run `pause-request.sh consume` after
+   naming it, so a request the flow never read cannot pause the next slice of this session.
+6. Relay every `WARN=` line as `⚠ <text>`. **Doubt means stop**: the helper missing, failing, or printing no `NEXT=` /
+   `STOP=` line is a stop — say `Auto flow stops: flow check incomplete — <one-line cause>`. (Unlike the handoff marker,
+   where doubt means live: a wrong automatic phase start costs more than a halt.)
+
+**Human decisions stay human.** The flow answers nothing for the human: Phase 5's `[W]/[B]/[U]` (and the exercise before
+it), a review escalation or cap route, the decision walk of Phase 9 and the commit-message confirmation are asked as
+clicks (*Choice prompts* above) and the flow goes on right after the answer. A phase's own stops are unchanged — a
+Pre-flight refusal runs no Auto flow step (step 1), and a gated review, a pause or a `/craft:debug` detour leaves the
+status where the work began, which the helper sees as no progress.
+
+**The flow ends after `/craft:commit`.** Its closing section calls no helper: the slice is closed, nothing follows but the
+command's own `Recommended next:`.
+
+**After `/craft:plan`.** With `Mode: auto`, plan ends by asking one click, **Build now** / **Later** (several slices can
+still be planned ahead); *Build now* runs steps 2–3 with the new plan (no `--from`) and so starts `/craft:build`, *Later*
+ends with the output's own `Next: /craft:build` line as before. The click follows only a successful closing output (not
+a partial write). With `manual` it asks nothing.
+
+**Manual.** `Mode: manual` is exactly the behavior before D42: one command per phase, each ending with `Recommended
+next:` — except the pause word, which works in manual flow as in auto flow (*The pause request*).
+
+**The pause request (slice-075; both modes since slice-077).** The human pauses a slice in flight — in auto flow and in
+`Mode: manual` alike (D42 amendment, decision `[G]`) — by sending a message that is **only** `pause`, `pausieren` or
+`/craft:pause` (trimmed, any case — `stop` and `halt` are deliberately no pause words, and a message that merely contains
+the word is no request). Claude Code delivers a message sent while a turn runs at the turn's next tool boundary, so the
+request must outlive the step in flight: it is a marker, `.claude/plans/.pause-request` (kept as state, never removed),
+recorded by you and, for a word sent as a prompt of its own, by the `UserPromptSubmit` hook `hooks/pause-watch.sh`.
+**The finding (re-test T3, 2026-10-08):** the hook did not fire for a message delivered mid-turn. It covers only a pause
+word sent as a prompt of its own (the agent idle, or a held command delivered at turn end); for a word delivered
+mid-turn your own `request` (rule 1) is the only path. `/craft:pause` is a pause word too, but it is a **command**: Claude
+Code holds a queued command until the turn ends, so it takes effect only then and cannot stop a running flow mid-turn
+the way `pause` / `pausieren` can — whatever the flow did in that turn stands. Four rules, all through
+`scripts/pause-request.sh` / `flow-state.sh` (the same plugin-root and project-root as above); you never parse the marker:
+
+1. **Record it.** When a user message that is only a pause word reaches you — in the prompt, or delivered mid-turn
+   between tool results — run `bash "<plugin-root>/scripts/pause-request.sh" request --project "<project-root>"` before
+   anything else (the hook may or may not have fired; `request` is idempotent). Only for an interactive slice in flight
+   (at `implementing`, `testing`, `review`, `refactoring`, `reviewing` or `committing` — a slice still at `planning` is
+   not in flight: a "pause" typed in the planning dialogue is too easily meant otherwise), in either flow mode; in
+   Subagent Mode and an autopilot run there is no flow to pause. At a countdown (build's sub-task bundle, refactor's item
+   bundle, debug's attempt bundle) a message that is only a pause word is the slice's pause request, and any other input
+   halts only the countdown or the debug loop. Each phase command states this at its site in one line marked
+   `<!-- craft:pause-word -->` (bound by `scripts/test-pause-watch.sh`).
+2. **Check it at every boundary.** At each phase end the helper call above already includes it: a live request of this
+   session prints `STOP=pause-requested` (it wins over `NEXT=` and over `no-progress`; under `Mode: manual` too, for a
+   slice in flight). `/craft:build` also asks at each **sub-task boundary** — after the bundle, while a sub-task is still
+   unchecked — with `--from implementing`, in both modes; there only `STOP=pause-requested` matters, any other output
+   means the build goes on with the next sub-task.
+3. **The pause action.** On `STOP=pause-requested`: finish the running step (never stop in the middle of an edit — the
+   sub-task or phase step in flight is completed, or left unchecked with its state in the note), say `Auto flow stops:
+   pause-requested — you asked to pause`, then write the handoff (`/craft:handoff`) and pause the slice
+   (`/craft:pause`) — the pause note composed by you and shown, not asked for. Both consume the request
+   (`pause-request.sh consume`), so `/craft:continue` later resumes the slice the usual way and the old request cannot
+   fire again; a request made before a resume is no request (`state --plan` reads the plan's `> Resumed:` line). Start
+   nothing after it. A pause word that reaches you while **no step is running** (a new prompt at a boundary) needs no
+   boundary: record it (rule 1) and run the pause action at once; for `/craft:pause` that run is the command itself, nothing runs before it (`commands/pause.md` → Pre-flight).
+4. **Settle what is not read.** A request the flow never reads — the slice ends in another `STOP=` (Auto flow step 5),
+   `/craft:commit` closes it, `/craft:abort` drops it — is consumed there (`pause-request.sh consume`), so it cannot pause
+   the next slice of this session.
+
+Doubt for this helper is the reverse of the flow's own: a marker nobody can read, or one of another session, is **no**
+request — a phantom pause would halt a flow the human did not stop; a missed one costs one more step, and the human can
+type the word again.
 
 ---
 

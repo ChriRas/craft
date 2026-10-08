@@ -13,8 +13,8 @@ allowed-tools: ["Bash", "Read", "Write", "Edit", "Glob", "Grep"]
 
 When invoked as a slash command:
 
-1. **Locate the active slice.** `Glob` `.claude/plans/slice-*.md`. Pick the active slice. If multiple, ask which.
-   If none → ask: *"No active slice. Is this a bug in a closed slice, or do we need to plan a new slice first?"* Bug fixes for closed slices may warrant their own slice.
+1. **Locate the active slice.** `Glob` `.claude/plans/slice-*.md`. Pick the active slice. If multiple, ask which. <!-- craft:choice --> Ask it with `AskUserQuestion` (one option per slice); where the tool is not available, a numbered list as text.
+   If none → ask: *"No active slice. Is this a bug in a closed slice, or do we need to plan a new slice first?"* Bug fixes for closed slices may warrant their own slice. <!-- craft:choice --> Ask it with `AskUserQuestion` (options: a bug in a closed slice / plan a new slice first); where the tool is not available, ask as text.
 
 2. **Read project tooling.** `Read` `.claude/project/rules.md` for the test framework, lint commands, etc. — needed to compose verification commands.
 
@@ -37,7 +37,7 @@ The protocol shifts verification responsibility from the human to the agent — 
 ## When This Skill Runs
 
 - **Manually**, when the user invokes `/craft:debug <description>`. The user knows it's a bug, not a feature.
-- **Automatically**, when the agent detects it has made **≥2 fix attempts on the same symptom** within the active slice. The agent does not enter the protocol unilaterally — it asks: *"I notice I'm cycling on this. Should we enter `/craft:debug` mode?"*
+- **Automatically**, when the agent detects it has made **≥2 fix attempts on the same symptom** within the active slice. The agent does not enter the protocol unilaterally — it asks: *"I notice I'm cycling on this. Should we enter `/craft:debug` mode?"* <!-- craft:choice --> Ask it with `AskUserQuestion` (two options); where the tool is not available, ask as text.
 - **Phase 5 cascade**: when the user reports `[B]` in Phase 5's structured feedback, `/craft:test` invokes `/craft:debug` and this skill runs.
 
 The auto-trigger threshold (default `2`) and the maximum-attempts cap (default `5`) are **overridable per project** in `.claude/project/rules.md` under a *"Self-Verification Settings"* section.
@@ -84,7 +84,7 @@ The agent proposes a **verification command + expected result + negative check**
 - **Frozen at:** <ISO date>
 ```
 
-The agent presents this draft, the user confirms or adjusts. Once confirmed, the protocol is frozen.
+The agent presents this draft, the user confirms or adjusts. <!-- craft:choice --> Ask the confirmation with `AskUserQuestion` (options: confirm and freeze / adjust — the adjustment is typed); where the tool is not available, ask as text. Once confirmed, the protocol is frozen.
 
 ### Step 3 — AUTONOMOUS LOOP (Autonomy Level 2, token brake tightened to 15k)
 
@@ -113,14 +113,15 @@ For each attempt:
      Verification: ❌ — <output snippet>
      Negative check: ✓
      Next hypothesis: <one-liner>
-     [continuing in 3s — type 'pause' to stop]
+     [continuing in 3s — type 'pause' to pause the slice, anything else to halt the loop]
    ```
 
 #### Loop exit conditions
 
 - **Success** — Verification passes AND negative check passes. Agent exits the loop, reports the working fix with diff, and offers to promote the verification command to a permanent regression test (see below).
 - **5 attempts exhausted** — Agent stops, transitions to Step 4.
-- **User interrupts** — Any input during the auto-continue countdown pauses the loop. The user can ask for the attempt log, request a strategy change, or escalate.
+- **User interrupts** — A message that is only a pause word during the auto-continue countdown is the slice's pause request (`skills/workflow/SKILL.md` → *The pause request*). Any other input pauses only the loop: the user can ask for the attempt log, request a strategy change, or escalate (`stop` is no pause word, so it halts only the loop).
+  <!-- craft:pause-word --> **A message that is only a pause word** (*The pause request*, `skills/workflow/SKILL.md`) that reaches you while this loop runs — in auto and manual flow alike, whether or not the hook fired — makes you do four things in this order: run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/pause-request.sh" request --project "<project-root>"` first (in CRAFT's own source repo: `scripts/pause-request.sh`), finish the running attempt (its `## Bug Fix Attempts` entry written), run `/craft:handoff`, then `/craft:pause`. The pause note names the attempt count and the frozen protocol; `/craft:continue` resumes the slice's phase, not the loop.
 
 #### Forbidden during the loop
 
@@ -148,7 +149,7 @@ Suggested options:
  d) Take it manually — disable /craft:debug mode and continue in regular Phase 4
 ```
 
-The user picks. The agent does not pre-pick.
+<!-- craft:choice --> The user picks, with `AskUserQuestion` (the four options above, a to d, in one question; the agent does not pre-pick); where the tool is not available, print them as text.
 
 ---
 
@@ -243,7 +244,7 @@ When the loop exits successfully, the agent proposes:
 
 > "The verification command worked. Should I promote it to a permanent test in the regression suite? This converts the ad-hoc check into a test that runs every CI build."
 
-User confirms `yes` or `no`. On `yes`, the agent:
+<!-- craft:choice --> The user confirms with `AskUserQuestion` (two options, yes / no); where the tool is not available, ask as text. On `yes`, the agent:
 
 1. Writes a new test in the project's test suite using the verification command and expected output.
 2. Adds the test path to the slice plan under `## Sub-Tasks` as a check-marked item (so Phase 9 commit includes it).

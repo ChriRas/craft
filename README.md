@@ -323,7 +323,8 @@ When you run `/craft:onboard`, the plugin creates:
 CRAFT also writes local, per-clone state that must never be committed: the per-session prime
 marker `.claude/plans/.primed`, the hook's `.claude/plans/.hook-env`, the `/craft:execute` run lock
 `.claude/plans/.execute.lock` (never removed — its content says `held` or `released`), the autopilot's
-cache-guard marker `.claude/plans/.cache-guard` (never removed either — `armed` or `disarmed`), the closed-plans
+cache-guard marker `.claude/plans/.cache-guard` (never removed either — `armed` or `disarmed`), the auto flow's
+pause-request marker `.claude/plans/.pause-request` (`requested` or `consumed`, never removed), the closed-plans
 directory `.claude/plans/.closed/`, `.claude/settings.local.json`, and the worktree handoff marker
 `.craft/`. `/craft:onboard` adds whichever of them your `.gitignore` files do not already cover to one
 `# CRAFT local state` block. In a project onboarded before that, `/craft:prime` reports the uncovered

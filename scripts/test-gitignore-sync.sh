@@ -36,9 +36,9 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 XDG_CONFIG_HOME="$ROOT/
 
 # The paths the helper must cover — kept in step with CRAFT_PATHS in the helper;
 # the first case fails loudly if the two ever drift apart.
-PATHS=".claude/plans/.primed .claude/plans/.hook-env .claude/plans/.execute.lock .claude/plans/.cache-guard .claude/plans/.closed/ .claude/settings.local.json .craft/"
+PATHS=".claude/plans/.primed .claude/plans/.hook-env .claude/plans/.execute.lock .claude/plans/.cache-guard .claude/plans/.pause-request .claude/plans/.closed/ .claude/settings.local.json .craft/"
 NP=$(wc -w <<<"$PATHS" | tr -d ' ')   # the number of CRAFT paths, read off the list above — never retyped
-MARKERS=".claude/plans/.primed .claude/plans/.hook-env .claude/plans/.execute.lock .claude/plans/.cache-guard .claude/plans/.closed/slice-001-x.md .claude/settings.local.json .craft/handoff.md"
+MARKERS=".claude/plans/.primed .claude/plans/.hook-env .claude/plans/.execute.lock .claude/plans/.cache-guard .claude/plans/.pause-request .claude/plans/.closed/slice-001-x.md .claude/settings.local.json .craft/handoff.md"
 
 new_repo() { # → prints the path of a fresh git repo (called in $(…), so no shared counter)
   local d
@@ -203,7 +203,7 @@ helper "$R" --apply >/dev/null
 all_ignored "$R" && ok "  … --apply covers it; git ignores every marker" || bad "broader negation --apply: $(tr '\n' '|' < "$R/.gitignore")"
 
 R="$(new_repo)"
-printf '# CRAFT local state\n.claude/plans/.hook-env\n.claude/plans/.execute.lock\n.claude/plans/.cache-guard\n.claude/plans/.closed/\n.claude/settings.local.json\n.craft/\n.claude/plans/.primed\n!.claude/plans/.primed\n' > "$R/.gitignore"
+printf '# CRAFT local state\n.claude/plans/.hook-env\n.claude/plans/.execute.lock\n.claude/plans/.cache-guard\n.claude/plans/.pause-request\n.claude/plans/.closed/\n.claude/settings.local.json\n.craft/\n.claude/plans/.primed\n!.claude/plans/.primed\n' > "$R/.gitignore"
 cp "$R/.gitignore" "$ROOT/snapshot"
 out="$(helper "$R" --check)"; rc=$?
 { [[ $rc -eq 0 ]] && [[ "$out" == *"STATUS=present"* ]] && [[ "$out" == *"MISSING=0"* ]]; } \

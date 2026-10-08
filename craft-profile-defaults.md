@@ -26,11 +26,12 @@ This file documents the default values, the resolution rules, and the validation
 | Merge Workflow | Approval | `chat` | Human go-ahead is a chat confirmation, not a GitHub PR review. |
 | Merge Workflow | Approval-granularity | `auto` | Sequential epic → per slice; parallel epic → once at epic end. |
 | Epic Mode | Default | `parallel` | `/craft:execute <epic>` runs independent slices concurrently in worktrees. |
+| Slice Flow | Mode | `auto` | An interactive slice moves from phase to phase by itself, up to and including the commit, stopping only for human clicks (`scripts/flow-state.sh` decides, D42). `manual`: one command per phase, each ending with `Recommended next:`. |
 | Permissions | Scope | `standard` | A moderate permission allowlist (the actual entries live in `settings.local.json`). |
 | Autopilot | Budget-before-slice | `85` | An autopilot run starts no slice while the 5-hour usage plus the forecast is above it. |
 | Autopilot | Budget-in-slice | `95` | A builder in an autopilot run stops at the next boundary of its spawn — a sub-task, a phase, a debug attempt — at or above it (5-hour usage). |
 | Autopilot | Budget-seven-day | `90` | An autopilot run starts no further slice at or above it (weekly usage). |
-| Autopilot | Cache-guard-recache-tokens | `100000` | Not a budget — the cache guard's threshold (`hooks/cache-guard.sh`): while an autopilot session waits on the human, a prompt that arrives after its prompt cache expired is blocked, with the restart instruction, when re-writing the cache would cost at least this many tokens. |
+| Autopilot | Cache-guard-recache-tokens | `150000` | Not a budget — the cache guard's threshold (`hooks/cache-guard.sh`): while an autopilot session waits on the human, a prompt that arrives after its prompt cache expired is blocked, with the restart instruction, when re-writing the cache would cost at least this many tokens. |
 | Operational Language | Chat | system language | The language `/craft:prime` adopts for the session. |
 | Operational Language | Commits | `English` | Commit-message language (`/craft:commit`). |
 | Operational Language | Comments | `English` | Code-comment language (`/craft:build`, `/craft:review`). |
@@ -63,11 +64,11 @@ This file documents the default values, the resolution rules, and the validation
 Three starting profiles ship under `templates/profiles/`. `/craft:onboard` copies one
 into `.claude/project/craft-profile.md`; the project may then edit it freely.
 
-| Preset | Execution | Auto-commit | Merge | Epic | Permissions |
-|---|---|---|---|---|---|
-| `careful` | in-place | off | protected-`main` PR you approve | sequential | minimal |
-| `balanced` *(= defaults)* | worktree | on | direct | parallel | standard |
-| `autonomous` | worktree | on | direct | parallel | broad |
+| Preset | Execution | Auto-commit | Merge | Epic | Slice Flow | Permissions |
+|---|---|---|---|---|---|---|
+| `careful` | in-place | off | protected-`main` PR you approve | sequential | manual | minimal |
+| `balanced` *(= defaults)* | worktree | on | direct | parallel | auto | standard |
+| `autonomous` | worktree | on | direct | parallel | auto | broad |
 
 "Give me the defaults" during onboarding resolves to `balanced`.
 
@@ -118,6 +119,8 @@ never corrected, per the rules.md Tabu on silent drift correction):
   - a value outside its enum (e.g. `Mode: parallel`);
   - an `## Autopilot` budget value that is not an integer 1–100, or a `Cache-guard-recache-tokens` value that is not a
     positive integer — reported by `scripts/usage-state.sh`, which also falls back to the default for it;
+  - a `## Slice Flow` → `Mode` value that is not `auto` or `manual` — reported by `scripts/flow-state.sh --mode`; the flow then
+    stops (`STOP=invalid-mode`, doubt means stop) until the value is fixed;
   - the invalid combination `Auto-commit: off` with `Mode: worktree` (auto-commit can
     only be disabled on the in-place path — the worktree merge model requires commits).
 

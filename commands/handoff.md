@@ -1,6 +1,6 @@
 ---
 description: Fresh-context restart. Summarizes problem + attempts into the slice plan's ## Handoff section so a new chat session can pick up cleanly. Useful when context is poisoned or progress stalls.
-allowed-tools: ["Read", "Edit", "Glob"]
+allowed-tools: ["Bash", "Read", "Edit", "Glob"]
 ---
 
 # /craft:handoff — Hand Off Work to a Fresh Session
@@ -15,7 +15,7 @@ This is not bug-specific; use it whenever a fresh perspective would help.
 
 ## Pre-flight
 
-- `Glob` `.claude/plans/*.md`. Pick the active slice. If multiple, ask which slice to hand off.
+- `Glob` `.claude/plans/*.md`. Pick the active slice. If multiple, ask which slice to hand off. <!-- craft:choice --> Ask it with `AskUserQuestion` (one option per slice); where the tool is not available, a numbered list as text.
 - If none → tell user: *"No active slice to hand off. If you want to capture session-only state, write it to a notes file manually."* and stop.
 
 ---
@@ -64,7 +64,14 @@ Add or overwrite the `## Handoff` section in the slice plan:
 - <…>
 ```
 
-### 3. Instruct the user
+### 3. Settle a pause request
+
+Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/pause-request.sh" consume --project "<project-root>"` (in CRAFT's own source repo
+`scripts/pause-request.sh`): a pause request recorded in either flow mode (`skills/workflow/SKILL.md` → *The pause request*)
+is answered by the handoff and the pause that follows it — the marker becomes `consumed`, never removed. A no-op
+(`CONSUMED=no`) without a request; a missing or failing helper does not stop the handoff.
+
+### 4. Instruct the user
 
 Emit:
 
@@ -79,7 +86,7 @@ Action required from you:
 The fresh agent will read the handoff and continue from "Best guess for next step."
 ```
 
-### 4. Set status
+### 5. Set status
 
 Update `Status:` to whatever it was, plus add a note in the slice plan's frontmatter or top region: `Handoff active: yes`. The next `/craft:prime` uses this flag to surface the handoff prominently.
 
@@ -105,7 +112,7 @@ Next: start a fresh chat session; /craft:prime will pick up.
 |---|---|
 | Slice plan does not exist | Stop with the message in Pre-flight. |
 | User wants to hand off without summarizing | Push back gently: *"A handoff without a summary is just a context reset. Either write a summary, or use /clear directly."* |
-| `## Handoff` section already exists from a prior handoff | Offer: *"There is already a Handoff section from a prior session. Overwrite, append, or cancel?"* |
+| `## Handoff` section already exists from a prior handoff | Offer: *"There is already a Handoff section from a prior session. Overwrite, append, or cancel?"* <!-- craft:choice --> Ask it with `AskUserQuestion` (three options); where the tool is not available, as text. |
 
 ---
 

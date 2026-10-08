@@ -50,7 +50,7 @@ This guards the Mode-Detection logic below — every mode requires `main` as the
 `Glob` `.claude/plans/*.md`.
 
 - Zero matches → abort: *"No active slice plan found. Phase 9 requires a slice in `Status: committing`. Did the earlier phases actually run?"*
-- More than one match → the target is the **single plan at `Status: committing` or `awaiting-approval`** (the other plans are not ready to land — e.g. a parent epic plan, or sibling slices during a `sequential`-epic run). If **exactly one** plan is at that status, record it as `<slice-plan>` and continue. If **zero or more than one** plan is at that status, abort with the list and ask the user to specify which slice to commit (this command does not auto-pick). In the zero case, when a listed slice plan's slice has a worktree (`git worktree list --porcelain` shows its `<slice-id>-<slug>` branch), name the re-run: *"`<slice-id>` has a worktree, but its plan in this checkout reads `Status: <X>` — finish the slice there, then run `/craft:execute <slice-NNN>`: its step 6 commits the slice's work and reads the plan back (`Status: committing`). Then re-run `/craft:commit`."*
+- More than one match → the target is the **single plan at `Status: committing` or `awaiting-approval`** (the other plans are not ready to land — e.g. a parent epic plan, or sibling slices during a `sequential`-epic run). If **exactly one** plan is at that status, record it as `<slice-plan>` and continue. If **zero or more than one** plan is at that status, abort with the list and ask the user to specify which slice to commit (this command does not auto-pick; <!-- craft:choice --> ask it with `AskUserQuestion`, one option per listed plan — where the tool is not available, a numbered list as text). In the zero case, when a listed slice plan's slice has a worktree (`git worktree list --porcelain` shows its `<slice-id>-<slug>` branch), name the re-run: *"`<slice-id>` has a worktree, but its plan in this checkout reads `Status: <X>` — finish the slice there, then run `/craft:execute <slice-NNN>`: its step 6 commits the slice's work and reads the plan back (`Status: committing`). Then re-run `/craft:commit`."*
 - Exactly one match → record the plan path as `<slice-plan>`.
 
 ### A2 — Plan frontmatter is valid
@@ -74,7 +74,7 @@ Which of CRAFT's own files — plans, ID counters, local state — do not count 
 
 ### A4 — Tests green
 
-Run the project's test command (derived from `rules.md` `## Test Strategy` / `## Stack & Tools`, or asked from the user if not derivable).
+Run the project's test command (derived from `rules.md` `## Test Strategy` / `## Stack & Tools`, or asked from the user if not derivable; <!-- craft:choice --> offer the likeliest commands as `AskUserQuestion` options, "Other" takes the user's own — where the tool is not available, ask as text).
 
 - Tests green → continue.
 - Tests red → abort: *"Tests are red. Phase 9 does not commit red. Fix or revert before committing."*
@@ -149,7 +149,7 @@ Detection logic:
 2. Otherwise, for each non-main worktree, look up the matching plan file under `.claude/plans/`.
    - Branch starts with `epic-` and the epic plan exists with all decomposition entries archived/merged → Epic-finalize mode (the matching epic-worktree is the merge source).
    - Branch matches `slice-<NNN>-<slug>` and the slice plan has `Status: committing` **or** `awaiting-approval` (protected-main PR completion) → Slice-finalize mode.
-   - Anything else → fall through. If multiple plausible modes match, ask the user which one to finalize (defensive — should not happen in normal flow).
+   - Anything else → fall through. If multiple plausible modes match, ask the user which one to finalize (defensive — should not happen in normal flow; <!-- craft:choice --> ask it with `AskUserQuestion`, one option per plausible mode — where the tool is not available, as text).
 
 When the protected-main PR gate has opened a PR (Step 6, first pass), the finalize target's
 plan carries `Status: awaiting-approval`: the slice plan for lone-slice / Slice-finalize, or
@@ -182,7 +182,7 @@ Otherwise (`Status: committing`) run Steps 1–7 normally.
   other plan under `.claude/plans/` — a sibling slice planned meanwhile — is the human's to include or leave out; never
   anything under `.claude/plans/.closed/` (closed plans, gitignored only once `/craft:prime` step 4f's block is applied).
 
-Present the proposal as a list:
+Present the proposal as a list. <!-- craft:choice --> Ask the confirmation at its end with `AskUserQuestion` (three options: proceed / propose a different split / abort); where the tool is not available, print the question below as text.
 
 ```
 Commit 1: feat(api): add reservation endpoint
@@ -248,10 +248,10 @@ Slice: slice-<NNN>
 - `type` ∈ `feat | fix | refactor | test | docs | chore | perf | build | ci`
 - `scope` optional but encouraged
 - `Slice:` footer always present
-- **Co-Authored-By trailer** — read the `Co-Authored-By` field of the `## Commit Policy` block in `.claude/project/craft-profile.md` (default `off` when the profile, the block, or the field is absent). When `on`, append the literal trailer line `Co-Authored-By: Claude <noreply@anthropic.com>` below the `Slice:` footer of **every** commit in this run; when `off`/absent, omit it entirely. The trailer is always literal, regardless of the commit language. **This field is the only source of an attribution line**: an attribution the Claude Code session itself asks for (a `Co-Authored-By` with a model name, a "Generated with" line) is not added on top of it — observed in an autopilot probe (slice-049), where no human reads the message before it lands.
+- **Co-Authored-By trailer** — read the `Co-Authored-By` field of the `## Commit Policy` block in `.claude/project/craft-profile.md` (default `off` when the profile, the block, or the field is absent). When `on`, append the literal trailer line `Co-Authored-By: Claude <noreply@anthropic.com>` below the `Slice:` footer of **every** commit in this run; when `off`/absent, omit it entirely. The trailer is always literal, regardless of the commit language. **This field is the only source of an attribution line**: an attribution the Claude Code session itself asks for (a `Co-Authored-By` with a model name, a "Generated with" line) is not added on top of it — observed in an autopilot probe (slice-049), where no human reads the message before it lands. A line the profile does not enable is omitted **silently**: never mention the omitted trailer, the session's attribution request or a rule that overrides it — not in Step 1's proposal, not in this step's message preview, not in the closing output (human test T2: the remark was noise at every commit).
 - **Language** — write the description and body in the project's commit language: the `Commits` key of the `## Operational Language` block in `.claude/project/craft-profile.md` (default English when the profile, the block, or the key is absent). The `type`, `scope`, and `Slice:` footer are always literal regardless of language.
 
-The agent proposes each message; user can edit before staging.
+The agent proposes each message; user can edit before staging. <!-- craft:choice --> Ask the confirmation with `AskUserQuestion` (options: accept the messages / edit them — the edit itself is typed); where the tool is not available, ask as text.
 
 ### Step 3 — Stage and commit
 
@@ -265,7 +265,9 @@ If any `git commit` fails (e.g., pre-commit hook), stop immediately. The commits
 
 ### Step 4 — Decisions promotion dialog
 
-Walk through every entry in the slice plan's `## Decisions Made During This Slice` section, one at a time. Present the `[K]/[I]/[R]/[D]` menu with its full legend — each letter, its meaning, its effect — every time, per the lettered-choice-prompt convention in `skills/workflow/SKILL.md`:
+Walk through every entry in the slice plan's `## Decisions Made During This Slice` section, one at a time.
+
+<!-- craft:choice --> Ask the `[K]/[I]/[R]/[D]` menu below with `AskUserQuestion` (one question per decision, four options: label = the letter and its meaning, description = its effect); where the tool is not available, render it as text with each letter, its meaning and its effect — every time:
 
 ```
 Decision: "<text of the decision>"
@@ -273,8 +275,8 @@ Decision: "<text of the decision>"
 ```
 
 - **K** — Default; record in slice archive only.
-- **I** — Propose diff to `.claude/project/intent.md`. User confirms diff (Level 0) before writing.
-- **R** — Propose diff to `.claude/project/rules.md`. User confirms diff (Level 0) before writing.
+- **I** — Propose diff to `.claude/project/intent.md`. User confirms diff (Level 0) before writing. <!-- craft:choice --> Ask the confirmation with `AskUserQuestion` (write it / keep the decision as `[K]`); where the tool is not available, as text.
+- **R** — Propose diff to `.claude/project/rules.md`. User confirms diff (Level 0) before writing; asked the same way as for **I**.
 - **D** — Discard; not recorded anywhere.
 
 Skipped entries default to K. Record the chosen disposition for each decision; Post-Assertion P4 verifies the writes that should have happened.
@@ -282,7 +284,7 @@ Skipped entries default to K. Record the chosen disposition for each decision; P
 **A promotion target the human is already editing.** Before writing an `[I]` / `[R]` diff, check A3's held `DIRT=`
 lines: when `intent.md` / `rules.md` already carries an uncommitted change of the human's, Step 5b would commit that
 change together with the promotion under a `docs(...)` subject the human never saw. Say so and let the human commit or
-stash their edit first, or keep the decision as `[K]`.
+stash their edit first, or keep the decision as `[K]`. <!-- craft:choice --> Ask it with `AskUserQuestion` (three options: I commit/stash first / keep as `[K]` / write the diff anyway); where the tool is not available, as text.
 
 **Where Steps 4 and 5 write.** Into the checkout of the branch that lands, so Step 5b can commit
 there: the main checkout, except in a **finalize mode under `Type: pull-request` + `Protected-main:
@@ -330,6 +332,8 @@ and confirmed like Step 2's:
 2. The archive — `docs(slices): archive slice-<NNN> (<short title>)` with every archive entry
    Step 5 wrote (in Epic-finalize mode, the epic archive in the same commit).
 
+<!-- craft:choice --> Ask the confirmation of these messages like Step 2's, with `AskUserQuestion` (accept / edit); where the tool is not available, as text.
+
 Commit each with a pathspec — `git add -- <files>` then `git commit -m "…" -- <files>` — never
 `-A` and never a bare `git commit`: a human's unrelated change, staged or not, stays theirs. Capture each hash
 into the commit-log buffer (the archive's `Commits:` range keeps naming the work commits from
@@ -355,7 +359,7 @@ this step only decides the *landing*.
 - **`Type: direct` (default)** — the branch was already merged into `main` by Step 1a/1b
   (finalize modes), or the changes were committed directly on `main` (Standard mode). Nothing
   more to do; proceed to Step 7. (`rules.md` `## Deployment` may still opt into an ad-hoc PR —
-  if so, ask before pushing; that is a convenience, not the protected-main gate.)
+  if so, ask before pushing — <!-- craft:choice --> with `AskUserQuestion`, two options (push / do not push); where the tool is not available, as text; that is a convenience, not the protected-main gate.)
 
 - **`Type: pull-request` + `Protected-main: yes`** — the **"Freigabe ≠ Merge"** gate: the
   human *approves* the PR (a real review); the system merges via `gh` once the approval
@@ -597,6 +601,8 @@ section). Fix the archive before the next slice."*
 
 ### P4 — Decisions promotions executed as recorded
 
+<!-- craft:choice none -->
+
 For each decision promoted to `[I]` or `[R]` in Step 4, in the same checkout P3 reads:
 
 - `[I]` → confirm `.claude/project/intent.md` now contains the promoted text (or the user explicitly rejected the diff at Level 0, which down-grades to `[K]`).
@@ -699,6 +705,8 @@ Inspect and reconcile manually before starting the next slice.
 
 ## Error Handling
 
+<!-- craft:choice none -->
+
 | Situation | Behavior |
 |---|---|
 | A1 fails (no slice / multiple slices) | Abort with the diagnostic message. |
@@ -722,6 +730,14 @@ Inspect and reconcile manually before starting the next slice.
 | Epic-close second pass: the close PR is not approved, closed, or `gh pr merge` fails | Step 6's second-invocation message; nothing changes and the epic stays `closing`. A PR closed without merging also gets the way out (second pass, item 1): reopen it, or start the close over by hand. |
 
 ---
+
+## Auto Flow (the end of the flow)
+
+<!-- craft:flow -->
+`/craft:commit` is where the auto flow ends (`skills/workflow/SKILL.md` → *Auto flow*): it does not ask
+`scripts/flow-state.sh` and starts nothing afterwards; the closing output's `Recommended next:` stands. It does settle a
+pause request still pending (`bash "${CLAUDE_PLUGIN_ROOT}/scripts/pause-request.sh" consume --project "<project-root>"`, in CRAFT's own source repo `scripts/pause-request.sh`): the flow
+ended, and an unread request must not pause the next slice of this session. A missing or failing helper does not matter here.
 
 ## Autopilot Mode (a slice on an autopilot epic branch)
 
@@ -813,7 +829,7 @@ and the code already landed — A4's test run belongs to the slices, which ran i
 - **E2 — One epic to act on.** The targets, in this order: `STATE=closing` lines (a close already in flight is
   completed first — the second pass); else the `STATE=closable` lines plus the one `STATE=pr-path` line whose `BRANCH=`
   is the current branch (the first pass). Exactly one → record its `EPIC=`, `PLAN=`, `KIND=`, `BRANCH=` and
-  `BRANCH_STATE=`. More than one → list them and ask which to close (this command does not auto-pick). Either way,
+  `BRANCH_STATE=`. More than one → list them and ask which to close (this command does not auto-pick; <!-- craft:choice --> with `AskUserQuestion`, one option per epic — where the tool is not available, a numbered list as text). Either way,
   print every other line in its table wording, one line each, **here, before Step 1** — the human sees what stays open
   before anything is written, not only in the closing summary (slice-061 human test).
 - **E3 — The path, and the branch it runs from.** The PR path when the profile's `Merge → Type` is `pull-request`
@@ -845,7 +861,7 @@ and the code already landed — A4's test run belongs to the slices, which ran i
   It runs before E4's question, so the human is never asked to close what this profile or checkout then refuses
   (slice-062 review R1-1).
 - **E4 — The human says so.** The second pass skips this: the first pass asked, and this run only completes it. A first
-  pass (every path): ask, Level 1, with the target's title and kind: `Close <EPIC> "<title>" (<KIND>) now?
+  pass (every path): ask, Level 1, <!-- craft:choice --> with `AskUserQuestion` (two options; where the tool is not available, as text), with the target's title and kind: `Close <EPIC> "<title>" (<KIND>) now?
   [Y] close it / [N] leave it open` — **alone**, as a question of its own, never batched with Step 1's decisions walk;
   Step 1 starts only after the `[Y]` (slice-062 human test). `[N]` stops, nothing written. "Every entry landed" can be
   true of an epic the human still means to extend, and a sequential epic has no a5 `[Y]` (D38). On `[Y]`, run
@@ -985,6 +1001,8 @@ line with `Recommended next: /craft:commit — closes <EPIC> (<KIND>)`, one line
 ---
 
 ## What This Command Does NOT Do
+
+<!-- craft:choice none -->
 
 - It does **not** force-push, rebase, or amend prior commits.
 - It does **not** silently promote decisions. Every promotion to `intent.md` / `rules.md` requires explicit `[I]` / `[R]` from the user and diff confirmation — in an autopilot run every decision stays `[K]` (Autopilot Mode).

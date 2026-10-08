@@ -341,9 +341,9 @@ expect "every slice landed, passed as slice-IDs → all skip, RESULT ok" "$out" 
 fixture
 git -C "$P" rm -q --cached .gitignore; rm "$P/.gitignore"; git -C "$P" commit -q -m "track everything"
 splan slice-001 a planning; git -C "$P" add -A; git -C "$P" commit -q -m plans
-printf '12345 epic-001\n' > "$P/.claude/plans/.execute.lock"; touch "$P/.claude/plans/.primed" "$P/.claude/plans/.hook-env" "$P/.claude/plans/.cache-guard"
+printf '12345 epic-001\n' > "$P/.claude/plans/.execute.lock"; touch "$P/.claude/plans/.primed" "$P/.claude/plans/.hook-env" "$P/.claude/plans/.cache-guard" "$P/.claude/plans/.pause-request"
 out="$(run --mode sequential "$S1")"
-expect "CRAFT's own session files (lock, .primed, .hook-env, .cache-guard) are not dirt" "$out" "" DIRTY no
+expect "CRAFT's own session files (lock, .primed, .hook-env, .cache-guard, .pause-request) are not dirt" "$out" "" DIRTY no
 mkdir -p "$P/.claude/plans/.closed"; printf '# closed\n' > "$P/.claude/plans/.closed/slice-009-z.md"
 out="$(run --mode sequential "$S1")"
 expect "  … nor are closed plans in .claude/plans/.closed/ (B19), unignored and untracked" "$out" "" DIRTY no
@@ -602,7 +602,7 @@ mkdir -p "$SW/sub/.claude/plans/.closed" "$SW/.craft" "$SW/.claude/plans"
 printf 'p\n' > "$SW/sub/.claude/plans/slice-001-a.md"; printf 'c\n' > "$SW/sub/.claude/plans/.closed/slice-000-z.md"
 printf 'r\n' > "$SW/.craft/plan-roundtrip"; printf 'g\n' > "$SW/.craft/.gitignore"
 printf 'h\n' > "$SW/.craft/handoff.md"; printf 'h\n' > "$SW/.craft/handoff-resolved-2026-10-07T10-00-00Z.md"
-: > "$SW/.claude/plans/.primed"; : > "$SW/.claude/plans/.hook-env"; : > "$SW/.claude/plans/.cache-guard"
+: > "$SW/.claude/plans/.primed"; : > "$SW/.claude/plans/.hook-env"; : > "$SW/.claude/plans/.cache-guard"; : > "$SW/.claude/plans/.pause-request"
 while IFS= read -r p; do
   case "$p" in */) mkdir -p "$SW/sub/$p"; printf 'x\n' > "$SW/sub/${p}f" ;; *) mkdir -p "$(dirname "$SW/sub/$p")"; printf 'x\n' > "$SW/sub/$p" ;; esac
 done < <(bash "$SCRIPT_DIR/ensure-gitignore.sh" --print-paths)

@@ -24,7 +24,7 @@
   bash-4 constructs, and a 3.2 run skips a failing command and carries on green.
   `scripts/statusline-tap.sh` is POSIX `sh` (the user's statusline runs it, like a hook).
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate .`. Twenty-four standalone Bash harnesses cover what is
+  `claude plugin validate .`. Twenty-seven standalone Bash harnesses cover what is
   mechanically checkable; keep all green:
   `bash scripts/test-readonly-context.sh` (read-only guard + sync helper, incl.
   the guard↔helper normalizer agreement and the settings helpers' `GITIGNORED=` verdict for the
@@ -88,6 +88,20 @@
   `plan-roundtrip.sh` (`in` / `back` / `release`, its self-ignored record) against real worktree fixtures, from the
   hand-in to a landed merge and a removed worktree, in a root and a subdirectory project with and without the CRAFT
   block, plus the sites in `execute.md`, `commit.md` and `slice-builder.md`.
+  Plus `bash scripts/test-flow-state.sh` (slice-074, D42) — the auto slice flow's verdict: `flow-state.sh` (mode from
+  the profile's `## Slice Flow`, the plan's `Status`, `--from`; `NEXT=` / `STOP=`, doubt means stop) and the sites that carry
+  the rule; its status → command map is bound to the phase graph by `test-workflow-status-graph.sh` (FLOW).
+  Plus `bash scripts/test-pause-watch.sh` (slice-075, D42; both modes since slice-077) — the pause request: the `UserPromptSubmit` hook
+  `hooks/pause-watch.sh` (silent and fail-open; every case under `/bin/bash` 3.2 too), the marker helper
+  `pause-request.sh`, `flow-state.sh`'s `STOP=pause-requested` and the sites of the rule, the marked pause-word sentence
+  and `commands/pause.md`. The finding (re-test T3, 2026-10-08): the hook did not fire for a message delivered mid-turn, so
+  it covers only a pause word sent as a prompt of its own; what the agent does on seeing a word is shown only by the
+  interactive re-test.
+  Plus `bash scripts/test-choice-prompts.sh` (slice-076, D40 amended) — the click rule's sites: every human-choice site in
+  `commands/*.md` and `skills/debug/SKILL.md` names `AskUserQuestion` on a `<!-- craft:choice -->` line, the cache-guard stops
+  carry `<!-- craft:choice typed -->` in the block of their arm marker, the dependent-question sites carry
+  `<!-- craft:choice sequence -->` with a fixed phrase (slice-077; their count is declared too), the site count per file is declared, and the legend
+  scan holds an unmarked `[A]/[B]` menu out.
   Plus `bash scripts/test-autopilot-briefing.sh` (slice-069, B27) — the autopilot's run-start briefing: the whole
   block, its "Stops for you at" lines included, is printed by `autopilot-briefing.sh` and relayed unchanged by
   `/craft:execute` a1 and the plan gate.

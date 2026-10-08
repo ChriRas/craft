@@ -10,7 +10,8 @@
 >
 > **careful** — maximum human control: build in place so you eyeball every diff, hold
 > commits until you release them, land via a protected-`main` PR you approve, run epics
-> slice-by-slice, and keep the permission allowlist tight.
+> slice-by-slice, move phase by phase on your typed command, and keep the permission allowlist
+> tight.
 
 > Preset: careful
 
@@ -53,6 +54,16 @@
 
 - **Default:** sequential
 
+## Slice Flow
+
+> How an interactive slice moves from phase to phase (`/craft:build` → … → `/craft:commit`). `auto`: each
+> phase ends by starting the next one itself, up to and including the commit, and stops only where you must
+> decide — those decisions arrive as clicks and the flow goes on after your answer. `manual`: one command per
+> phase, each ends with `Recommended next:`. `/craft:execute` and the autopilot keep their own orchestration.
+> Judged by the CRAFT plugin's `scripts/flow-state.sh`; an invalid value stops the flow (`/craft:prime` warns).
+
+- **Mode:** manual
+
 ## Permissions
 
 > Records which permission-scope preset onboarding applied. The actual allowlist entries
@@ -79,7 +90,7 @@
 - **Budget-before-slice:** 85
 - **Budget-in-slice:** 95
 - **Budget-seven-day:** 90
-- **Cache-guard-recache-tokens:** 100000
+- **Cache-guard-recache-tokens:** 150000
 
 ## Operational Language
 

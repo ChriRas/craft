@@ -312,6 +312,7 @@ if [[ "$HOOK_BASH" == "/bin/bash" ]] && [[ "${hook_version%%.*}" -lt 5 ]]; then
   for s in "$REPO_ROOT"/hooks/*.sh "$HELPER" "$SCRIPT_DIR/handoff-marker-state.sh" "$SCRIPT_DIR/review-findings-state.sh" "$SCRIPT_DIR/example-regions.sh"; do
     /bin/bash -n "$s" 2>/dev/null || parse_fail="$parse_fail ${s#$REPO_ROOT/}"
   done
+  [[ -f "$REPO_ROOT/hooks/pause-watch.sh" ]] && ok "hooks/pause-watch.sh (slice-075) is among the scanned hooks/*.sh" || bad "hooks/pause-watch.sh is missing from the hooks/*.sh scan"
   [[ -z "$parse_fail" ]] && ok "hooks/*.sh, check-toolchain.sh, handoff-marker-state.sh, review-findings-state.sh and example-regions.sh parse under /bin/bash $hook_version" || bad "3.2 parse failure:$parse_fail"
   OUT="$(/bin/bash "$HELPER" --project "$FIX/empty-project" 2>&1)"; RC=$?
   { [[ $RC -eq 20 ]] && has "BASH=too-old" && has "BASH_PATH=/bin/bash"; } \

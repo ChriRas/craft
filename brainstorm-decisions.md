@@ -1390,7 +1390,7 @@ Decision:
 - **In an interactive session, every choice is an `AskUserQuestion` click.** A lettered menu becomes one question whose
   options are the menu's letters (label: letter + meaning; description: the consequence). A yes/no confirmation
   ("Proceed?", "Is that right?") is a two-option question. The legend in the command prose stays the one source of the
-  options — the convention renders it, no command carries a second copy.
+  options; the convention renders it. (Amended, slice-076: the site itself also names the tool — see below.)
 - **Open questions with typical answers offer them.** Where the answer is free text but has likely values (a trigger
   category, a language, a slice name derived from the context), the agent offers context-derived suggestions as options;
   "Other" stays for the user's own text. Questions with no meaningful presets (a Vision, a bug description) stay typed.
@@ -1403,6 +1403,31 @@ Decision:
   `claude -p` (Claude Code docs, verified 2026-10-08): Subagent Mode keeps writing handoffs, and a headless session falls
   back to the rendered legend. *Consequence:* the click itself cannot be shown by a headless probe — the slice's Phase 5
   needs a real interactive test.
+- **Exception — the stops that arm the cache guard stay text** (amendment, slice-072 review round 1). The autopilot's
+  orphan question, plan gate, a5 sign-off and any question a run stops to ask end the turn so that the human's answer arrives as a *prompt*: the
+  `UserPromptSubmit` hook (slice-060 / 070) blocks a prompt that comes after the prompt cache expired, and a click is a
+  tool result no hook sees. Those questions render their full legend as text and are typed; every other question of an
+  interactive session that is not asked at such a stop is a click. *Cost:* the questions at an autopilot epic's human stops stay typed; accepted — the alternative
+  re-writes a whole expired context at the full input price on the click, which is what the guard exists to prevent.
+- **Amendment (slice-076, human test T2, 2026-10-08): each site names `AskUserQuestion` itself.** T2 showed zero
+  `AskUserQuestion` calls in a full phase loop: the sites only pointed at the convention, and no session ever read the
+  target (0 reads of `skills/workflow/SKILL.md`); even "ask as a click" without the tool's name did not bind. So every
+  human-choice site in `commands/*.md` and `skills/debug/SKILL.md` carries one sentence on a line marked
+  `<!-- craft:choice -->` that names `AskUserQuestion` together with the no-click fallback. This replaces "no command
+  carries a second copy" for that one sentence: it is the case where a pointer's handler cannot live behind the pointer
+  (rules.md → Code Conventions), so it is stated at each reader and **bound** — `scripts/test-choice-prompts.sh` checks
+  the marker, the tool name on the same line and a declared site count per file, both directions. The rule's body (the
+  limits, splitting, follow-ups, the no-click fallback, the cache-guard exception) lives in *Choice prompts*; a site sentence may add its own option list but restates no rule. The
+  cache-guard stops stay typed, each behind `<!-- craft:choice typed -->` in the block of its arm marker. *Cost:* one
+  marked sentence per site; accepted — the alternative, a pointer, is what failed.
+- **Amendment (slice-077, human re-test T4, 2026-10-08): dependent questions are asked in a call of their own.** T4 showed
+  `/craft:abort` carrying its recency warning and both Step-5 confirmations in one `AskUserQuestion` call: the later
+  questions were answered before the first one could end the abort. So a question that depends on an earlier answer
+  (or whose point is lost if the earlier one is No) is asked in an `AskUserQuestion` call of its own, the next only
+  after the answer; only independent questions share a call. `/craft:abort` called without an argument offers the
+  active slices as a click; the click is explicit, so it is not a default (the command's "no defaulting" rule stays).
+  The sequence sites carry `<!-- craft:choice sequence -->` and a fixed phrase, bound by `scripts/test-choice-prompts.sh`
+  like the tool name; the binding holds the text, not the agent's behavior.
 
 ### D41 — The Review Fix Cap Is a Guide Value, With a Hard Ceiling at Twice It
 
@@ -1459,6 +1484,18 @@ Decision:
   the running step, writes the handoff and pauses the slice the normal way. `stop` / `halt` are deliberately not pause
   words. *Why both hook and agent:* whether `UserPromptSubmit` fires for a message queued mid-turn is undocumented
   (2026-10-08) — slice-075's human test decides; the agent path works either way.
+- **Amendment (slice-077, human re-test T3 / T5, 2026-10-08, decision `[G]`): a pause word works in auto and manual flow
+  alike.** The finding replaces "undocumented": `UserPromptSubmit` did not fire for a message delivered mid-turn (T3), so
+  the hook covers only a pause word sent as a prompt of its own; for a word delivered mid-turn the agent's own `request`
+  is the path. A pause word makes the agent do four things: record the request first, finish the running step, write the
+  handoff (`/craft:handoff`), pause the slice (`/craft:pause`). That sentence is stated at each phase command, marked
+  `<!-- craft:pause-word -->` and bound (the reasoning of D40's slice-076 amendment: a pointer the agent never read cannot
+  carry it). At every countdown of a slice in flight, `/craft:debug`'s attempt countdown included, a message that is only
+  a pause word is the slice's pause request; any other input halts only the countdown or the loop. `/craft:pause` stays a
+  pause word (human decision at the plan gate): queued mid-turn it is a command that Claude Code holds until the turn
+  ends, so it takes effect only then. When it pauses a slice in flight it writes the handoff first, as the pause action
+  does; sent as a prompt of its own it is itself the pause action's run (one handoff, the note composed without asking,
+  like `pause`). Every exit of `/craft:pause` that pauses nothing settles a pending request.
 - *Cost:* existing projects without the key switch to auto flow on upgrade — the CHANGELOG carries an upgrade note.
 
 ---
