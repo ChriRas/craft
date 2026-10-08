@@ -1377,6 +1377,90 @@ Decision:
 - **The close is meant to run before the approval.** A push after an approval adds commits the human has not approved,
   and GitHub may dismiss it. a5's PR hand-over says to run `/craft:commit` first and approve afterwards.
 
+### D40 — Every Human Choice Is Asked as a Click
+
+> Decided 2026-10-08 while planning slice-072 (epic-005, entry `clickable-choices`). Amends the lettered-choice-prompt
+> convention (`skills/workflow/SKILL.md`) and `/craft:abort`'s typed-ID confirmation.
+
+CRAFT asked for decisions in a mix of typed letters (`[W]/[B]/[U]`, `[K]/[I]/[R]/[D]`, `[Y]/[N]`), typed yes/no and free
+text. Every switch between "click" and "type" is friction at points where the answer is a choice.
+
+Decision:
+
+- **In an interactive session, every choice is an `AskUserQuestion` click.** A lettered menu becomes one question whose
+  options are the menu's letters (label: letter + meaning; description: the consequence). A yes/no confirmation
+  ("Proceed?", "Is that right?") is a two-option question. The legend in the command prose stays the one source of the
+  options — the convention renders it, no command carries a second copy.
+- **Open questions with typical answers offer them.** Where the answer is free text but has likely values (a trigger
+  category, a language, a slice name derived from the context), the agent offers context-derived suggestions as options;
+  "Other" stays for the user's own text. Questions with no meaningful presets (a Vision, a bug description) stay typed.
+- **The tool's limits shape the menu, not the decision.** A question takes 2–4 options plus the automatic "Other", up to
+  four questions per call: a larger menu is split into steps or grouped; an option that needs a parameter (`[R] <ids> —
+  <note>`, `[O] Other language`) asks for it in a follow-up.
+- **`/craft:abort` confirms with two clicks instead of a typed ID** (human choice) — the second question names the
+  slice-ID and that the step cannot be undone. *Cost:* less friction than typing the ID; accepted.
+- **Where no human can click, nothing changes.** `AskUserQuestion` is removed from subagents and unavailable in headless
+  `claude -p` (Claude Code docs, verified 2026-10-08): Subagent Mode keeps writing handoffs, and a headless session falls
+  back to the rendered legend. *Consequence:* the click itself cannot be shown by a headless probe — the slice's Phase 5
+  needs a real interactive test.
+
+### D41 — The Review Fix Cap Is a Guide Value, With a Hard Ceiling at Twice It
+
+> Decided 2026-10-08 while planning slice-073 (epic-005, entry `soft-fix-cap`). Amends D28's soft volume cap
+> (`/craft:review` Step 4, `skills/workflow/SKILL.md` Phase 8).
+
+The in-phase fix cap (`Review in-phase fix cap`, default 5) was soft only interactively: the agent stopped and
+recommended a loop-back, and the human waived it again and again for rounds of seven to nine small fixes. In Subagent
+Mode — and so in every autopilot run — nobody can waive it: the rest was recorded `open — fix cap, awaiting decision` and
+the run stopped for the human.
+
+Decision:
+
+- **The cap is a guide value.** Once in-phase fixes reach it with local-edit findings still open, the agent judges each
+  remaining finding against fixed *small-fix* criteria — one file, about 20 changed lines at most, no new behavior and no
+  change to an interface, contract or test expectation, the project's tests green after it — and keeps fixing the small
+  ones. The same rule holds interactively, in Subagent Mode and in an autopilot run (human choice: "continue and
+  report", not "ask by click").
+- **A hard ceiling at twice the guide value.** No round applies more than `2 × cap` in-phase fixes; beyond it, and for
+  any finding that is not small, the existing route applies unchanged (interactive recommendation to loop back; in
+  Subagent Mode `open — fix cap, awaiting decision`). *Why a ceiling:* the cap exists because many small fixes sum to a
+  large unreviewed delta — the ceiling keeps that bound while covering the observed seven-to-nine cases.
+- **Every fix over the guide value says why it is small.** Its finding line resolves `fixed in-phase: over the guide
+  value — <why small>` and the round carries `- note · fix cap (<N>) exceeded: <k> small fix(es)`; the bundle text
+  reports the overrun. The findings parser already skips `- note` lines and reads a resolution's note, so the record
+  format needs no new resolution value.
+
+### D42 — Auto Slice Flow Is the Default; a Typed "pause" Stops It Cleanly
+
+> Decided 2026-10-08 while planning slice-074 / slice-075 (epic-005, entries `slice-auto-flow`, `pause-watch`). Amends
+> D29's per-phase human trigger for interactive slices; autopilot (D32) and `/craft:execute` are untouched.
+
+Outside `/craft:execute`, a slice moved only when the human typed the next phase command — although every phase already
+ends by naming it (`Recommended next:`), and the human decisions inside the phases are what actually need the human.
+
+Decision:
+
+- **A profile setting, `## Slice Flow` → `Mode: auto | manual`, default `auto`** — `manual` is today's behavior. The
+  `careful` preset ships `manual`, `balanced` and `autonomous` ship `auto`; `/craft:onboard` asks it in the guided
+  dialog; `/craft:prime` validates and reports it.
+- **One helper decides the next step.** At the end of a phase command, auto flow asks `scripts/flow-state.sh` (mode,
+  plan status, later the pause request) and acts only on its verdict: `NEXT=/craft:<phase>` → the agent starts that
+  phase itself; `STOP=<reason>` → it stops and says why. Doubt means stop: a wrong automatic step costs more than a halt.
+  The status → command map is bound to the declared phase graph by the status-graph harness, never a free copy.
+- **Human decisions stay human — as clicks (D40).** Phase 5's W/B/U, review escalations, the decisions walk and commit
+  confirmations are asked; the flow continues right after the answer. The flow ends after `/craft:commit`. After
+  `/craft:plan` it asks "build now / later" instead of starting the build, so several slices can still be planned ahead.
+- **No Stop hook** (human choice) — the helper plus the rule carry the flow; a hook that blocks stopping could fight a
+  legitimate stop (an error, a free-text question). Can be added later on evidence.
+- **Pause by one word** (slice-075) — a whole message `pause`, `pausieren` or `/craft:pause` (case-insensitive) during
+  auto flow is a pause request: a `UserPromptSubmit` hook records it in a marker that is kept as state, never deleted
+  (the cache guard's pattern, D34), and the agent records it through the same helper when it sees the queued message
+  itself. `flow-state.sh` answers `STOP=pause-requested` at the next boundary (sub-task or phase end); the agent finishes
+  the running step, writes the handoff and pauses the slice the normal way. `stop` / `halt` are deliberately not pause
+  words. *Why both hook and agent:* whether `UserPromptSubmit` fires for a message queued mid-turn is undocumented
+  (2026-10-08) — slice-075's human test decides; the agent path works either way.
+- *Cost:* existing projects without the key switch to auto flow on upgrade — the CHANGELOG carries an upgrade note.
+
 ---
 
 ## 7. Carry-Over to Next Clusters
