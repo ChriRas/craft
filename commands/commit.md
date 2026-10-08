@@ -144,6 +144,10 @@ A worktree on no slice or epic branch — detached, or on another branch — dec
 The helper cannot run (non-zero exit, no `CRAFT_COUNT=`) → say so in one line and stop before any write: without its
 answer the mode cannot be judged.
 
+**The start branch** (slice-080). Before step 0, hold `git branch --show-current` as `<start-branch>` — the branch this
+run started on (empty on a detached HEAD). Step 7's *In-place-finalize* reads it: by then *Plans and the trunk under
+protected main* may already have moved the checkout to the trunk.
+
 Detection logic:
 
 0. **A finished epic.** Only when no *slice* plan under `.claude/plans/` is at `Status: committing` or
@@ -491,16 +495,19 @@ In **Standard mode**: close `.claude/plans/slice-<NNN>-<slug>.md` (*Closing an u
 > **In-place-finalize (a slice built in-place on a non-trunk branch):** never on an autopilot epic branch
 > `epic-<NNN>-<slug>` — Autopilot Mode lands there. Otherwise, when the landed slice
 > was built in-place on a `<slice-id>-<slug>` branch in the main checkout (slice-018 in-place,
-> or a `sequential`-epic slice under a `pull-request` workflow) — i.e. `worktree-kinds.sh` (Mode Detection →
-> *Which worktrees count*) reported `CRAFT_COUNT=0` **and** the current branch is not the trunk — return to the trunk after
-> landing, so the next run starts clean on `main`:
+> or a `sequential`-epic slice under a `pull-request` workflow) — i.e. Mode Detection found **Standard mode** **and**
+> `<start-branch>` (Mode Detection → *The start branch*) is a branch other than the trunk — empty (a detached HEAD)
+> never is — whatever other worktrees exist (slice-080: a worktree count skipped the merge while the plan was still
+> closed). The commands below name `<start-branch>`, which a custom `Branch name pattern` may have shaped. Return to the
+> trunk after landing, so the next run starts clean on `main`:
 > - `direct` workflow → the commits are on the branch; land them on the trunk:
->   `git checkout <trunk>` then `git merge --no-ff <slice-id>-<slug>`, then
->   `git branch -d <slice-id>-<slug>`.
+>   `git checkout <trunk>` then `git merge --no-ff <start-branch>`, then
+>   `git branch -d <start-branch>`. A failing merge → surface it and stop **before** the plan is closed: the slice's
+>   commits are on `<start-branch>` only, and a closed plan would read as landed.
 > - `pull-request` + protected-main → the Step 6 `gh pr merge` landed the merge on the
 >   **remote**; *Plans and the trunk under protected main* above has already checked out and
 >   fast-forwarded the trunk (so local `<trunk>` contains the merged work) and dropped the plan.
->   Only `git branch -d <slice-id>-<slug>` is left.
+>   Only `git branch -d <start-branch>` is left.
 > Under `direct`, then continue the Standard-mode cleanup (close the plan). If `git branch -d` fails (unmerged
 > — should not happen post-land), surface it and skip the delete. Never `-D` (force).
 > (A `direct` **sequential**-epic slice builds directly on the trunk with no branch, so it

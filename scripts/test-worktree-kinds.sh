@@ -9,7 +9,8 @@
 # step 1, Step 7's In-place-finalize and the line naming a foreign worktree, commands/execute.md's
 # post-assertions P5–P7, with the old predicate held out even when wrapped across lines — and proves
 # the pins bite on mutated copies. It also pins what slice-079 made of A6: it reads the mode Mode Detection found
-# (steps 1–2 run before it), and step 2 names each CRAFT worktree that is no finalize target. Run it directly:
+# (steps 1–2 run before it), and step 2 names each CRAFT worktree that is no finalize target; and what slice-080 made
+# of Step 7's In-place-finalize: it reads that mode and the branch the run started on. Run it directly:
 #
 #   bash scripts/test-worktree-kinds.sh
 #
@@ -157,7 +158,8 @@ section() { # <file> <start-regex> <end-regex> — the lines from the first star
 # The old predicate may be wrapped across lines (and inside a blockquote) — judge the joined text, never one line.
 old_predicate() { sed -E 's/^> ?//' "$1" | tr '\n' ' ' | tr -s ' ' | grep -qiE 'only the (main|primary) worktree'; }
 check_pins() {
-  local f="$1" a6 step0 step1 step2 inplace intro
+  local f="$1" a6 step0 step1 step2 inplace intro modedet
+  modedet="$(section "$f" '^## Mode Detection' '^## Procedure')"
   intro="$(section "$f" '^## Pre-Assertions' '^### A0 ')"
   a6="$(section "$f" '^### A6 ' '^(### |---)')"
   step0="$(section "$f" '^0\. \*\*A finished epic\.\*\*' '^1\. ')"
@@ -173,14 +175,18 @@ check_pins() {
     && printf '%s\n' "$step2" | grep -q 'mode = Standard' || echo "step2"
   printf '%s\n' "$step0" | grep -q 'worktree-kinds\.sh' && printf '%s\n' "$step0" | grep -q 'CRAFT_COUNT=0' || echo "step0"
   printf '%s\n' "$step1" | grep -q 'worktree-kinds\.sh' && printf '%s\n' "$step1" | grep -q 'CRAFT_COUNT=0' || echo "step1"
-  printf '%s\n' "$inplace" | grep -q 'worktree-kinds\.sh' && printf '%s\n' "$inplace" | grep -q 'CRAFT_COUNT=0' || echo "inplace"
+  # In-place-finalize reads the detected mode and the branch the run started on (slice-080), no worktree count
+  printf '%s\n' "$inplace" | grep -q 'Mode Detection found \*\*Standard mode\*\*' \
+    && printf '%s\n' "$inplace" | grep -q '`<start-branch>`' \
+    && ! printf '%s\n' "$inplace" | grep -qE 'CRAFT_COUNT|worktree-kinds' || echo "inplace"
+  printf '%s\n' "$modedet" | grep -q 'hold `git branch --show-current` as `<start-branch>`' || echo "start-branch"
   grep -q '^· Worktree <WORKTREE> (<BRANCH>) is on no slice or epic branch — ignored' "$f" || echo "foreign-line"
   ! old_predicate "$f" || echo "old-predicate"
 }
 
 echo "PINS (commands/commit.md):"
 PINS="$(check_pins "$COMMIT_MD")"
-for p in order a6 a6-names step0 step1 step2 inplace foreign-line old-predicate; do
+for p in order a6 a6-names step0 step1 step2 inplace start-branch foreign-line old-predicate; do
   case "$p" in
     order)         label="the Pre-Assertions intro runs Mode Detection steps 1–2 before A3 and A6" ;;
     a6)            label="A6 reads the detected mode (Standard), no worktree count of its own" ;;
@@ -188,7 +194,8 @@ for p in order a6 a6-names step0 step1 step2 inplace foreign-line old-predicate;
     step0)         label="Mode Detection step 0 reads the helper (CRAFT_COUNT=0)" ;;
     step1)         label="Mode Detection step 1 reads the helper (CRAFT_COUNT=0)" ;;
     step2)         label="Mode Detection step 2 falls through to Standard and names a non-target worktree" ;;
-    inplace)       label="Step 7's In-place-finalize reads the helper (CRAFT_COUNT=0)" ;;
+    inplace)       label="Step 7's In-place-finalize reads the detected mode and <start-branch>, no worktree count" ;;
+    start-branch)  label="Mode Detection holds the branch the run started on as <start-branch>" ;;
     foreign-line)  label="the · line naming a foreign worktree is there" ;;
     old-predicate) label="no 'only the main/primary worktree' predicate is left (lines joined)" ;;
   esac
@@ -230,7 +237,10 @@ mutate step0-helper-removed   step0         '/^0\. \*\*A finished epic/,/^1\. / 
 mutate step1-count-removed    step1         '/^1\. /,/^2\. / s/CRAFT_COUNT=0/CRAFT_COUNT=1/g'
 mutate foreign-line-removed   foreign-line  '/^· Worktree <WORKTREE>/d'
 mutate old-predicate-restored old-predicate '1 s/^/shows only the main worktree\n/'
-mutate inplace-helper-removed inplace       '/^> \*\*In-place-finalize/,/^> - `direct`/ s/worktree-kinds\.sh/worktree-x.sh/g'
+mutate inplace-reads-count    inplace       '/^> \*\*In-place-finalize/,/^> - `direct`/ s/Mode Detection found \*\*Standard mode\*\*/`worktree-kinds.sh` reported `CRAFT_COUNT=0`/'
+mutate inplace-count-added    inplace       '/^> \*\*In-place-finalize/,/^> - `direct`/ s/whatever other worktrees exist/whatever other worktrees exist and `CRAFT_COUNT=0`/'
+mutate inplace-current-branch inplace       '/^> \*\*In-place-finalize/,/^> - `direct`/ s/`<start-branch>`/the current branch/g'
+mutate start-branch-removed   start-branch  '/^## Mode Detection/,/^## Procedure/ s/as `<start-branch>`/somewhere/'
 mutate old-predicate-wrapped  old-predicate '1 s/^/> i.e. only the primary\
 > worktree exists\
 /'

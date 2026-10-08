@@ -34,7 +34,8 @@
 # requires every entry landed and the epic branch merged; step 1 reads Standard mode instead of Slice-finalize,
 # where A3 ("nothing to commit") or the human-reviewed commit split stops it, and A6 — which reads that mode
 # (slice-079) — fires rather than stepping aside;
-# Step 7's In-place-finalize lands an in-place branch on the trunk; execute.md P5–P7 warn rather than pass. So a
+# Step 7's In-place-finalize — which reads that mode and the start branch (slice-080) — lands an in-place branch on the
+# trunk; execute.md P5–P7 warn rather than pass. So a
 # slice worktree caught detached (mid-rebase) is foreign here — the `·` line says it is on no slice or epic
 # branch, which is true of its checkout at that moment.
 # KNOWN LIMIT: a `Branch name pattern` without `<slice-id>` makes its slice worktrees read foreign.
