@@ -395,6 +395,62 @@ done <<< "$(awk -F'\t' '!seen[$2 FS $3]++' <<< "$rows")"   # dedup by (status, c
                                                           # the Config column exists precisely so a
                                                           # status MAY get config-dependent consumers.
 
+# --- FLOW: the auto flow's status -> command map is bound to the graph (slice-074, D42) -----
+# scripts/flow-state.sh answers "what starts next?" from the plan's Status, so it carries a map from status to
+# command -- a SECOND copy of what the table above and /craft:continue's routing already say. An unbound copy is
+# the violation (rules.md): the day a row changes in the graph and not in the helper, auto flow starts the wrong
+# phase (or none) with every other check green. So the helper prints its map (`--map`) and this compares it with
+# the declared graph in BOTH directions: every status the graph names is in the helper's map; every NEXT status
+# has, as the graph's only consumer, the command the helper starts; every STOP status the graph names has a
+# consumer (a human-held status); the one status the helper knows that the graph does not (`committed`) is the
+# declared no-row one. KNOWN LIMIT: it binds the helper to the TABLE, not the table to the commands' prose --
+# that is what the marker checks above are for.
+echo "FLOW:"
+FLOW_HELPER="$ROOT/scripts/flow-state.sh"
+if [[ ! -f "$FLOW_HELPER" ]]; then
+  bad "scripts/flow-state.sh is missing — the auto flow's status -> command map has nothing to be bound to"
+else
+  flow_map="$("${BASH:-bash}" "$FLOW_HELPER" --map 2>/dev/null)"
+  flow_out="$(ROWS="$rows" MAP="$flow_map" python3 - <<'PY'
+import collections, os
+rows = [l.split("\t") for l in os.environ["ROWS"].splitlines() if l.strip()]
+fmap = {}
+for l in os.environ["MAP"].splitlines():
+    c = l.split("\t")
+    if len(c) == 3:
+        fmap[c[0]] = (c[1], c[2])
+if not fmap:
+    print("BAD\tflow-state.sh --map printed no status -> command map")
+consumers = collections.defaultdict(set)
+for r in rows:
+    consumers[r[1]].add(r[2])
+for status in sorted(consumers):
+    if status in fmap:
+        print("OK\tgraph status '%s' is in flow-state.sh's map" % status)
+    else:
+        print("BAD\tthe graph names status '%s' (consumer %s) but flow-state.sh --map does not know it — auto flow would stop on it as unknown-status" % (status, ", ".join(sorted(consumers[status]))))
+for status in sorted(fmap):
+    kind, detail = fmap[status]
+    got = consumers.get(status, set())
+    if kind == "NEXT":
+        if got == {detail}:
+            print("OK\tflow-state.sh starts %s at '%s' — the graph's only consumer" % (detail, status))
+        else:
+            print("BAD\tflow-state.sh starts %s at '%s', but the graph's consumer(s) are %s" % (detail, status, ", ".join(sorted(got)) or "(none: no row)"))
+    elif status in consumers:
+        print("OK\tflow-state.sh stops at '%s' (a human holds it — the graph's consumer is %s)" % (status, ", ".join(sorted(got))))
+    elif status == "committed":
+        print("OK\tflow-state.sh stops at 'committed' — the declared no-row status")
+    else:
+        print("BAD\tflow-state.sh knows status '%s', which the graph never names (and is not the declared no-row 'committed')" % status)
+PY
+)"
+  while IFS=$'\t' read -r verdict_kind verdict_msg; do
+    [[ -n "${verdict_kind:-}" ]] || continue
+    if [[ "$verdict_kind" == "OK" ]]; then ok "$verdict_msg"; else bad "$verdict_msg"; fi
+  done <<< "$flow_out"
+fi
+
 # --- DELEGATION: the subagent path must not restate the Phase-7 rule ----------
 # /craft:refactor describes its behavior twice — interactively, and for the slice-builder
 # subagent. Restating the Phase-7-dropped rule in both is how B1 survived in the first place
