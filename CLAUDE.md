@@ -348,17 +348,26 @@ bash scripts/test-pause-watch.sh
 # negated mention stay green. Known limit: an open question with no legend and no marker is caught only by the count. Keep green.
 bash scripts/test-choice-prompts.sh
 
+# Worktree kinds — scripts/worktree-kinds.sh (slice-078, B33) decides which linked worktrees are CRAFT's: a branch carrying a
+# `slice-<NNN>` or `epic-<NNN>` token (custom branch patterns included); a detached worktree or a foreign branch is not and
+# decides nothing. /craft:commit's Mode Detection steps 0 and 1, A6 and Step 7's In-place-finalize, and /craft:execute's P5–P7 read its CRAFT_COUNT=
+# instead of "only the main worktree" (a stray detached worktree kept epic-005 out of Epic-close and switched A6 off).
+# Covers real worktree fixtures (slice, epic, detached, foreign branch, custom pattern, token boundaries, prunable, a path
+# with a space, a run from a linked worktree, errors), the pinned sites in commit.md / execute.md with no old predicate
+# left (judged on the joined text — a wrapped phrase hid one site in round 1), and mutated copies that go red. Keep green.
+bash scripts/test-worktree-kinds.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The twenty-seven harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The twenty-eight harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the plan round trip of parallel worktree mode, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's log, the autopilot's run-start briefing, the autopilot's epic-end digest, the epic close and its archive template, the autopilot's budget guard, the autopilot's cache guard, the auto slice flow's verdict, the auto flow's pause request, the choice-prompt sites' binding, the statusline tap's wiring, the single declaration of the allowed model values, the
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the plan round trip of parallel worktree mode, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's log, the autopilot's run-start briefing, the autopilot's epic-end digest, the epic close and its archive template, the autopilot's budget guard, the autopilot's cache guard, the auto slice flow's verdict, the auto flow's pause request, the choice-prompt sites' binding, which worktrees are CRAFT's, the statusline tap's wiring, the single declaration of the allowed model values, the
 single definition of what counts as an example rather than content, delete-safe closing, and the autopilot's verification by command.
 
 ## Dogfooding Is Not Self-Verification

@@ -20,8 +20,7 @@
 | 9 | B30 | Fix | small | Auto flow in a headless session (slice-074 R1-6): the headless exclusion rests on the agent's judgment — nothing tells `flow-state.sh` or the agent that the session is `claude -p`, so a probe of one phase command may run on into later phases |
 | 10 | B31 | Fix | small | Auto flow's `--from` table is an unbound copy (slice-074 R2-4): it repeats each command's Pre-flight status write and no harness binds it; `test.md`'s Pre-flight write carries no `craft:writes` marker |
 | 11 | B32 | Fix | small | epic-005 re-test leftovers (2026-10-08): (a) in T3 the agent paused correctly but never ran `pause-request.sh request` (T5 did) — the rule's "record first" step is skipped under auto flow; (b) `/craft:plan` once built a click question with a single option (Depends-On "Unabhängig"), which Claude Code rejects — the click rule's "2–4 options" is not met at that site; (c) onboard's `[G] Guided` description lists "Auto-Commit" although that knob is asked only for `in-place`; (d) `hooks/cache-guard.sh` lacks the `python3 -I` that slice-075 gave `pause-watch.sh` (slice-075 review note) |
-| 12 | B33 | Fix | small | Epic-close blocked by an unrelated worktree (epic-005 close, 2026-10-08): `/craft:commit` Mode Detection step 0 requires `git worktree list` to show only the main worktree, so a detached worktree that belongs to no slice or epic (here `CRAFT-runtime-epic-004`) makes a closable epic fall through to A1/A2's slice messages — step 0 should ignore worktrees on no `slice-`/`epic-` branch, or name them |
-| 13 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
+| 12 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
 
 ## Notes per item
 
@@ -32,6 +31,12 @@ the user says so; nothing is pushed yet. Slice-060's human test (c) part B (real
 2026-10-07: not a release blocker). The follow-ups R1-1 / R1-2 (archive → Follow-ups) shipped with slice-070
 (`cache-guard-disarm-on-answer`, 2026-10-07). Also owed before the cut: B25's human test on a scratch GitHub repo (see
 the B25 note below).
+
+**B33 shipped with slice-078 (2026-10-08)** — which linked worktrees are CRAFT's is decided by
+`scripts/worktree-kinds.sh` (a branch carrying a `slice-<NNN>` / `epic-<NNN>` token); a detached worktree or a foreign
+branch no longer counts. `/craft:commit` Mode Detection steps 0 and 1, A6 and Step 7's In-place-finalize read its `CRAFT_COUNT=` and name each
+foreign worktree in one `·` line; `/craft:execute` P5–P7 read it too (scope widened in Phase 4 — they warned falsely). Known limit:
+a `Branch name pattern` without `<slice-id>` reads foreign. `scripts/test-worktree-kinds.sh` covers it.
 
 **B27 shipped with slice-069 (2026-10-07)** — the autopilot's run-start briefing is printed by
 `scripts/autopilot-briefing.sh` (the whole block, its "Stops for you at" lines included); `/craft:execute` a1 and the plan
