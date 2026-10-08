@@ -311,17 +311,27 @@ bash scripts/test-autopilot-log.sh
 # "Stops for you at:" line left in execute.md). Keep green.
 bash scripts/test-autopilot-briefing.sh
 
+# Auto slice flow — D42 / slice-074: with `## Slice Flow` -> `Mode: auto` (the default; `careful` ships `manual`) an interactive slice
+# moves from phase to phase by itself, up to and including the commit. scripts/flow-state.sh is the one judge: at the end of a phase
+# command the agent asks it (mode from the profile, the plan's Status, `--from`: one value per command, skills/workflow/SKILL.md -> Auto flow) and acts on NEXT= /
+# STOP= only — doubt means stop. Covers every status x both modes, the default without a profile / block / key, invalid values, the
+# block boundary (`Execution -> Mode` is not read), CRLF, a missing or malformed plan, --from, --mode, --map, and the pins: the rule once
+# in skills/workflow/SKILL.md, the `craft:flow` marker in the phase commands and plan.md, prime / onboard / template / presets / defaults.
+# The helper's status -> command map (`--map`) is bound to the declared phase graph by test-workflow-status-graph.sh (FLOW) in both
+# directions. Keep green.
+bash scripts/test-flow-state.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The twenty-four harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The twenty-five harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the plan round trip of parallel worktree mode, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's log, the autopilot's run-start briefing, the autopilot's epic-end digest, the epic close and its archive template, the autopilot's budget guard, the autopilot's cache guard, the statusline tap's wiring, the single declaration of the allowed model values, the
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the plan round trip of parallel worktree mode, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's log, the autopilot's run-start briefing, the autopilot's epic-end digest, the epic close and its archive template, the autopilot's budget guard, the autopilot's cache guard, the auto slice flow's verdict, the statusline tap's wiring, the single declaration of the allowed model values, the
 single definition of what counts as an example rather than content, delete-safe closing, and the autopilot's verification by command.
 
 ## Dogfooding Is Not Self-Verification

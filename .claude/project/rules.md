@@ -24,7 +24,7 @@
   bash-4 constructs, and a 3.2 run skips a failing command and carries on green.
   `scripts/statusline-tap.sh` is POSIX `sh` (the user's statusline runs it, like a hook).
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate .`. Twenty-four standalone Bash harnesses cover what is
+  `claude plugin validate .`. Twenty-five standalone Bash harnesses cover what is
   mechanically checkable; keep all green:
   `bash scripts/test-readonly-context.sh` (read-only guard + sync helper, incl.
   the guard↔helper normalizer agreement and the settings helpers' `GITIGNORED=` verdict for the
@@ -88,6 +88,9 @@
   `plan-roundtrip.sh` (`in` / `back` / `release`, its self-ignored record) against real worktree fixtures, from the
   hand-in to a landed merge and a removed worktree, in a root and a subdirectory project with and without the CRAFT
   block, plus the sites in `execute.md`, `commit.md` and `slice-builder.md`.
+  Plus `bash scripts/test-flow-state.sh` (slice-074, D42) — the auto slice flow's verdict: `flow-state.sh` (mode from
+  the profile's `## Slice Flow`, the plan's `Status`, `--from`; `NEXT=` / `STOP=`, doubt means stop) and the sites that carry
+  the rule; its status → command map is bound to the phase graph by `test-workflow-status-graph.sh` (FLOW).
   Plus `bash scripts/test-autopilot-briefing.sh` (slice-069, B27) — the autopilot's run-start briefing: the whole
   block, its "Stops for you at" lines included, is printed by `autopilot-briefing.sh` and relayed unchanged by
   `/craft:execute` a1 and the plan gate.
