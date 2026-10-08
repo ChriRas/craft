@@ -91,6 +91,10 @@
   Plus `bash scripts/test-flow-state.sh` (slice-074, D42) — the auto slice flow's verdict: `flow-state.sh` (mode from
   the profile's `## Slice Flow`, the plan's `Status`, `--from`; `NEXT=` / `STOP=`, doubt means stop) and the sites that carry
   the rule; its status → command map is bound to the phase graph by `test-workflow-status-graph.sh` (FLOW).
+  Plus `bash scripts/test-pause-watch.sh` (slice-075, D42) — the auto flow's pause request: the `UserPromptSubmit` hook
+  `hooks/pause-watch.sh` (silent and fail-open; every case under `/bin/bash` 3.2 too), the marker helper
+  `pause-request.sh`, `flow-state.sh`'s `STOP=pause-requested` and the sites of the rule. That a message queued mid-turn
+  fires the hook is not shown by it — only the interactive Phase-5 test is.
   Plus `bash scripts/test-autopilot-briefing.sh` (slice-069, B27) — the autopilot's run-start briefing: the whole
   block, its "Stops for you at" lines included, is printed by `autopilot-briefing.sh` and relayed unchanged by
   `/craft:execute` a1 and the plan gate.
