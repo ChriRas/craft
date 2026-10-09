@@ -14,7 +14,25 @@ A Claude Code plugin that wraps a disciplined, language-agnostic coding workflow
 
 📖 **Documentation:** [chriras.github.io/craft](https://chriras.github.io/craft/) — illustrated guide to the 9-phase loop, every branch-off, and all configuration knobs (English & German).
 
-> **Core principle:** Universality with constant control. Same workflow, same control surface, regardless of stack.
+> **Core principle:** Universality with human control concentrated at the hard phases — planning, recap, review, escalated bugs. Same workflow, same control surface, regardless of stack; execution is delegated to safe agent work, and in the opt-in autopilot your part narrows to one plan gate and the epic-end sign-off.
+
+New here, or want to work on CRAFT itself? See [CONTRIBUTING.md](./CONTRIBUTING.md) ([Deutsch](./CONTRIBUTING.de.md)).
+
+---
+
+## What's New in 2.0
+
+The interim releases 1.6–1.8 shipped the autopilot and the epic close piece by piece; 2.0 completes them and adds
+the rest. Compared with 1.5:
+
+- **Autopilot mode is complete** — `/craft:execute <epic> --autopilot` plans the epic's open entries with `slice-planner` agents, has `plan-architect` review the package, and asks you once at the plan gate. Then it builds, verifies by command, reviews, commits and logs slice after slice on an epic branch, stopping only where a human is needed, and ends with a generated digest, the UX demo script and the question whether to merge into `main`. A budget guard (via the usage tap), a cache guard and a review ping-pong breaker keep a run from burning your limits or looping. Opt-in: without `--autopilot`, nothing changes.
+- **Interactive slices flow by themselves** — with `## Slice Flow` → `Mode: auto` (the default), each phase command starts the next, up to and including `/craft:commit`, and stops only where you decide. Keep the one-command-per-phase rhythm with `Mode: manual` (the `careful` preset ships it).
+- **Every choice is a click** — lettered menus and yes/no confirmations come as `AskUserQuestion` clicks in an interactive session.
+- **A pause word** — a message that is only `pause`, `pausieren` or `/craft:pause` pauses the slice at the next safe point: the running step finishes, a handoff is written, the slice is paused.
+- **Finished epics close themselves** — `/craft:commit` closes an epic after an autopilot merge, a sequential run or slice-by-slice work, also through a PR under protected `main`.
+- **Worktrees are judged by kind** — a worktree on no `slice-<NNN>` / `epic-<NNN>` branch no longer changes what `/craft:commit` does, and an in-place slice always lands on the trunk.
+
+The full list, with upgrade notes, is in [CHANGELOG.md](./CHANGELOG.md).
 
 ---
 
@@ -22,11 +40,12 @@ A Claude Code plugin that wraps a disciplined, language-agnostic coding workflow
 
 A complete coding-loop scaffolding:
 
-- **28 slash entry points** (24 commands + 4 slash-invocable skills) that move you through Brainstorm → Alignment → Planning → Implementation → Testing → Recap → Refactoring → Review → Commit & Cleanup, with explicit navigation cues at every session start.
-- **7 universal skills**: the 9-phase workflow itself, the Senior-Developer baseline (loaded every session), the state-aware `/craft` entry point, bug-verification protocol (`/craft:debug`), structured brainstorming (`/craft:brainstorm`), interview-style alignment (`/craft:grill-me`), browser automation.
+- **28 slash entry points** (24 commands + 4 user-facing skills) that move you through Brainstorm → Alignment → Planning → Implementation → Testing → Recap → Refactoring → Review → Commit & Cleanup, with explicit navigation cues at every session start.
+- **6 universal skills and 1 stack-pack**: the 9-phase workflow itself, the Senior-Developer baseline (loaded every session), the state-aware `/craft` entry point, bug-verification protocol (`/craft:debug`), structured brainstorming (`/craft:brainstorm`), interview-style alignment (`/craft:grill-me`) — plus the `stack-php-laravel` stack-pack. Browser automation comes from the `agent-browser` CLI (see Requirements).
+- **4 subagents**: `slice-builder` (Phase 4–7 in a worktree or on the epic branch), `code-reviewer` (Phase 8), and for the autopilot `slice-planner` and `plan-architect`.
 - **A two-tier architecture**: the plugin ships the universal shell; your project keeps its own language/framework specialists in `.claude/skills/` and `.claude/agents/`, lazy-loaded at runtime.
 - **Personality autoload**: the Senior-Developer baseline above is the universal Tier 1; on top of it, optional **stack-packs** (e.g. `stack-php-laravel`) — language/framework idiom packs a project declares in `rules.md` — load automatically during the code-near phases.
-- **A SessionStart hook** that auto-runs `/craft:prime` in Craft-onboarded projects so every fresh chat orients itself; stays silent in non-Craft projects.
+- **A SessionStart hook** that auto-runs `/craft:prime` in Craft-onboarded projects so every fresh chat orients itself (and names any worktree handoff waiting for you); stays silent in non-Craft projects. Two `UserPromptSubmit` hooks record a pause word and guard an autopilot session's prompt cache.
 - **A read-only context guard** — keep reference material the agent may *read* but never *write*: the in-repo `research/` folder (protected by convention) and external "connected projects" declared in `rules.md`. A PreToolUse hook blocks `Write`/`Edit`/`NotebookEdit` on those paths, while `/craft:prime` keeps declared projects *readable* via `additionalDirectories`.
 - **Delete-safe closing** — if your Claude Code settings deny or ask on removing files (say `Bash(rm:*)`), CRAFT never goes around that rule: it moves closed and aborted plans into the gitignored `.claude/plans/.closed/` instead of removing them, and the guard keeps the agent from reading them. `/craft:prime` says when this mode is on and, once `.closed/` holds 20 plans or one older than 30 days, hands you a one-line command to empty it. Without such a rule, the agent removes the plan itself and Claude Code's permission check judges it.
 - **A migration path** for projects that already have a `.claude/` setup — `/craft:onboard` detects the existing content and moves conflicting commands to `_legacy/` while preserving project-specific specialists.
@@ -178,6 +197,8 @@ Epic and slice ID-spaces are independent — `.claude/plans/.next-id` counts sli
 /craft:commit                     # Phase 9 — atomic commits + slice archive
 ```
 
+Under the default auto flow you type only the first command: `/craft:plan` ends with a *Build now / Later* click, and each phase then starts the next one, stopping where you decide — the Phase-5 verdict, the recap's confirmations, a review finding that needs a route, the commit split. Send `pause` to stop at the next safe point; `/craft:continue` picks the slice up again. With `Mode: manual` you run each command yourself, as listed.
+
 #### Building a feature — autonomous flow (epic-scale)
 
 When you have an epic with multiple slices that can run in parallel, hand the build off to the orchestrator. CRAFT spawns one git worktree per runnable slice, runs Phase 4 → 7 inside each via the `slice-builder` subagent, merges slice-branches into a dedicated epic-branch as they clear review, and stops for human review at epic-end.
@@ -288,17 +309,17 @@ Projects can override any agent's model in `.claude/project/craft-profile.md` un
 
 Each project gets a portable **operating profile** that bundles its autonomy, commit, merge, language, and model settings into one file — `.claude/project/craft-profile.md`. It is auto-read on every `/craft:prime`, may deviate freely from the shipped defaults, and is **portable**: copy it into a sibling project to reuse a setup.
 
-Three named presets ship with the plugin (`/craft:onboard` copies one in; "give me the defaults" picks `balanced`):
+Three named presets ship with the plugin (`/craft:onboard` asks `[D]` Defaults — the `balanced` preset — or `[G]` Guided, one question per knob, and names the matching preset or `custom`):
 
-| Preset | Execution | Auto-commit | Merge | Epic | Permissions |
-|---|---|---|---|---|---|
-| `careful` | in-place | off | protected-`main` PR you approve | sequential | minimal |
-| `balanced` *(defaults)* | worktree | on | direct | parallel | standard |
-| `autonomous` | worktree | on | direct | parallel | broad |
+| Preset | Execution | Auto-commit | Merge | Epic | Permissions | Slice flow |
+|---|---|---|---|---|---|---|
+| `careful` | in-place | off | protected-`main` PR you approve | sequential | minimal | manual |
+| `balanced` *(defaults)* | worktree | on | direct | parallel | standard | auto |
+| `autonomous` | worktree | on | direct | parallel | broad | auto |
 
 When no profile file is present, the implicit profile equals `balanced`, so adopting the profile system changes nothing until you edit it. `/craft:prime` reports the active profile and soft-warns on malformed values. See [`craft-profile-defaults.md`](./craft-profile-defaults.md) for the full field reference, resolution rules, and validation.
 
-> **Rolling out.** The profile file format, presets, `/craft:prime` reporting, the guided `/craft:onboard` write-out, permission-scope allowlists, **in-place autonomous builds** (`/craft:execute` in-place → `/craft:release`), and the **"Freigabe ≠ Merge" PR flow** (`/craft:commit` on a `pull-request` + protected-`main` profile) all ship now. **Sequential epics** (`Epic Mode: sequential`, `direct` merge workflow) now ship too — the `autonomy-profiles` epic is complete (protected-main × sequential is a follow-up). Drop a preset at `.claude/project/craft-profile.md` (or run `/craft:onboard`) to use them.
+The profile also carries the autopilot's limits (`## Autopilot`) and the slice flow (`## Slice Flow`). Drop a preset at `.claude/project/craft-profile.md` (or run `/craft:onboard`) to use one.
 
 ---
 
@@ -338,14 +359,16 @@ does not, because teammates and CI don't have it. A path your `.gitignore` un-ig
 
 ## Recommended Companion Plugins
 
-CRAFT works standalone, but two adjacent plugins make Phases 3 and 4 noticeably smoother:
+Two adjacent plugins make Phases 3 and 4 noticeably smoother — one recommended, one required:
 
 | Plugin | What it does | When CRAFT benefits |
 |---|---|---|
 | `context7` | On-demand library / framework / SDK docs lookup via MCP. Pulls authoritative API references for any library the agent is touching. | **Phase 3 (Plan)** and **Phase 4 (Execute)** — kills hallucinated library calls. The CRAFT workflow itself was validated using `context7`. |
-| `context-mode` | Routes large command output (logs, test runs, doc fetches, page snapshots) into a sandboxed knowledge base; only summaries enter the conversation. | **Phase 4 (Execute)** and **Phase 5 (Test)** — keeps context-window pressure low on long-running implementations and test suites. `/craft:prime` already detects and reports its presence. |
+| `context-mode` | Routes large command output (logs, test runs, doc fetches, page snapshots) into a sandboxed knowledge base; only summaries enter the conversation. | **Phase 4 (Execute)** and **Phase 5 (Test)** — keeps context-window pressure low on long-running implementations and test suites. |
 
-Neither is required. CRAFT does not depend on either, and `/craft:prime` stays useful without them.
+`context7` is optional: CRAFT does not depend on it, and `/craft:prime` does not check for it. `context-mode` is
+**required** (see [Requirements](#requirements)): `/craft:prime`'s pre-flight stops with install instructions when it is
+missing.
 
 ---
 
@@ -353,8 +376,17 @@ Neither is required. CRAFT does not depend on either, and `/craft:prime` stays u
 
 Detailed design rationale lives in this repository:
 
-- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — 28 architectural decisions with explicit reasoning
+- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — 42 architectural decisions (D1–D42) with explicit reasoning
 - [`plugin-architecture.md`](./plugin-architecture.md) — concrete build blueprint
+
+---
+
+## Contributing
+
+CRAFT is built with CRAFT: every change runs through the same phased loop, and the Bash harnesses in `scripts/` keep the
+command prose, the helpers and the docs site in step. How to run the working tree as the plugin, which harnesses to keep
+green, the conventions and the release mechanics are in [CONTRIBUTING.md](./CONTRIBUTING.md) — auf Deutsch in
+[CONTRIBUTING.de.md](./CONTRIBUTING.de.md).
 
 ---
 
