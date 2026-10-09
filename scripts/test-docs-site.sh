@@ -15,6 +15,11 @@
 #      counts == directory listings  (the staleness detector)
 #   9. every vX.Y.Z occurrence equals the plugin.json version
 #  10. light-mode media query and the craft-lang localStorage key exist
+#  11. release docs (slice-081): CONTRIBUTING.md and CONTRIBUTING.de.md exist and link
+#      each other, README.md links CONTRIBUTING.md, and every list item in CHANGELOG's
+#      [Unreleased] section is one line (a GitHub release body generated from it turns a
+#      wrapped line into a hard break). A self-test runs check 11 on mutated copies and
+#      must see each mutation go red.
 #
 # Prose content is deliberately NOT checked — prose is not mechanically checkable.
 # The editorial contract lives in .claude/skills/docs-site/SKILL.md. Keep green.
@@ -89,7 +94,8 @@ plugin=json.load(open(os.path.join(root,'.claude-plugin','plugin.json')))
 version=plugin['version']
 counts={
  'commands': len([f for f in os.listdir(os.path.join(root,'commands')) if f.endswith('.md')]),
- 'skills':   len([d for d in os.listdir(os.path.join(root,'skills')) if os.path.isdir(os.path.join(root,'skills',d))]),
+ # a skill is a directory holding SKILL.md — a stray empty directory (never in git) is no skill (slice-081)
+ 'skills':   len([d for d in os.listdir(os.path.join(root,'skills')) if os.path.isfile(os.path.join(root,'skills',d,'SKILL.md'))]),
  'agents':   len([f for f in os.listdir(os.path.join(root,'agents')) if f.endswith('.md')]),
  'hooks':    len([f for f in os.listdir(os.path.join(root,'hooks')) if f.endswith('.sh')]),
 }
@@ -124,6 +130,66 @@ pass_("language toggle persistence present") if "localStorage" in src and "craft
 
 sys.exit(rc)
 PY
+
+# -- 11. release docs ---------------------------------------------------------
+# release_docs <root> — prints one ok/FAIL line per check, exits non-zero on any FAIL.
+release_docs() {
+python3 - "$1" <<'PY'
+import sys, os, re
+root = sys.argv[1]
+rc = 0
+def pass_(m): print(f"  ok    {m}")
+def fail_(m):
+    global rc; rc = 1; print(f"  FAIL  {m}")
+def read(name):
+    p = os.path.join(root, name)
+    return open(p, encoding='utf-8').read() if os.path.isfile(p) else None
+
+en, de, readme, log = (read(n) for n in ('CONTRIBUTING.md', 'CONTRIBUTING.de.md', 'README.md', 'CHANGELOG.md'))
+pass_("CONTRIBUTING.md exists") if en is not None else fail_("CONTRIBUTING.md missing")
+pass_("CONTRIBUTING.de.md exists") if de is not None else fail_("CONTRIBUTING.de.md missing")
+link = lambda text, target: text is not None and re.search(r'\]\(\.?/?' + re.escape(target) + r'(#[^)]*)?\)', text)
+pass_("CONTRIBUTING.md links CONTRIBUTING.de.md") if link(en, 'CONTRIBUTING.de.md') else fail_("CONTRIBUTING.md does not link CONTRIBUTING.de.md")
+pass_("CONTRIBUTING.de.md links CONTRIBUTING.md") if link(de, 'CONTRIBUTING.md') else fail_("CONTRIBUTING.de.md does not link CONTRIBUTING.md")
+pass_("README.md links CONTRIBUTING.md") if link(readme, 'CONTRIBUTING.md') else fail_("README.md does not link CONTRIBUTING.md")
+
+if log is None or '## [Unreleased]' not in log:
+    fail_("CHANGELOG.md has no [Unreleased] section")
+else:
+    sect = log.split('## [Unreleased]', 1)[1]
+    sect = re.split(r'^## \[', sect, maxsplit=1, flags=re.M)[0]
+    item = lambda l: l.startswith('- ') or l.startswith('> - ')
+    starts = ('- ', '> - ', '#', '> **')
+    wrapped, prev = [], ''
+    for line in sect.splitlines():
+        if line.strip() and item(prev) and not line.startswith(starts):
+            wrapped.append(line.strip()[:60])
+        prev = line
+    pass_("CHANGELOG [Unreleased]: every list item is one line") if not wrapped else \
+        fail_(f"CHANGELOG [Unreleased]: {len(wrapped)} wrapped list line(s), first: '{wrapped[0]}'")
+sys.exit(rc)
+PY
+}
+
+release_docs "$ROOT" || FAIL=1
+
+# The self-test: check 11 on mutated copies of the four files — every mutation must go red.
+say "release-docs self-test (mutated copies must go red):"
+ST="$(mktemp -d)"
+selftest() { # <name> <python one-liner that mutates the copy in $ST>
+  for f in README.md CHANGELOG.md CONTRIBUTING.md CONTRIBUTING.de.md; do
+    [ -f "$ROOT/$f" ] && cp "$ROOT/$f" "$ST/$f"
+  done
+  python3 -c "$2" "$ST" || { fail "self-test '$1' could not mutate the copy"; return; }
+  if release_docs "$ST" >/dev/null; then fail "self-test '$1' stayed GREEN"; else pass "self-test '$1' — correctly RED"; fi
+}
+selftest "CONTRIBUTING.de.md missing"    'import sys,os; os.remove(os.path.join(sys.argv[1],"CONTRIBUTING.de.md"))'
+selftest "EN guide drops the DE link"    'import sys,os,re; p=os.path.join(sys.argv[1],"CONTRIBUTING.md"); t=open(p).read(); open(p,"w").write(re.sub(r"\]\(\.?/?CONTRIBUTING\.de\.md[^)]*\)", "](elsewhere.md)", t))'
+selftest "README drops CONTRIBUTING link" 'import sys,os,re; p=os.path.join(sys.argv[1],"README.md"); t=open(p).read(); open(p,"w").write(re.sub(r"\]\(\.?/?CONTRIBUTING\.md[^)]*\)", "](elsewhere.md)", t))'
+selftest "wrapped CHANGELOG item"        'import sys,os; p=os.path.join(sys.argv[1],"CHANGELOG.md"); t=open(p).read(); i=t.index("## [Unreleased]"); j=t.index("\n- ", i)+1; k=t.index("\n", j); open(p,"w").write(t[:k]+"\n  wrapped continuation of the item"+t[k:])'
+selftest "wrapped upgrade-note item"     'import sys,os; p=os.path.join(sys.argv[1],"CHANGELOG.md"); t=open(p).read(); i=t.index("## [Unreleased]"); j=t.index("\n> - ", i)+1; k=t.index("\n", j); open(p,"w").write(t[:k]+"\n> wrapped continuation"+t[k:])'
+selftest "no [Unreleased] section"       'import sys,os; p=os.path.join(sys.argv[1],"CHANGELOG.md"); t=open(p).read(); open(p,"w").write(t.replace("## [Unreleased]","## [9.9.9]"))'
+rm -rf "$ST"
 
 # -- result -------------------------------------------------------------------
 if [ "$FAIL" -eq 0 ]; then say "RESULT: GREEN"; exit 0; else say "RESULT: RED"; exit 1; fi
