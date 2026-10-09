@@ -20,7 +20,11 @@
 | 9 | B30 | Fix | small | Auto flow in a headless session (slice-074 R1-6): the headless exclusion rests on the agent's judgment — nothing tells `flow-state.sh` or the agent that the session is `claude -p`, so a probe of one phase command may run on into later phases |
 | 10 | B31 | Fix | small | Auto flow's `--from` table is an unbound copy (slice-074 R2-4): it repeats each command's Pre-flight status write and no harness binds it; `test.md`'s Pre-flight write carries no `craft:writes` marker |
 | 11 | B32 | Fix | small | epic-005 re-test leftovers (2026-10-08): (a) in T3 the agent paused correctly but never ran `pause-request.sh request` (T5 did) — the rule's "record first" step is skipped under auto flow; (b) `/craft:plan` once built a click question with a single option (Depends-On "Unabhängig"), which Claude Code rejects — the click rule's "2–4 options" is not met at that site; (c) onboard's `[G] Guided` description lists "Auto-Commit" although that knob is asked only for `in-place`; (d) `hooks/cache-guard.sh` lacks the `python3 -I` that slice-075 gave `pause-watch.sh` (slice-075 review note) |
-| 12 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
+| 12 | B34 | Fix | slice | Inert profile fields (slice-081 docs audit): `Auto-commit` changes nothing on either execution path (only prime's off + worktree warning); `Approval` is read by no command; `Approval-granularity: per-slice \| per-epic` is validated but only `auto` is implemented; `Type: pull-request` without `Protected-main: yes` lands like `direct` and prime does not warn; `Permissions → Scope` is written once at onboarding and never re-synced; `> Preset:` is a label, and `craft-profile-defaults.md` says onboarding "copies one" preset while `onboard.md` offers only [D] / [G]. The docs site documents the actual behavior — per field: implement, or drop it from the profile |
+| 13 | B35 | Fix | small | `commands/execute.md` contradicts itself (slice-081 docs audit): "It does not push to remote" vs a5 `[Y]` / s3 pushing a branch and opening a PR under protected main; Purpose "stops for human review only at epic-end" vs the slice-builder's Phase-5 / Phase-7 stops in parallel mode; names a nonexistent `/craft:archive` twice (post-assertion P1 and the "does not" list) |
+| 14 | B36 | Fix | small | Ping-pong breaker re-spawn exists only on paper (slice-081 docs audit): `model-defaults.md` describes a builder re-spawn on deep-reason / opus after a breaker trip, but `/craft:review` Step 9 blocks the slice and hands it to the human, and no spawn passes opus — build it or take it out of `model-defaults.md` |
+| 15 | B37 | Fix | small | `/craft:commit` mentioned the omitted Co-Authored-By trailer in its closing output (slice-080 probe) — Step 2 requires the omission to be silent |
+| 16 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
 
 ## Notes per item
 
@@ -30,7 +34,10 @@ Autopilot Mode`); every decomposition entry has a slice. The 2.0.0 release (rule
 the user says so; nothing is pushed yet. Slice-060's human test (c) part B (real idle ≥ 1 h) is **dropped** (user,
 2026-10-07: not a release blocker). The follow-ups R1-1 / R1-2 (archive → Follow-ups) shipped with slice-070
 (`cache-guard-disarm-on-answer`, 2026-10-07). Also owed before the cut: B25's human test on a scratch GitHub repo (see
-the B25 note below).
+the B25 note below). **Release docs prepared with slice-081 (2026-10-09):** CHANGELOG `[Unreleased]` reads as the 2.0
+release notes (opening + upgrade note), README 2.0 pass, bilingual CONTRIBUTING, docs site in full mode — the version
+stays 1.8.0; the cut itself is bump `plugin.json` + `marketplace.json`, move `[Unreleased]` under a `[2.0.0]` heading (an empty
+`[Unreleased]` stays), push, tag, release from that section (CONTRIBUTING → How a release happens).
 
 **B33 shipped with slice-078 (2026-10-08)** — which linked worktrees are CRAFT's is decided by
 `scripts/worktree-kinds.sh` (a branch carrying a `slice-<NNN>` / `epic-<NNN>` token); a detached worktree or a foreign
