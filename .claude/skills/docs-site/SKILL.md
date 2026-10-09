@@ -56,7 +56,7 @@ the harness asserts it. Never add prose in one language only.
 | `#execution` | The three execution modes | 3-panel SVG (parallel worktrees / in-place / sequential epic) + orchestrator guarantees | `commands/execute.md`, `commands/release.md` |
 | `#config` | Configuration reference | profile presets table, every block/field/enum/default, rules.md optional blocks, 3 personality tiers | `craft-profile-defaults.md`, `model-defaults.md`, `templates/`, `commands/onboard.md` |
 | `#knowledge` | Knowledge model | State/Intent/Rules table, durable-capture routing, file-tree `<pre>` | `skills/workflow/SKILL.md`, `templates/` |
-| `#commands` | Command reference | grouped table of all commands + slash-invocable skills | `commands/*.md` (count them!) |
+| `#commands` | Command reference | grouped table of all commands + user-facing skills | `commands/*.md` (count them!) |
 | `#architecture` | Under the hood | anatomy cards (counts!), hooks, agents, self-test harnesses, companion tools, upgrade/cache caveat | `.claude-plugin/*.json`, `hooks/`, `agents/`, `scripts/` |
 
 Nav links mirror the anchors; keep the GitHub link (`https://github.com/ChriRas/craft`)
@@ -64,7 +64,7 @@ in nav, hero install block, hero badge line, and footer.
 
 **The badge line** (`v<version> · MIT · N commands · N skills · N agents · N hooks`)
 must reflect reality: version from `.claude-plugin/plugin.json`, counts from
-`commands/*.md`, `skills/*/`, `agents/*.md`, `hooks/*.sh`. The harness asserts this —
+`commands/*.md`, `skills/*/SKILL.md` (a skill is a directory holding `SKILL.md`), `agents/*.md`, `hooks/*.sh`. The harness asserts this —
 it is the staleness detector for the whole page.
 
 ## Regeneration procedure
@@ -124,7 +124,7 @@ viewBox edge need `text-anchor="end"` (known overflow trap).
 3. **Light theme**: copy the file to a scratch dir replacing
    `@media (prefers-color-scheme: light)` with `@media all`, serve, inspect — shells
    must stay dark, `.lvl` badges readable.
-4. Prose numbers ("24 commands + 4 slash-invocable skills" in `#commands` and the
+4. Prose numbers ("24 commands + 4 user-facing skills" in `#commands` and the
    anatomy card in `#architecture`) match the badge line — manual, the harness only
    covers the badge line.
 
