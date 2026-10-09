@@ -12,9 +12,10 @@ through the CRAFT workflow.
 
 ## Design Records
 
-- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — the full decision log (D1–D38).
+- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — the full decision log (D1–D42).
 - [`plugin-architecture.md`](./plugin-architecture.md) — the build blueprint.
 - [`README.md`](./README.md) — plugin overview and command reference.
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md) ([deutsch](./CONTRIBUTING.de.md)) — developer workflow: `--plugin-dir`, harnesses, conventions, release mechanics.
 
 ## Active Work
 
@@ -154,8 +155,10 @@ bash scripts/test-plan-landing.sh
 bash scripts/test-epic-entry-link.sh
 
 # Example regions — scripts/example-regions.sh is the ONE answer to "is this line an example
-# rather than content?", shared by epic-entry-link.sh, review-findings-state.sh,
-# test-workflow-status-graph.sh, test-model-enum.sh and verify-run.sh. Four scripts used to decide it separately
+# rather than content?", shared by every parser of the plan files (epic-entry-link.sh, review-findings-state.sh,
+# verify-run.sh, usage-state.sh, autopilot-log.sh, autopilot-briefing.sh, epic-close-state.sh, flow-state.sh,
+# epic-digest.sh, plan-gate-state.sh) and by test-workflow-status-graph.sh, test-model-enum.sh and
+# test-choice-prompts.sh. Four scripts used to decide it separately
 # with naive parity toggles and demonstrably disagreed. It PARSES the constructs instead of
 # counting them: fenced blocks (nested, indented, blockquoted, unclosed), multi-line HTML comment
 # blocks, and <pre> in the one binding site that is not Markdown (docs/index.html). The CALLER
