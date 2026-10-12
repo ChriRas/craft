@@ -192,6 +192,10 @@
   temp files) inside the script file; a command line the agent issues — Bash, `ctx_execute` —
   never carries one, not even inside a heredoc: a user's `Bash(rm:*)` rule and context-mode's
   PreToolUse hook match the text, whatever the line actually does.
+- **A hook command quotes the plugin root and never uses `args`** (B38, slice-082): every `hooks/hooks.json` entry is
+  `bash "${CLAUDE_PLUGIN_ROOT}/hooks/<name>.sh"`. Unquoted, a plugin path with a space splits it and the hook never
+  starts (the read-only guard then fails open); the exec form (`args`) is out because a Claude Code older than 2.1.139
+  most likely drops `args` and runs a bare `bash` on the hook payload. `scripts/test-toolchain-check.sh` binds it.
 
 ## Tabus (Anti-Patterns)
 
