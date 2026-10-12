@@ -25,7 +25,8 @@
 | 14 | B36 | Fix | small | Ping-pong breaker re-spawn exists only on paper (slice-081 docs audit): `model-defaults.md` describes a builder re-spawn on deep-reason / opus after a breaker trip, but `/craft:review` Step 9 blocks the slice and hands it to the human, and no spawn passes opus — build it or take it out of `model-defaults.md` |
 | 15 | B37 | Fix | small | `/craft:commit` mentioned the omitted Co-Authored-By trailer in its closing output (slice-080 probe) — Step 2 requires the omission to be silent |
 | 16 | B39 | Design | small | Read-only guard fail-closed (slice-082 Phase 3): Claude Code ≥ 2.1.295 offers `onFailure: "block"` — a hook that cannot start, times out or exits unexpectedly blocks the action instead of letting it through. For `readonly-context-guard.sh` that would close the fail-open gap, but the guard also matches Read / Grep / Glob, so a guard that cannot start would block every read; and it needs Claude Code ≥ 2.1.295 — what an older one does with the unknown field is unverified. Decide per matcher (writes only?) and test it for real |
-| 17 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
+| 17 | B40 | Test | human | B25's real-GitHub test of the Epic-close PR path (deferred from the 2.0 cut, user 2026-10-13). Run it when CRAFT is used by a team with a protected `main`, or on a first report. Needs a public scratch repo (branch protection on GitHub Free is public-only), a rule "require a PR + 1 approval, no bypass", merge commits allowed, and a **second GitHub account** with write access to approve (a PR's author cannot approve it; CRAFT never merges with `--admin`). Sessions with `--plugin-dir` on the working tree. Three scenarios, one tiny one-entry epic each: (A) autopilot epic closed through its open PR — a5 `[Y]`, `/craft:commit` on the epic branch *before* approving, approve, `/craft:commit` again; (B) autopilot epic whose PR was approved and merged (merge commit) first — sync `main`, `/craft:commit` opens `<epic>-close` + its PR, approve, `/craft:commit` again (both branches deleted); (C) sequential epic — per-slice PRs via s3 / s0, then s5 → the close branch path as in B. Pass: a "Merge pull request #N" commit on `main`, the epic archive present, no epic plan, no epic / close branch left |
+| 18 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
 
 ## Notes per item
 
@@ -34,8 +35,8 @@ Autopilot Mode`); every decomposition entry has a slice. The 2.0.0 release (rule
 2.0.0) is **deliberately not cut yet** — the user has a few more things to do first. No version bump, push or tag until
 the user says so; nothing is pushed yet. Slice-060's human test (c) part B (real idle ≥ 1 h) is **dropped** (user,
 2026-10-07: not a release blocker). The follow-ups R1-1 / R1-2 (archive → Follow-ups) shipped with slice-070
-(`cache-guard-disarm-on-answer`, 2026-10-07). Also owed before the cut: B25's human test on a scratch GitHub repo (see
-the B25 note below). **Release docs prepared with slice-081 (2026-10-09):** CHANGELOG `[Unreleased]` reads as the 2.0
+(`cache-guard-disarm-on-answer`, 2026-10-07). B25's human test on a scratch GitHub repo is **no longer a release
+blocker** (user, 2026-10-13) — it is backlog item **B40**. **Release docs prepared with slice-081 (2026-10-09):** CHANGELOG `[Unreleased]` reads as the 2.0
 release notes (opening + upgrade note), README 2.0 pass, bilingual CONTRIBUTING, docs site in full mode — the version
 stays 1.8.0; the cut itself is bump `plugin.json` + `marketplace.json`, move `[Unreleased]` under a `[2.0.0]` heading (an empty
 `[Unreleased]` stays), push, tag, release from that section (CONTRIBUTING → How a release happens).
@@ -71,9 +72,9 @@ GitHub approval, is Step 6's second invocation (`gh pr merge --merge`, never `--
 `git branch -d` and Step 7b. `epic-close-state.sh` reads the plan at `awaiting-approval` as `STATE=closing` and a merged
 `PR #<N> opened` epic as `closable`. a5's PR hand-over says to run `/craft:commit` first, then approve. Shown by
 `scripts/test-epic-close-state.sh` (helper fixtures and pinned prose) only; the real effect on GitHub is not.
-**Still owed before the 2.0.0 cut: a human test on a scratch GitHub repo with a protected trunk — an autopilot epic
-closed through its open PR (first pass, approve, second pass), an autopilot epic whose PR merged first, and a sequential
-epic, both through the close branch's PR.** Known limits: a squash or rebase merge of the epic's PR leaves no merge
+**Known limit: the PR path is not tested on real GitHub** — deferred past 2.0 (user, 2026-10-13: a solo, trunk-based
+maintainer does not use it, it already shipped in v1.8.0, and a failure stops before writing or leaves a half-done close
+to tidy by hand, nothing lost). The test is backlog item **B40**. Further known limits: a squash or rebase merge of the epic's PR leaves no merge
 commit for the helper to find, so the epic stays `pr-path`; a push after an approval can dismiss it, hence the order.
 
 **B15 shipped with slice-067 (2026-10-07)**, including the worktree commit gap it uncovered — in parallel worktree mode
