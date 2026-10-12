@@ -385,10 +385,10 @@ python3 - "$HOOKS_JSON" <<'PY' && ok "hooks.json: UserPromptSubmit runs cache-gu
 import json, sys
 d = json.load(open(sys.argv[1]))
 cmds = [h for g in d["hooks"]["UserPromptSubmit"] for h in g["hooks"]]
-names = {h["command"].rsplit("/", 1)[-1]: h for h in cmds}
+names = {h["command"].rstrip('"').rsplit("/", 1)[-1]: h for h in cmds}
 assert "cache-guard.sh" in names and "pause-watch.sh" in names, names
 h = names["pause-watch.sh"]
-assert h["type"] == "command" and h["command"] == "bash ${CLAUDE_PLUGIN_ROOT}/hooks/pause-watch.sh", h
+assert h["type"] == "command" and h["command"] == 'bash "${CLAUDE_PLUGIN_ROOT}/hooks/pause-watch.sh"' and "args" not in h, h
 assert isinstance(h.get("timeout"), int) and 0 < h["timeout"] <= 30, h
 PY
 python3 -c 'import json,sys; sys.exit(0 if "pause-watch" in json.load(open(sys.argv[1]))["description"] else 1)' "$HOOKS_JSON" && ok "hooks.json: the description names pause-watch" || bad "hooks.json: the description does not name pause-watch"

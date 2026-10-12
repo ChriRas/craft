@@ -439,12 +439,12 @@ expect "usage-state.sh still warns about a typo'd key" "$(upr | grep -c "^WARN=A
 noprofile
 
 echo "== registration, local state and the sites that arm / disarm"
-python3 - "$HOOKS_JSON" <<'PY' && ok "hooks.json registers hooks/cache-guard.sh as a UserPromptSubmit command hook (bash, timeout, no matcher)" || bad "hooks.json does not register hooks/cache-guard.sh for UserPromptSubmit as expected"
+python3 - "$HOOKS_JSON" <<'PY' && ok "hooks.json registers hooks/cache-guard.sh as a UserPromptSubmit command hook (quoted bash command, timeout, no matcher)" || bad "hooks.json does not register hooks/cache-guard.sh for UserPromptSubmit as expected"
 import json, sys
 d = json.load(open(sys.argv[1]))
 groups = d["hooks"]["UserPromptSubmit"]
 cmds = [h for g in groups for h in g["hooks"]]
-assert any(h.get("type") == "command" and h.get("command") == "bash ${CLAUDE_PLUGIN_ROOT}/hooks/cache-guard.sh" and isinstance(h.get("timeout"), int) for h in cmds), cmds
+assert any(h.get("type") == "command" and h.get("command") == 'bash "${CLAUDE_PLUGIN_ROOT}/hooks/cache-guard.sh"' and "args" not in h and isinstance(h.get("timeout"), int) for h in cmds), cmds
 assert all("matcher" not in g for g in groups)
 assert "UserPromptSubmit" in d["description"] and "cache" in d["description"].lower()
 PY

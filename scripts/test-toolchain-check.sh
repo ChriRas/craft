@@ -2,7 +2,7 @@
 #
 # craft (Coding with Rules, Autonomy, Feedback, Tests)
 # test-toolchain-check.sh — self-contained tests for check-toolchain.sh and the SessionStart
-# hook's bash record (F4).
+# hook's bash record (F4), and that every hook in hooks/hooks.json runs as a quoted bash command (B38).
 #
 # The helper reads the OS, /etc/os-release, and the bash/python3 versions from the machine it
 # runs on; its test-only overrides (CRAFT_TEST_UNAME, CRAFT_TEST_OS_RELEASE,
@@ -435,6 +435,79 @@ missed=""; while IFS= read -r l; do printf '%s\n' "$l" > "$FIX/one"; [[ -n "$(sc
 false_hits="$(scan "$FIX/bash32.sample")"
 [[ -z "$missed" ]] && ok "scanner hits all $(grep -c . "$FIX/bash4.sample") bash-4+ constructs in its sample" || bad "scanner missed:$missed"
 [[ -z "$false_hits" ]] && ok "scanner stays quiet on bash-3.2 look-alikes (defaults, trims, redirects, comments)" || bad "scanner false positives: $false_hits"
+
+# Every hook in hooks/hooks.json runs as `bash "${CLAUDE_PLUGIN_ROOT}/hooks/<name>.sh"` — the quoted shell form (B38,
+# slice-082). Unquoted, a plugin path with a space split the command and no hook started; for the read-only guard that
+# is write protection silently off. Not the exec form (`args`): a Claude Code older than 2.1.139 most likely drops `args`
+# and runs a bare `bash` that reads the hook payload from stdin as a script — code from a prompt or a Write content would
+# run outside the permission system (review R1-1). The registered scripts must be exactly hooks/*.sh, each once (R1-2).
+echo "HOOKS.JSON QUOTED SHELL FORM:"
+HOOKS_JSON="$REPO_ROOT/hooks/hooks.json"
+hooks_json_violations() {  # hooks_json_violations <hooks.json> → one line per violation, nothing when it holds
+  python3 -I - "$1" "$REPO_ROOT/hooks" <<'PY'
+import glob, json, os, re, sys
+path, hookdir = sys.argv[1], sys.argv[2]
+form = re.compile(r'^bash "\$\{CLAUDE_PLUGIN_ROOT\}/hooks/([A-Za-z0-9_.-]+\.sh)"$')
+try:
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+except Exception as e:
+    print("unreadable: %s" % e)
+    sys.exit(0)
+names = []
+for event, groups in (data.get("hooks") or {}).items():
+    for group in groups:
+        for hook in group.get("hooks", []):
+            if hook.get("type") != "command":
+                continue
+            cmd = hook.get("command")
+            where = "%s: command=%r" % (event, cmd)
+            if "args" in hook:
+                print("exec form (args) - an older Claude Code may drop it and run a bare bash on the payload - " + where)
+            m = form.match(str(cmd))
+            if not m:
+                print('command is not bash "${CLAUDE_PLUGIN_ROOT}/hooks/<name>.sh" - ' + where)
+                continue
+            names.append(m.group(1))
+            if not os.path.isfile(os.path.join(hookdir, m.group(1))):
+                print("script missing - " + where)
+scripts = sorted(os.path.basename(s) for s in glob.glob(os.path.join(hookdir, "*.sh")))
+if not names:
+    print("no command hook found")
+elif sorted(names) != scripts:
+    print("registered scripts %s != hooks/*.sh %s" % (sorted(names), scripts))
+PY
+}
+v="$(hooks_json_violations "$HOOKS_JSON")"
+[[ -z "$v" ]] && ok "every hooks.json command hook is bash \"\${CLAUDE_PLUGIN_ROOT}/hooks/<name>.sh\" (quoted, no args), each hooks/*.sh registered once" \
+  || bad "hooks.json not in the quoted shell form: $v"
+
+# The check itself bites: each mutated copy must report a violation.
+mutate() {  # mutate <name> <python statement on d> → path of the mutated copy
+  python3 -I - "$HOOKS_JSON" "$FIX/hooks.$1.json" "$2" <<'PY'
+import json, sys
+src, dst, stmt = sys.argv[1], sys.argv[2], sys.argv[3]
+d = json.load(open(src, encoding="utf-8"))
+first = d["hooks"]["SessionStart"][0]["hooks"][0]
+second = d["hooks"]["SessionStart"][0]["hooks"][1]
+exec(stmt)
+json.dump(d, open(dst, "w", encoding="utf-8"), indent=2)
+PY
+  printf '%s' "$FIX/hooks.$1.json"
+}
+for m in \
+  'unquoted::first["command"] = "bash ${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh"' \
+  'exec-form::first["command"] = "bash"; first["args"] = ["${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh"]' \
+  'quoted-plus-args::first["args"] = []' \
+  'extra-word::first["command"] = first["command"] + " --x"' \
+  'missing-script::first["command"] = "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/no-such-hook.sh\""' \
+  'not-bash::first["command"] = first["command"].replace("bash ", "sh ", 1)' \
+  'duplicate::second["command"] = first["command"]' \
+  'no-hooks::d["hooks"] = {}'; do
+  name="${m%%::*}"; stmt="${m#*::}"
+  copy="$(mutate "$name" "$stmt")"
+  [[ -n "$(hooks_json_violations "$copy")" ]] && ok "self-test '$name' — correctly RED" || bad "self-test '$name' stayed green"
+done
 
 echo "USAGE:"
 OUT="$(bash "$HELPER" --project 2>&1)"; RC=$?
