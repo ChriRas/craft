@@ -37,7 +37,7 @@
   prescription from a prohibition),
   `bash scripts/test-docs-site.sh` (docs site in sync with the plugin surface),
   `bash scripts/test-plugin-cache-drift.sh` (plugin runtime vs. working tree, B2),
-  `bash scripts/test-toolchain-check.sh` (bash/python3 requirement, OS install hints, hook bash — informational in /craft:prime —, the status-graph harness's bash-only guard),
+  `bash scripts/test-toolchain-check.sh` (bash/python3 requirement, OS install hints, hook bash — informational in /craft:prime —, the status-graph harness's bash-only guard, every hooks.json hook a quoted bash command, never exec form (B38)),
   `bash scripts/test-gitignore-sync.sh` (CRAFT local-state gitignore helper, B4),
   `bash scripts/test-handoff-marker-state.sh` (handoff-marker liveness helper + hook, B7; + episodes, B11),
   `bash scripts/test-review-findings-state.sh` (review findings-record parser, B6),
