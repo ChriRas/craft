@@ -24,7 +24,8 @@
 | 13 | B35 | Fix | small | `commands/execute.md` contradicts itself (slice-081 docs audit): "It does not push to remote" vs a5 `[Y]` / s3 pushing a branch and opening a PR under protected main; Purpose "stops for human review only at epic-end" vs the slice-builder's Phase-5 / Phase-7 stops in parallel mode; names a nonexistent `/craft:archive` twice (post-assertion P1 and the "does not" list) |
 | 14 | B36 | Fix | small | Ping-pong breaker re-spawn exists only on paper (slice-081 docs audit): `model-defaults.md` describes a builder re-spawn on deep-reason / opus after a breaker trip, but `/craft:review` Step 9 blocks the slice and hands it to the human, and no spawn passes opus — build it or take it out of `model-defaults.md` |
 | 15 | B37 | Fix | small | `/craft:commit` mentioned the omitted Co-Authored-By trailer in its closing output (slice-080 probe) — Step 2 requires the omission to be silent |
-| 16 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
+| 16 | B38 | Fix | small | Unquoted plugin root in `hooks/hooks.json` (`claude plugin validate .` warning, seen 2026-10-09): all five hook commands run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/<name>.sh` — on a plugin path with a space the command splits and the hook fails to start; for the read-only guard that means write protection silently off (a non-starting hook blocks nothing). Quote the placeholder or use the exec form `validate` suggests; needs a real human test (fail-open hooks, rules.md → Workflow Rules) |
+| 17 | F8 | Feature | epic | **End of the chain.** Other AI coding agents: make CRAFT usable beyond Claude Code — e.g. OpenAI Codex CLI, OpenCode — **verify each tool's extension surface first** |
 
 ## Notes per item
 
