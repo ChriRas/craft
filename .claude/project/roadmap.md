@@ -30,10 +30,11 @@
 
 ## Notes per item
 
-**F6 complete, release held (user, 2026-10-06).** epic-003 landed on `main` with slice-060 (`ae0875c Merge epic-003:
-Autopilot Mode`); every decomposition entry has a slice. The 2.0.0 release (rules.md → Deployment: autopilot ships as
-2.0.0) is **deliberately not cut yet** — the user has a few more things to do first. No version bump, push or tag until
-the user says so; nothing is pushed yet. Slice-060's human test (c) part B (real idle ≥ 1 h) is **dropped** (user,
+**F6 complete, released as CRAFT 2.0.0 (2026-10-13).** epic-003 landed on `main` with slice-060 (`ae0875c Merge
+epic-003: Autopilot Mode`); every decomposition entry has a slice. The release (rules.md → Deployment: autopilot ships as
+2.0.0) was held from 2026-10-06 until the user's go: `0ebff01 chore(release): bump version to 2.0.0`, pushed, tagged
+`v2.0.0`, GitHub release from the CHANGELOG's `[2.0.0]` section (https://github.com/ChriRas/craft/releases/tag/v2.0.0).
+Slice-060's human test (c) part B (real idle ≥ 1 h) is **dropped** (user,
 2026-10-07: not a release blocker). The follow-ups R1-1 / R1-2 (archive → Follow-ups) shipped with slice-070
 (`cache-guard-disarm-on-answer`, 2026-10-07). B25's human test on a scratch GitHub repo is **no longer a release
 blocker** (user, 2026-10-13) — it is backlog item **B40**. **Release docs prepared with slice-081 (2026-10-09):** CHANGELOG `[Unreleased]` reads as the 2.0
