@@ -67,7 +67,10 @@ bash scripts/test-plugin-cache-drift.sh
 # under /bin/bash (3.2 on macOS) — hooks/, this helper, the handoff-marker helper the hook calls and the
 # review-findings parser that helper calls must stay bash-3.2-compatible. It also pins prime's hook-bash line
 # (informational `·`, never `⚠`) and the status-graph harness's guard (stops only for a too-old bash, never for
-# a missing python3). Keep green.
+# a missing python3), and binds every hooks/hooks.json command hook to `bash "${CLAUDE_PLUGIN_ROOT}/hooks/<name>.sh"`
+# — quoted (B38: unquoted, a plugin path with a space split the command and no hook started) and never the exec form
+# (`args`: an older Claude Code may drop it and run a bare bash on the hook payload, review R1-1) — with every
+# hooks/*.sh registered exactly once and mutated copies that must go red. Keep green.
 bash scripts/test-toolchain-check.sh
 
 # Local-state gitignore helper — scripts/ensure-gitignore.sh decides, via git check-ignore, whether

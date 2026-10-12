@@ -249,7 +249,7 @@ Plugin ships a centralized hook registry at `hooks/hooks.json`. Plugin hooks are
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\"",
             "timeout": 10
           }
         ]
@@ -263,7 +263,9 @@ The `hooks/session-start.sh` script:
 - If `.claude/project/intent.md` exists in the current project → emits the `/prime` invocation.
 - Otherwise → emits a one-line nudge: "Project not onboarded — run `/onboard`".
 
-`${CLAUDE_PLUGIN_ROOT}` resolves to the installed plugin directory at runtime.
+`${CLAUDE_PLUGIN_ROOT}` resolves to the installed plugin directory at runtime. Every hook quotes it (`bash "${CLAUDE_PLUGIN_ROOT}/…"`), so a
+plugin directory with a space still starts it (B38, slice-082). Not the exec form (`args`): a Claude Code older than
+2.1.139 most likely drops `args` and runs a bare `bash` on the hook payload.
 
 ## 13. Open Implementation Questions
 
