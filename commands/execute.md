@@ -231,7 +231,7 @@ This is a **durable-state mutation on user settings** — never silent. Follow t
 2. **Check (read-only).** `Bash`:
 
    ```
-   bash ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-worktree-trust.sh --check --pattern '<resolved-pattern>'
+   bash "${CLAUDE_PLUGIN_ROOT}/scripts/ensure-worktree-trust.sh" --check --pattern '<resolved-pattern>'
    ```
 
    The script prints `BASE_DIR=…` and `STATUS=present|absent` and exits `0` (already trusted) or `10` (absent). Any other non-zero exit is an error (e.g. `ERROR=python3_not_found`, `ERROR=settings_unparseable`) — surface it and fall back to telling the user to add `BASE_DIR` to `permissions.additionalDirectories` manually; do **not** proceed to worktree creation until trust is established.
