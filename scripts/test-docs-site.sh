@@ -17,9 +17,10 @@
 #  10. light-mode media query and the craft-lang localStorage key exist
 #  11. release docs (slice-081): CONTRIBUTING.md and CONTRIBUTING.de.md exist and link
 #      each other, README.md links CONTRIBUTING.md, and every list item in CHANGELOG's
-#      [Unreleased] section is one line (a GitHub release body generated from it turns a
-#      wrapped line into a hard break). A self-test runs check 11 on mutated copies and
-#      must see each mutation go red.
+#      [Unreleased] section and in the newest released section is one line (a GitHub
+#      release body generated from it turns a wrapped line into a hard break; at a release
+#      [Unreleased] is left empty and its items move under the new version). A self-test
+#      runs check 11 on mutated copies and must see each mutation go red.
 #
 # Prose content is deliberately NOT checked — prose is not mechanically checkable.
 # The editorial contract lives in .claude/skills/docs-site/SKILL.md. Keep green.
@@ -156,8 +157,10 @@ pass_("README.md links CONTRIBUTING.md") if link(readme, 'CONTRIBUTING.md') else
 if log is None or '## [Unreleased]' not in log:
     fail_("CHANGELOG.md has no [Unreleased] section")
 else:
-    sect = log.split('## [Unreleased]', 1)[1]
-    sect = re.split(r'^## \[', sect, maxsplit=1, flags=re.M)[0]
+    # [Unreleased] plus the newest released section — the release body is generated from it.
+    after = log.split('## [Unreleased]', 1)[1]
+    parts = re.split(r'^## \[', after, flags=re.M)
+    sect = '\n'.join(parts[:2])
     item = lambda l: l.startswith('- ') or l.startswith('> - ')
     starts = ('- ', '> - ', '#', '> **')
     wrapped, prev = [], ''
@@ -165,8 +168,8 @@ else:
         if line.strip() and item(prev) and not line.startswith(starts):
             wrapped.append(line.strip()[:60])
         prev = line
-    pass_("CHANGELOG [Unreleased]: every list item is one line") if not wrapped else \
-        fail_(f"CHANGELOG [Unreleased]: {len(wrapped)} wrapped list line(s), first: '{wrapped[0]}'")
+    pass_("CHANGELOG [Unreleased] + newest release: every list item is one line") if not wrapped else \
+        fail_(f"CHANGELOG [Unreleased] + newest release: {len(wrapped)} wrapped list line(s), first: '{wrapped[0]}'")
 sys.exit(rc)
 PY
 }
