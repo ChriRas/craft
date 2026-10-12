@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-13
+
 > **Upgrade note.**
 > - **Interactive slices now flow by themselves (auto flow, the new default).** A profile without a `## Slice Flow` block — every project created before this release — behaves as `Mode: auto`: each phase command ends by starting the next one up to and including `/craft:commit`, stopping only where you must decide (those stops are clicks), and `/craft:plan` ends with a "Build now / Later" click. To keep today's one-command-per-phase behavior add `## Slice Flow` with `- **Mode:** manual` to `.claude/project/craft-profile.md` (the `careful` preset ships it; `/craft:onboard` asks). `/craft:execute` and the autopilot are unchanged.
 > - **Token limits rise from 100k to 150k.** The cache guard's default `Cache-guard-recache-tokens` is now `150000`, and Phase 4's context discipline says "under ~150k tokens". A project profile created from the 1.8.0 template (or one where you set the key yourself) carries an explicit `Cache-guard-recache-tokens: 100000` and keeps it: raise it to `150000` or delete the line (an absent key uses the new default).
