@@ -1526,6 +1526,16 @@ Decision:
   specific signal (Shopware 6, API Platform, Laravel) must be checked before the framework it builds on (Symfony), and
   that before plain PHP. The harness asserts the declared precedence pairs and that every shipped pack has a row. Names of
   packs not yet shipped stay allowed in the table (`/craft:prime` warns when a declared pack is missing).
+- **A pack never migrates a project's toolchain as a side effect** (amended 2026-11-09 while planning slice-092, entry
+  `pack-existing-projects`). The rule is stated once, in the Senior-Developer baseline (Tier 1), on a line marked
+  `<!-- craft:existing-toolchain -->`: a project's existing toolchain wins over a pack's default, and migrating it is the
+  human's decision. Every pack carries a required `## Existing Projects` section directly after `## Stack`, with at least
+  one `- ` entry: how to recognise the older or alternative tools of its stack (pip / venv instead of uv, pnpm instead of
+  npm, PHPUnit instead of Pest …) and their equivalent commands. The harness checks the section's presence, position and
+  non-emptiness and binds the baseline's marked line; the section's content stays a review matter. *Why the rule in the
+  baseline, not in each pack:* nine copies of one sentence are the duplication the tabu forbids; a pack holds only what
+  is stack-specific. *Why:* `/craft:onboard` proposes `stack-python` for a plain `requirements.txt` too, and a pack that
+  teaches only its modern default would lead the agent to `uv add` where `pip install` is right.
 - *Not decided here:* composing packs from each other (D27 stays monolithic) and re-verifying `stack-php-laravel`'s
   content.
 
