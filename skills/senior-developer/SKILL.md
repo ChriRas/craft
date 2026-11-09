@@ -38,6 +38,10 @@ A lower item never justifies sacrificing a higher one.
   commissioning agent — plans and backlogs are context, not a mandate to act.
 - **No scope creep.** No extra features, no speculative refactoring, no unrequested
   "improvements." Refactoring has its own phase.
+- **The project's existing toolchain wins over a stack-pack's default.** <!-- craft:existing-toolchain -->
+  A pack describes its stack's modern default; a project that builds, tests or packages with other tools keeps
+  them, and the pack's `## Existing Projects` names their equivalent commands. Migrating the toolchain is the
+  human's decision, never a side effect of a slice.
 - **Validate after every meaningful change.** Run the project's test / analysis /
   lint gates; a red gate is fixed before moving on.
 - **When uncertain, ask.** Do not guess, and do not paper over a doubt with a change.

@@ -13,7 +13,7 @@
 #                      `disable-model-invocation: true` (D27: a pack is loaded by declaration, never
 #                      by Claude's description matching).
 #   C2  sections       SKILL.md carries these `## ` sections, in this order (others may sit between):
-#                      Stack · Reference Files · Build Order · Anti-Patterns · Sources.
+#                      Stack · Existing Projects · Reference Files · Build Order · Anti-Patterns · Sources.
 #                      An optional `## Provisioning` is read by /craft:checkout.
 #   C3  references     `## Reference Files` names its files as `references/<file>.md`; at least one;
 #                      each named file exists, and every file in references/ is named (both directions).
@@ -28,6 +28,15 @@
 #                      how old it is.)
 #   C6  no placeholder a pack (not the template) keeps no `{{…}}` placeholder in SKILL.md or a reference
 #                      file — the template's placeholders are filled in, never shipped.
+#   C7  existing       `## Existing Projects` sits directly after `## Stack` (nothing between them — it
+#       projects       qualifies the Stack defaults) and holds at least one `- ` entry: how to recognise
+#                      the older or alternative tools of the stack and their equivalent commands (D43
+#                      amended, slice-092). Its content is a review matter — prose is not checkable.
+#
+# The Senior-Developer baseline (skills/senior-developer/SKILL.md) — the rule C7 rests on:
+#
+#   B1  toolchain rule exactly one content line carries `<!-- craft:existing-toolchain -->`: a project's
+#                      existing toolchain wins over a pack's default. Stated once there, never in a pack.
 #
 # The /craft:onboard detection table (commands/onboard.md → ### Detection table):
 #
@@ -62,7 +71,8 @@ check() {
 import datetime, os, re, subprocess, sys
 
 root, regions = sys.argv[1], sys.argv[2]
-REQUIRED = ["Stack", "Reference Files", "Build Order", "Anti-Patterns", "Sources"]
+REQUIRED = ["Stack", "Existing Projects", "Reference Files", "Build Order", "Anti-Patterns", "Sources"]
+MARKER = "<!-- craft:existing-toolchain -->"
 SKILL_MAX, REF_MAX = 120, 300
 PRECEDENCE = [
     ("stack-php-shopware6", "stack-php-symfony"),
@@ -136,6 +146,16 @@ def check_pack(label, d, skill, template):
                 stop = heads[k + 1][0] if k + 1 < len(heads) else len(lines)
                 return lines[i + 1:stop]
         return None
+    # C7 — Existing Projects: directly after Stack, at least one entry
+    exsec = section("Existing Projects")
+    if exsec is not None:
+        k = names.index("Existing Projects")
+        if k > 0 and names[k - 1] == "Stack":
+            ok(f"{label}: C7 ## Existing Projects directly after ## Stack")
+        else:
+            bad(f"{label}: C7 ## Existing Projects does not sit directly after ## Stack")
+        entries = [l for l in exsec if l.startswith("- ")]
+        (ok if entries else bad)(f"{label}: C7 ## Existing Projects " + (f"{len(entries)} entr{'y' if len(entries) == 1 else 'ies'}" if entries else "has no '- ' entry"))
     # C3 — reference files, both directions
     refsec = section("Reference Files")
     if refsec is not None:
@@ -212,6 +232,17 @@ if os.path.isfile(os.path.join(tpl, "SKILL.md.template")):
 else:
     bad("templates/stack-pack/SKILL.md.template missing")
 
+# the baseline's marked rule
+base = os.path.join(root, "skills", "senior-developer", "SKILL.md")
+if not os.path.isfile(base):
+    bad("B1 skills/senior-developer/SKILL.md not found")
+else:
+    marked = [k + 1 for k, l in enumerate(content(base)) if MARKER in l]
+    if len(marked) == 1:
+        ok(f"B1 the baseline states the existing-toolchain rule once (line {marked[0]})")
+    else:
+        bad(f"B1 the baseline carries {len(marked)} lines marked {MARKER} — exactly one is required")
+
 # detection table
 ob = content(os.path.join(root, "commands", "onboard.md"))
 try:
@@ -271,7 +302,7 @@ fixture() {
   local f
   f="$(mktemp -d "$TMP/f.XXXXXX")"
   mkdir -p "$f/skills" "$f/templates" "$f/commands"
-  cp -R "$REPO"/skills/stack-* "$f/skills/"
+  cp -R "$REPO"/skills/stack-* "$REPO/skills/senior-developer" "$f/skills/"
   cp -R "$REPO/templates/stack-pack" "$f/templates/"
   cp "$REPO/commands/onboard.md" "$f/commands/"
   printf '%s' "$f"
@@ -356,6 +387,20 @@ red "bash above go"        "stack-bash sits directly above none" "commands/onboa
 red "template dmi removed" "templates/stack-pack: C1 disable" "templates/stack-pack/SKILL.md.template" 's.replace("disable-model-invocation: true\n", "", 1)'
 red "template no Sources"  "templates/stack-pack: C2 missing" "templates/stack-pack/SKILL.md.template" 's.replace("## Sources", "## Quellen", 1)'
 red "template ref missing" "references/absent.md is listed but missing" "templates/stack-pack/SKILL.md.template" 's.replace("`references/test-patterns.md` —", "`references/test-patterns.md`, `references/absent.md` —", 1)'
+# slice-092: ## Existing Projects (C7) and the baseline's marked rule (B1)
+B=skills/senior-developer/SKILL.md
+# MOVE: the Existing Projects section and the Reference Files section trade places (Stack · Reference Files · Existing Projects)
+MOVE='(lambda a, b, c: s[:a] + s[b:c] + s[a:b] + s[c:])(s.index("\n## Existing Projects\n") + 1, s.index("\n## Reference Files\n") + 1, s.index("\n## Build Order\n") + 1)'
+red "Existing Projects removed" "C2 missing section(s): Existing Projects" "$L/SKILL.md" 's.replace("\n## Existing Projects\n", "\n## Legacy Projects\n", 1)'
+red "Existing Projects empty"   "has no '- ' entry"          "$L/SKILL.md" '(lambda a, b: s[:a] + "## Existing Projects\n\nNone.\n\n" + s[b:])(s.index("\n## Existing Projects\n") + 1, s.index("\n## Reference Files\n") + 1)'
+red "Existing Projects moved"   "does not sit directly after ## Stack" "$L/SKILL.md" "$MOVE"
+red "Provisioning between Stack and Existing Projects" "does not sit directly after ## Stack" "$L/SKILL.md" 's.replace("\n## Existing Projects\n", "\n## Provisioning\n\n- composer install\n\n## Existing Projects\n", 1)'
+red "Existing Projects in a fence" "C2 missing section(s): Existing Projects" "$L/SKILL.md" 's.replace("\n## Existing Projects\n", "\n```\n## Existing Projects\n```\n", 1)'
+red "template no Existing Projects" "templates/stack-pack: C2 missing section(s): Existing Projects" "templates/stack-pack/SKILL.md.template" 's.replace("\n## Existing Projects\n", "\n## Legacy Projects\n", 1)'
+red "baseline marker removed"   "B1 the baseline carries 0 lines" "$B" 's.replace(" <!-- craft:existing-toolchain -->", "", 1)'
+red "baseline marker in a fence" "B1 the baseline carries 0 lines" "$B" '(lambda i: s[:i] + "```\n" + s[i:s.index("\n", i) + 1] + "```\n" + s[s.index("\n", i) + 1:])(s.rindex("\n", 0, s.index("<!-- craft:existing-toolchain -->")) + 1)'
+red "baseline marker twice"     "B1 the baseline carries 2 lines" "$B" 's + "\n- A second copy of the rule. <!-- craft:existing-toolchain -->\n"'
+red_fs "baseline missing"       "B1 skills/senior-developer/SKILL.md not found" "mv $B $B.gone"
 
 echo "== legitimate edits that must stay green"
 # a second pack: a copy of the Laravel pack renamed stack-zz-demo, with its own row above `stack-bash`

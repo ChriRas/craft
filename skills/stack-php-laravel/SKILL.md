@@ -18,7 +18,23 @@ commands, the database in use — live in the project's own `rules.md`, not here
   enums, full type hints, constructor property promotion. PHP 8.5 idioms (pipe
   operator, clone-with, `#[\NoDiscard]`) are in `references/code-quality-standards.md`.
 - **Framework** — Laravel 12; Filament for admin panels where the project uses it.
-- **Tests** — Pest. A project on plain PHPUnit overrides this in its `rules.md`.
+- **Tests** — Pest (a project on PHPUnit: see `## Existing Projects`).
+
+## Existing Projects
+
+The Senior-Developer baseline's existing-toolchain rule applies. Read `composer.json` first and follow what it declares:
+
+- **PHPUnit instead of Pest** — `phpunit/phpunit` in `require-dev` and no `pestphp/pest`; tests are PHPUnit classes
+  (Feature tests extend `Tests\TestCase`, Unit tests usually `PHPUnit\Framework\TestCase` — follow the neighbouring
+  test). Write new tests as PHPUnit test classes and run them with `php artisan test` or
+  `vendor/bin/phpunit` — never add Pest alongside.
+- **No Filament** — no `filament/filament` in `require`. The UI layer is whatever the project uses (controllers with
+  Blade, Livewire, Inertia); never introduce a Filament panel to host new UI.
+- **An older Laravel major** — the `laravel/framework` constraint in `composer.json` names it. Follow the structure the
+  project already has (its middleware and exception handling stay where they are) instead of the current skeleton's,
+  and use only APIs that major ships.
+- **An older PHP** — the `require.php` constraint sets the floor. Use no language feature above it (the PHP 8.5 idioms
+  in `references/code-quality-standards.md` only where the constraint's floor is 8.5 or higher, e.g. `^8.5`).
 
 ## Reference Files
 

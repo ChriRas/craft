@@ -16,6 +16,14 @@ project-specific conventions — domain rules, exact tool commands — live in t
 - **Framework** — {{framework_and_version_or_none}}
 - **Tests** — {{test_framework_and_version}}
 
+## Existing Projects
+
+The Senior-Developer baseline's existing-toolchain rule applies. Recognise the alternatives this way and use their
+commands instead of the defaults above:
+
+- **{{alternative_tool}} instead of {{default_tool}}** — recognised by {{signal_in_the_project_files}}; use
+  {{equivalent_commands}}.
+
 ## Reference Files
 
 Consult these for depth — read the one relevant to the work at hand:
