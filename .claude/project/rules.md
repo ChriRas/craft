@@ -24,7 +24,7 @@
   bash-4 constructs, and a 3.2 run skips a failing command and carries on green.
   `scripts/statusline-tap.sh` is POSIX `sh` (the user's statusline runs it, like a hook).
 - **Test Framework:** none conventional — plugin integrity is checked with
-  `claude plugin validate .`. Twenty-eight standalone Bash harnesses cover what is
+  `claude plugin validate .`. Twenty-nine standalone Bash harnesses cover what is
   mechanically checkable; keep all green:
   `bash scripts/test-readonly-context.sh` (read-only guard + sync helper, incl.
   the guard↔helper normalizer agreement and the settings helpers' `GITIGNORED=` verdict for the
@@ -107,6 +107,9 @@
   Plus `bash scripts/test-autopilot-briefing.sh` (slice-069, B27) — the autopilot's run-start briefing: the whole
   block, its "Stops for you at" lines included, is printed by `autopilot-briefing.sh` and relayed unchanged by
   `/craft:execute` a1 and the plan gate.
+  Plus `bash scripts/test-stack-packs.sh` (slice-083, D43) — the stack-pack contract, defined once in its header and
+  checked on every `skills/stack-*/` and the template `templates/stack-pack/`, plus `/craft:onboard`'s detection table
+  (coverage, precedence pairs, `none` last).
 - **Lint / Format:** none enforced.
 - **Static Analysis:** n/a.
 - **Package Manager:** n/a — distributed as a Claude Code plugin.

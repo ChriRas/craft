@@ -376,7 +376,7 @@ missing.
 
 Detailed design rationale lives in this repository:
 
-- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — 42 architectural decisions (D1–D42) with explicit reasoning
+- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — 43 architectural decisions (D1–D43) with explicit reasoning
 - [`plugin-architecture.md`](./plugin-architecture.md) — concrete build blueprint
 
 ---

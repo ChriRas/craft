@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [Unreleased]
 
+### Added
+- **A checked stack-pack contract** (slice-083, D43) — every `skills/stack-*/` is held to one contract, defined in the new harness `scripts/test-stack-packs.sh`: frontmatter (`name` = directory, `disable-model-invocation: true`), the sections Stack · Reference Files · Build Order · Anti-Patterns · Sources, the listed `references/` files in both directions, a size budget, no leftover `{{…}}` placeholder, and `## Sources` with an `As of` date and a basis (`research` packs cite every source by https URL). The plugin's new template `templates/stack-pack/` shows the shape for your own packs under `~/.claude/craft-personalities/` and is checked against the same contract. `stack-php-laravel` gains `## Sources` (extracted 2026-05, not re-verified).
+
+### Changed
+- **`/craft:onboard` detects more stacks, in precedence order** (slice-083) — the detection table now proposes `stack-php-shopware6`, `stack-php-shopware5`, `stack-php-api-platform`, `stack-php-symfony` and `stack-bash` (signals verified against Packagist and the vendors' docs on 2026-11-09), each checked before the framework it builds on; the harness asserts the order. Packs not shipped yet are proposed as names only — `/craft:prime` warns while a declared pack is missing.
+
 ## [2.0.0] - 2026-10-13
 
 > **Upgrade note.**

@@ -12,7 +12,7 @@ through the CRAFT workflow.
 
 ## Design Records
 
-- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — the full decision log (D1–D42).
+- [`brainstorm-decisions.md`](./brainstorm-decisions.md) — the full decision log (D1–D43).
 - [`plugin-architecture.md`](./plugin-architecture.md) — the build blueprint.
 - [`README.md`](./README.md) — plugin overview and command reference.
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) ([deutsch](./CONTRIBUTING.de.md)) — developer workflow: `--plugin-dir`, harnesses, conventions, release mechanics.
@@ -367,17 +367,29 @@ bash scripts/test-choice-prompts.sh
 # left (judged on the joined text — a wrapped phrase hid one site in round 1), and mutated copies that go red. Keep green.
 bash scripts/test-worktree-kinds.sh
 
+# Stack-pack contract — D43 / slice-083: the contract every skills/stack-*/ satisfies is defined once, in this harness's
+# header — frontmatter (name = directory, a description, disable-model-invocation: true), the SKILL.md sections in order
+# (Stack · Reference Files · Build Order · Anti-Patterns · Sources), the listed references/ files in both directions, a
+# size budget, no leftover {{…}} placeholder (a hidden file such as .DS_Store is no reference file), and ## Sources with
+# an `As of` date and a basis (research: every source line an https URL). The template
+# templates/stack-pack/ is a bound copy, checked against the same contract. It also checks /craft:onboard's detection
+# table: every shipped pack has a row, the declared precedence pairs hold (a signal before the framework it builds on),
+# stack-bash sits directly above `none`, which is last. Example regions are example-regions.sh's answer. Mutated copies
+# (each in a directory of its own) go red, legitimate edits (an optional ## Provisioning, a second pack with its own row,
+# a Finder .DS_Store) stay green, plus a positive control. Keep green.
+bash scripts/test-stack-packs.sh
+
 # Run THIS working tree as the plugin for one session (replaces the installed craft@craft;
 # verified with Claude Code 2.1.270):
 claude --plugin-dir /path/to/this/repo
 ```
 
 This repo has no build tooling and no conventional test framework — it ships Markdown
-commands/skills, JSON manifests, and Bash hooks. The twenty-eight harnesses above are the
+commands/skills, JSON manifests, and Bash hooks. The twenty-nine harnesses above are the
 exception: they cover the `hooks/` + `scripts/` Bash surface, the phase-transition
 graph the command Markdown encodes, the published docs-site's sync with the
 plugin surface, the plugin runtime's drift from the working tree, the required toolchain,
-the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the plan round trip of parallel worktree mode, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's log, the autopilot's run-start briefing, the autopilot's epic-end digest, the epic close and its archive template, the autopilot's budget guard, the autopilot's cache guard, the auto slice flow's verdict, the auto flow's pause request, the choice-prompt sites' binding, which worktrees are CRAFT's, the statusline tap's wiring, the single declaration of the allowed model values, the
+the CRAFT local-state gitignore, the handoff-marker lifecycle, the review findings record, the execute re-run state, the plan round trip of parallel worktree mode, the tracked plan's landing under protected main, the epic entry ↔ slice-ID link, the autopilot's plan gate, the autopilot's log, the autopilot's run-start briefing, the autopilot's epic-end digest, the epic close and its archive template, the autopilot's budget guard, the autopilot's cache guard, the auto slice flow's verdict, the auto flow's pause request, the choice-prompt sites' binding, which worktrees are CRAFT's, the stack-pack contract, the statusline tap's wiring, the single declaration of the allowed model values, the
 single definition of what counts as an example rather than content, delete-safe closing, and the autopilot's verification by command.
 
 ## Dogfooding Is Not Self-Verification
