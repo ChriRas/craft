@@ -356,24 +356,33 @@ detected value is never written silently.
 
 ### Detection table
 
-Inspect whichever manifest files exist; pick the first matching row:
+Inspect whichever manifest files exist; pick the first matching row. The order is the point: a
+signal is checked before the framework it builds on (Shopware 6 and API Platform are Symfony
+applications, Laravel can host API Platform).
 
 | Manifest signal | Candidate stack-pack |
 |---|---|
+| `composer.json` named or requiring `shopware/core` or `shopware/platform`, or with `"type": "shopware-platform-plugin"` | `stack-php-shopware6` |
+| `composer.json` named or requiring `shopware/shopware`, or with a Shopware 5 plugin type (`shopware-plugin`, `shopware-backend-plugin`, `shopware-core-plugin`, `shopware-frontend-plugin`, `shopware-theme`, `shopware-frontend-theme`) | `stack-php-shopware5` |
 | `composer.json` with a `laravel/framework` dependency | `stack-php-laravel` |
-| `composer.json` without Laravel | `stack-php` |
+| `composer.json` requiring `api-platform/core`, `api-platform/symfony` or `api-platform/api-pack` | `stack-php-api-platform` |
+| `composer.json` requiring `symfony/framework-bundle` | `stack-php-symfony` |
+| `composer.json` with none of the PHP signals above | `stack-php` |
 | `package.json` with a `next` dependency | `stack-ts-nextjs` |
 | `package.json` with `react` but no `next` | `stack-ts-react` |
 | `package.json` with TypeScript and none of the frameworks above | `stack-ts` |
 | `Cargo.toml` | `stack-rust` |
 | `pyproject.toml` or `requirements.txt` | `stack-python` |
 | `go.mod` | `stack-go` |
+| no manifest above, and the code is mainly shell — `*.sh` scripts, a `.bats` test suite or a `.shellcheckrc` | `stack-bash` |
 | none of the above, or the stack is unclear | `none` |
 
-A candidate is only a name. Just `stack-php-laravel` ships with the plugin today;
-other names are valid for projects that add their own pack under
-`~/.claude/craft-personalities/<name>/`. Proposing a not-yet-existing name is safe —
-`/craft:prime` warns at session start whenever a declared pack is missing.
+A candidate is only a name. The packs that ship with the plugin are its
+`${CLAUDE_PLUGIN_ROOT}/skills/stack-*/` directories; any other name is valid for a project that adds
+its own pack under `~/.claude/craft-personalities/<name>/` — the plugin's
+`${CLAUDE_PLUGIN_ROOT}/templates/stack-pack/` shows the shape a pack takes.
+Proposing a not-yet-existing name is safe — `/craft:prime` warns at session start whenever a
+declared pack is missing.
 
 ### Proposal (Level 0 — propose, never silently mutate)
 
