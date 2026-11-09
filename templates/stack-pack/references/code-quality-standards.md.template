@@ -1,0 +1,13 @@
+# {{language_and_version}} — Code Quality Standards
+
+## Mandatory shape
+
+{{a_short_code_example_of_the_file_shape_every_new_file_follows}}
+
+## Checklist
+
+- {{checklist_item}}
+
+## Error handling
+
+{{how_errors_are_raised_typed_and_handled_in_this_language}}

@@ -1,0 +1,13 @@
+# {{test_framework}} — Test Patterns
+
+## Unit tests
+
+{{a_short_unit_test_example}}
+
+## Integration tests
+
+{{a_short_integration_or_feature_test_example}}
+
+## Systematic coverage
+
+{{how_the_baseline_test_discipline_matrix_maps_onto_this_test_framework}}

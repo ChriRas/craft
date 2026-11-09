@@ -48,3 +48,11 @@ When a slice spans several layers, implement in dependency order:
 - Multi-table writes outside a database transaction.
 - N+1 queries — eager loading forgotten.
 - Magic strings where a backed enum belongs.
+
+## Sources
+
+> As of: 2026-05-20 · Basis: extraction
+
+- Extracted from a validated production project's developer skill (`research/real_live_projekt/.claude/skills/developer/`,
+  D27) — not re-verified against current Laravel, Filament and Pest releases. Laravel 13 has been released since
+  (`laravel/framework` v13.40.0 on Packagist, checked 2026-11-09); this pack still describes Laravel 12.

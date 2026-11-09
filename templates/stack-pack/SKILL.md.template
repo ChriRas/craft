@@ -1,0 +1,43 @@
+---
+name: {{pack_name}}
+description: CRAFT stack-pack for {{stack_in_words}} — language idioms, framework patterns, and {{test_framework}} test patterns. Loaded by /craft:build, /craft:test, /craft:refactor and /craft:review when a project declares it. Not auto-activated.
+disable-model-invocation: true
+---
+
+# Stack-Pack — {{stack_title}}
+
+{{one_paragraph_scope: which language and framework versions this pack covers, that it is loaded on top of the
+Senior-Developer baseline by the code-near phases when rules.md declares it in its ## Personality block, and that
+project-specific conventions — domain rules, exact tool commands — live in the project's own rules.md, not here}}
+
+## Stack
+
+- **Language** — {{language_and_version_with_its_idioms}}
+- **Framework** — {{framework_and_version_or_none}}
+- **Tests** — {{test_framework_and_version}}
+
+## Reference Files
+
+Consult these for depth — read the one relevant to the work at hand:
+
+- `references/code-quality-standards.md` — {{what_it_covers}}
+- `references/framework-patterns.md` — {{what_it_covers}}
+- `references/test-patterns.md` — {{what_it_covers}}
+
+## Build Order
+
+When a slice spans several layers, implement in dependency order:
+
+1. {{first_layer}}
+2. {{next_layer}}
+3. Tests — alongside each layer or right after.
+
+## Anti-Patterns
+
+- {{anti_pattern}}
+
+## Sources
+
+> As of: {{ISO_date}} · Basis: {{research_or_extraction}}
+
+- {{source_title}} — {{https_url}} ({{what_this_source_backs}})
