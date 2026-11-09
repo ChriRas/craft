@@ -369,10 +369,13 @@ bash scripts/test-worktree-kinds.sh
 
 # Stack-pack contract — D43 / slice-083: the contract every skills/stack-*/ satisfies is defined once, in this harness's
 # header — frontmatter (name = directory, a description, disable-model-invocation: true), the SKILL.md sections in order
-# (Stack · Reference Files · Build Order · Anti-Patterns · Sources), the listed references/ files in both directions, a
-# size budget, no leftover {{…}} placeholder (a hidden file such as .DS_Store is no reference file), and ## Sources with
-# an `As of` date and a basis (research: every source line an https URL). The template
-# templates/stack-pack/ is a bound copy, checked against the same contract. It also checks /craft:onboard's detection
+# (Stack · Existing Projects · Reference Files · Build Order · Anti-Patterns · Sources), the listed references/ files in
+# both directions, a size budget, no leftover {{…}} placeholder (a hidden file such as .DS_Store is no reference file),
+# and ## Sources with an `As of` date and a basis (research: every source line an https URL). Since slice-092
+# ## Existing Projects sits directly after ## Stack with at least one entry (how a pack recognises an existing project's
+# older or alternative tools), and the Senior-Developer baseline carries exactly one line marked
+# craft:existing-toolchain — the rule that a project's toolchain wins over a pack's default, stated there once. The
+# template templates/stack-pack/ is a bound copy, checked against the same contract. It also checks /craft:onboard's detection
 # table: every shipped pack has a row, the declared precedence pairs hold (a signal before the framework it builds on),
 # stack-bash sits directly above `none`, which is last. Example regions are example-regions.sh's answer. Mutated copies
 # (each in a directory of its own) go red, legitimate edits (an optional ## Provisioning, a second pack with its own row,
