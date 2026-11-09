@@ -168,7 +168,7 @@ pre,.figwrap,.hero .install{
     <span class="cmt"># <span class="de">danach die Session neu starten</span><span class="en">then restart the session</span></span><br>
     <span class="p">❯</span> /craft:onboard <span class="cmt"># <span class="de">einmal pro Projekt</span><span class="en">once per project</span></span>
   </div>
-  <div class="badges">v2.0.0 · MIT · 24 commands · 7 skills · 4 agents · 5 hooks ·
+  <div class="badges">v2.0.0 · MIT · 24 commands · 8 skills · 4 agents · 5 hooks ·
     <a href="https://github.com/ChriRas/craft">github.com/ChriRas/craft</a></div>
 </div></header>
 
@@ -270,13 +270,13 @@ pre,.figwrap,.hero .install{
       <p><strong>Zwei-Ebenen-Architektur:</strong> Das Plugin liefert die universelle Hülle (Workflow +
       Senior-Developer-Baseline, in jeder Session aktiv). Das Projekt behält seine Sprach-/Framework-Spezialisten
       lokal (<code>.claude/skills/</code> und <code>.claude/agents/</code>), lazy geladen — plus optionale <strong>Stack-Packs</strong>
-      (z.&nbsp;B. <code>stack-php-laravel</code>), die in den code-nahen Phasen automatisch dazugeladen werden.</p>
+      (z.&nbsp;B. <code>stack-php</code>, <code>stack-php-laravel</code>), die in den code-nahen Phasen automatisch dazugeladen werden.</p>
     </div>
     <div class="en">
       <p><strong>Two-tier architecture:</strong> the plugin ships the universal shell (workflow +
       Senior-Developer baseline, active in every session). The project keeps its language/framework specialists
       locally (<code>.claude/skills/</code> and <code>.claude/agents/</code>), lazy-loaded — plus optional <strong>stack-packs</strong>
-      (e.g. <code>stack-php-laravel</code>) autoloaded during the code-near phases.</p>
+      (e.g. <code>stack-php</code>, <code>stack-php-laravel</code>) autoloaded during the code-near phases.</p>
     </div>
   </div>
 </div></section>
@@ -1427,12 +1427,12 @@ pre,.figwrap,.hero .install{
         quality hierarchy (correctness &gt; tests &gt; architecture &gt; maintainability &gt; performance &gt; consistency),
         workflow gates, test-discipline matrix, problem playbook.</span></p></div>
       <div class="card"><h4>Tier 2 · Stack-Pack</h4>
-        <p><span class="de">Framework-Idiome. Mit dem Plugin kommt nur <code>stack-php-laravel</code>: PHP 8.4 / 8.5 + Laravel 12 + Filament + Pest.
-        Nur in den code-nahen Phasen geladen (Build, Test, Refactor, Review). Alle anderen Packs liegen als eigene unter
+        <p><span class="de">Sprach- und Framework-Idiome. Mit dem Plugin kommen <code>stack-php</code> (PHP 8.4 / 8.5 ohne Framework + Composer + PHPUnit + PHPStan) und <code>stack-php-laravel</code> (PHP 8.4 / 8.5 + Laravel 12 + Filament + Pest).
+        Nur in den code-nahen Phasen geladen (Build, Test, Refactor, Review). Weitere Packs liegen als eigene unter
         <code>~/.claude/craft-personalities/</code> — die Vorlage <code>templates/stack-pack/</code> im Plugin zeigt die Form, und jedes
         Pack nennt in <code>## Sources</code>, worauf es beruht und von wann es ist.</span>
-        <span class="en">Framework idioms. Only <code>stack-php-laravel</code> ships with the plugin: PHP 8.4 / 8.5 + Laravel 12 + Filament + Pest.
-        Loaded only in the code-near phases (build, test, refactor, review). Every other pack is your own, under
+        <span class="en">Language and framework idioms. The plugin ships <code>stack-php</code> (PHP 8.4 / 8.5 without a framework + Composer + PHPUnit + PHPStan) and <code>stack-php-laravel</code> (PHP 8.4 / 8.5 + Laravel 12 + Filament + Pest).
+        Loaded only in the code-near phases (build, test, refactor, review). Further packs are your own, under
         <code>~/.claude/craft-personalities/</code> — the template <code>templates/stack-pack/</code> in the plugin shows the shape, and every
         pack states in <code>## Sources</code> what it rests on and how old it is.</span></p></div>
       <div class="card"><h4>Tier 3 · <span class="de">Projekt-Overlay</span><span class="en">Project overlay</span></h4>
@@ -1607,10 +1607,10 @@ pre,.figwrap,.hero .install{
 
     <div class="cards">
       <div class="card"><h4><span class="de">Reines Markdown-Plugin</span><span class="en">Pure Markdown plugin</span></h4>
-        <p><span class="de">24 Commands, 7 Skills (6 universelle + 1 Stack-Pack), 4 Agents, 5 Hooks — Markdown, JSON und Bash. Kein Build,
+        <p><span class="de">24 Commands, 8 Skills (6 universelle + 2 Stack-Packs), 4 Agents, 5 Hooks — Markdown, JSON und Bash. Kein Build,
         kein MCP-Server. Das Repo ist sein eigener Marketplace (<code>marketplace.json</code> mit
         <code>source: "./"</code>).</span>
-        <span class="en">24 commands, 7 skills (6 universal + 1 stack-pack), 4 agents, 5 hooks — Markdown, JSON and Bash. No build,
+        <span class="en">24 commands, 8 skills (6 universal + 2 stack-packs), 4 agents, 5 hooks — Markdown, JSON and Bash. No build,
         no MCP server. The repo is its own marketplace (<code>marketplace.json</code> with
         <code>source: "./"</code>).</span></p></div>
       <div class="card"><h4>Hooks</h4>
