@@ -1498,6 +1498,37 @@ Decision:
   like `pause`). Every exit of `/craft:pause` that pauses nothing settles a pending request.
 - *Cost:* existing projects without the key switch to auto flow on upgrade — the CHANGELOG carries an upgrade note.
 
+### D43 — A Stack-Pack Is Held to One Checked Contract, With Dated Sources
+
+> Decided 2026-11-09 while planning slice-083 (epic-006, entry `pack-contract`). Extends D27's Tier 2; the tiers, the
+> monolithic packs and the declared, explicit load are unchanged.
+
+D27 shipped one stack-pack and left its shape implicit: `stack-php-laravel` is the only example, nothing says which
+sections a pack must carry, and nothing records how current its content is. Epic-006 adds eight packs built from
+research, so a pack's shape and its age have to be stated — and, by this repo's own rule (prose is not checkable,
+slice-031), checked.
+
+Decision:
+
+- **The contract is defined once, in the header of `scripts/test-stack-packs.sh`,** and the harness checks every
+  `skills/stack-*/` against it: frontmatter (`name` equals the directory, a description, `disable-model-invocation:
+  true`), the required `SKILL.md` sections, the reference files listed under `## Reference Files` and present in
+  `references/` in both directions, a size budget, and `## Sources`.
+- **The shipped template `templates/stack-pack/` is a bound copy, not a second definition.** It exists so a human — and a
+  user writing their own pack under `~/.claude/craft-personalities/` — sees the shape; the harness checks the template
+  against the same contract, so it cannot drift from it.
+- **Every pack says what it rests on and when.** `## Sources` opens with `> As of: <ISO date> · Basis: research |
+  extraction`. A `research` pack backs each source line with an `https://` URL; an `extraction` pack names where it was
+  extracted from. *Why:* training knowledge is never ground truth (the user's global rule), and a pack's claims about
+  versions and tools age — a reader must be able to tell how old they are. `stack-php-laravel` is retrofitted as
+  `extraction`, its content unchanged, so no pack needs an exception.
+- **The `/craft:onboard` detection table is written whole, in precedence order,** not row by row as packs land: a more
+  specific signal (Shopware 6, API Platform, Laravel) must be checked before the framework it builds on (Symfony), and
+  that before plain PHP. The harness asserts the declared precedence pairs and that every shipped pack has a row. Names of
+  packs not yet shipped stay allowed in the table (`/craft:prime` warns when a declared pack is missing).
+- *Not decided here:* composing packs from each other (D27 stays monolithic) and re-verifying `stack-php-laravel`'s
+  content.
+
 ---
 
 ## 7. Carry-Over to Next Clusters
