@@ -140,6 +140,7 @@ BOUND_FILES=(
   "templates/profiles/balanced.md:1"
   "templates/profiles/careful.md:1"
   "templates/profiles/autonomous.md:1"
+  ".claude/project/craft-profile.md:1"
   "docs/index.html:1"
 )
 
@@ -1005,7 +1006,7 @@ if [ -z "${CRAFT_ENUM_SELFTEST_CHILD:-}" ]; then
   seed_fixture() {
     local dst="$1"
     rm -rf "$dst"
-    mkdir -p "$dst/scripts" "$dst/agents" "$dst/commands" "$dst/templates/profiles" "$dst/docs"
+    mkdir -p "$dst/scripts" "$dst/agents" "$dst/commands" "$dst/templates/profiles" "$dst/docs" "$dst/.claude/project"
     cp "$ROOT/scripts/test-model-enum.sh" "$dst/scripts/"
     # defenced() calls it; without it every fixture dies at startup and the control goes red
     # (slice-047).
@@ -1018,6 +1019,8 @@ if [ -z "${CRAFT_ENUM_SELFTEST_CHILD:-}" ]; then
     cp "$ROOT/commands/prime.md" "$ROOT/commands/review.md" "$ROOT/commands/execute.md" "$dst/commands/"
     cp "$ROOT/templates/craft-profile.md.template" "$dst/templates/"
     cp "$ROOT"/templates/profiles/*.md "$dst/templates/profiles/"
+    # The project's own profile is a bound copy too (slice-093) — every BOUND_FILES entry must be here.
+    cp "$ROOT/.claude/project/craft-profile.md" "$dst/.claude/project/"
     cp "$ROOT/docs/index.html" "$dst/docs/"
     cp "$ROOT"/agents/*.md "$dst/agents/"
   }
