@@ -83,7 +83,9 @@
 > its run (a sub-task, a phase, a debug attempt). The
 > weekly usage at or above `Budget-seven-day` → no further slice. An integer 1–100 each. Judged by the
 > CRAFT plugin's `scripts/usage-state.sh` from the statusline tap you wire once (README → Requirements);
-> without a tap the run stops after every slice. A window at 99 % while the cache TTL is 5 minutes
+> without a tap the run stops after every slice. When the tap holds no reading (another session
+> without one replaced it), the last reading it kept — at most 30 minutes old — is judged against
+> `Budget-estimated` instead, in every gate. A window at 99 % while the cache TTL is 5 minutes
 > (overage) always stops — not configurable. `Cache-guard-recache-tokens` is not a budget: while an
 > autopilot session waits on you, a prompt that arrives after its prompt cache expired is blocked, with
 > the restart instruction, when re-writing the cache would cost at least that many tokens — below it a
@@ -92,6 +94,7 @@
 - **Budget-before-slice:** 85
 - **Budget-in-slice:** 95
 - **Budget-seven-day:** 90
+- **Budget-estimated:** 80
 - **Cache-guard-recache-tokens:** 150000
 
 ## Operational Language

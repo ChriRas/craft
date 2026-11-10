@@ -245,6 +245,9 @@ stack-pack checks, this is **reported, never corrected**.
    - one `⚠ CRAFT profile: <text>` line per `WARN=` line (an invalid or unknown `## Autopilot` key; the helper kept the default);
    - `MODE=normal`, `VERDICT=go` → `✓ Autopilot budget: <LIMIT_BEFORE>/<LIMIT_DURING>/<LIMIT_SEVEN_DAY> — five_hour <FIVE_HOUR> %, seven_day <SEVEN_DAY> %`;
    - `MODE=normal`, `VERDICT=stop` → `⚠ Autopilot budget: <LIMIT_BEFORE>/<LIMIT_DURING>/<LIMIT_SEVEN_DAY> — an autopilot run would not start a slice now: <REASON>`;
+   - `MODE=estimated`, `VERDICT=stop` → `⚠ Autopilot budget: <LIMIT_BEFORE>/<LIMIT_DURING>/<LIMIT_SEVEN_DAY> — no reading in the tap (<UNKNOWN>); on the <ESTIMATE> an autopilot run would not start a slice now: <REASON>`;
+   - `MODE=estimated`, `VERDICT=go` → `· Autopilot budget: <LIMIT_BEFORE>/<LIMIT_DURING>/<LIMIT_SEVEN_DAY> — no reading in the tap (<UNKNOWN>); the <ESTIMATE>: five_hour ~<FIVE_HOUR> %, seven_day ~<SEVEN_DAY> %, judged against <LIMIT_ESTIMATED> %`
+     — another session without a reading replaced the tap; an autopilot run goes on, on the lower limit (slice-093);
    - `MODE=conservative` → `· Autopilot budget: <LIMIT_BEFORE>/<LIMIT_DURING>/<LIMIT_SEVEN_DAY> — no usage reading: <UNKNOWN>; <hint>`,
      `<UNKNOWN>` verbatim. `<hint>`: when `UNKNOWN` starts with `no tap at` → `an autopilot run would stop after every slice — step 4h offers to wire the statusline tap`;
      otherwise → `the tap is wired — a session's statusline refreshes it`. At session start an old tap is the normal

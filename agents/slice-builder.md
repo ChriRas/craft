@@ -88,7 +88,8 @@ here. Ask it at every boundary of your spawn:
 From the checkout root: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-state.sh" --gate during`. Act on `VERDICT=` only —
 never judge the percentages yourself:
 
-- `VERDICT=go` (a `MODE=conservative` one too: the master's `after` gate stops the run then) → go on.
+- `VERDICT=go` (a `MODE=estimated` one too — judged on the last reading; and a `MODE=conservative` one: the master's
+  `after` gate stops the run then) → go on.
 - `VERDICT=stop` → **stop**: change nothing more — no status write, no marker; finished work stays uncommitted in the
   checkout — and emit the paused line (§6) with `reason=budget — <REASON>`.
 - **no `VERDICT=` line** (the helper not found, a non-zero exit) → the same stop, with

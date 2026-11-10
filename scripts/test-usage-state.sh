@@ -357,6 +357,148 @@ out="$(cd "$P" && env -u CRAFT_USAGE_TAP CLAUDE_CONFIG_DIR="$ROOT/cfg" bash "$HE
 expect "tap → helper on the default path"   "$(val "$out" LOG_FIELD)" "five_hour 30 % until $H5"
 grep -qE '\[\[|\$\(\(|local |function |declare |pipefail' "$TAPPER" && bad "statusline-tap.sh uses a non-POSIX construct" || ok "statusline-tap.sh stays POSIX sh"
 
+echo "== the last reading (slice-093)"
+# The tap keeps a copy of the last JSON that named both windows.
+L="$ROOT/lastdir/usage-tap.json"; LR="$ROOT/lastdir/usage-tap.last-reading.json"
+tap 40 20; cp "$TAP" "$ROOT/with.json"
+CRAFT_USAGE_TAP="$L" sh "$TAPPER" < "$ROOT/with.json" >/dev/null
+cmp -s "$ROOT/with.json" "$LR" && ok "a JSON with both windows: the last reading holds it byte-equal" || bad "the last reading differs"
+printf '{"session_id":"fresh","cost":{}}' | CRAFT_USAGE_TAP="$L" sh "$TAPPER" >/dev/null
+expect "a JSON without rate_limits replaces the tap" "$(cat "$L")" '{"session_id":"fresh","cost":{}}'
+cmp -s "$ROOT/with.json" "$LR" && ok "a JSON without rate_limits leaves the last reading as it was" || bad "the last reading was replaced"
+printf '{"rate_limits":{"five_hour":{"used_percentage":1}}}' | CRAFT_USAGE_TAP="$L" sh "$TAPPER" >/dev/null
+cmp -s "$ROOT/with.json" "$LR" && ok "one window only: the last reading stays" || bad "one window replaced the last reading"
+printf '{"rate_limits":{"five_hour":{"used_percentage":null},"seven_day":{"used_percentage":null}}}' | CRAFT_USAGE_TAP="$L" sh "$TAPPER" >/dev/null
+cmp -s "$ROOT/with.json" "$LR" && ok "both windows without a number: the last reading stays (R1-3)" || bad "null percentages replaced the last reading (R1-3)"
+printf '{"context_window":{"used_percentage":12},"rate_limits":{"five_hour":{"resets_at":1},"seven_day":{"used_percentage":3}}}' | CRAFT_USAGE_TAP="$L" sh "$TAPPER" >/dev/null
+cmp -s "$ROOT/with.json" "$LR" && ok "another object's used_percentage does not stand in for a window's (R1-3)" || bad "a stray used_percentage replaced the last reading (R1-3)"
+expect "no temp file left behind (last reading)" "$(ls -A "$ROOT/lastdir" | tr '\n' ' ')" "usage-tap.json usage-tap.last-reading.json "
+CRAFT_USAGE_TAP="$ROOT/lastdir/tapfile" sh "$TAPPER" < "$ROOT/with.json" >/dev/null
+[[ -f "$ROOT/lastdir/tapfile.last-reading.json" ]] && ok "a tap path without .json: <path>.last-reading.json" || bad "no last reading next to a tap path without .json"
+# Fail open on the last reading alone (R1-5): its rename cannot land (a read-only directory sits at its path), the tap
+# is still written, stdin still reaches the statusline command, and no temp file is left behind.
+mkdir -p "$ROOT/lastfail/usage-tap.last-reading.json"; chmod 555 "$ROOT/lastfail/usage-tap.last-reading.json"
+out="$(CRAFT_USAGE_TAP="$ROOT/lastfail/usage-tap.json" sh "$TAPPER" cat < "$ROOT/with.json")"
+expect "a failed last-reading write: stdin passes through byte-equal" "$out" "$(cat "$ROOT/with.json")"
+cmp -s "$ROOT/with.json" "$ROOT/lastfail/usage-tap.json" && ok "a failed last-reading write: the tap is still written" || bad "a failed last-reading write lost the tap"
+expect "a failed last-reading write: no temp file left behind" "$(ls -A "$ROOT/lastfail" | tr '\n' ' ')" "usage-tap.json usage-tap.last-reading.json "
+expect "a failed last-reading write: nothing landed inside its path" "$(ls -A "$ROOT/lastfail/usage-tap.last-reading.json")" ""
+chmod 755 "$ROOT/lastfail/usage-tap.last-reading.json"
+
+# The helper falls back to it. lastr <five> <seven> <age> [five_resets] — the last reading <age> s before the clock run uses.
+LAST="$ROOT/tap.last-reading.json"
+lastr() {
+  printf '{"session_id":"o","prompt_cache":{"ttl":"1h"},"rate_limits":{"five_hour":{"used_percentage":%s,"resets_at":%s},"seven_day":{"used_percentage":%s,"resets_at":%s}}}' \
+    "$1" "${4:-$R5}" "$2" "$R7" > "$LAST"
+  python3 -c 'import os,sys;t=int(os.path.getmtime(sys.argv[1]))+int(sys.argv[3])-int(sys.argv[4]);os.utime(sys.argv[2],(t,t))' "$TAP" "$LAST" "${AGE:-10}" "$3"
+}
+noprofile
+printf '{"session_id":"fresh"}' > "$TAP"
+lastr 40 20 600
+out="$(run --gate before)"
+expect "no reading in the tap, a last reading → MODE=estimated" "$(val "$out" MODE)" "estimated"
+expect "estimated: the last reading's numbers"  "$(val "$out" FIVE_HOUR)/$(val "$out" SEVEN_DAY)" "40/20"
+expect "estimated: ESTIMATE names its age"     "$(val "$out" ESTIMATE)" "last reading 600 s old"
+expect "estimated: UNKNOWN names the tap's cause" "$(val "$out" UNKNOWN)" "no rate_limits in the tap"
+expect "estimated: LIMIT_ESTIMATED default"    "$(val "$out" LIMIT_ESTIMATED)" "80"
+expect "estimated: LOG_FIELD marks the estimate" "$(val "$out" LOG_FIELD)" "five_hour ~40 % until $H5"
+expect "estimated: before goes"                "$(val "$out" VERDICT)" "go"
+out="$(run --gate after)"
+expect "estimated: after GOES (the fix)"       "$(val "$out" VERDICT)" "go"
+expect "estimated: the REASON says so"         "$(val "$out" REASON)" "five_hour ~40 % < 80 %, seven_day ~20 % (estimated: last reading 600 s old — no rate_limits in the tap)"
+expect "estimated: during goes"                "$(val "$(run --gate during)" VERDICT)" "go"
+lastr 79 20 60
+expect "estimated: before at 79 goes"          "$(val "$(run --gate before)" VERDICT)" "go"
+expect "estimated: during at 79 goes"          "$(val "$(run --gate during)" VERDICT)" "go"
+expect "estimated: after at 79 goes"           "$(val "$(run --gate after)" VERDICT)" "go"
+lastr 80 20 60
+expect "estimated: before at 80 stops"         "$(val "$(run --gate before)" VERDICT)" "stop"
+expect "estimated: during at 80 stops"         "$(val "$(run --gate during)" VERDICT)" "stop"
+out="$(run --gate after)"
+expect "estimated: after at 80 stops"          "$(val "$out" VERDICT)" "stop"
+expect "estimated: the stop REASON"            "$(val "$out" REASON)" "five_hour ~80 % ≥ 80 % — resets $H5 (estimated: last reading 60 s old — no rate_limits in the tap)"
+epic "$(landed 01 slice-100 +10)"
+lastr 70 20 60
+expect "estimated: before counts the forecast (70 + 10)" "$(val "$(run --gate before --epic-plan "$EPIC")" VERDICT)" "stop"
+lastr 69 20 60
+expect "estimated: 69 + 10 goes"                "$(val "$(run --gate before --epic-plan "$EPIC")" VERDICT)" "go"
+lastr 10 90 60
+expect "estimated: seven_day at its limit stops before" "$(val "$(run --gate before)" VERDICT)" "stop"
+expect "estimated: seven_day at its limit stops after"  "$(val "$(run --gate after)" VERDICT)" "stop"
+expect "estimated: during ignores seven_day, as normal" "$(val "$(run --gate during)" VERDICT)" "go"
+lastr 40 20 1800
+expect "estimated: 1800 s old is still a reading" "$(val "$(run --gate after)" MODE)" "estimated"
+lastr 40 20 1801
+out="$(run --gate after)"
+expect "1801 s old → conservative"              "$(val "$out" MODE)" "conservative"
+expect "conservative: UNKNOWN names both causes" "$(val "$out" UNKNOWN)" "no rate_limits in the tap; last reading 1801 s old, stale after 1800 s"
+expect "conservative: after stops, as before"   "$(val "$out" VERDICT)" "stop"
+expect "conservative: no numbers"               "$(val "$out" FIVE_HOUR)" "-"
+lastr 40 20 60 $(( $(mtime "$TAP") - 100 ))
+expect "a last reading from before the five_hour reset → conservative" "$(val "$(run --gate after)" UNKNOWN)" "no rate_limits in the tap; the last reading predates the five_hour reset at $(date -r $(( $(mtime "$TAP") - 100 )) +%H:%M)"
+printf '{"session_id":"o"}' > "$LAST"
+expect "a last reading without rate_limits → conservative" "$(val "$(run --gate after)" UNKNOWN)" "no rate_limits in the tap; no rate_limits in the last reading"
+printf 'not json' > "$LAST"
+expect "an unreadable last reading → conservative" "$(val "$(run --gate after)" UNKNOWN)" "no rate_limits in the tap; last reading unreadable: $LAST"
+tap 20 10
+AGE=410 lastr 30 10 100
+out="$(AGE=410 run --gate after)"
+expect "a stale tap, a fresh last reading → estimated" "$(val "$out" MODE)" "estimated"
+expect "the stale tap's cause is named"         "$(val "$out" UNKNOWN)" "tap 410 s old, stale after 300 s"
+tap 84 10
+lastr 10 10 60
+out="$(run --gate before)"
+expect "an exact reading wins over the last one" "$(val "$out" MODE)/$(val "$out" FIVE_HOUR)" "normal/84"
+expect "exact: the 85 % limit is unchanged"     "$(val "$out" VERDICT)" "go"
+expect "exact: no ESTIMATE line"                "$(printf '%s\n' "$out" | grep -c '^ESTIMATE=')" "0"
+printf '{"session_id":"fresh"}' > "$TAP"
+lastr 70 10 60
+profile "## Autopilot
+
+- **Budget-estimated:** 70"
+out="$(run --gate during)"
+expect "profile: Budget-estimated 70"          "$(val "$out" LIMIT_ESTIMATED)" "70"
+expect "profile: 70 stops at 70"               "$(val "$out" VERDICT)" "stop"
+profile "## Autopilot
+
+- **Budget-estimated:** 0"
+out="$(run --gate during)"
+expect "profile: an invalid Budget-estimated → default" "$(val "$out" LIMIT_ESTIMATED)" "80"
+expect "profile: an invalid Budget-estimated WARNs" "$(printf '%s\n' "$out" | grep '^WARN=')" "WARN=Autopilot → Budget-estimated: '0' invalid — an integer 1–100; using 80"
+# R1-1: never above the exact limits — a profile that lowers them lowers the estimated limit with them.
+lastr 75 10 60
+profile "## Autopilot
+
+- **Budget-before-slice:** 60
+- **Budget-in-slice:** 70"
+out="$(run --gate before)"
+expect "lowered limits: LIMIT_ESTIMATED follows the lower one (R1-1)" "$(val "$out" LIMIT_ESTIMATED)" "60"
+expect "lowered limits: an estimated 75 stops before (R1-1)" "$(val "$out" MODE)/$(val "$out" VERDICT)" "estimated/stop"
+expect "lowered limits: the default following them is no WARN" "$(printf '%s\n' "$out" | grep -c '^WARN=')" "0"
+expect "lowered limits: an estimated 75 stops during (R1-1)" "$(val "$(run --gate during)" VERDICT)" "stop"
+expect "lowered limits: an estimated 75 stops after (R1-1)" "$(val "$(run --gate after)" VERDICT)" "stop"
+profile "## Autopilot
+
+- **Budget-before-slice:** 60
+- **Budget-estimated:** 80"
+out="$(run --gate during)"
+expect "Budget-estimated set above the exact limits: lowered" "$(val "$out" LIMIT_ESTIMATED)" "60"
+expect "Budget-estimated set above the exact limits: WARNs" "$(printf '%s\n' "$out" | grep '^WARN=')" "WARN=Autopilot → Budget-estimated: 80 is above Budget-before-slice / Budget-in-slice — using 60"
+noprofile
+mv "$LAST" "$ROOT/elsewhere.json"
+out="$(run --gate after --last-reading "$ROOT/elsewhere.json")"
+expect "--last-reading names another file"      "$(val "$out" MODE)" "estimated"
+mv "$ROOT/elsewhere.json" "$LAST"
+epic "$(runstart 00)
+$(started 01 slice-101 "five_hour 20 % until $H5")"
+expect "estimated: after with --slice → Δ ?"   "$(val "$(run --gate after --epic-plan "$EPIC" --slice slice-101)" DELTA)" "?"
+epic "$(runstart 00)
+$(started 01 slice-101 "five_hour ~70 % until $H5")"
+expect "--check-line accepts the estimated field" "$(val "$(cd "$P" && bash "$HELPER" --check-line start --epic-plan "$EPIC" --slice slice-101 --expect "five_hour ~70 % until $H5")" LINE_OK)" "yes"
+rm -f "$LAST"
+printf '{"session_id":"fresh"}' > "$TAP"
+expect "no last reading: UNKNOWN as before"    "$(val "$(run --gate after)" UNKNOWN)" "no rate_limits in the tap"
+
 echo "== the sites that act on the verdict"
 EXECUTE="$REPO_ROOT/commands/execute.md"; BUILD="$REPO_ROOT/commands/build.md"
 BUILDER="$REPO_ROOT/agents/slice-builder.md"; PRIME="$REPO_ROOT/commands/prime.md"
@@ -389,6 +531,10 @@ pin "$EXECUTE" 'slice the budget guard stopped (`reason=budget`)' "exempts a bud
 pin "$EXECUTE" 'No correction is needed: the re-run writes a fresh' "a failed start check needs no hand edit (R2)"
 pin "$EXECUTE" 'A `go` with `MODE=conservative` → print its `REASON`' "tells the human a conservative run stops after the slice (R2)"
 pin "$PRIME" '`MODE=normal`, `VERDICT=stop` →' "warns when a run would not start (R2)"
+pin "$EXECUTE" 'a `go` with `MODE=estimated` → print its `REASON` once too' "tells the human an estimated run goes on (slice-093 R1-4)"
+pin "$PRIME" '`MODE=estimated`, `VERDICT=go` →' "reports an estimated go in 4d (slice-093 R1-4)"
+pin "$PRIME" '`MODE=estimated`, `VERDICT=stop` →' "warns when an estimated run would not start (slice-093 R1-2)"
+pin "$BUILDER" '`VERDICT=go` (a `MODE=estimated` one too' "goes on with an estimated go (slice-093 R1-4)"
 pin "$DEBUG" '*Max attempts* counts again from 1 — a known limit' "states the debug-loop restart honestly (R2)"
 for f in "$REPO_ROOT/templates/craft-profile.md.template" "$REPO_ROOT"/templates/profiles/*.md "$REPO_ROOT/craft-profile-defaults.md"; do
   grep -qF 'stops at the next sub-task boundary' "$f" && bad "$(basename "$f") still says the builder stops at a sub-task boundary only (R2)" || ok "$(basename "$f") describes every boundary of the spawn"
@@ -419,6 +565,7 @@ done
 dv() { printf '%s\n' "$defaults" | sed -n "s/^$1://p"; }
 pin "$REPO_ROOT/docs/index.html" "<strong><code>$(dv Budget-before-slice)</code></strong> / <strong><code>$(dv Budget-in-slice)</code></strong> / <strong><code>$(dv Budget-seven-day)</code></strong>" "states the helper's defaults in the config row"
 pin "$REPO_ROOT/docs/index.html" "<code>Autopilot → Cache-guard-recache-tokens</code></td><td><strong><code>$(dv Cache-guard-recache-tokens)</code></strong>" "states the cache guard's default in its config row"
+pin "$REPO_ROOT/docs/index.html" "<code>Autopilot → Budget-estimated</code></td><td><strong><code>$(dv Budget-estimated)</code></strong>" "states the estimated limit's default in its config row"
 for f in "$REPO_ROOT/README.md" "$REPO_ROOT/docs/index.html"; do
   grep -qE '(85|95|90)(&nbsp;| )%' "$f" && bad "$(basename "$f") repeats a budget limit in prose (unbound copy)" || ok "$(basename "$f") points at the profile block instead of repeating the limits"
 done

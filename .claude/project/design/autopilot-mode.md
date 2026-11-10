@@ -202,7 +202,11 @@ Human ──(epic vision + decomposition)──▶ MASTER (main session, lean co
   `## Autopilot` (Q6), the forecast is the mean of the `Δ five_hour` fields on the log's `✓` lines (derived, never
   stored), and the `after` gate reads each slice's Δ from its `▶` line. A budget stop inside a slice is **Held**
   (`reason=budget`, no status write, no marker) and a plain re-run resumes it. No reading → conservative mode (the
-  slice runs, the run stops after it). *Correction:* the in-slice bullet below says per-sub-task commits make the
+  slice runs, the run stops after it). *Amended (slice-093, 2026-11-10):* the tap is shared by every session, and one
+  without `rate_limits` yet replaced good readings — epic-006's run stopped twice with room in the window. The tap now
+  keeps the last reading that carried both windows; with none in the tap the helper judges that one, at most 30
+  minutes old and from the current windows, against the lower `Budget-estimated` (80) in every gate (estimated mode).
+  Conservative mode is left for no reading at all. *Correction:* the in-slice bullet below says per-sub-task commits make the
   boundary safe — an autopilot builder never commits; the boundary is safe because the uncommitted work stays in the
   checkout and step 1c reads it as the open slice's.
 

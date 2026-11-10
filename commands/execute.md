@@ -778,13 +778,15 @@ not the master's: it stops the run and asks.
 The run must not start a slice the plan's 5-hour window cannot carry, nor go on past the weekly limit (D32, design
 record §6). The master never judges the numbers: `scripts/usage-state.sh` reads them off the statusline tap and the
 profile's `## Autopilot` limits and prints `VERDICT=go|stop` — its header defines the gates, the limits, the forecast
-and the conservative mode, and is not restated here. Run it from the project root:
+and the estimated and conservative modes, and is not restated here. Run it from the project root:
 
 ```
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-state.sh" --gate <before|after> --epic-plan <epic plan> [--slice <slice-id>]
 ```
 
-- **`go`** → the run goes on — a `MODE=conservative` one too: its `after` gate then stops the run.
+- **`go`** → the run goes on — a `MODE=estimated` one too (the tap had no reading; the helper judged the last one
+  against the lower `Budget-estimated` limit, slice-093), and a `MODE=conservative` one: its `after` gate then stops the
+  run.
 - **A `stop`** → print and log `⛔ · <epic-id> · budget: <REASON>` (the helper's `REASON=`, verbatim), release the lock
   and emit *Autopilot — stopped* with `budget` as its status. Nothing is undone: a stop before a slice leaves it
   unstarted, one after a slice leaves it landed. The human's step is the re-run — **when** depends on the stop, and
@@ -887,10 +889,11 @@ run as *The Autopilot Log* says.
 Replaces s2's *Delegate Phase 4–8* bullet — the master never runs the phase commands itself. Before the spawn run the
 budget guard's `before` gate (above); a stop ends the run there. A `go` with `MODE=conservative` → print its `REASON`
 once, before the spawn, so the human knows this run stops after this slice (the `▶` line's `usage unknown` is the
-record). Otherwise — and then — log
+record); a `go` with `MODE=estimated` → print its `REASON` once too (the run goes on, judged on the last reading).
+Otherwise — and then — log
 `▶ · <slice-id> · slice <k>/<n> "<title>" — <create | resume at <Status>> · <LOG_FIELD>` — the slice-ID
 as its ID, the budget helper's `LOG_FIELD=` verbatim as the text's **last** ` · ` field (`five_hour <p> % until
-<HH:MM>`, or `usage unknown`): a3's `after` gate reads the slice's Δ five_hour from it — then run the budget guard's
+<HH:MM>`, `five_hour ~<p> % until <HH:MM>` from the last reading, or `usage unknown`): a3's `after` gate reads the slice's Δ five_hour from it — then run the budget guard's
 log check (`start`), and only then print the line. For `ACTION=create` nothing is set up: the checkout is already on
 the epic branch.
 
@@ -963,8 +966,8 @@ text's **last** field: the forecast of every later `before` gate is the mean of 
 ### a4 — No halt between slices: s4
 
 Replaces s4. **First the budget:** when a slice of the epic is still to build, a3's `after` verdict `stop` (or no
-`VERDICT=` line) stops the run as the budget guard says — with the *stopped after a landed slice* block — without a reading the run stops after every slice
-(conservative mode), and the human's re-run is the answer. After the epic's last slice it does not stop: a5 follows.
+`VERDICT=` line) stops the run as the budget guard says — with the *stopped after a landed slice* block — without any reading, not even
+a last one, the run stops after every slice (conservative mode), and the human's re-run is the answer. After the epic's last slice it does not stop: a5 follows.
 Without a halt, **run the step-1c helper once more** — the same command, `--slices-from <epic-plan>` and no slice
 list — the slice just landed now reads `ACTION=skip` — and act on it exactly as step 1c does. **A `RESULT=conflict`
 or a helper that cannot run stops the run here** — log `⛔ · <epic-id> · re-run state: <each conflict's SLICE and REASON,
