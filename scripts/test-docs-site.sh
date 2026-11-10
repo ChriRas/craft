@@ -190,7 +190,9 @@ selftest "CONTRIBUTING.de.md missing"    'import sys,os; os.remove(os.path.join(
 selftest "EN guide drops the DE link"    'import sys,os,re; p=os.path.join(sys.argv[1],"CONTRIBUTING.md"); t=open(p).read(); open(p,"w").write(re.sub(r"\]\(\.?/?CONTRIBUTING\.de\.md[^)]*\)", "](elsewhere.md)", t))'
 selftest "README drops CONTRIBUTING link" 'import sys,os,re; p=os.path.join(sys.argv[1],"README.md"); t=open(p).read(); open(p,"w").write(re.sub(r"\]\(\.?/?CONTRIBUTING\.md[^)]*\)", "](elsewhere.md)", t))'
 selftest "wrapped CHANGELOG item"        'import sys,os; p=os.path.join(sys.argv[1],"CHANGELOG.md"); t=open(p).read(); i=t.index("## [Unreleased]"); j=t.index("\n- ", i)+1; k=t.index("\n", j); open(p,"w").write(t[:k]+"\n  wrapped continuation of the item"+t[k:])'
-selftest "wrapped upgrade-note item"     'import sys,os; p=os.path.join(sys.argv[1],"CHANGELOG.md"); t=open(p).read(); i=t.index("## [Unreleased]"); j=t.index("\n> - ", i)+1; k=t.index("\n", j); open(p,"w").write(t[:k]+"\n> wrapped continuation"+t[k:])'
+# Plants its own upgrade-note item under the newest release heading: the check reads [Unreleased] + the newest release
+# only, and a release without an upgrade note would leave nothing there to wrap (found at the 2.1.0 release).
+selftest "wrapped upgrade-note item"     'import sys,os; p=os.path.join(sys.argv[1],"CHANGELOG.md"); t=open(p).read(); i=t.index("## [Unreleased]"); j=t.index("\n## [", i+1)+1; k=t.index("\n", j); open(p,"w").write(t[:k]+"\n\n> - an upgrade-note item\n> wrapped continuation"+t[k:])'
 selftest "no [Unreleased] section"       'import sys,os; p=os.path.join(sys.argv[1],"CHANGELOG.md"); t=open(p).read(); open(p,"w").write(t.replace("## [Unreleased]","## [9.9.9]"))'
 rm -rf "$ST"
 
