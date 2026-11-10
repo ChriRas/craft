@@ -13,6 +13,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ### Changed
 - **`/craft:onboard` detects more stacks, in precedence order** (slice-083) — the detection table now proposes `stack-php-shopware6`, `stack-php-shopware5`, `stack-php-api-platform`, `stack-php-symfony` and `stack-bash` (signals verified against Packagist and the vendors' docs on 2026-11-09), each checked before the framework it builds on; the harness asserts the order. Packs not shipped yet are proposed as names only — `/craft:prime` warns while a declared pack is missing.
 
+### Fixed
+- **An autopilot run no longer stops after a slice only because the usage tap was empty** (slice-093) — every session writes the same statusline tap, and a session without `rate_limits` yet (just started or compacted) replaced a good reading from another one, so the budget guard read "usage unknown" and stopped the run with room left. `statusline-tap.sh` now also keeps the last reading that carried both windows; when the tap has none, `usage-state.sh` judges that one — at most 30 minutes old, no window reset since — against the lower new profile key `Autopilot → Budget-estimated` (default `80`, never above `Budget-before-slice` / `Budget-in-slice`) in every gate (`MODE=estimated`). Only with no reading at all does the run stop after each slice, as before; exact readings keep the 85 / 95 / 90 limits.
+
 ## [2.0.0] - 2026-10-13
 
 > **Upgrade note.**

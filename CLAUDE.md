@@ -179,7 +179,7 @@ bash scripts/test-example-regions.sh
 # so a marked file missing from that list fails instead of going unchecked. This comment names no
 # values on purpose, and the harness carries no copy of the value LIST — its self-test fixtures are
 # built from the canonical line at run time, so adding a value to the FRONTMATTER enum is an edit to
-# the seven marked lines a human reads (in six files) and nothing else; adding a SPAWN-REACHABLE
+# the eight marked lines a human reads (in seven files) and nothing else; adding a SPAWN-REACHABLE
 # value is that line plus SPAWN_EXPECTED_VALUES in the harness, which fails loudly and says so. (Two fixtures do name a single agent model; the
 # harness header says so.) A list in either place would be exactly the unbound copy the mechanism exists to prevent. The copies in the templates and the docs page cannot
 # be removed — they exist so a human reads the values where they are — so they are bound instead. It also pins the two rules that keep
@@ -251,7 +251,8 @@ bash scripts/test-epic-digest.sh
 # (after); the master and the builder act on VERDICT= only (slice-058, design record §6). Its input is the tap
 # scripts/statusline-tap.sh (POSIX sh, wired by the user into statusLine) writes; limits come from craft-profile.md →
 # ## Autopilot, the forecast is derived from the Δ five_hour fields of the epic's ## Autopilot Log. Covers missing / stale /
-# malformed taps (conservative mode), every limit at its edge, the fixed overage heuristic, profile overrides and invalid
+# malformed taps (conservative mode), the last reading the tap keeps when a session without rate_limits replaces it and
+# the estimated mode that judges it against Budget-estimated (slice-093), every limit at its edge, the fixed overage heuristic, profile overrides and invalid
 # values, forecast samples (fenced, CRLF, another section), the per-slice delta (reset, resume, negative), the tap's
 # byte-equal pass-through and fail-open path, the pinned call sites in execute.md / build.md / slice-builder / prime.md and
 # the profile copies bound to the helper's DEFAULTS. Keep green.
