@@ -168,7 +168,7 @@ pre,.figwrap,.hero .install{
     <span class="cmt"># <span class="de">danach die Session neu starten</span><span class="en">then restart the session</span></span><br>
     <span class="p">❯</span> /craft:onboard <span class="cmt"># <span class="de">einmal pro Projekt</span><span class="en">once per project</span></span>
   </div>
-  <div class="badges">v2.0.0 · MIT · 24 commands · 14 skills · 4 agents · 5 hooks ·
+  <div class="badges">v2.0.0 · MIT · 24 commands · 15 skills · 4 agents · 5 hooks ·
     <a href="https://github.com/ChriRas/craft">github.com/ChriRas/craft</a></div>
 </div></header>
 
@@ -270,13 +270,13 @@ pre,.figwrap,.hero .install{
       <p><strong>Zwei-Ebenen-Architektur:</strong> Das Plugin liefert die universelle Hülle (Workflow +
       Senior-Developer-Baseline, in jeder Session aktiv). Das Projekt behält seine Sprach-/Framework-Spezialisten
       lokal (<code>.claude/skills/</code> und <code>.claude/agents/</code>), lazy geladen — plus optionale <strong>Stack-Packs</strong>
-      (z.&nbsp;B. <code>stack-php</code>, <code>stack-php-symfony</code>, <code>stack-php-api-platform</code>, <code>stack-php-shopware6</code>, <code>stack-php-shopware5</code>, <code>stack-php-laravel</code>, <code>stack-python</code>, <code>stack-ts</code>), die in den code-nahen Phasen automatisch dazugeladen werden.</p>
+      (z.&nbsp;B. <code>stack-php</code>, <code>stack-php-symfony</code>, <code>stack-php-api-platform</code>, <code>stack-php-shopware6</code>, <code>stack-php-shopware5</code>, <code>stack-php-laravel</code>, <code>stack-python</code>, <code>stack-ts</code>, <code>stack-bash</code>), die in den code-nahen Phasen automatisch dazugeladen werden.</p>
     </div>
     <div class="en">
       <p><strong>Two-tier architecture:</strong> the plugin ships the universal shell (workflow +
       Senior-Developer baseline, active in every session). The project keeps its language/framework specialists
       locally (<code>.claude/skills/</code> and <code>.claude/agents/</code>), lazy-loaded — plus optional <strong>stack-packs</strong>
-      (e.g. <code>stack-php</code>, <code>stack-php-symfony</code>, <code>stack-php-api-platform</code>, <code>stack-php-shopware6</code>, <code>stack-php-shopware5</code>, <code>stack-php-laravel</code>, <code>stack-python</code>, <code>stack-ts</code>) autoloaded during the code-near phases.</p>
+      (e.g. <code>stack-php</code>, <code>stack-php-symfony</code>, <code>stack-php-api-platform</code>, <code>stack-php-shopware6</code>, <code>stack-php-shopware5</code>, <code>stack-php-laravel</code>, <code>stack-python</code>, <code>stack-ts</code>, <code>stack-bash</code>) autoloaded during the code-near phases.</p>
     </div>
   </div>
 </div></section>
@@ -1427,11 +1427,11 @@ pre,.figwrap,.hero .install{
         quality hierarchy (correctness &gt; tests &gt; architecture &gt; maintainability &gt; performance &gt; consistency),
         workflow gates, test-discipline matrix, problem playbook.</span></p></div>
       <div class="card"><h4>Tier 2 · Stack-Pack</h4>
-        <p><span class="de">Sprach- und Framework-Idiome. Mit dem Plugin kommen <code>stack-php</code> (PHP 8.4 / 8.5 ohne Framework + Composer + PHPUnit + PHPStan), <code>stack-php-symfony</code> (Symfony 8.1 mit 7.4 LTS + Doctrine + Messenger + Twig + PHPUnit), <code>stack-php-api-platform</code> (API Platform 5.0 auf Symfony + Provider/Processor + Filter + Hydra/OpenAPI + ApiTestCase), <code>stack-php-shopware6</code> (Shopware 6.7 mit 6.6 + Plugins + DAL + Apps + Storefront/Admin + PHPUnit/Jest/Playwright), <code>stack-php-shopware5</code> (Shopware 5.7, End-of-Life: Wartung ohne Upstream-Patches + Plugins 5.2+ und Legacy + Smarty + ExtJS/REST-API + PHPUnit 9.6), <code>stack-php-laravel</code> (PHP 8.4 / 8.5 + Laravel 12 + Filament + Pest), <code>stack-python</code> (Python 3.11 bis 3.15 ohne Web-Framework + uv + Ruff + mypy + pytest) und <code>stack-ts</code> (TypeScript 7 auf Node ohne Frontend-Framework + ESM + npm + ESLint + Prettier + Vitest).
+        <p><span class="de">Sprach- und Framework-Idiome. Mit dem Plugin kommen <code>stack-php</code> (PHP 8.4 / 8.5 ohne Framework + Composer + PHPUnit + PHPStan), <code>stack-php-symfony</code> (Symfony 8.1 mit 7.4 LTS + Doctrine + Messenger + Twig + PHPUnit), <code>stack-php-api-platform</code> (API Platform 5.0 auf Symfony + Provider/Processor + Filter + Hydra/OpenAPI + ApiTestCase), <code>stack-php-shopware6</code> (Shopware 6.7 mit 6.6 + Plugins + DAL + Apps + Storefront/Admin + PHPUnit/Jest/Playwright), <code>stack-php-shopware5</code> (Shopware 5.7, End-of-Life: Wartung ohne Upstream-Patches + Plugins 5.2+ und Legacy + Smarty + ExtJS/REST-API + PHPUnit 9.6), <code>stack-php-laravel</code> (PHP 8.4 / 8.5 + Laravel 12 + Filament + Pest), <code>stack-python</code> (Python 3.11 bis 3.15 ohne Web-Framework + uv + Ruff + mypy + pytest), <code>stack-ts</code> (TypeScript 7 auf Node ohne Frontend-Framework + ESM + npm + ESLint + Prettier + Vitest) und <code>stack-bash</code> (Bash 5 + <code>set -euo pipefail</code> mit Fallstricken + POSIX-sh- und macOS-3.2-Portabilität + ShellCheck + shfmt + bats-core).
         Nur in den code-nahen Phasen geladen (Build, Test, Refactor, Review). Weitere Packs liegen als eigene unter
         <code>~/.claude/craft-personalities/</code> — die Vorlage <code>templates/stack-pack/</code> im Plugin zeigt die Form, und jedes
         Pack nennt in <code>## Sources</code>, worauf es beruht und von wann es ist.</span>
-        <span class="en">Language and framework idioms. The plugin ships <code>stack-php</code> (PHP 8.4 / 8.5 without a framework + Composer + PHPUnit + PHPStan), <code>stack-php-symfony</code> (Symfony 8.1 with the 7.4 LTS differences + Doctrine + Messenger + Twig + PHPUnit), <code>stack-php-api-platform</code> (API Platform 5.0 on Symfony + providers / processors + filters + Hydra / OpenAPI + ApiTestCase), <code>stack-php-shopware6</code> (Shopware 6.7 with the 6.6 differences + plugins + DAL + apps + Storefront / Administration + PHPUnit / Jest / Playwright), <code>stack-php-shopware5</code> (Shopware 5.7, end-of-life: maintenance without upstream patches + 5.2+ and legacy plugins + Smarty + ExtJS / REST API + PHPUnit 9.6), <code>stack-php-laravel</code> (PHP 8.4 / 8.5 + Laravel 12 + Filament + Pest), <code>stack-python</code> (Python 3.11 to 3.15 without a web framework + uv + Ruff + mypy + pytest) and <code>stack-ts</code> (TypeScript 7 on Node without a frontend framework + ESM + npm + ESLint + Prettier + Vitest).
+        <span class="en">Language and framework idioms. The plugin ships <code>stack-php</code> (PHP 8.4 / 8.5 without a framework + Composer + PHPUnit + PHPStan), <code>stack-php-symfony</code> (Symfony 8.1 with the 7.4 LTS differences + Doctrine + Messenger + Twig + PHPUnit), <code>stack-php-api-platform</code> (API Platform 5.0 on Symfony + providers / processors + filters + Hydra / OpenAPI + ApiTestCase), <code>stack-php-shopware6</code> (Shopware 6.7 with the 6.6 differences + plugins + DAL + apps + Storefront / Administration + PHPUnit / Jest / Playwright), <code>stack-php-shopware5</code> (Shopware 5.7, end-of-life: maintenance without upstream patches + 5.2+ and legacy plugins + Smarty + ExtJS / REST API + PHPUnit 9.6), <code>stack-php-laravel</code> (PHP 8.4 / 8.5 + Laravel 12 + Filament + Pest), <code>stack-python</code> (Python 3.11 to 3.15 without a web framework + uv + Ruff + mypy + pytest), <code>stack-ts</code> (TypeScript 7 on Node without a frontend framework + ESM + npm + ESLint + Prettier + Vitest) and <code>stack-bash</code> (Bash 5 + <code>set -euo pipefail</code> and its pitfalls + POSIX sh and macOS 3.2 portability + ShellCheck + shfmt + bats-core).
         Loaded only in the code-near phases (build, test, refactor, review). Further packs are your own, under
         <code>~/.claude/craft-personalities/</code> — the template <code>templates/stack-pack/</code> in the plugin shows the shape, and every
         pack states in <code>## Sources</code> what it rests on and how old it is.</span></p></div>
@@ -1607,10 +1607,10 @@ pre,.figwrap,.hero .install{
 
     <div class="cards">
       <div class="card"><h4><span class="de">Reines Markdown-Plugin</span><span class="en">Pure Markdown plugin</span></h4>
-        <p><span class="de">24 Commands, 14 Skills (6 universelle + 8 Stack-Packs), 4 Agents, 5 Hooks — Markdown, JSON und Bash. Kein Build,
+        <p><span class="de">24 Commands, 15 Skills (6 universelle + 9 Stack-Packs), 4 Agents, 5 Hooks — Markdown, JSON und Bash. Kein Build,
         kein MCP-Server. Das Repo ist sein eigener Marketplace (<code>marketplace.json</code> mit
         <code>source: "./"</code>).</span>
-        <span class="en">24 commands, 14 skills (6 universal + 8 stack-packs), 4 agents, 5 hooks — Markdown, JSON and Bash. No build,
+        <span class="en">24 commands, 15 skills (6 universal + 9 stack-packs), 4 agents, 5 hooks — Markdown, JSON and Bash. No build,
         no MCP server. The repo is its own marketplace (<code>marketplace.json</code> with
         <code>source: "./"</code>).</span></p></div>
       <div class="card"><h4>Hooks</h4>
